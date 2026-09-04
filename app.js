@@ -73,8 +73,10 @@ function renderDetail(i, preview) {
 
   const dates = document.createElement("p");
   dates.className = "dates";
+  // scrape_year, NOT the views month: page views can be refreshed to last month while the
+  // birth/death data stays frozen at the 2014 composer-list scrape.
   dates.textContent = d.living
-    ? `b. ${d.birth} · living in ${META.views_month.slice(0, 4)}, aged ${d.lifespan}`
+    ? `b. ${d.birth} · living in ${META.scrape_year}, aged ${d.lifespan}`
     : `${d.birth}–${d.death} · lived ${d.lifespan} years`;
   el.appendChild(dates);
 
@@ -174,7 +176,7 @@ function renderLegend() {
     `<span class="lab">Also</span>` +
     `<div class="swatches">` +
       `<span class="sw"><i style="box-shadow:inset 0 0 0 1.5px ${g("--c-living")}"></i>` +
-      `living in ${META.views_month.slice(0, 4)} — lifespan unknown, so no color</span>` +
+      `living in ${META.scrape_year} — lifespan unknown, so no color</span>` +
     `</div>`;
   el.appendChild(other);
 }
@@ -273,7 +275,7 @@ async function start() {
     $("plot").appendChild(p);
     return;
   }
-  META = Object.assign({ views_month: "2014-05", views_note: "" }, data.meta || {});
+  META = Object.assign({ views_month: "2014-05", views_note: "", scrape_year: 2014 }, data.meta || {});
 
   Chart.setData(data.rows);
   Chart.init({
@@ -308,9 +310,13 @@ async function start() {
   applySearch();
   if (link.c && byName.has(link.c)) show(byName.get(link.c), false);
   $("hint").textContent = Chart.hint();
-  $("prov").textContent = `${ROWS.length} composers. Page views are for ${META.views_month} — `
-    + `${META.views_note || "monthly English Wikipedia pageviews"}. A lifespan written "29+" means `
-    + `the composer was still living at that scrape, so they lived at least that many years.`;
+  // Two dates, and they can differ: fetch_views.py refreshes the view counts without touching
+  // the composer list, so say which is which rather than letting one imply the other.
+  $("prov").textContent = `${ROWS.length} composers. Birth and death dates and quartet counts come `
+    + `from a ${META.scrape_year} scrape of the composer list; page views are for `
+    + `${META.views_month} (${META.views_note || "monthly English Wikipedia pageviews"}). `
+    + `A lifespan written "29+" means the composer was still living in ${META.scrape_year}, so `
+    + `they lived at least that many years.`;
 
   wire();
 }

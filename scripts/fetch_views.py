@@ -25,6 +25,7 @@ AFTERWARDS: composers.json is a SHELL file in sw.js. Bump V or the new numbers n
 installed copy — see THE ONE RULE at the top of sw.js. scripts/sw-lint.py will remind you.
 """
 import argparse
+import calendar
 import datetime as dt
 import json
 import os
@@ -43,6 +44,13 @@ API = ("https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/"
 # The API rejects a generic agent. A contactable one is the documented etiquette, not a nicety.
 UA = "quartet-composers/1.0 (https://github.com/jsundram/quartet-composers)"
 
+# Politeness, tuned against the real limiter rather than the published headline rate. 0.06s/req
+# (~16/s) drew a 429 about 300 titles in; 0.15s (~7/s) runs the full list clean. The whole job is
+# under two minutes either way, so there is nothing to win by pushing it.
+PAUSE = 0.15
+TRIES = 5
+BACKOFF = [2, 5, 15, 40]        # seconds, used when the response carries no Retry-After
+
 
 def last_complete_month():
     first_of_this = dt.date.today().replace(day=1)
@@ -50,26 +58,51 @@ def last_complete_month():
     return "%04d-%02d" % (prev.year, prev.month)
 
 
-def fetch(title, month, tries=3):
-    stamp = month.replace("-", "") + "0100"
+def month_range(month):
+    """(start, end) REST timestamps covering exactly the given YYYY-MM.
+
+    `monthly` granularity wants a range that SPANS a full month, not one that names it: passing
+    the same first-of-month stamp for both ends returns 400 "no full months between dates". So
+    end is the LAST day of the month, not the first of the next — using the next month's first
+    would return two items (the second an incomplete current month) and invite an off-by-one.
+    """
+    y, m = int(month[:4]), int(month[5:7])
+    last = calendar.monthrange(y, m)[1]
+    return "%04d%02d0100" % (y, m), "%04d%02d%02d00" % (y, m, last)
+
+
+def fetch(title, month, tries=TRIES):
+    want = month.replace("-", "") + "0100"
+    start, end = month_range(month)
     url = API.format(title=urllib.parse.quote(title.replace(" ", "_"), safe=""),
-                     start=stamp, end=stamp)
+                     start=start, end=end)
     req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
     for attempt in range(tries):
         try:
             with urllib.request.urlopen(req, timeout=20) as r:
                 items = json.load(r).get("items") or []
-                return items[0]["views"] if items else 0
+                # Match the timestamp rather than taking items[0]: a widened range would
+                # otherwise silently attribute another month's traffic to this one.
+                for it in items:
+                    if it.get("timestamp") == want:
+                        return it["views"]
+                return 0
         except urllib.error.HTTPError as e:
             if e.code == 404:
                 return None                       # no such article this month — caller keeps the old value
             if e.code in (429, 500, 502, 503) and attempt < tries - 1:
-                time.sleep(2 ** attempt)
+                # Honor Retry-After when the limiter sends one; it knows better than a guess.
+                wait = BACKOFF[min(attempt, len(BACKOFF) - 1)]
+                try:
+                    wait = max(wait, int(e.headers.get("Retry-After", 0)))
+                except (TypeError, ValueError):
+                    pass
+                time.sleep(wait)
                 continue
             raise
         except (urllib.error.URLError, TimeoutError):
             if attempt < tries - 1:
-                time.sleep(2 ** attempt)
+                time.sleep(BACKOFF[min(attempt, len(BACKOFF) - 1)])
                 continue
             raise
     return None
@@ -92,21 +125,36 @@ def main():
     titles = sorted(blob["views"])
     out, missing = {}, []
 
+    failed = []
     for i, title in enumerate(titles, 1):
-        n = fetch(title, args.month)
+        # NEVER let one title abort the run. A 429 at title 300 used to raise straight out of
+        # main() and discard 300 good fetches — losing several minutes of somebody else's rate
+        # limit to recover nothing. Retries are exhausted inside fetch(); if it still fails, keep
+        # the previous number and carry on, then report both lists at the end.
+        try:
+            n = fetch(title, args.month)
+        except Exception as e:                     # noqa: BLE001 - any transport failure, same handling
+            failed.append("%s (%s)" % (title, e))
+            n = None
         if n is None:
-            missing.append(title)
+            if not failed or not failed[-1].startswith(title):
+                missing.append(title)
             out[title] = blob["views"][title]      # keep the old number rather than inventing a 0
         else:
             out[title] = n
         if i % 25 == 0 or i == len(titles):
             print("  %d/%d" % (i, len(titles)), end="\r", flush=True)
-        time.sleep(0.06)                           # ~16 req/s; well inside the published limits
+        time.sleep(PAUSE)
     print()
 
     if missing:
         print("%d titles had no data for %s (previous value kept):" % (len(missing), args.month))
         for t in missing:
+            print("  " + t)
+    if failed:
+        print("%d titles failed after %d retries (previous value kept) — rerun to pick them up:"
+              % (len(failed), TRIES))
+        for t in failed:
             print("  " + t)
 
     if args.dry_run:

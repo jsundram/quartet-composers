@@ -7,6 +7,10 @@ Composers](https://en.wikipedia.org/wiki/List_of_string_quartet_composers), plot
 and number of quartets written, sized by Wikipedia readership and colored by lifespan — with a
 searchable, sortable table of the same data underneath.
 
+**Two dates, deliberately separate.** The composer list — names, birth/death years, quartet counts
+— is a May 2014 scrape and is frozen. The page views are refreshable and currently show **2026-08**.
+The UI states both; nothing silently implies one date for the other.
+
 A remake of a [2014
 experiment](https://github.com/jsundram/viz.runningwithdata.com) that used a *cartesian* fisheye:
 both axes warped continuously under the cursor. It magnified beautifully and read terribly — with
@@ -26,7 +30,7 @@ and a screenshot of it was nonsense.
 | Color = lifespan on RdYlBu-9 | Diverging ramp with its midpoint at the **median** lifespan (72), and living composers pulled off the ramp entirely (see below) |
 | — | Shareable URLs (`#v=swarm&c=Joseph+Haydn`), a share card generated from the real data, installable + offline |
 
-## The data gotcha worth knowing about
+## Two data gotchas worth knowing about
 
 The 2014 scrape stored `died - born` for dead composers and `2014 - born` for living ones **in the
 same field**. 139 of 466 rows are the second kind, so coloring naively paints every living composer
@@ -36,6 +40,19 @@ as tragically short-lived — Mohammed Fairouz (b. 1985) reads as "died at 29."
 at all — a shape difference, so it survives color-blindness and black-and-white printing. The table
 writes their lifespan as `29+`, and the UI says "living in 2014", never "living", because the flag
 can't tell someone alive that year from someone who died in it.
+
+The flag is keyed to `COMPOSERS_SCRAPED`, **not** to the page-view month — refreshing views to 2026
+must not reclassify all 139 living composers as having died in 2014. `build_data.py` fails loudly
+if the constant and the data disagree.
+
+### Names with characters the 2014 scrape deleted
+
+That scrape dropped non-ASCII characters instead of transliterating them, so Lutosławski was stored
+as "Lutosawski" — a string matching no Wikipedia article. It hid for a decade because the *pageview*
+file was mangled identically, so the two agreed with each other while both disagreed with Wikipedia.
+It only surfaced when `fetch_views.py` asked the live API and got nothing back for 23 titles. Seven
+are recovered by `RENAMES` in `build_data.py` (the other sixteen are articles that really are gone),
+and `table.js` folds `ł ø đ ß æ œ` before NFD so searching "lutoslawski" still finds him.
 
 ## Build
 

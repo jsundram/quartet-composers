@@ -30,7 +30,15 @@ window.Table = (function () {
   const trFor = new Map();      // composer index -> its <tr>, so selection is O(1), not a rebuild
 
   // NFD-strip so a search for "Dvořák" finds the ASCII-scraped "Antonin Dvorak" (and vice versa).
-  const norm = s => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  //
+  // NFD alone is not enough. It splits a letter into base + combining accent, which handles á é ö
+  // — but ł, ø, đ, ß, æ and œ are single codepoints with NO decomposition, so they survive the
+  // strip untouched and "lutoslawski" fails to find "Lutosławski". That is not hypothetical here:
+  // scripts/build_data.py's RENAMES put exactly those characters back into the data. Map them by
+  // hand first, then NFD the rest.
+  const FOLD = { "ł": "l", "ø": "o", "đ": "d", "ð": "d", "þ": "th", "ß": "ss", "æ": "ae", "œ": "oe", "ı": "i" };
+  const norm = s => s.toLowerCase().replace(/[łøđðþßæœı]/g, c => FOLD[c])
+                     .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
   function setData(r) { rows = r; rows.forEach(d => { d.key = norm(d.name); }); }
 

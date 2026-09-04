@@ -44,6 +44,38 @@ SUFFIX = re.compile(r"\s*\(composer\)$")
 
 SOURCE = "https://en.wikipedia.org/wiki/List_of_string_quartet_composers"
 
+# The year the COMPOSER LIST was scraped — which is what decides who was living, and is NOT the
+# same thing as the month the page views cover once fetch_views.py has been run.
+#
+# This was a bug: the living check originally read the year off views.json's month, so the first
+# `fetch_views.py` refresh would have compared 2026 against death years frozen in 2014, matched
+# nobody, and silently reclassified all 139 living composers as having died in 2014 — putting them
+# back on the lifespan ramp the flag exists to keep them off. data/composers_raw.json is a frozen
+# 2014 artifact and fetch_views.py never touches it, so this constant only changes if the composer
+# list itself is re-scraped. The assertion below is what makes that impossible to forget.
+COMPOSERS_SCRAPED = 2014
+
+# The 2014 scrape DELETED non-ASCII characters instead of transliterating them, so "Lutosławski"
+# was stored as "Lutosawski" — a string that matches no Wikipedia article. It went unnoticed for a
+# decade because the pageview file was mangled the same way, so the two agreed with each other
+# while both disagreeing with Wikipedia; it only surfaced when fetch_views.py asked the live API
+# and got nothing back for 23 titles. These seven are the ones a corrected spelling recovers (the
+# other sixteen are articles that really are gone). Applied to the DISPLAY name too, so the table
+# spells people's names correctly.
+#
+# "Johan Hoffmann" -> "Johann Hoffmann" is deliberately NOT here: the article exists and would
+# join, but at 22 views with a name that several unrelated people share, asserting the identity is
+# a guess. A stale number is better than a wrong person.
+RENAMES = {
+    "Ib Nrholm": "Ib Nørholm",
+    "Mieczysaw Weinberg": "Mieczysław Weinberg",
+    "Per Nrgard": "Per Nørgård",
+    "Stanisaw Moniuszko": "Stanisław Moniuszko",
+    "Witold Lutosawski": "Witold Lutosławski",
+    "Vahktang Kakhidze": "Vakhtang Kakhidze",       # transposed letters, not a diacritic
+    "David Johnstone (composer)": "David Johnstone",  # article dropped its disambiguator
+}
+
 # composer-list spelling -> pageview-file spelling, for the rows the suffix strip doesn't reach.
 # Verified by hand against the article each name resolves to; a fifth entry belongs here only
 # after the same check.
@@ -65,20 +97,33 @@ def main():
     # refresh via scripts/fetch_views.py can't leave the UI claiming the wrong date. It also
     # decides who counts as "living": the source stores age-in-snapshot-year for the living.
     views_month = blob["month"]
-    snapshot_year = int(views_month[:4])
 
     by_name = {SUFFIX.sub("", title): n for title, n in views.items()}
+    # RENAMES already put the corrected spelling in data/views.json's keys, so the join finds them
+    # directly; this only matters if someone restores an old views.json.
+    for old, new in RENAMES.items():
+        by_name.setdefault(SUFFIX.sub("", old), by_name.get(new, 0))
 
     rows, unjoined = [], []
     for name, birth, lifespan, quartets in composers:
         if quartets <= 0:                 # this is a chart about quartets; no quartets, no row
             continue
+        name = RENAMES.get(name, name)    # correct the spelling before joining AND before display
         n = by_name.get(name, by_name.get(ALIASES.get(name, ""), None))
         if n is None:
             unjoined.append(name)
             n = 0
-        living = 1 if birth + lifespan == snapshot_year else 0
+        living = 1 if birth + lifespan == COMPOSERS_SCRAPED else 0
         rows.append([name, birth, lifespan, quartets, n, living])
+
+    # A re-scraped composer list with a stale COMPOSERS_SCRAPED yields zero living composers,
+    # which looks like clean data and is not. ~30% of this list was living; fail loudly instead.
+    living = sum(r[5] for r in rows)
+    if living < len(rows) // 10:
+        print("ERROR: only %d of %d composers read as living. data/composers_raw.json stores "
+              "age-in-scrape-year for the living, so COMPOSERS_SCRAPED (%d) is probably wrong "
+              "for this scrape." % (living, len(rows), COMPOSERS_SCRAPED), file=sys.stderr)
+        return 1
 
     if unjoined:
         print("ERROR: %d composers did not join to a pageview row:" % len(unjoined), file=sys.stderr)
@@ -91,18 +136,22 @@ def main():
         "meta": {
             "views_month": views_month,
             "views_note": blob.get("note", ""),
+            # Deliberately separate from views_month: the UI must say "living in 2014" even when
+            # the view counts are from last month.
+            "scrape_year": COMPOSERS_SCRAPED,
             "source": SOURCE,
         },
         "fields": ["name", "birth", "lifespan", "quartets", "views", "living"],
         "rows": rows,
     }
     path = os.path.join(ROOT, "composers.json")
-    with open(path, "w") as f:
-        json.dump(out, f, separators=(",", ":"))
+    with open(path, "w", encoding="utf-8") as f:
+        # ensure_ascii=False: names carry ł/ø/á, and \uXXXX escapes triple their byte cost for no
+        # benefit — the file is served as application/json; charset=utf-8.
+        json.dump(out, f, separators=(",", ":"), ensure_ascii=False)
         f.write("\n")
-    living = sum(r[5] for r in rows)
-    print("wrote composers.json — %d composers (%d living in %d), %d bytes"
-          % (len(rows), living, snapshot_year, os.path.getsize(path)))
+    print("wrote composers.json — %d composers (%d living in %d), views for %s, %d bytes"
+          % (len(rows), living, COMPOSERS_SCRAPED, views_month, os.path.getsize(path)))
     return 0
 
 

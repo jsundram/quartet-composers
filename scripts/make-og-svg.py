@@ -39,6 +39,8 @@ SHORT, MID, LONG, LIVING = "#f0a44a", "#7e8079", "#b3a4dd", "#8e979c"
 # composers*, which is what the chart is about. The four most prolific sit almost on top of each
 # other (Cambini, Boccherini and Haydn are all born within 14 years and all in the top band), so
 # placement is explicit rather than automatic: (name, anchor, dx, dy) around the dot.
+VIEWS_MONTH = ""
+
 LABELS = [
     ("Giuseppe Cambini",     "middle", 0, "above"),
     ("Luigi Boccherini",     "start",  9, "beside"),
@@ -75,6 +77,8 @@ def main():
         data = json.load(f)
     rows = data["rows"]
     max_views = max(r[4] for r in rows) or 1
+    global VIEWS_MONTH
+    VIEWS_MONTH = data["meta"]["views_month"]
 
     def sx(year):
         return PLOT["x"] + (year - X_DOMAIN[0]) / (X_DOMAIN[1] - X_DOMAIN[0]) * PLOT["w"]
@@ -138,6 +142,8 @@ def main():
         f'{len(rows)} composers, {min(r[1] for r in rows)}–{max(r[1] for r in rows)}.</text>',
         f'  <text x="72" y="350" fill="{MUTED}" font-family="system-ui,sans-serif" font-size="24">'
         f'Birth year × quartets written.</text>',
+        f'  <text x="72" y="384" fill="{MUTED}" font-family="system-ui,sans-serif" font-size="24">'
+        f'Size = page views, {VIEWS_MONTH}.</text>',
         f'  <rect x="72" y="410" width="220" height="12" rx="2" fill="url(#ramp)"/>',
         f'  <text x="72" y="448" fill="{MUTED}" font-family="system-ui,sans-serif" font-size="17">'
         f'short life</text>',

@@ -30,6 +30,16 @@ plain static assets. Read README.md first for what the app is.
    age-in-2014. Anything that ramps, sorts, or averages it has to branch on `living` — see the long
    note in `scripts/build_data.py`.
 
+6. **`meta.scrape_year` and `meta.views_month` are different dates and must stay that way.** The
+   composer list is frozen at 2014; page views are refreshable. The `living` flag, the legend, and
+   the detail panel all key off `scrape_year`; only the provenance line uses `views_month`. Reading
+   the year off `views_month` was a real bug: the first refresh would have marked every living
+   composer dead. `build_data.py` now aborts if fewer than 10% of rows read as living.
+
+7. **Search folds `ł ø đ ß æ œ` before NFD** (`table.js`). Those have no Unicode decomposition, so
+   NFD alone leaves them intact and "lutoslawski" misses "Lutosławski". Adding a name with a new
+   such character means adding it to `FOLD`.
+
 6. **`scripts/make-og-svg.py` duplicates chart.js's scales on purpose.** Same domains, same 0.35
    radius exponent, same ramp. Changing an encoding in `chart.js` means changing it there too, or
    the share card stops matching the page. They are duplicated rather than shared because the app

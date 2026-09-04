@@ -96,17 +96,23 @@ await goto(BASE);
 const dot = await ev(`(()=>{const s=document.querySelector('#plot svg');const r=s.getBoundingClientRect();
   const c=[...s.querySelectorAll('circle.dot')].sort((a,b)=>+b.getAttribute('r')-+a.getAttribute('r'))[0];
   const b=c.getBoundingClientRect(); return {x:b.x+b.width/2, y:b.y+b.height/2}})()`);
+// Whoever is most-read: the table defaults to views-descending, so row 0 IS the biggest dot.
+// Deliberately NOT hardcoded — the first `fetch_views.py` refresh moved Beethoven (-33% since
+// 2014) below Mozart (-3%) and broke two assertions that were asserting 2014 trivia, not behavior.
+const top = (await ev(`document.querySelector('tbody tr td').textContent`)).trim();
 await mouse("mouseMoved", dot.x, dot.y);
 await sleep(300);
 check("hover shows the name flag", await ev(`document.getElementById('flag').classList.contains('on')`),
       await ev(`document.getElementById('flag').textContent`));
-check("hover previews into the detail panel", await ev(`/Beethoven/.test(document.getElementById('detail').textContent)`));
+check("hover previews into the detail panel",
+      (await ev(`document.getElementById('detail').textContent`)).includes(top), "expected " + top);
 check("hover does NOT pin (no ring yet)", await ev(`!location.hash.includes('c=')`));
 
 // --- 3. click pins ------------------------------------------------------------
 await mouse("mousePressed", dot.x, dot.y); await mouse("mouseReleased", dot.x, dot.y);
 await sleep(400);
-check("click pins to the URL", await ev(`decodeURIComponent(location.hash)`).then(h => h.includes("c=Ludwig")),
+check("click pins to the URL",
+      (await ev(`decodeURIComponent(location.hash).split("+").join(" ")`)).includes("c=" + top),
       await ev(`decodeURIComponent(location.hash)`));
 check("click rings the dot", await ev(`document.querySelectorAll('#plot svg circle.sel-ring').length === 1`));
 check("selected row is marked in the table", await ev(`!!document.querySelector('tbody tr[aria-selected="true"]')`));
