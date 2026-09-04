@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+
+<!-- viewport-fit=cover pairs with the safe-area padding in styles.css so the fullscreen chart
+     clears the notch / home indicator. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">   <!-- no white flash before CSS in dark mode -->
+
+<meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14161a" media="(prefers-color-scheme: dark)">
+
+<!-- Install polish. iOS reads these + apple-touch-icon and mostly ignores the manifest. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Quartets">
+<link rel="manifest" href="./manifest.json">
+
+<link rel="icon" type="image/svg+xml" href="./assets/icon.svg">
+<link rel="icon" type="image/png" href="./assets/icon-192.png">
+<link rel="apple-touch-icon" href="./assets/icon-180.png">
+
+<title>String Quartet Composers</title>
+<meta name="description" content="466 composers who wrote string quartets, plotted by birth year and output — with a searchable, sortable table.">
+
+<!-- Link previews. og:image is an ABSOLUTE https URL to a compressed 1200x630 PNG:
+     iMessage/WhatsApp/Slack reject relative paths and won't render SVG. -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="String Quartet Composers">
+<meta property="og:title" content="String Quartet Composers">
+<meta property="og:description" content="466 composers who wrote string quartets, plotted by birth year and output — with a searchable, sortable table.">
+<meta property="og:url" content="https://jsundram.github.io/quartet-composers/">
+<meta property="og:image" content="https://jsundram.github.io/quartet-composers/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A scatter plot of string quartet composers by birth year and number of quartets written, with Haydn, Boccherini and Cambini labelled.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="String Quartet Composers">
+<meta name="twitter:description" content="466 composers who wrote string quartets, plotted by birth year and output — with a searchable, sortable table.">
+<meta name="twitter:image" content="https://jsundram.github.io/quartet-composers/assets/og.png">
+<link rel="canonical" href="https://jsundram.github.io/quartet-composers/">
+
+<!-- Pre-paint theme stamp: sets data-theme on <html> BEFORE styles.css resolves so a forced
+     light/dark choice doesn't flash. Deliberately a dumb 3-liner — theme.js owns everything else
+     and must use the SAME key + attribute values, or the two disagree. -->
+<script>
+  try{ var t = localStorage.getItem("quartets-theme");
+       if(t==="light"||t==="dark") document.documentElement.setAttribute("data-theme", t); }catch(e){}
+</script>
+
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<main>
+  <header class="head">
+    <h1>String Quartet Composers</h1>
+    <span id="ver" class="ver" hidden></span>   <!-- app.js stamps the installed SW version here -->
+    <button id="theme" type="button" class="btn spacer">Theme: Auto</button>
+  </header>
+
+  <p class="lede">
+    Every composer on Wikipedia's
+    <a href="https://en.wikipedia.org/wiki/List_of_string_quartet_composers">List of String Quartet
+    Composers</a> who wrote at least one quartet. Position is <strong>when they were born</strong>
+    and <strong>how many quartets they wrote</strong>; size is how often their Wikipedia page was
+    read; color is <strong>how long they lived</strong>. Tap or click any dot — or any row — for
+    the details.
+  </p>
+
+  <div class="grid">
+    <section id="viz" class="card" aria-label="Chart">
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Chart view">
+          <button type="button" id="m-scatter" data-mode="scatter" aria-pressed="true">Scatter</button>
+          <button type="button" id="m-swarm"   data-mode="swarm"   aria-pressed="false">Swarm</button>
+          <button type="button" id="m-lens"    data-mode="lens"    aria-pressed="false">Lens</button>
+        </div>
+        <button type="button" id="reset" class="btn" disabled>Reset zoom</button>
+        <button type="button" id="share" class="btn spacer">Share</button>
+        <button type="button" id="fs" class="btn" aria-pressed="false">Full screen</button>
+      </div>
+
+      <div id="plot">
+        <!-- chart.js renders the SVG here; #flag is the desktop-only hover name tag -->
+        <div id="flag" aria-hidden="true"></div>
+      </div>
+
+      <div class="legend" id="legend"></div>
+      <p class="hint" id="hint"></p>
+    </section>
+
+    <!-- The persistent detail view. It is also the touch answer to "hover doesn't exist on a
+         phone": a tap pins a composer here instead of flashing a bubble that can double-fire. -->
+    <section id="detail" class="card" aria-label="Composer detail" aria-live="polite">
+      <p class="empty">Select a composer to see their details.</p>
+    </section>
+  </div>
+
+  <section class="card" aria-label="Composer table">
+    <div class="tablehead">
+      <input id="q" type="search" placeholder="Search composers…" autocomplete="off"
+             autocapitalize="off" spellcheck="false" aria-label="Search composers">
+      <span id="count"></span>
+      <button type="button" id="clear" class="btn" hidden>Clear</button>
+    </div>
+    <div class="scroll">
+      <table id="table">
+        <caption class="sr-only">String quartet composers, sortable</caption>
+        <thead><tr id="thead"></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <p id="prov"></p>
+    <p>Data scraped from Wikipedia in May 2014 · rebuild with <code>scripts/fetch_views.py</code>.
+       A 2014 remake of a <a href="https://github.com/d3/d3-plugins/tree/master/fisheye">fisheye</a>
+       experiment by <a href="https://bost.ocks.org/mike/" rel="author">Mike Bostock</a>.</p>
+    <p><a href="https://github.com/jsundram/quartet-composers">Source on GitHub</a> ·
+       <a href="https://twitter.com/jsundram" rel="author">Jason Sundram</a></p>
+  </footer>
+</main>
+
+<!-- Load order matters: theme.js and chart.js/table.js expose globals app.js wires together.
+     d3 is VENDORED, not CDN-loaded — a CDN script is the classic "installs fine, opens blank on a
+     plane" bug, and this app is nothing without d3. -->
+<script src="./d3.v7.min.js"></script>
+<script src="./theme.js"></script>
+<script src="./chart.js"></script>
+<script src="./table.js"></script>
+<script src="./ping.js"></script>   <!-- optional analytics; inert until URL_ is set -->
+<script src="./app.js"></script>
+</body>
+</html>

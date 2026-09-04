@@ -1,0 +1,214 @@
+/* pwa-starter: styles.css @ d2fad01  (design system kept; app layout is this repo's own)
+   Everything is a CSS custom property so a color mode is a variable swap, not a second stylesheet.
+   Light = the defaults; dark arrives two ways, keyed off <html data-theme> which theme.js sets
+   (and the pre-paint script in index.html stamps before first paint):
+     - @media (prefers-color-scheme: dark) :root:not([data-theme])  — 'auto': follow the OS
+     - :root[data-theme="dark"]                                     — forced (toggle / screenshots)
+   A forced 'light' needs no block: it carries data-theme, so the :not([data-theme]) media rule
+   skips it and the light defaults win even when the OS is dark. Keep the two dark blocks in sync.
+
+   The --c-* tokens below are read INTO JS by chart.js (via Theme.getCssColor) to paint SVG fills.
+   Those are the ones a mode flip can't reach on its own — hence the rerender() contract in app.js. */
+
+:root{
+  --bg:#f6f5f2; --card:#ffffff; --ink:#191919; --muted:#5f6560; --line:#e2ded6; --accent:#1f6f9f;
+  --sel:#c2410c;
+  --plot:#fbfaf8; --grid:#e8e4dc; --axis:#6b7169; --dot-line:#ffffff;
+  --c-short:#b35806; --c-mid:#cec7ba; --c-long:#542788;   /* diverging: short / median / long life */
+  --c-living:#8b9188;                                      /* open circles; stroke only */
+  --radius:12px; --maxw:1180px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme]){
+    --bg:#14161a; --card:#1c1f25; --ink:#eceef0; --muted:#9aa3a8; --line:#333a42; --accent:#7ec2f0;
+    --sel:#fb923c;
+    --plot:#191c21; --grid:#2b313a; --axis:#98a1a8; --dot-line:#14161a;
+    --c-short:#f0a44a; --c-mid:#7e8079; --c-long:#b3a4dd;
+    --c-living:#8e979c;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#14161a; --card:#1c1f25; --ink:#eceef0; --muted:#9aa3a8; --line:#333a42; --accent:#7ec2f0;
+  --sel:#fb923c;
+  --plot:#191c21; --grid:#2b313a; --axis:#98a1a8; --dot-line:#14161a;
+  --c-short:#f0a44a; --c-mid:#7e8079; --c-long:#b3a4dd;
+  --c-living:#8e979c;
+}
+
+*{ box-sizing:border-box; margin:0; padding:0 }
+html{ -webkit-text-size-adjust:100% }   /* stop iOS inflating text on rotate */
+
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:system-ui, -apple-system, "Segoe UI", sans-serif; line-height:1.45;
+  overscroll-behavior-y:none;             /* kill the rubber-band bounce in standalone */
+  padding:calc(18px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right))
+          calc(28px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+}
+main{ max-width:var(--maxw); margin:0 auto }
+
+a{ color:var(--accent) }
+a:not(:hover){ text-decoration:none }
+:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:4px }
+
+.head{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:6px }
+h1{ font-size:clamp(21px, 4.6vw, 32px); letter-spacing:-.015em; font-weight:650 }
+.lede{ color:var(--muted); font-size:14px; max-width:62ch; margin-bottom:14px }
+.lede a{ color:var(--accent) }
+
+.card{
+  background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:14px;
+}
+
+/* --- layout: chart beside detail on wide screens, stacked on a phone ------------------------ */
+.grid{ display:grid; gap:14px; grid-template-columns:1fr; margin-bottom:14px }
+@media (min-width:900px){
+  .grid{ grid-template-columns:minmax(0,1fr) 300px; align-items:start }
+  /* Sticky so the pinned composer stays on screen while you read the table below it — the point
+     of a PERSISTENT detail view rather than a tooltip. */
+  #detail{ position:sticky; top:14px }
+}
+
+/* --- controls ------------------------------------------------------------------------------- */
+.controls{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px }
+.seg{ display:flex; border:1px solid var(--line); border-radius:999px; overflow:hidden }
+.seg button{
+  font:500 13px/1 system-ui, sans-serif; color:var(--muted); background:transparent;
+  border:0; padding:0 13px; min-height:36px; cursor:pointer; white-space:nowrap;
+}
+.seg button + button{ border-left:1px solid var(--line) }
+.seg button[aria-pressed="true"]{ background:var(--accent); color:#fff }
+.btn{
+  font:500 13px/1 system-ui, sans-serif; color:var(--muted); background:transparent;
+  border:1px solid var(--line); border-radius:999px; padding:0 13px; min-height:36px; cursor:pointer;
+}
+.btn:disabled{ opacity:.4; cursor:default }
+.spacer{ margin-left:auto }
+
+/* The "you're on an old version — tap to update" tag (app.js). */
+.ver{ font:500 11px/1 ui-monospace, monospace; color:var(--muted) }
+.ver.behind{ color:var(--accent); text-decoration:underline; cursor:pointer }
+
+/* --- chart ---------------------------------------------------------------------------------- */
+#plot{ position:relative; touch-action:none }   /* touch-action:none so d3-zoom owns the gesture */
+#plot svg{ display:block; width:100%; height:auto; overflow:visible }
+.hint{ font-size:12px; color:var(--muted); margin-top:8px }
+
+/* Name flag that tracks the cursor on a real pointer. Never shown on touch — there the tap
+   goes straight to the persistent detail panel, so there is no hover bubble to double-fire. */
+#flag{
+  position:absolute; z-index:5; pointer-events:none; opacity:0; transform:translate(-50%,-140%);
+  background:var(--card); border:1px solid var(--line); border-radius:6px;
+  padding:3px 7px; font:600 12px/1.3 system-ui, sans-serif; white-space:nowrap;
+  box-shadow:0 2px 8px rgba(0,0,0,.12);
+}
+#flag.on{ opacity:1 }
+#flag small{ display:block; font-weight:400; color:var(--muted) }
+
+/* --- legend --------------------------------------------------------------------------------- */
+.legend{ display:flex; gap:18px; flex-wrap:wrap; align-items:flex-end; margin-top:12px; font-size:12px }
+.legend .lab{ color:var(--muted); display:block; margin-bottom:4px }
+.ramp{ width:170px; height:10px; border-radius:2px; border:1px solid var(--line) }
+.ticks{ display:flex; justify-content:space-between; color:var(--muted); font-size:11px; margin-top:2px }
+.swatches{ display:flex; gap:12px; align-items:center }
+.sw{ display:flex; gap:5px; align-items:center; color:var(--muted) }
+.sw i{ width:12px; height:12px; border-radius:50%; display:inline-block }
+.sizes{ display:flex; gap:6px; align-items:flex-end; color:var(--muted) }
+
+/* --- detail panel --------------------------------------------------------------------------- */
+#detail h2{ font-size:17px; letter-spacing:-.01em; margin-bottom:2px; line-height:1.25 }
+#detail .dates{ color:var(--muted); font-size:13px; margin-bottom:10px }
+#detail dl{ display:grid; grid-template-columns:auto 1fr; gap:4px 12px; font-size:13px; margin-bottom:10px }
+#detail dt{ color:var(--muted) }
+#detail dd{ font-variant-numeric:tabular-nums }
+#detail .empty{ color:var(--muted); font-size:13px }
+#detail .rank{ color:var(--muted); font-size:12px }
+.detail-nav{ display:flex; gap:6px; margin-top:4px }
+
+/* --- table ---------------------------------------------------------------------------------- */
+/* Visible to a screen reader, not on screen. display:none would remove it from the a11y tree too. */
+.sr-only{
+  position:absolute; width:1px; height:1px; overflow:hidden;
+  clip-path:inset(50%); white-space:nowrap;
+}
+
+.tablehead{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px }
+#q{
+  flex:1 1 180px; min-width:0; min-height:38px; padding:0 12px; font:400 15px/1 system-ui, sans-serif;
+  color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:999px;
+}
+#count{ font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums }
+.scroll{ position:relative; max-height:46vh; overflow:auto; border:1px solid var(--line); border-radius:8px; -webkit-overflow-scrolling:touch }
+table{ border-collapse:collapse; width:100%; font-size:13.5px }
+thead th{
+  position:sticky; top:0; z-index:1; background:var(--card); text-align:left; white-space:nowrap;
+  font-weight:600; color:var(--muted); border-bottom:1px solid var(--line); padding:0;
+}
+thead th button{
+  width:100%; text-align:inherit; font:inherit; color:inherit; background:transparent; border:0;
+  padding:10px 10px; min-height:40px; cursor:pointer;
+}
+th.num, td.num{ text-align:right; font-variant-numeric:tabular-nums }
+th.num button{ text-align:right }
+thead th[aria-sort] button{ color:var(--ink) }
+thead th[aria-sort="ascending"] button::after{ content:" \2191" }
+thead th[aria-sort="descending"] button::after{ content:" \2193" }
+tbody td{ padding:9px 10px; border-bottom:1px solid var(--line) }
+tbody tr{ cursor:pointer }
+tbody tr:hover td{ background:color-mix(in srgb, var(--accent) 8%, transparent) }
+tbody tr[aria-selected="true"] td{ background:color-mix(in srgb, var(--sel) 16%, transparent) }
+td .chip{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:7px; vertical-align:baseline }
+.empty-row td{ color:var(--muted); text-align:center; padding:24px 10px }
+
+footer{ margin-top:22px; font-size:12px; color:var(--muted) }
+footer p + p{ margin-top:4px }
+
+/* --- fullscreen ------------------------------------------------------------------------------
+   CSS-driven, not the Fullscreen API: iPhone Safari has no requestFullscreen at all, which is
+   precisely the device that needs this most. app.js additionally calls the API where it exists
+   (desktop, Android) to drop the browser chrome too — but the layout below is what does the work,
+   so the feature can't be missing on the platform it was built for. */
+body.fs{ overflow:hidden }
+body.fs #viz{
+  position:fixed; inset:0; z-index:40; border-radius:0; border:0; margin:0;
+  padding:calc(8px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right))
+          calc(8px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));
+  display:flex; flex-direction:column; background:var(--card);
+}
+body.fs #plot{ flex:1 1 auto; min-height:0 }
+body.fs #plot svg{ height:100% }
+body.fs .hint{ display:none }
+body.fs main > *:not(.grid), body.fs .grid > *:not(#viz){ display:none }
+body.fs .grid{ display:block }
+
+/* Phone-specific sizing. Targets REAL touch devices, not just a narrow desktop window. */
+@media (hover:none) and (pointer:coarse) and (max-width:800px){
+  .scroll{ max-height:56vh }
+  .seg button, .btn{ min-height:40px }         /* keep tap targets at the 44px-ish floor */
+  #q{ min-height:42px }
+}
+
+/* Six columns don't fit a phone: the name wraps to three lines and Quartets scrolls off. Drop the
+   two that are one tap away in the detail panel. Width-only (not hover/pointer) so a narrow
+   desktop window gets the same fit — and so it still applies when printing to a narrow page. */
+@media (max-width:640px){
+  .wide-only{ display:none }
+  tbody td{ padding:9px 8px }
+  thead th button{ padding:10px 8px }
+}
+
+@media (prefers-reduced-motion: reduce){
+  *{ transition:none !important; animation:none !important }
+}
+
+/* Print: ink-friendly, no chrome, chart + table only. */
+@media print{
+  body{ background:#fff; color:#000; padding:0 }
+  :root{ --plot:#fff; --grid:#ddd; --axis:#444; --card:#fff; --line:#999; --dot-line:#fff }
+  .card{ border:0; padding:0 }
+  .controls, .tablehead, #flag, .detail-nav, #theme, .ver, .hint{ display:none }
+  .grid{ display:block }
+  .scroll{ max-height:none; overflow:visible; border:0 }
+  thead th{ position:static }
+  tbody tr{ break-inside:avoid }
+}

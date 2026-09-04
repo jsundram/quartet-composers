@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Source of truth for every app icon. Edit here, then run scripts/make-icons.sh.
+       Four discs — a quartet — sized and colored the way the chart sizes and colors composers:
+       area is readership, hue runs the short-life/long-life ramp. Legible at 32px, which is the
+       only test that matters. assets/maskable.svg is the full-bleed twin for Android's mask. -->
+  <rect width="512" height="512" rx="104" fill="#191c21"/>
+  <circle cx="126" cy="392" r="30" fill="#f0a44a"/>
+  <circle cx="222" cy="312" r="45" fill="#cfbfa5"/>
+  <circle cx="320" cy="222" r="58" fill="#b6a6d8"/>
+  <circle cx="412" cy="132" r="34" fill="#8f7dc4"/>
+</svg>

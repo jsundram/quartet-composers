@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Android masks the icon to whatever shape the launcher uses and crops ~10% off every edge.
+       Reusing icon.svg here would crop into the artwork, so this is its own FULL-BLEED tile: no
+       rounded corners, and the discs pulled into the safe circle (centre 80%). -->
+  <rect width="512" height="512" fill="#191c21"/>
+  <circle cx="158" cy="356" r="26" fill="#f0a44a"/>
+  <circle cx="228" cy="298" r="38" fill="#cfbfa5"/>
+  <circle cx="304" cy="228" r="48" fill="#b6a6d8"/>
+  <circle cx="372" cy="158" r="28" fill="#8f7dc4"/>
+</svg>
