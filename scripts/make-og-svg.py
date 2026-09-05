@@ -70,7 +70,6 @@ def main():
     with open(os.path.join(ROOT, "composers.json")) as f:
         data = json.load(f)
     rows = data["rows"]
-    max_views = max((r[4] or 0) for r in rows) or 1
     plotted = [r for r in rows if r[3] is not None and r[4] is not None]
     by_name0 = {r[0]: r for r in rows}
 

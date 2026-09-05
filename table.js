@@ -105,7 +105,11 @@ window.Table = (function () {
     rows.forEach(d => {
       if (count.get(d.sur) < 2) { d.display = d.sur; return; }
       const bare = d.name.replace(/\s*\([^)]*\)\s*$/, "");
-      const fore = bare.slice(0, bare.length - d.sur.length).trim();
+      // Remove the surname WHEREVER it sits, not by slicing a suffix off the end: the family-name
+      // -first overrides put it at the front, so "Chen Yi" with surname "Chen" was yielding a
+      // forename of "Che". Inert today only because no other composer's name ends in "Chen" --
+      // exactly the kind of thing a re-scrape changes.
+      const fore = bare.replace(d.sur, "").replace(/\s+/g, " ").trim();
       d.display = fore ? `${d.sur}, ${fore}` : d.sur;
     });
   }
@@ -228,6 +232,17 @@ window.Table = (function () {
     return td;
   }
 
+  // Just the chips: called when the CHART's encoding changes (Chart.colorOf follows the view), so
+  // the rows, the scroll position and the focused element all survive a view switch.
+  function repaintChips() {
+    for (const [i, tr] of trFor) {
+      const d = rows[i], chip = tr.querySelector(".chip");
+      if (!chip) continue;
+      chip.style.background = d.living ? "transparent" : Chart.colorOf(d);
+      chip.style.boxShadow = d.living ? "inset 0 0 0 1.4px " + Chart.colorOf(d) : "none";
+    }
+  }
+
   function select(i, scroll) {
     if (selected != null && trFor.has(selected)) trFor.get(selected).setAttribute("aria-selected", "false");
     selected = i;
@@ -251,7 +266,7 @@ window.Table = (function () {
     theadEl = opts.thead; tbodyEl = opts.tbody; cbSelect = opts.onSelect;
   }
 
-  return { init, setData, render, select, matches, ordered: () => order,
+  return { init, setData, render, repaintChips, select, matches, ordered: () => order,
            // Override keys that no longer name a composer -- a pipeline rename, asserted empty by
            // the UI suite so the entry cannot sit there doing nothing.
            staleOverrides: () => Object.keys(SURNAME).filter(n => !rows.some(d => d.name === n)) };

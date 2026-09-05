@@ -322,6 +322,39 @@ check("the table chip follows the view's encoding",
         return moz && tch && moz.querySelector('.chip').style.background
              !== tch.querySelector('.chip').style.background})()`));
 
+// Pinning a composer puts it FIRST in the label list so it cannot lose its label to a rival --
+// but in this view the list is only the 13 named, so a pin that is not one of them was hitting
+// indexOf === -1, and splice(-1, 1) deletes the LAST entry: Ravel lost his label every time you
+// clicked an unnamed dot.
+const labelsBefore = await ev(`[...document.querySelectorAll('#plot svg text')]
+  .filter(t => t.getAttribute('font-size') === '10.5').map(t => t.textContent)`);
+await ev(`(()=>{const r=[...document.querySelectorAll('tbody tr')]
+  .find(r=>r.querySelector('td').title === 'Pyotr Ilyich Tchaikovsky'); r.click()})()`);
+await sleep(400);
+const labelsAfter = await ev(`[...document.querySelectorAll('#plot svg text')]
+  .filter(t => t.getAttribute('font-size') === '10.5').map(t => t.textContent)`);
+check("pinning an unnamed composer does not delete someone else's label",
+      labelsBefore.every(n => labelsAfter.includes(n)),
+      "lost: " + JSON.stringify(labelsBefore.filter(n => !labelsAfter.includes(n))));
+check("the pinned composer gets a label of its own",
+      labelsAfter.includes("Pyotr Ilyich Tchaikovsky"), labelsAfter.length + " labels");
+// --sel is the PINNED colour; tinting the canon with it elsewhere made seven composers look
+// pinned with nothing pinned.
+await goto(BASE + "#v=scatter");
+check("the canon is not painted as pinned in the timeline view",
+      await ev(`(()=>{const sel=getComputedStyle(document.documentElement)
+        .getPropertyValue('--sel').trim();
+        return ![...document.querySelectorAll('#plot svg text')]
+          .filter(t => t.getAttribute('font-size') === '10.5')
+          .some(t => t.getAttribute('fill') === sel)})()`));
+check("the chart tells a screen reader which axes it is showing",
+      (await ev(`document.querySelector('#plot svg').getAttribute('aria-label')`)).includes("birth year"),
+      await ev(`document.querySelector('#plot svg').getAttribute('aria-label')`));
+await goto(BASE);
+check("and says something different in the readers view",
+      (await ev(`document.querySelector('#plot svg').getAttribute('aria-label')`)).includes("readers"),
+      await ev(`document.querySelector('#plot svg').getAttribute('aria-label')`));
+
 // --- 4f. one filter row, above everything it scopes -------------------------------------------
 check("the filter row is not inside the chart or the table card",
       await ev(`(()=>{const f=document.getElementById('filters');

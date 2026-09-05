@@ -78,9 +78,10 @@ plain static assets. Read README.md first for what the app is.
    NFD alone leaves them intact and "lutoslawski" misses "Lutosławski". 58 names carry such
    characters; a new one means a new `FOLD` entry.
 
-14. **`scripts/make-og-svg.py` duplicates chart.js's scales on purpose.** Same domains, same 0.35
-   radius exponent, same jitter hash, same emphasis. It renders the READERS view, because that
-   is what a bare URL opens on. Changing an encoding in `chart.js` means changing it there too, or
+14. **`scripts/make-og-svg.py` duplicates chart.js's scales on purpose.** Same log domains, same
+   jitter hash, same emphasis, and the same two uniform radii — readership is the Y AXIS in this
+   view, so the card has no radius scale either. It renders the READERS view, because that is
+   what a bare URL opens on. Changing an encoding in `chart.js` means changing it there too, or
    the share card stops matching the page. They are duplicated rather than shared because the app
    must not ship a build step and the card must not ship a JS runtime.
 
@@ -95,7 +96,7 @@ Four suites, all dependency-free:
   compares composers.json against its schema, the other caches, and the previous commit. Run it
   after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 87 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 92 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `scripts/audit_counts.py` — not automated: it prints parsed quartet counts beside the sentence

@@ -215,7 +215,7 @@ function renderLegend() {
         `<span class="sw"><i style="box-shadow:inset 0 0 0 2px ${g("--accent")}"></i>` +
         `the outliers at either end</span>` +
         `<span class="sw"><i style="background:${g("--muted")};opacity:.3"></i>` +
-        `the other ${Chart.plotted() - 13} composers</span>` +
+        `the other ${Chart.readersPlotted() - Chart.namedCount()} composers</span>` +
       `</div>`;
     el.appendChild(who);
 
@@ -232,7 +232,8 @@ function renderLegend() {
   life.innerHTML =
     `<span class="lab">Lifespan</span>` +
     `<div class="ramp" style="background:linear-gradient(90deg,${g("--c-short")},${g("--c-mid")},${g("--c-long")})"></div>` +
-    `<div class="ticks"><span>20 yrs</span><span>${Chart.midLife()} (median)</span><span>104</span></div>`;
+    `<div class="ticks"><span>${Chart.lifeDomain()[0]} yrs</span>` +
+    `<span>${Chart.lifeDomain()[2]} yrs</span></div>`;
   el.appendChild(life);
 
   // Size key. Circle AND label are laid out together in one SVG, each pair centred in a cell as
@@ -464,6 +465,9 @@ async function start() {
     lifespan: r[2] == null ? null : r[2] - r[1],
   }));
 
+  // Written from the data: a hardcoded "884" sits inches from #count, which prints the real
+  // number, so the next scrape would have them disagreeing in the same row.
+  $("q").placeholder = `Search ${ROWS.length} composers…`;
   Table.init({ thead: $("thead"), tbody: $("tbody"), onSelect: selectFromTable });
   Table.setData(ROWS);
 
@@ -555,8 +559,10 @@ function setMode(mode) {
   document.querySelectorAll(".seg button").forEach(o => o.setAttribute("aria-pressed", String(o.dataset.mode === mode)));
   Chart.setMode(mode);
   renderLegend();                    // the views encode different things and need different keys
-  Table.render(visible);             // and the row chips are painted from the view's encoding
-  Table.select(selected, false);
+  // The chips are painted from the view's encoding, but a full Table.render() empties tbody and
+  // rebuilds ~880 rows -- which resets the scroll box to the top and destroys the focused row
+  // under anyone who tabbed into the table. Only the colours change, so only repaint those.
+  Table.repaintChips();
   $("hint").textContent = Chart.hint();
   $("reset").disabled = !Chart.zoomed();
   writeHash();

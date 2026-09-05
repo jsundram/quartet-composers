@@ -34,7 +34,11 @@ window.Chart = (function () {
   let X_DOMAIN = [1700, 2000];
   const Y_DOMAIN = [0.85, 170];         // log; the largest stated count is 149 (Cambini)
   const Y_TICKS = [1, 2, 3, 5, 10, 20, 30, 50, 100];
-  let LIFE_MID = 72;                    // median completed lifespan; recomputed from the data
+  // The colour ramp's stops are FIXED, evenly spaced across the lifespan range. They used to sit
+  // at [20, median, 104] with the median recomputed from the data, which meant the same composer
+  // changed colour when somebody else joined the list -- the same "the pivot moves when the data
+  // does" problem the diverging ramp had, surviving the switch to a sequential one.
+  const LIFE_DOMAIN = [20, 62, 104];
 
   // ---- the readers view ----------------------------------------------------
   // Output ACROSS, attention UP, so readers-per-quartet is a diagonal and the distance a composer
@@ -55,7 +59,10 @@ window.Chart = (function () {
                  "Dmitri Shostakovich"];
   const OUTLIERS = ["Giuseppe Cambini", "Franz Krommer", "John Lodge Ellerton",
                     "Claude Debussy", "George Gershwin", "Maurice Ravel"];
-  let canonIdx = [], outlierIdx = [], missing = [];
+  // Sets, not arrays: isCanon/named are called per DOT per FRAME from layout() and from all four
+  // paint functions -- about 4,000 calls a frame in the readers view, and an Array.includes scan
+  // in each of them is work a phone does not need to do while a pinch is in flight.
+  let canonIdx = [], outlierIdx = [], canonSet = new Set(), namedSet = new Set(), missing = [];
 
   let el, flagEl, cbHover, cbSelect, cbZoom;
   // The readers view is the DEFAULT: it is the one that makes the page's claim. The timeline is
@@ -101,14 +108,12 @@ window.Chart = (function () {
         jq: Math.pow(10, hash(r[0] + "q") * 0.045),
       };
     });
-    // The diverging ramp pivots on the MEDIAN completed lifespan of whoever is actually in the
-    // data, rather than a number baked in when the dataset was half this size.
-    const lived = rows.filter(d => d.lifespan != null).map(d => d.lifespan).sort((a, b) => a - b);
-    if (lived.length) LIFE_MID = lived[lived.length >> 1];
     const at = new Map(rows.map(d => [d.name, d.i]));
     const resolve = list => list.filter(n => at.has(n)).map(n => at.get(n));
     canonIdx = resolve(CANON);
     outlierIdx = resolve(OUTLIERS);
+    canonSet = new Set(canonIdx);
+    namedSet = new Set(canonIdx.concat(outlierIdx));
     missing = CANON.concat(OUTLIERS).filter(n => !at.has(n));
     if (missing.length) console.error("Chart: named composers missing from the data:", missing);
 
@@ -128,7 +133,7 @@ window.Chart = (function () {
       ink: g("--ink"), muted: g("--muted"), sel: g("--sel"), accent: g("--accent"),
     };
     colorScale = d3.scaleLinear()
-      .domain([20, LIFE_MID, 104])
+      .domain(LIFE_DOMAIN)
       .range([C.short, C.mid, C.long])
       .interpolate(d3.interpolateLab)
       .clamp(true);
@@ -158,8 +163,12 @@ window.Chart = (function () {
     if (mode !== "readers") return 0.92;
     return named(d.i) ? 1 : 0.22;
   }
+  // Both branches are readers-only: --sel is the PINNED colour, so tinting the seven with it in
+  // Timeline/Swarm/Lens made seven composers look pinned with nothing pinned, and made the real
+  // pin unidentifiable once there was one.
   function labelColorOf(d) {
-    return isCanon(d.i) ? C.sel : (mode === "readers" && named(d.i)) ? C.accent : C.ink;
+    if (mode !== "readers") return C.ink;
+    return isCanon(d.i) ? C.sel : named(d.i) ? C.accent : C.ink;
   }
   // table.js paints its row chip with this, on the promise that a row and its dot are
   // recognisably the same thing. So it follows the CURRENT view's encoding, not lifespan always —
@@ -301,8 +310,8 @@ window.Chart = (function () {
   // all. Those rows stay in the TABLE — they are real composers — but are absent from the chart,
   // its hit-testing and its labels. Everything downstream reads plottability from here.
   const plottable = d => d.quartets != null;
-  const isCanon = i => canonIdx.includes(i);
-  const named = i => canonIdx.includes(i) || outlierIdx.includes(i);
+  const isCanon = i => canonSet.has(i);
+  const named = i => namedSet.has(i);
   const isVisible = d => plottable(d) && (!visible || visible.has(d.i));
   // On screen for real: a zoom pans dots clean out of the plot, and one whose centre has left it
   // must not be painted, hit-tested or labelled. Reads the CURRENT layout, so it is only valid
@@ -326,8 +335,13 @@ window.Chart = (function () {
     const cands = mode === "readers"
       ? canonIdx.concat(outlierIdx).map(i => rows[i]).filter(isVisible)
       : rows.filter(isVisible).sort((a, b) => b.views - a.views);
+    // The selected composer is placed FIRST so it never loses its label to a rival -- but it is
+    // only in `cands` if it was a candidate. In the readers view the list is the 13 named, so
+    // pinning any of the other 777 gave indexOf === -1, and splice(-1, 1) deletes the LAST
+    // element: Ravel silently lost his label every time you clicked an unnamed dot.
     if (selected != null && rows[selected] && isVisible(rows[selected])) {
-      cands.splice(cands.indexOf(rows[selected]), 1);
+      const at = cands.indexOf(rows[selected]);
+      if (at >= 0) cands.splice(at, 1);
       cands.unshift(rows[selected]);
     }
     const placed = [], boxes = [];
@@ -551,7 +565,11 @@ window.Chart = (function () {
 
   function ariaLabel() {
     const n = (visible ? visible.size : rows.length);
-    return `Scatter plot of ${n} string quartet composers by birth year and number of quartets written. `
+    const axes = mode === "readers"
+      ? "by number of quartets written and monthly English Wikipedia readers"
+      : mode === "swarm" ? "by birth year, spread apart so none overlap"
+      : "by birth year and number of quartets written";
+    return `Scatter plot of ${n} string quartet composers ${axes}. `
          + `The table below the chart carries the same data in a readable form.`;
   }
 
@@ -669,7 +687,13 @@ window.Chart = (function () {
            // Empty unless a pipeline run renamed one of the composers the readers view argues
            // about; the UI suite asserts it, so a rename fails loudly instead of dropping a dot.
            missingNames: () => missing.slice(),
-           resetZoom, zoomed, colorOf, hint, midLife: () => LIFE_MID,
+           resetZoom, zoomed, colorOf, hint,
+           lifeDomain: () => LIFE_DOMAIN.slice(),
+           // How many dots the readers view actually emphasises, and how many it can place at
+           // all (it needs a view count as well as a quartet count). The legend used to hardcode
+           // 13 and subtract it from plotted(), which is a different denominator.
+           namedCount: () => namedSet.size,
+           readersPlotted: () => rows.filter(d => d.quartets != null && d.views != null).length,
            // How many rows the chart can actually place — the table shows more (see isVisible).
            plotted: () => rows.filter(plottable).length,
            // So the legend can draw its size key at the radii the chart ACTUALLY uses, rather
