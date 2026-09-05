@@ -216,7 +216,11 @@ function renderLegend() {
         `<span class="sw"><i style="background:${g("--sel")}"></i>` +
         `the seven, in birth order</span>` +
         `<span class="sw"><i style="box-shadow:inset 0 0 0 2px ${g("--accent")}"></i>` +
-        `the outliers at either end</span>` +
+        // The ring follows the filter (chart.js's refreshEmphasis), so the key has to say which
+        // crowd it is talking about. Claiming "the outliers at either end" while ringing six
+        // women the curated set never contained would be labelling the wrong channel.
+        `${Chart.derivedRings() ? "the ones that stand out in this group"
+                                : "the outliers at either end"}</span>` +
         `<span class="sw"><i style="background:${g("--muted")};opacity:.3"></i>` +
         `the other ${Chart.readersPlotted() - Chart.namedCount()} composers</span>` +
       `</div>`;
@@ -440,6 +444,9 @@ function applyFilters(settled) {
   const n = visible ? visible.size : ROWS.length;
   $("count").textContent = visible ? `${n} of ${ROWS.length}` : `${ROWS.length} composers`;
   if (settled !== false) {
+    // The ring is derived from the filtered group, so the key that explains it and the row chips
+    // that repeat it both move when the filter does. Table.render() repaints the chips anyway.
+    renderLegend();
     Table.render(visible);
     // A pinned composer that a filter just excluded would leave a detail panel describing someone
     // invisible in both views. Drop the pin rather than the coherence.

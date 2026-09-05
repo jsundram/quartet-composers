@@ -63,6 +63,12 @@ window.Chart = (function () {
   // paint functions -- about 4,000 calls a frame in the readers view, and an Array.includes scan
   // in each of them is work a phone does not need to do while a pinch is in flight.
   let canonIdx = [], outlierIdx = [], canonSet = new Set(), namedSet = new Set(), missing = [];
+  // What the view is RINGING right now. Unfiltered that is exactly `namedSet`, the curated
+  // thirteen; under a filter it is the curated ones the filter kept plus enough derived ones to
+  // refill the ring budget (refreshEmphasis). `named()` reads this, not namedSet, so every channel
+  // that follows the emphasis — fill, stroke, radius, opacity, label colour, the table chip —
+  // follows the filter with no further wiring.
+  let ringIdx = [], emphOrder = [], emphSet = new Set();
 
   let el, flagEl, cbHover, cbSelect, cbZoom;
   // The readers view is the DEFAULT: it is the one that makes the page's claim. The timeline is
@@ -116,6 +122,8 @@ window.Chart = (function () {
     outlierIdx = resolve(OUTLIERS);
     canonSet = new Set(canonIdx);
     namedSet = new Set(canonIdx.concat(outlierIdx));
+    emphOrder = canonIdx.concat(outlierIdx);
+    emphSet = new Set(emphOrder);
     missing = CANON.concat(OUTLIERS).filter(n => !at.has(n));
     if (missing.length) console.error("Chart: named composers missing from the data:", missing);
 
@@ -215,7 +223,7 @@ window.Chart = (function () {
   function scoreProminence() {
     prom = new Map();
     const vis = rows.filter(d => plottable(d) && d.views > 0 && (!visible || visible.has(d.i)));
-    if (vis.length < 2) return;
+    if (vis.length < 2) { refreshEmphasis(); return; }   // no ranking, so no derived rings either
     const lq = vis.map(d => Math.log10(d.quartets)), lv = vis.map(d => Math.log10(d.views));
     const mean = a => a.reduce((t, v) => t + v, 0) / a.length;
     const sd = (a, m) => Math.sqrt(mean(a.map(v => (v - m) * (v - m)))) || 1;
@@ -224,6 +232,41 @@ window.Chart = (function () {
       if (d.views < MIN_VIEWS) continue;
       prom.set(d.i, Math.hypot((Math.log10(d.quartets) - mq) / sq, (Math.log10(d.views) - mv) / sv));
     }
+    // The ring is ranked off `prom`, so it is refreshed here rather than by every caller — there
+    // is exactly one place the visible set changes, and this is downstream of it.
+    refreshEmphasis();
+  }
+
+  // THE RING FOLLOWS THE FILTER. Every one of the curated thirteen is a man, so "Women" used to
+  // ring nobody: it dimmed the six accented dots to 0.07 and offered the group no emphasis of its
+  // own, in the one view whose whole job is picking a few names out of a field. The ring now says
+  // the same thing about whatever group is on screen — "these are the ones standing out from the
+  // crowd they are drawn in" — which is what it always meant; it was just frozen to one crowd.
+  //
+  // Same seed-then-rank shape as the label budget, and deliberately the same size: SIX rings,
+  // filled first by the curated outliers the filter kept and then by prominence. So filtering to
+  // the men (who include all six) changes nothing, and filtering to the women derives all six.
+  // Only the ring is derived — the seven filled in --sel are an editorial claim about who carried
+  // the form, which is not a thing a ranking can recompute (see issue #7).
+  const RINGS = 6;
+  // A ring means "stands out from the crowd", so it needs a crowd. Below this the filtered group
+  // IS the picture — every dot is already legible and separately labelled — and ringing six of
+  // eight would be pointing at almost everything.
+  const MIN_FIELD = 20;
+  function refreshEmphasis() {
+    const kept = outlierIdx.filter(i => isVisible(rows[i]));
+    let derived = [];
+    if (visible && kept.length < RINGS) {
+      const pool = rows.filter(d => isVisible(d) && !namedSet.has(d.i) && prom.has(d.i));
+      if (pool.length >= MIN_FIELD) {
+        derived = pool.sort((a, b) => prom.get(b.i) - prom.get(a.i))
+                      .slice(0, RINGS - kept.length).map(d => d.i);
+      }
+    }
+    ringIdx = derived;
+    // Curated first so the label placer still spends its budget on them before the derived ones.
+    emphOrder = canonIdx.concat(outlierIdx, derived);
+    emphSet = new Set(emphOrder);
   }
 
   // ---- geometry -----------------------------------------------------------
@@ -358,7 +401,7 @@ window.Chart = (function () {
   // its hit-testing and its labels. Everything downstream reads plottability from here.
   const plottable = d => d.quartets != null;
   const isCanon = i => canonSet.has(i);
-  const named = i => namedSet.has(i);
+  const named = i => emphSet.has(i);
   const isVisible = d => plottable(d) && (!visible || visible.has(d.i));
   // On screen for real: a zoom pans dots clean out of the plot, and one whose centre has left it
   // must not be painted, hit-tested or labelled. Reads the CURRENT layout, so it is only valid
@@ -395,7 +438,10 @@ window.Chart = (function () {
     // the space is real and the reader has asked for detail, and filtered, where the seed is
     // mostly gone — every one of the thirteen is a man, so "Women" used to leave 219 emphasised
     // dots with no name on any of them, answering "where are they" while refusing to say "who".
-    const seeds = canonIdx.concat(outlierIdx).map(i => rows[i]).filter(isVisible);
+    // The derived rings are seeds too: a dot the view has decided to ring and then declined to
+    // name is pointing at a composer it refuses to identify, which is the exact complaint that
+    // put the rings on the filtered view in the first place.
+    const seeds = emphOrder.map(i => rows[i]).filter(isVisible);
     const first = mode === "readers" && !visible && transform.k === 1;
     if (first) cap = seeds.length;
     const cands = mode === "readers"
@@ -860,8 +906,8 @@ window.Chart = (function () {
            + "article is read. The diagonals are readers per quartet, so how far a dot sits ABOVE "
            + "one is the whole point: Mozart and Beethoven are read about ten thousand times a "
            + "month per quartet they wrote, Cambini about once. Drag to pan, scroll or pinch to "
-           + "zoom, tap a dot for the rest. A filter closes the frame in on what it keeps; the "
-           + "rest of the field stays faintly drawn behind it.",
+           + "zoom, tap a dot for the rest. Filter, and the frame closes in on what you kept and "
+           + "the ring moves to the six that stand out in THAT group.",
     scatter: "Fixed axes. Drag to pan, scroll or pinch to zoom, tap or click a dot to pin it. Ties are nudged by up to half a year so overlapping composers stay separately clickable.",
     swarm: "Composers pushed apart until nothing overlaps. Vertical position means nothing here — the quartet count is dropped, and size (views) and color (lifespan) are unchanged. Read it as a timeline of how crowded each generation was. Drag or pinch to spread it further.",
     lens: "A circular magnifier over a fixed chart: the axes never move. Move the pointer (or drag on a touch screen) to aim it; tap to pin a composer.",
@@ -885,7 +931,10 @@ window.Chart = (function () {
            // How many dots the readers view actually emphasises, and how many it can place at
            // all (it needs a view count as well as a quartet count). The legend used to hardcode
            // 13 and subtract it from plotted(), which is a different denominator.
-           namedCount: () => namedSet.size,
+           namedCount: () => emphSet.size,
+           // How many of the rings the current filter derived, so the legend can say what the
+           // ring MEANS right now instead of always claiming the curated six.
+           derivedRings: () => ringIdx.length,
            readersPlotted: () => rows.filter(d => d.quartets != null && d.views != null).length,
            // How many rows the chart can actually place — the table shows more (see isVisible).
            plotted: () => rows.filter(plottable).length,

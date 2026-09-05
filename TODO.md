@@ -49,7 +49,9 @@ phone they take a third line rather than crowding the brush.
 
 One thing the filter exposed: all thirteen composers the Readers view labels are men, so "Women"
 drew 219 emphasised dots with no name on any of them — it answered "where are they" and refused to
-answer "who". Fixing it properly meant fixing the labels generally, which is the entry below.
+answer "who". Fixing it properly meant fixing the labels generally, which is the entry below — and
+then the RING, which had the same defect one channel over and is now derived per filter too (the
+Interface section).
 
 ### ~~Labels were a fixed set, not a function of zoom~~ — done, 2026-09-05
 The Readers view labelled thirteen hardcoded names and nothing else, at every zoom level, which
@@ -118,6 +120,19 @@ Charles Wesley junior). Worth a pass to confirm none is a real loss.
 ---
 
 ## Interface
+
+### ~~A filter left the group with no emphasis of its own~~ — done, 2026-09-05
+All six ringed outliers are men, so "Women" dimmed every ring to 0.07 and — once the frame started
+fitting the filter — cropped them off screen entirely. The ring budget (six) is now filled first by
+the curated outliers the filter kept and then by `prom`, so it says the same thing about whatever
+group is on screen. "Men" keeps all six and derives none; the resting view and the share card are
+untouched; below `MIN_FIELD` nothing is derived, because a ring needs a crowd to stand out from.
+
+This settles half of [#7](https://github.com/jsundram/quartet-composers/issues/7): the OUTLIER ring
+is derived, because "wrote a lot and is read little" is a computable property of whatever group you
+are looking at. The seven filled in `--sel` are not, and the issue stays open for them — "who
+carried the form" is an editorial claim about music history, and TODO records that no single
+ranking reproduces the curated set (the best recovers 8 of 13).
 
 ### ~~A filter left the frame on the whole field~~ — done, 2026-09-05, [#6](https://github.com/jsundram/quartet-composers/issues/6)
 Filtering to the 276 women gave the same picture with 600 dots dimmed and the survivors still in

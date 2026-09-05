@@ -60,6 +60,10 @@ plain static assets. Read README.md first for what the app is.
    AXIS and hue is emphasis; the lifespan ramp and the size key would be labelling channels that
    carry nothing, so `renderLegend()` branches on the mode and `setMode()` re-renders both the
    legend and the table (the row chips are painted from `Chart.colorOf`, which follows the view).
+   The RING also changes meaning under a filter (see below), so `renderLegend()` branches on
+   `Chart.derivedRings()` too and `applyFilters()` re-renders it on every settled change. A key
+   that still said "the outliers at either end" while ringing six women the curated set never
+   contained would be labelling the wrong channel.
 
 9. **Readership is a measure, not a tally — round it everywhere except the table.** It is the
    median of twelve monthly page-view counts and any one month runs ~12% off typical, so the
@@ -94,7 +98,8 @@ plain static assets. Read README.md first for what the app is.
 14. **`scripts/make-og-svg.py` duplicates chart.js's scales on purpose.** Same log domains, same
    jitter hash, same emphasis, the same two uniform radii — readership is the Y AXIS in this
    view, so the card has no radius scale either — and the same short-name rule from `names.js`.
-   It renders the READERS view, because that is what a bare URL opens on. Changing an encoding in `chart.js` means changing it there too, or
+   It renders the READERS view AT REST, because that is what a bare URL opens on — so the derived
+   rings never reach it and it needs only the curated six. Changing an encoding in `chart.js` means changing it there too, or
    the share card stops matching the page. They are duplicated rather than shared because the app
    must not ship a build step and the card must not ship a JS runtime.
 
@@ -194,6 +199,20 @@ made on evidence.
   instead of 15, and because `pickLabels()` is first-come-first-served on space, halving every box
   is what lets the names behind it find room at all. The label text and the width estimate must
   come from the same string — `pickLabels()` computes it once and carries it on the placement.
+- **The ring follows the filter; the seven filled in `--sel` do not.** `refreshEmphasis()` in
+  `chart.js` keeps a ring budget of SIX — the size of `OUTLIERS` — filled first by the curated
+  outliers the filter kept and then by `prom`, the same seed-then-rank shape the label budget has.
+  So the resting view and the share card are exactly what they were, "Men" (which keeps all six)
+  changes nothing, and "Women" derives all six. Below `MIN_FIELD` visible dots nothing is derived:
+  a ring means "stands out from the crowd it is drawn in", and two Haydns are not a crowd.
+  Every channel that follows emphasis — fill, stroke, radius, opacity, label colour, the table
+  chip — reads `named()`, which reads the DERIVED set (`emphSet`), not the curated `namedSet`; so
+  adding a channel needs no further wiring, and `namedSet` is still the curated thirteen for the
+  places that mean exactly those (the pool `refreshEmphasis` ranks over, `seedNames()`).
+  Derived rings are seeds in `pickLabels()` too — a dot the view rings and then declines to name
+  points at a composer it refuses to identify, which is the complaint the rings answer.
+  The seven are NOT derived: they are an editorial claim about who carried the form, which is not
+  a thing a ranking recomputes. That half is still open — see issue #7.
 - **A filter fits the frame, and the fit is the RESTING view.** `computeResting()` in `chart.js`
   is the one answer to "where should this chart be sitting right now": identity with no filter,
   the box that contains the kept dots with one. `setFilter()` transitions there when the gesture

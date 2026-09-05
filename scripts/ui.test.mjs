@@ -704,6 +704,65 @@ const scatterK = await ev(`Chart.zoomK()`);
 check("a filtered timeline fits its own box, not the readers view's",
       scatterK > 1 && Math.abs(scatterK - fitK) > 0.05, `scatter k=${scatterK}, readers k=${fitK}`);
 
+// --- 4k. the ring follows the filter -----------------------------------------------------------
+// Every one of the curated thirteen is a man, so "Women" dimmed all six accented dots to 0.07 and
+// left the group with no emphasis of its own — in the one view whose whole job is picking a few
+// names out of a field. The ring now says the same thing about whatever group is on screen.
+await goto(BASE);
+const ringsOf = `(()=>{const acc=getComputedStyle(document.documentElement)
+    .getPropertyValue('--accent').trim();
+  const shown=c=>c.getAttribute('display')!=='none' && +c.getAttribute('opacity')>0.5;
+  return {dots:[...document.querySelectorAll('#plot svg circle.dot')]
+            .filter(c=>c.getAttribute('stroke')===acc && shown(c)).length,
+          labels:[...document.querySelectorAll('#plot svg text')]
+            .filter(t=>t.getAttribute('font-size')==='10.5' && t.getAttribute('fill')===acc)
+            .map(t=>t.textContent)}})()`;
+const restRings = await ev(ringsOf);
+check("the resting view rings the curated six and nothing else",
+      await ev(`Chart.derivedRings()`) === 0 && restRings.dots === 6,
+      `${restRings.dots} rings, ${await ev(`Chart.derivedRings()`)} derived`);
+await ev(`document.querySelector('#gender button[data-g="female"]').click()`);
+await sleep(700);
+const womenRings = await ev(ringsOf);
+check("filtering to the women rings six of THEM", await ev(`Chart.derivedRings()`) === 6,
+      "derived=" + await ev(`Chart.derivedRings()`));
+// A ring with no name points at a composer the view refuses to identify — the exact complaint the
+// rings were added to answer. They are seeds in pickLabels for that reason.
+check("every derived ring is also named", womenRings.dots === 6 && womenRings.labels.length === 6,
+      `${womenRings.dots} rings, ${womenRings.labels.length} accent labels: ${womenRings.labels.join(", ")}`);
+check("and it rings composers the curated set never held",
+      womenRings.labels.every(n => !restRings.labels.includes(n)),
+      "overlap: " + womenRings.labels.filter(n => restRings.labels.includes(n)).join(", "));
+// The key has to say which crowd it is talking about, or it labels the wrong channel.
+check("the legend says the ring changed crowds",
+      /stand out in this group/.test(await ev(`document.getElementById('legend').textContent`)),
+      await ev(`document.getElementById('legend').textContent.slice(0, 120)`));
+// The promise the chip makes is that a row and its dot are the same thing, so it moves too.
+check("the table chip follows the derived ring",
+      await ev(`(()=>{const acc=getComputedStyle(document.documentElement)
+          .getPropertyValue('--accent').trim();
+        const r=[...document.querySelectorAll('tbody tr')]
+          .find(r=>r.querySelector('td').title==='Elena Kats-Chernin');
+        if(!r) return false;
+        const c=r.querySelector('.chip');
+        const paint=c.style.background==='transparent' ? c.style.boxShadow : c.style.background;
+        const el=document.createElement('i'); el.style.color=acc; document.body.appendChild(el);
+        const rgb=getComputedStyle(el).color; el.remove();
+        return paint.includes(rgb)})()`));
+// Filtering to the men keeps all six curated outliers, so there is nothing to derive — the ring
+// budget is SIX, not six-plus-six, or a filter that changes almost nothing would double the ink.
+await goto(BASE + "#g=male");
+await sleep(700);
+check("a filter that keeps the curated six derives none",
+      await ev(`Chart.derivedRings()`) === 0 && (await ev(ringsOf)).dots === 6,
+      "derived=" + await ev(`Chart.derivedRings()`));
+// A ring means "stands out from the crowd it is drawn in", so it needs a crowd. Two Haydns are
+// already the whole picture; ringing them would be pointing at everything.
+await goto(BASE + "#q=haydn");
+await sleep(700);
+check("too small a group to have a crowd derives no rings",
+      await ev(`Chart.derivedRings()`) === 0, "derived=" + await ev(`Chart.derivedRings()`));
+
 // --- 5. sorting ---------------------------------------------------------------
 await goto(BASE);
 await ev(`[...document.querySelectorAll('thead th button')].find(b=>b.textContent==='Quartets').click()`);
