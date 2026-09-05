@@ -130,7 +130,8 @@ function reset(mode = "ok", status = 200) { CACHE.clear(); fetchMode = mode; fet
 // scriptless markup and so has an EMPTY BOOT_DEPS — every pixel here is drawn by script, so the
 // ROOT document is the bootability case: cached but missing d3 (or the dataset) it is a headline
 // and a blank box, which is worse than the honest offline page.
-const BOOT_FILES = ["d3.v7.min.js", "theme.js", "chart.js", "table.js", "app.js", "composers.json"];
+const BOOT_FILES = ["d3.v7.min.js", "theme.js", "chart.js", "table.js", "histogram.js",
+                    "app.js", "composers.json"];
 const seedBootableShell = () => {
   CACHE.set(BASE, makeResponse("CACHED_ROOT"));
   CACHE.set(b("index.html"), makeResponse("CACHED_INDEX"));

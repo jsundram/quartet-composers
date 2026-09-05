@@ -92,7 +92,7 @@ function renderDetail(i, preview) {
   add("Quartets", d.quartets == null ? "not stated on the list" : d.quartets);
   // The median, with its own 12-month range beside it — the spread is part of the measurement,
   // and hiding it implies a precision a page-view count does not have.
-  add("Views / mo", d.views == null ? "no data"
+  add("EN readers / mo", d.views == null ? "no data"
       : `${fmt.format(d.views)}  (${fmt.format(d.lo)}–${fmt.format(d.hi)})`);
   el.appendChild(dl);
 
@@ -161,7 +161,7 @@ function renderLegend() {
     `<div class="ticks"><span>20 yrs</span><span>${Chart.midLife()} (median)</span><span>104</span></div>`;
   el.appendChild(life);
 
-  const KEYS = [1000, 20000, 150000];
+  const KEYS = [100, 5000, 150000];
   const rs = KEYS.map(v => Chart.radiusOf(v));
   const rMax = rs[rs.length - 1];
   let cx = 2, circles = "", ticks = "";
@@ -174,7 +174,7 @@ function renderLegend() {
   }
   const size = document.createElement("div");
   size.innerHTML =
-    `<span class="lab">Views / month</span>` +
+    `<span class="lab">EN Wikipedia readers / mo</span>` +
     `<svg width="${Math.ceil(cx)}" height="${Math.ceil(rMax * 2 + 1)}" aria-hidden="true" `
       + `style="display:block">${circles}</svg>` +
     `<div class="ticks" style="width:${Math.ceil(cx)}px">${ticks}</div>`;
@@ -203,6 +203,8 @@ function writeHash() {
   if (Chart.getMode() !== "scatter") p.set("v", Chart.getMode());
   const q = $("q").value.trim();
   if (q) p.set("q", q);
+  const r = Histogram.getRange();
+  if (r) p.set("r", Math.round(r[0]) + "-" + Math.round(r[1]));
   if (selected != null) p.set("c", ROWS[selected].name);
   const s = p.toString();
   history.replaceState(null, "", s ? "#" + s : location.pathname + location.search);
@@ -210,7 +212,9 @@ function writeHash() {
 
 function readHash() {
   const p = new URLSearchParams(location.hash.replace(/^#/, ""));
-  return { v: p.get("v"), q: p.get("q") || "", c: p.get("c") };
+  const r = (p.get("r") || "").match(/^(\d+)-(\d+)$/);
+  return { v: p.get("v"), q: p.get("q") || "", c: p.get("c"),
+           r: r ? [+r[1], +r[2]] : null };
 }
 
 async function share() {
@@ -231,19 +235,39 @@ async function share() {
   }
 }
 
-// ---- search ----------------------------------------------------------------
-function applySearch() {
+// ---- filters ---------------------------------------------------------------
+// Two independent filters — the search box and the readership brush — combined by intersection.
+// Neither knows the other exists; both hand back "a Set of indices, or null for everything", so
+// this is the only place that has to reason about them together.
+function intersect(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  const out = new Set();
+  for (const i of a) if (b.has(i)) out.add(i);
+  return out;
+}
+
+// `settled` is false during a brush DRAG. The chart repaint is cheap and watching the field thin
+// out is the whole point of the control, but rebuilding ~880 table rows every frame is the one
+// thing here that stutters — so the table waits for the gesture to end.
+function applyFilters(settled) {
   const q = $("q").value;
-  visible = Table.matches(q);
+  visible = intersect(Table.matches(q), Histogram.matches());
   $("clear").hidden = !q;
+  $("hist-clear").hidden = !Histogram.getRange();
+  $("hist-read").textContent = Histogram.label();
   Chart.setFilter(visible);
-  const n = Table.render(visible);
+
+  const n = visible ? visible.size : ROWS.length;
   $("count").textContent = visible ? `${n} of ${ROWS.length}` : `${ROWS.length} composers`;
-  // A pinned composer that the search just filtered out would leave a detail panel describing
-  // someone invisible in both views. Drop the pin rather than the coherence.
-  if (selected != null && visible && !visible.has(selected)) show(null, false);
-  else Table.select(selected, false);
-  writeHash();
+  if (settled !== false) {
+    Table.render(visible);
+    // A pinned composer that a filter just excluded would leave a detail panel describing someone
+    // invisible in both views. Drop the pin rather than the coherence.
+    if (selected != null && visible && !visible.has(selected)) show(null, false);
+    else Table.select(selected, false);
+    writeHash();
+  }
 }
 
 // ---- full screen -----------------------------------------------------------
@@ -312,15 +336,20 @@ async function start() {
 
   byName = new Map(ROWS.map(d => [d.name, d.i]));
 
+  Histogram.setData(ROWS);
+  // onChange fires continuously while dragging; `done` marks the end of the gesture.
+  Histogram.init({ el: $("hist"), onChange: (_range, done) => applyFilters(done) });
+
   // Restore whatever the link asked for BEFORE the first paint, so a shared URL never shows the
   // default view for a frame and then jump-cuts to the real one.
   const link = readHash();
   if (link.v && ["swarm", "lens"].includes(link.v)) setMode(link.v);
   if (link.q) $("q").value = link.q;
+  if (link.r) Histogram.setRange(link.r);
 
   renderLegend();
   renderDetail(null, false);
-  applySearch();
+  applyFilters(true);
   if (link.c && byName.has(link.c)) show(byName.get(link.c), false);
   $("hint").textContent = Chart.hint();
   // Say exactly what each channel is and when it was measured. Three sources with three
@@ -329,16 +358,20 @@ async function start() {
   $("prov").textContent =
     `${ROWS.length} composers from the Wikipedia list (${Chart.plotted()} have a stated quartet `
     + `count and are plotted; the rest are in the table only). Dates from ${META.dates_source}. `
-    + `Size is the ${META.views_stat} ${mm.length ? `from ${mm[0]} to ${mm[mm.length - 1]}` : ""} `
-    + `— ${META.views_note}; a median rather than one month because a single month runs about 12% `
-    + `off typical. A lifespan written "83+" is the composer's age today. Built ${META.generated}.`;
+    + `Dot size is readership of the composer's ENGLISH Wikipedia article — the `
+    + `${META.views_stat}${mm.length ? ` from ${mm[0]} to ${mm[mm.length - 1]}` : ""}, a median `
+    + `rather than a single month because one month runs about 12% off typical. Read it as how `
+    + `familiar a name is to English speakers, not as importance: a Czech or Russian composer's `
+    + `readers are mostly on their own language's Wikipedia, which this does not count. `
+    + `A lifespan written "83+" is the composer's age today. Built ${META.generated}.`;
 
   wire();
 }
 
 function wire() {
-  $("q").addEventListener("input", applySearch);
-  $("clear").onclick = () => { $("q").value = ""; applySearch(); $("q").focus(); };
+  $("q").addEventListener("input", () => applyFilters(true));
+  $("clear").onclick = () => { $("q").value = ""; applyFilters(true); $("q").focus(); };
+  $("hist-clear").onclick = () => Histogram.clear();   // fires "end" -> applyFilters
 
   document.querySelectorAll(".seg button").forEach(b => {
     b.onclick = () => setMode(b.dataset.mode);
@@ -364,7 +397,7 @@ function wire() {
   let raf = 0;
   new ResizeObserver(() => {
     cancelAnimationFrame(raf);
-    raf = requestAnimationFrame(() => Chart.resize());
+    raf = requestAnimationFrame(() => { Chart.resize(); Histogram.resize(); });
   }).observe($("plot"));
 
   // Theme: chart.js and the legend BAKE colors into SVG/inline styles, which a CSS variable swap
@@ -372,6 +405,7 @@ function wire() {
   Theme.subscribe(() => {
     themeLabel();
     Chart.rerender();
+    Histogram.rerender();
     renderLegend();
     Table.render(visible);        // the row chips are baked too
     Table.select(selected, false);

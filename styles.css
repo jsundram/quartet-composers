@@ -89,6 +89,18 @@ h1{ font-size:clamp(21px, 4.6vw, 32px); letter-spacing:-.015em; font-weight:650 
 .ver{ font:500 11px/1 ui-monospace, monospace; color:var(--muted) }
 .ver.behind{ color:var(--accent); text-decoration:underline; cursor:pointer }
 
+/* --- readership filter (histogram + brush) ------------------------------------------------- */
+.filterbar{ display:flex; align-items:center; gap:12px; margin:2px 0 10px }
+.filterbar label{ font-size:12px; color:var(--muted); white-space:nowrap }
+#hist{ flex:1 1 auto; min-width:0; margin-right:2px; touch-action:none }   /* touch-action:none so d3-brush owns the drag */
+#hist svg{ display:block; width:100%; height:auto; overflow:visible }
+#hist-read{ font:500 11px/1 ui-monospace, monospace; color:var(--accent); white-space:nowrap }
+#hist-clear{ min-height:28px; padding:0 10px; font-size:12px }
+/* d3-brush chrome: keep the unselected area readable and give the handles a visible grip. */
+#hist .selection{ fill:var(--accent); fill-opacity:.10; stroke:var(--accent); stroke-opacity:.55 }
+#hist .handle{ fill:var(--accent); fill-opacity:.65 }
+#hist .overlay{ cursor:crosshair }
+
 /* --- chart ---------------------------------------------------------------------------------- */
 #plot{ position:relative; touch-action:none }   /* touch-action:none so d3-zoom owns the gesture */
 #plot svg{ display:block; width:100%; height:auto; overflow:visible }
@@ -178,6 +190,7 @@ body.fs #viz{
 body.fs #plot{ flex:1 1 auto; min-height:0 }
 body.fs #plot svg{ height:100% }
 body.fs .hint{ display:none }
+body.fs .filterbar{ margin-bottom:6px }
 body.fs main > *:not(.grid), body.fs .grid > *:not(#viz){ display:none }
 body.fs .grid{ display:block }
 
@@ -192,6 +205,8 @@ body.fs .grid{ display:block }
    two that are one tap away in the detail panel. Width-only (not hover/pointer) so a narrow
    desktop window gets the same fit — and so it still applies when printing to a narrow page. */
 @media (max-width:640px){
+  .filterbar{ flex-wrap:wrap; gap:6px 10px }
+  .filterbar #hist{ flex:1 0 100%; order:3 }
   .wide-only{ display:none }
   tbody td{ padding:9px 8px }
   thead th button{ padding:10px 8px }
@@ -206,7 +221,7 @@ body.fs .grid{ display:block }
   body{ background:#fff; color:#000; padding:0 }
   :root{ --plot:#fff; --grid:#ddd; --axis:#444; --card:#fff; --line:#999; --dot-line:#fff }
   .card{ border:0; padding:0 }
-  .controls, .tablehead, #flag, .detail-nav, #theme, .ver, .hint{ display:none }
+  .controls, .tablehead, #flag, .detail-nav, #theme, .ver, .hint, .filterbar{ display:none }
   .grid{ display:block }
   .scroll{ max-height:none; overflow:visible; border:0 }
   thead th{ position:static }

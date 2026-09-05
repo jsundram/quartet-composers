@@ -24,7 +24,8 @@ stable picture, hovering was the only way to learn anything, and a screenshot of
 | Colour = lifespan on RdYlBu-9 | Diverging ramp pivoting on the **median** lifespan, with living composers off the ramp entirely |
 | 477 composers, frozen 2014 scrape | **884**, re-scraped, with a repeatable pipeline (below) |
 | Dot size = one month of page views | **Median of 12 months** — a single month is 12% off typical, 29% at worst |
-| — | Shareable URLs (`#v=swarm&c=Joseph+Haydn`), a share card generated from the real data, installable + offline |
+| — | **Readership histogram with a drag-to-filter brush**, to get the long tail out of the way |
+| — | Shareable URLs (`#v=swarm&c=Joseph+Haydn&r=1500-200000`), a share card generated from the real data, installable + offline |
 
 ## The pipeline
 
@@ -77,8 +78,16 @@ traps, all of which this repo fell into first:
   own median. `monthly` granularity returns the whole range in **one request**, so twelve months
   costs exactly what one did. The stored series makes the statistic recomputable offline.
 
-The honest name for (d) is *English Wikipedia readership*, not popularity: a Czech composer's
-readers are largely on cs.wikipedia, and no amount of smoothing fixes that.
+The honest name for (d) is **English Wikipedia readership**, not popularity — a Czech or Russian
+composer's readers are largely on their own language's Wikipedia, which this does not count. The
+UI says so in the legend ("EN Wikipedia readers / mo"), the lede, and the provenance line, rather
+than letting "views" imply importance. A per-language fan-out via Wikidata sitelinks would trade
+one bias for a messier one and is deliberately not attempted.
+
+Readership spans 1 to 186,772 monthly views with a **median of 233**: half the roster is composers
+essentially nobody reads, and at 884 dots they are most of the ink. Hence `histogram.js` — a
+log-scale histogram of the distribution with a drag-to-select brush, which is the control and the
+context in one 56px strip. It intersects with the search box; neither knows the other exists.
 
 ## The 2014 data
 
@@ -92,8 +101,8 @@ matched to the same human.
 ## Checks
 
 ```sh
-scripts/ui-test.sh           # 31 behavioural checks in a real headless Chrome (lens, tap-to-pin,
-                             #   theme repaint, 390px layout, offline reload, print) — no deps
+scripts/ui-test.sh           # 39 behavioural checks in a real headless Chrome (lens, tap-to-pin,
+                             #   brush filter, theme repaint, 390px layout, offline, print) — no deps
 node scripts/sw.test.mjs     # 24 tests of the service worker's fetch handler
 python3 scripts/sw-lint.py   # precache contract: V bumped, SHELL paths exist, no cross-origin
 python3 scripts/og-lint.py   # share card size (a card over ~250 KB previews as a grey box)
@@ -107,7 +116,8 @@ and skips with exit 0 rather than failing if there isn't one.
 ```
 index.html        structure          styles.css   design system (light/dark/print)
 app.js            boot + selection   chart.js     the three views
-table.js          the data table     theme.js     three-state theme + JS-baked-color contract
+table.js          the data table     histogram.js the readership filter (log histogram + brush)
+theme.js          three-state theme + the JS-baked-color contract
 sw.js             offline shell + the V cache-busting constant
 composers.json    the dataset (generated — edit data/ and rebuild)
 d3.v7.min.js      vendored, not a CDN

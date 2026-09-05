@@ -129,6 +129,47 @@ check("search dims non-matching dots", await ev(`[...document.querySelectorAll('
 check("search is in the URL", (await ev(`location.hash`)).includes("q=haydn"));
 check("filtered-out pin was dropped", !(await ev(`location.hash`)).includes("c="));
 
+// --- 4b. the readership histogram filter -------------------------------------------------------
+await goto(BASE);
+const totalRows = await ev(`document.querySelectorAll('tbody tr').length`);
+check("histogram drew its bars", await ev(`document.querySelectorAll('#hist svg g rect').length >= 20`),
+      "bars=" + await ev(`document.querySelectorAll('#hist svg rect').length`));
+
+// A REAL drag across the right-hand (high-readership) half, not a programmatic setRange: the
+// point is to exercise the d3-brush wiring the user actually touches.
+const hb = await ev(`(()=>{const r=document.querySelector('#hist svg').getBoundingClientRect();
+  return {x:r.x,y:r.y,w:r.width,h:r.height}})()`);
+await mouse("mousePressed", hb.x + hb.w * 0.62, hb.y + hb.h * 0.4);
+await mouse("mouseMoved",   hb.x + hb.w * 0.85, hb.y + hb.h * 0.4);
+await mouse("mouseReleased", hb.x + hb.w * 0.99, hb.y + hb.h * 0.4);
+await sleep(500);
+const filtered = await ev(`document.querySelectorAll('tbody tr').length`);
+check("brushing filters the table to the readable tail", filtered > 0 && filtered < totalRows / 2,
+      `${filtered} of ${totalRows}`);
+check("brushing dims the rest of the chart",
+      await ev(`[...document.querySelectorAll('#plot svg circle.dot')]
+        .filter(c=>+c.getAttribute('opacity')<0.2).length > 100`));
+check("the brushed range is in the URL", (await ev(`location.hash`)).includes("r="),
+      await ev(`decodeURIComponent(location.hash)`));
+check("a readout names the range", (await ev(`document.getElementById('hist-read').textContent`)).includes("views"),
+      await ev(`document.getElementById('hist-read').textContent`));
+
+// The two filters must INTERSECT, not replace one another.
+await ev(`(()=>{const q=document.getElementById('q'); q.value='quartet';
+  q.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+await sleep(300);
+const both = await ev(`document.querySelectorAll('tbody tr').length`);
+check("search and brush combine rather than override", both <= filtered, `${both} <= ${filtered}`);
+await ev(`(()=>{const q=document.getElementById('q'); q.value='';
+  q.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+await sleep(200);
+
+await ev(`document.getElementById('hist-clear').click()`);
+await sleep(400);
+check("clearing the brush restores every row",
+      await ev(`document.querySelectorAll('tbody tr').length`) === totalRows);
+check("clearing drops the range from the URL", !(await ev(`location.hash`)).includes("r="));
+
 // --- 5. sorting ---------------------------------------------------------------
 await goto(BASE);
 await ev(`[...document.querySelectorAll('thead th button')].find(b=>b.textContent==='Quartets').click()`);

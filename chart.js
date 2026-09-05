@@ -314,7 +314,10 @@ window.Chart = (function () {
       .attr("cx", d => pos[d.i].x).attr("cy", d => pos[d.i].y).attr("r", d => pos[d.i].r)
       .attr("fill", fillOf).attr("stroke", strokeOf)
       .attr("stroke-width", d => (d.living ? 1.4 : 1))
-      .attr("opacity", d => (visible && !visible.has(d.i) ? 0.12 : 0.92));
+      // 0.07, not the 0.12 that read fine at 466 dots: at 884 the filtered-out mass is most of
+      // the ink, and the readership brush exists precisely to get it out of the way. Still drawn
+      // rather than removed, so you can see WHERE in the field the survivors sit.
+      .attr("opacity", d => (visible && !visible.has(d.i) ? 0.07 : 0.92));
 
     // selection ring + labels ---------------------------------------------
     gSel.selectAll("*").remove();

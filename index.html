@@ -63,10 +63,11 @@
   <p class="lede">
     Everyone on Wikipedia's
     <a href="https://en.wikipedia.org/wiki/List_of_string_quartet_composers">List of String Quartet
-    Composers</a>. Position is <strong>when they were born</strong> and <strong>how many quartets
-    they wrote</strong>; size is <strong>how much their Wikipedia page is read</strong> — a typical
-    month, not a lucky one; color is <strong>how long they lived</strong>, with open circles for
-    composers still living. Tap or click any dot — or any row — for the details.
+    Composers</a>. Position is <strong>birth year × quartets written</strong>; size is
+    <strong>how much their English Wikipedia article is read</strong> in a typical month —
+    familiarity to English speakers, not importance; color is <strong>lifespan</strong>, open
+    circles for the living. Drag the histogram to hide the long tail; tap any dot or row for
+    details.
   </p>
 
   <div class="grid">
@@ -80,6 +81,13 @@
         <button type="button" id="reset" class="btn" disabled>Reset zoom</button>
         <button type="button" id="share" class="btn spacer">Share</button>
         <button type="button" id="fs" class="btn" aria-pressed="false">Full screen</button>
+      </div>
+
+      <div class="filterbar">
+        <label id="hist-label" for="hist">Readership</label>
+        <div id="hist" role="group" aria-labelledby="hist-label"></div>
+        <span id="hist-read"></span>
+        <button type="button" id="hist-clear" class="btn" hidden>Clear</button>
       </div>
 
       <div id="plot">
@@ -131,6 +139,7 @@
 <script src="./d3.v7.min.js"></script>
 <script src="./theme.js"></script>
 <script src="./chart.js"></script>
+<script src="./histogram.js"></script>
 <script src="./table.js"></script>
 <script src="./ping.js"></script>   <!-- optional analytics; inert until URL_ is set -->
 <script src="./app.js"></script>

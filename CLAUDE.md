@@ -69,7 +69,7 @@ Three suites, all dependency-free:
 
 - `node scripts/sw.test.mjs` — the service worker's fetch handler under mocked SW globals.
 - `python3 scripts/sw-lint.py` — the precache contract (invariant 1).
-- `scripts/ui-test.sh` — 31 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 39 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `scripts/audit_counts.py` — not automated: it prints parsed quartet counts beside the sentence
@@ -84,5 +84,10 @@ The first two run in CI. `ui-test.sh` does not (it needs a browser) — run it b
   editing them; it is how `check-downstream.py` upstream finds this repo.
 - Comments explain *why*, and especially what breaks otherwise. Match that; don't narrate what the
   next line does.
-- `index.html` owns structure, `styles.css` owns looks, `app.js` owns boot and the one piece of
-  shared state (which composer is selected). `chart.js` and `table.js` never talk to each other.
+- `index.html` owns structure, `styles.css` owns looks, `app.js` owns boot and the shared state
+  (which composer is selected, which filters are active). `chart.js`, `table.js` and
+  `histogram.js` never talk to each other — the filters compose in `applyFilters()`, where each
+  source returns "a Set of indices, or null for everything" and they are intersected.
+- Anything that BAKES a color into JS (SVG fills in `chart.js` and `histogram.js`, the legend in
+  `app.js`) needs a `rerender()` wired into `Theme.subscribe`. Adding a fourth such component
+  means adding a fourth call there.
