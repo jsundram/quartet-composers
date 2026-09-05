@@ -49,10 +49,6 @@ window.Chart = (function () {
   const VY_DOMAIN = [0.85, 260000];     // readers/mo; 1 .. 186,772 today
   const VY_TICKS = [1, 10, 100, 1000, 10000, 100000];
   const RATIOS = [1, 10, 100, 1000, 10000];   // the readers-per-quartet diagonals
-  // How many unnamed composers the readers view will name while a filter is on (see pickLabels).
-  // Ten, because the view's whole character is a readable handful rather than every name that
-  // fits: a filter narrows the argument, it does not turn this into the timeline.
-  const EXTRA_LABELS = 10;
 
   // The editorial spine, and the only hardcoded composer NAMES in the app. They are canonical
   // Wikipedia titles, which change spelling when the pipeline runs (see invariant 4), so a name
@@ -128,6 +124,7 @@ window.Chart = (function () {
       X_DOMAIN = [Math.floor((d3.min(yrs) - 8) / 50) * 50, Math.ceil((d3.max(yrs) + 8) / 50) * 50];
     }
     swarmY = null;
+    scoreProminence();
   }
 
   // ---- colors -------------------------------------------------------------
@@ -190,6 +187,42 @@ window.Chart = (function () {
   function colorOf(d) {
     if (mode === "readers") return isCanon(d.i) ? C.sel : named(d.i) ? C.accent : C.muted;
     return d.living ? C.living : colorScale(d.lifespan);
+  }
+
+  // ---- label priority -----------------------------------------------------
+  // LABELS ARE A FUNCTION OF ZOOM, like a map. A fixed set answers a pinch with the same names
+  // larger, which makes the zoom decorative: the interaction promises detail and delivers scale.
+  // So the budget grows with the zoom (pickLabels) and this decides who fills it.
+  //
+  // PROMINENCE is how far a dot stands out from the crowd it is drawn in: z-scored on each axis,
+  // then the distance from the centre. Z-scores rather than raw decades because the two axes have
+  // different spreads, and a rule that ignores that just ranks whichever axis is wider.
+  //
+  // Recomputed over the VISIBLE set, so a filter ranks that group against ITSELF. That is the
+  // whole reason it beats readership here: filtered to the women, readership names whoever has
+  // the largest article (Beach, Monk — famous for other work, one quartet each), while prominence
+  // names Kats-Chernin and Vrebalov, who wrote 25 and 18 of them. Neither is wrong; only one is
+  // about this chart. Against the full roster it recovers eight of the thirteen curated names,
+  // including the prolific end (Cambini, Ellerton, Krommer) that readership is blind to.
+  let prom = new Map();
+  // Below this a "prominent" dot is a data hole rather than a composer: Fernand de la Tombelle
+  // sits at 1 quartet and 1 view/month because he is the one row with no Wikidata item at all,
+  // and he outranks Shostakovich on distance alone. He is still drawn, and still selectable — he
+  // just cannot win a label on the strength of a number nobody has.
+  const MIN_VIEWS = 5;
+
+  function scoreProminence() {
+    prom = new Map();
+    const vis = rows.filter(d => plottable(d) && d.views > 0 && (!visible || visible.has(d.i)));
+    if (vis.length < 2) return;
+    const lq = vis.map(d => Math.log10(d.quartets)), lv = vis.map(d => Math.log10(d.views));
+    const mean = a => a.reduce((t, v) => t + v, 0) / a.length;
+    const sd = (a, m) => Math.sqrt(mean(a.map(v => (v - m) * (v - m)))) || 1;
+    const mq = mean(lq), mv = mean(lv), sq = sd(lq, mq), sv = sd(lv, mv);
+    for (const d of vis) {
+      if (d.views < MIN_VIEWS) continue;
+      prom.set(d.i, Math.hypot((Math.log10(d.quartets) - mq) / sq, (Math.log10(d.views) - mv) / sv));
+    }
   }
 
   // ---- geometry -----------------------------------------------------------
@@ -341,28 +374,28 @@ window.Chart = (function () {
     // Full screen earns more labels, but not proportionally more: a phone in full screen is TALL
     // and narrow, and 40+ names there collide with dots even when they miss each other.
     const full = document.body.classList.contains("fs");
-    const cap = full ? (w < 560 ? 20 : 42) : Math.max(4, Math.round(w / 62));
-    // The readers view labels the thirteen names it is ABOUT and nothing else. Filling the rest of
-    // the space with whoever is most-read next is exactly the flood that stops direct labels
-    // working: the argument is a handful of names against a field, so that is what gets written
-    // on it.
+    const base = full ? (w < 560 ? 20 : 42) : Math.max(4, Math.round(w / 62));
+    // THE BUDGET GROWS WITH THE ZOOM. Pinching in is a request for detail, and answering it with
+    // the same names larger is what made the zoom decorative. Log, not linear: a 24x zoom earns
+    // about five times the names, not twenty-four times, and the greedy placer still has to find
+    // room for each one.
+    let cap = Math.round(base * (1 + Math.log2(Math.max(1, transform.k))));
+    // AT FIRST SIGHT the readers view says exactly what it is about: the thirteen curated names,
+    // and nothing else. That set is a judgment no single ranking reproduces — the best one
+    // recovers eight of them — so it stays as the SEED rather than being derived away, and this
+    // one case pins the budget to it so the resting picture is what it always was.
     //
-    // UNLESS A FILTER IS ON, and then the argument is a different one. Every one of the thirteen
-    // is a man, so "Women" left the view with 219 emphasised dots and not a single name on any of
-    // them — the filter answered "where are they" and refused to answer "who". A filtered field is
-    // also small enough that the flood the rule guards against cannot happen. So the survivors of
-    // the named set keep their labels and the most-read of whoever else is left fills in behind
-    // them, which is exactly what the other three views do all the time.
-    const readersCands = () => {
-      const keep = canonIdx.concat(outlierIdx).map(i => rows[i]).filter(isVisible);
-      if (!visible) return keep;
-      const rest = rows.filter(d => isVisible(d) && !named(d.i))
-                       .sort((a, b) => b.views - a.views)
-                       .slice(0, EXTRA_LABELS);
-      return keep.concat(rest);
-    };
+    // Every other state fills the budget from the seed and then by prominence: zoomed in, where
+    // the space is real and the reader has asked for detail, and filtered, where the seed is
+    // mostly gone — every one of the thirteen is a man, so "Women" used to leave 219 emphasised
+    // dots with no name on any of them, answering "where are they" while refusing to say "who".
+    const seeds = canonIdx.concat(outlierIdx).map(i => rows[i]).filter(isVisible);
+    const first = mode === "readers" && !visible && transform.k === 1;
+    if (first) cap = seeds.length;
     const cands = mode === "readers"
-      ? readersCands()
+      ? seeds.concat(first ? []
+          : rows.filter(d => isVisible(d) && !named(d.i) && prom.has(d.i))
+                .sort((a, b) => prom.get(b.i) - prom.get(a.i)))
       : rows.filter(isVisible).sort((a, b) => b.views - a.views);
     // The selected composer is placed FIRST so it never loses its label to a rival -- but it is
     // only in `cands` if it was a candidate. In the readers view the list is the 13 named, so
@@ -704,7 +737,7 @@ window.Chart = (function () {
     measure(); applyZoomBehavior(); draw();
   }
 
-  function setFilter(set) { visible = set; draw(); }
+  function setFilter(set) { visible = set; scoreProminence(); draw(); }
   function setSelected(i) { selected = i; draw(); }
   function resetZoom() { if (mode === "lens") { lens = null; draw(); return; } svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity); }
   function zoomed() { return mode !== "lens" && transform.k !== 1; }
@@ -727,6 +760,9 @@ window.Chart = (function () {
            // Empty unless a pipeline run renamed one of the composers the readers view argues
            // about; the UI suite asserts it, so a rename fails loudly instead of dropping a dot.
            missingNames: () => missing.slice(),
+           // The curated thirteen, for the suite: the resting readers view must show these and
+           // only these, and a zoom must show something else.
+           seedNames: () => CANON.concat(OUTLIERS),
            resetZoom, zoomed, colorOf, hint,
            lifeDomain: () => LIFE_DOMAIN.slice(),
            // How many dots the readers view actually emphasises, and how many it can place at

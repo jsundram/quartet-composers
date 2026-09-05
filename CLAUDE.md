@@ -104,7 +104,7 @@ Four suites, all dependency-free:
   compares composers.json against its schema, the other caches, and the previous commit. Run it
   after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 122 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 126 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `scripts/audit_counts.py` — not automated: it prints parsed quartet counts beside the sentence
@@ -174,6 +174,14 @@ made on evidence.
   state (pinned, with the nav row) and ellipsizes the name. Without that, moving the mouse across
   the chart pumps the legend up and down. Touch screens get neither rule — no hover to churn, and
   the space is the chart's.
+- **Labels are a function of zoom, not a list.** `pickLabels()` in `chart.js` spends a budget that
+  grows with the zoom (`base × (1 + log₂ k)`) on candidates that are frame-culled, so pinching in
+  names what is in the frame. In the Readers view the curated thirteen are the SEED and fill the
+  budget first; beyond them the ranking is `prom`, z-scored distance from the centre of the visible
+  cloud, recomputed in `setFilter()`/`setData()` because a filter must rank its own group. The one
+  special case is the resting unfiltered Readers view, where the budget is pinned to the seed so
+  the view says exactly what it is about — that is also the state `make-og-svg.py` draws, which is
+  why the share card needs the seed and no ranking (invariant 14).
 - **Anything the zoom moves must be clipped.** `chart.js` clips the dots, labels, selection ring
   and lens to `#plot-clip`; a new zoom-transformed group needs the same `clip-path`, or a pinch
   lays it out over the axes and past the card edge.

@@ -49,9 +49,32 @@ phone they take a third line rather than crowding the brush.
 
 One thing the filter exposed: all thirteen composers the Readers view labels are men, so "Women"
 drew 219 emphasised dots with no name on any of them — it answered "where are they" and refused to
-answer "who". While a filter is on, the view now names the most-read ten of whoever is left
-(`EXTRA_LABELS` in `chart.js`), which is what the other three views do all the time. Unfiltered it
-is unchanged: the thirteen and nothing else.
+answer "who". Fixing it properly meant fixing the labels generally, which is the entry below.
+
+### ~~Labels were a fixed set, not a function of zoom~~ — done, 2026-09-05
+The Readers view labelled thirteen hardcoded names and nothing else, at every zoom level, which
+made the zoom decorative: pinching in promised detail and delivered scale. It now works the way a
+map does — a budget that grows with the zoom (`base × (1 + log₂ k)`), filled from the seed and then
+by PROMINENCE, and frame-culled, so zooming into a region names what is in that region. At rest,
+unfiltered, the budget is pinned to the seed, so the resting picture and the share card are exactly
+what they were.
+
+Prominence is z-scored distance from the centre of the visible cloud — how far a dot stands out
+from the crowd it is drawn in. Recomputed over the VISIBLE set, so a filter ranks that group
+against itself: filtered to the women, readership would name whoever has the biggest article
+(Beach, Monk — one quartet each, known for other work), while prominence names Kats-Chernin and
+Vrebalov, who wrote 25 and 18 of them.
+
+Four rankings were checked against the thirteen hand-picked names, which is the only ground truth
+here. Prominence recovers 8; corner (quartets × readers) and readership recover 6 each; readership
+is blind to the whole prolific end. **No single scalar reproduces the curated set** — which is the
+argument for keeping it as the seed rather than deriving it away.
+
+What the view should ASSERT at first sight — whether the thirteen stay curated, and whether the
+fill and ring emphasis should follow a filter the way the labels now do — is left open on purpose:
+it is an editorial question, not a ranking bug.
+[#7](https://github.com/jsundram/quartet-composers/issues/7) carries the scored comparison of the
+four rankings, the Ravel/Corea substitution nobody wrote down a reason for, and the four decisions.
 
 ### Readership is displayed to two significant figures; the data has one meaningful one
 `twoSig()` in `app.js` quantizes the median to two figures and floors it, so Mozart reads "180k+"

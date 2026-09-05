@@ -392,6 +392,36 @@ check("and says something different in the readers view",
       (await ev(`document.querySelector('#plot svg').getAttribute('aria-label')`)).includes("readers"),
       await ev(`document.querySelector('#plot svg').getAttribute('aria-label')`));
 
+// Labels are a function of ZOOM, like a map. A fixed set answers a pinch with the same names
+// larger, which makes the interaction decorative: it promises detail and delivers scale. At rest
+// the readers view still says exactly what it is about -- the thirteen -- and nothing else.
+await goto(BASE);
+const restLabels = await ev(`[...document.querySelectorAll('#plot svg text')]
+  .filter(t=>new Set(ROWS.map(d=>d.name)).has(t.textContent)).length`);
+const pbox = await ev(`(()=>{const b=document.querySelector('#plot svg rect.bg').getBoundingClientRect();
+  return {x:b.x,y:b.y,w:b.width,h:b.height}})()`);
+for (let i = 0; i < 6; i++) {
+  await send("Input.dispatchMouseEvent", { type: "mouseWheel", x: pbox.x + pbox.w / 2,
+    y: pbox.y + pbox.h / 2, deltaX: 0, deltaY: -120, pointerType: "mouse" });
+  await sleep(80);
+}
+await sleep(400);
+const zoomLabels = await ev(`[...document.querySelectorAll('#plot svg text')]
+  .filter(t=>new Set(ROWS.map(d=>d.name)).has(t.textContent)).length`);
+check("zooming the readers view reveals more names", zoomLabels > restLabels,
+      `${restLabels} at rest -> ${zoomLabels} zoomed in`);
+check("the names it reveals are ones the seed never had",
+      await ev(`(()=>{const seed=new Set(Chart.seedNames());
+        return [...document.querySelectorAll('#plot svg text')].map(t=>t.textContent)
+          .filter(t=>new Set(ROWS.map(d=>d.name)).has(t)).some(n=>!seed.has(n))})()`));
+await ev(`document.getElementById('reset').click()`);
+await sleep(600);
+check("and the resting picture is still just the seed",
+      await ev(`(()=>{const seed=new Set(Chart.seedNames());
+        return [...document.querySelectorAll('#plot svg text')].map(t=>t.textContent)
+          .filter(t=>new Set(ROWS.map(d=>d.name)).has(t)).every(n=>seed.has(n))})()`),
+      "a derived name is showing at rest, where the view should say only what it is about");
+
 // --- 4f. one filter row, above everything it scopes -------------------------------------------
 check("the filter row is not inside the chart or the table card",
       await ev(`(()=>{const f=document.getElementById('filters');
@@ -508,6 +538,12 @@ const wlabels = await ev(`[...document.querySelectorAll('#plot svg text')].map(t
 check("a filtered readers view still names somebody",
       wlabels.some(t => t.includes("Florence Price")) && wlabels.length > 3,
       wlabels.filter(t => !/quartet|readers|written|month/.test(t)).join(" | "));
+// Prominence, not readership: filtered to the women, readership names whoever has the biggest
+// article (Beach, Monk — one quartet each, famous for other work) and never reaches the two who
+// actually wrote the quartets. This is the difference the ranking exists to make.
+check("the filtered view names the composers who stand out ON THIS CHART",
+      wlabels.some(t => t.includes("Kats-Chernin")) && wlabels.some(t => t.includes("Vrebalov")),
+      wlabels.filter(t => /[A-Za-z]{4} /.test(t)).join(" | "));
 check("it names only composers the filter kept",
       await ev(`(()=>{const kept=new Set([...document.querySelectorAll('tbody tr td:first-child')]
           .map(c=>c.title));
