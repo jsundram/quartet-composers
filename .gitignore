@@ -9,3 +9,10 @@ __pycache__/
 
 # Claude Code: track .claude/settings.json (team hooks), ignore the ephemeral working dir.
 .claude/.cc-writes/
+
+# mocks/: the .dc.html artboards are committed (they embed everything they need); the
+# intermediate SVGs, the PNG previews and the ~2 MB seeded canvas payload are all regenerable.
+mocks/chart-*.svg
+mocks/*.png
+mocks/stats.json
+mocks/*-directions.html

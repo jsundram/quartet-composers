@@ -14,7 +14,12 @@
   --bg:#f6f5f2; --card:#ffffff; --ink:#191919; --muted:#5f6560; --line:#e2ded6; --accent:#1f6f9f;
   --sel:#c2410c;
   --plot:#fbfaf8; --grid:#e8e4dc; --axis:#6b7169; --dot-line:#ffffff;
-  --c-short:#b35806; --c-mid:#cec7ba; --c-long:#542788;   /* diverging: short / median / long life */
+  /* Lifespan reads HOT to COLD: died young is red, lived long is blue, with a neutral at the
+     median. The old ramp's midpoint (#cec7ba) sat at 1.61:1 against --plot, so the single most
+     COMMON lifespan was the least visible dot on the chart; every step here clears 3:1 and the
+     pair clears the CVD floor on the real surfaces. Re-run the dataviz palette validator against
+     --plot, not --card, if you change them. */
+  --c-short:#b2182b; --c-mid:#7c828a; --c-long:#2166ac;   /* diverging: hot / median / cold */
   --c-living:#8b9188;                                      /* open circles; stroke only */
   --radius:12px; --maxw:1180px;
 }
@@ -23,7 +28,7 @@
     --bg:#14161a; --card:#1c1f25; --ink:#eceef0; --muted:#9aa3a8; --line:#333a42; --accent:#7ec2f0;
     --sel:#fb923c;
     --plot:#191c21; --grid:#2b313a; --axis:#98a1a8; --dot-line:#14161a;
-    --c-short:#f0a44a; --c-mid:#7e8079; --c-long:#b3a4dd;
+    --c-short:#ef6a58; --c-mid:#6f757c; --c-long:#5aa8f0;
     --c-living:#8e979c;
   }
 }
@@ -31,7 +36,7 @@
   --bg:#14161a; --card:#1c1f25; --ink:#eceef0; --muted:#9aa3a8; --line:#333a42; --accent:#7ec2f0;
   --sel:#fb923c;
   --plot:#191c21; --grid:#2b313a; --axis:#98a1a8; --dot-line:#14161a;
-  --c-short:#f0a44a; --c-mid:#7e8079; --c-long:#b3a4dd;
+  --c-short:#ef6a58; --c-mid:#6f757c; --c-long:#5aa8f0;
   --c-living:#8e979c;
 }
 

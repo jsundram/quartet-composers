@@ -349,6 +349,10 @@ check("a shared surname is disambiguated, an unshared one is not",
 check("no Wikipedia disambiguator leaks into the column",
       await ev(`[...document.querySelectorAll('tbody tr td:first-child')]
         .every(c => !/[()\\d]/.test(c.textContent))`));
+check("a compound surname is not split in half",
+      await ev(`[...document.querySelectorAll('tbody tr td:first-child')]
+        .some(c => c.textContent.trim() === 'Maxwell Davies')`),
+      "Peter Maxwell Davies is filed under Maxwell Davies, not Davies");
 check("every surname override still names a composer",
       (await ev(`Table.staleOverrides()`)).length === 0,
       "stale: " + JSON.stringify(await ev(`Table.staleOverrides()`)));
@@ -382,7 +386,7 @@ await ev(`Theme.set('dark')`); await sleep(400);
 const darkFill = await ev(`document.querySelector('#plot svg circle.dot').getAttribute('fill')`);
 check("theme flip re-bakes the dot colors", lightFill !== darkFill, `${lightFill} -> ${darkFill}`);
 check("theme flip re-bakes the legend ramp",
-      (await ev(`document.querySelector('#legend .ramp').style.background`)).includes("240, 164, 74"),
+      (await ev(`document.querySelector('#legend .ramp').style.background`)).includes("239, 106, 88"),
       await ev(`document.querySelector('#legend .ramp').style.background`));
 await shot("dark");
 await ev(`Theme.set('auto')`);

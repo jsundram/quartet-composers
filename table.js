@@ -56,11 +56,23 @@ window.Table = (function () {
   // "the last word", which is right about 870 times; SURNAME holds the ones it is wrong about.
   // That list is a judgment call, not a fact, and staleOverrides() reports any entry that no
   // longer matches a composer so a pipeline rename shows up instead of silently doing nothing.
+  //
+  // AUDITED against all 884 (2026-09-05), which is worth redoing after a re-scrape rather than
+  // trusting. Two classes can break the rule and both were checked exhaustively:
+  //   family-name-first — only "Chen Yi". "Isang Yun", "Unsuk Chin" and "Shigeru Kan-no" carry
+  //     Westernised article titles, so the last word IS the family name and the rule is right.
+  //   compound surnames — found by listing the penultimate word of every 3+ word name; ~80 are
+  //     ordinary middle names and the five below are not.
+  // Left deliberately alone: French and Dutch particles file under the last word here
+  // ("Fernand de la Tombelle" → Tombelle, "Louise Haenel de Cronenthall" → Cronenthall), where a
+  // French index would keep the particle. Both are still recognisable, and the whole point of the
+  // column is to be narrow.
   const SUFFIXES = new Set(["junior", "jr", "jr.", "sr", "sr.", "ii", "iii", "iv"]);
   const SURNAME = {
     // Compound surnames the last-word rule splits in half.
     "Ralph Vaughan Williams": "Vaughan Williams",
     "David Vaughan Thomas": "Vaughan Thomas",
+    "Peter Maxwell Davies": "Maxwell Davies",
     "Vincenza Garelli della Morea": "Garelli della Morea",
     "Tera de Marez Oyens": "de Marez Oyens",
     // Capitalised particles that are part of the name, not a nobiliary prefix to drop.

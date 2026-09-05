@@ -100,14 +100,17 @@ drawn. `X_DOMAIN` is now derived in `setData()` from the PLOTTABLE birth years (
 snapped out to a 50-year grid — 1700–2000. Nothing was dropped and no axis was broken.
 `make-og-svg.py` derives the same domain; keep them in step.
 
-### The Timeline view still spends hue on lifespan — the wrong colour job
-The Readers view moved colour onto the argument; Timeline, Swarm and Lens still carry the
-diverging orange↔purple lifespan ramp. Two problems with it, both measurable. A diverging scale
-encodes POLARITY — distance either side of a meaningful baseline — and lifespan has none: the ramp
-pivots on the median lifespan of whoever is currently in the dataset, which moves when the data
-does. And its midpoint `--c-mid` (#cec7ba) sits at 1.61:1 against the plot surface, so the most
-COMMON lifespan is the least visible dot on the chart. A sequential ramp (one hue, light→dark) is
-the honest form; emphasis is the better one if those views get an argument of their own.
+### Lifespan is still a DIVERGING ramp, which is the wrong colour job
+Half fixed. The ramp now reads hot→cold (died young is red, lived long is blue) with a neutral
+median, and every step clears 3:1 against the plot surface — the old midpoint sat at 1.61:1, so
+the single most COMMON lifespan was the least visible dot on the chart. Steps were chosen with the
+dataviz palette validator against `--plot` in both modes, not by eye; re-run it if they change.
+
+What is NOT fixed: a diverging scale encodes POLARITY — distance either side of a meaningful
+baseline — and lifespan has none. The ramp pivots on the median lifespan of whoever is currently
+in the dataset, which moves when the data does. Sequential (one hue, light→dark) is the honest
+form. Deliberately left, so Timeline/Swarm/Lens keep an encoding while only Readers carries an
+argument; revisit if those views get an argument of their own.
 
 ### The Readers view drops birth year entirely
 Which is the thing the mocked-up "canon path" would have added: joining the seven in birth order

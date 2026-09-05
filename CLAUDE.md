@@ -95,7 +95,7 @@ Four suites, all dependency-free:
   compares composers.json against its schema, the other caches, and the previous commit. Run it
   after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 86 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 87 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `scripts/audit_counts.py` — not automated: it prints parsed quartet counts beside the sentence
@@ -103,6 +103,14 @@ Four suites, all dependency-free:
 
 The first two run in CI. `ui-test.sh` does not (it needs a browser) — run it by hand after touching
 `chart.js`, `table.js`, or `styles.css`.
+
+## Design artifacts
+
+`mocks/` holds the artboards a design decision was made from — currently the canvas that chose the
+Readers view over two alternatives. They are drawn from `composers.json` by `mocks/gen.py`, which
+duplicates chart.js's scales for the same reason `make-og-svg.py` does. Nothing there ships, and
+nothing there follows a change to `chart.js`: they are a record of a decision, not a second
+implementation of it. See `mocks/README.md`.
 
 ## Where to pick up
 
