@@ -59,6 +59,10 @@ async function shot(name) {
 }
 async function goto(url) {
   await send("Page.navigate", { url });
+  // A navigation that changes only the FRAGMENT is same-document: the app never re-runs, so
+  // goto(BASE + "#v=scatter") from BASE quietly left the previous section's view in place and the
+  // checks that followed tested the wrong chart. Force the load.
+  if (url.includes("#")) await send("Page.reload", { ignoreCache: false });
   for (let i = 0; i < 100; i++) { if (await ev("document.readyState === 'complete'")) break; await sleep(60); }
   await sleep(700);
 }
@@ -104,7 +108,9 @@ const dot = await ev(`(()=>{const s=document.querySelector('#plot svg');const r=
 // Whoever is most-read: the table defaults to views-descending, so row 0 IS the biggest dot.
 // Deliberately NOT hardcoded — the first `fetch_views.py` refresh moved Beethoven (-33% since
 // 2014) below Mozart (-3%) and broke two assertions that were asserting 2014 trivia, not behavior.
-const top = (await ev(`document.querySelector('tbody tr td').textContent`)).trim();
+// The cell TEXT is now the surname; the cell's title carries the full canonical name, which is
+// what the hash and the detail panel use.
+const top = (await ev(`document.querySelector('tbody tr td').title`)).trim();
 await mouse("mouseMoved", dot.x, dot.y);
 await sleep(300);
 check("hover shows the name flag", await ev(`document.getElementById('flag').classList.contains('on')`),
@@ -188,7 +194,9 @@ check("clearing the brush restores every row",
 check("clearing drops the range from the URL", !(await ev(`location.hash`)).includes("r="));
 
 // --- 4c. the frame holds: nothing escapes the plot rectangle under a zoom ----------------------
-await goto(BASE);
+// Pinned to the timeline view: it is the one with the birth-year domain and the size legend these
+// checks are about. The default view is now Readers (section 4e).
+await goto(BASE + "#v=scatter");
 const frame = await ev(`(()=>{const s=document.querySelector('#plot svg');
   const b=s.querySelector('rect.bg').getBoundingClientRect(); const r=s.getBoundingClientRect();
   return {bx:b.x,by:b.y,bw:b.width,bh:b.height,sx:r.x,sy:r.y,sw:r.width,sh:r.height}})()`);
@@ -277,6 +285,82 @@ check("size-legend labels sit under their circles",
           e.getBoundingClientRect().x+e.getBoundingClientRect().width/2 -
           (t[i].getBoundingClientRect().x+t[i].getBoundingClientRect().width/2)) < 1.5)})()`));
 
+// --- 4e. the readers view: the one that makes the page's argument ------------------------------
+await goto(BASE);
+check("the readers view is what a bare URL opens on",
+      await ev(`Chart.getMode() === 'readers'`), await ev(`Chart.getMode()`));
+// The thirteen names are the ONLY hardcoded composer strings in the app, and they are canonical
+// Wikipedia titles — which change spelling when the pipeline runs (invariant 4). A rename has to
+// fail here rather than quietly drop a composer out of the argument the view is making.
+check("every named composer still resolves in the data",
+      (await ev(`Chart.missingNames()`)).length === 0,
+      "missing: " + JSON.stringify(await ev(`Chart.missingNames()`)));
+// Mozart sits 2.6% from the top of this view and Cambini hard against the right edge, so a
+// labeller that only ever tries "above" drops exactly the two dots the argument is built on.
+const named = await ev(`[...document.querySelectorAll('#plot svg text')]
+  .filter(t => t.getAttribute('font-size') === '10.5').map(t => t.textContent)`);
+for (const who of ["Wolfgang Amadeus Mozart", "Giuseppe Cambini", "Joseph Haydn"])
+  check(`${who} is labelled in the readers view`, named.includes(who), named.length + " labels placed");
+check("only the named composers are labelled", named.length <= 13, named.length + " labels");
+check("the readers-per-quartet diagonals are drawn",
+      await ev(`document.querySelectorAll('#plot svg line.dg').length >= 4`),
+      "lines=" + await ev(`document.querySelectorAll('#plot svg line.dg').length`));
+check("the diagonals are trimmed to the plot, not drawn past it",
+      await ev(`(()=>{const s=document.querySelector('#plot svg');
+        const b=s.querySelector('rect.bg'); const w=+b.getAttribute('width'), h=+b.getAttribute('height');
+        return [...s.querySelectorAll('line.dg')].every(l=>['x1','x2'].every(a=>+l.getAttribute(a)>=-0.5 && +l.getAttribute(a)<=w+0.5)
+          && ['y1','y2'].every(a=>+l.getAttribute(a)>=-0.5 && +l.getAttribute(a)<=h+0.5))})()`));
+// Size is the y axis here, so a radius that repeated it would double-encode the one variable the
+// view is about. Every unnamed dot is the same size.
+const radii = await ev(`[...new Set([...document.querySelectorAll('#plot svg circle.dot')]
+  .map(c => c.getAttribute('r')))].length`);
+check("size is not double-encoded in the readers view", radii <= 2, radii + " distinct radii");
+check("the table chip follows the view's encoding",
+      await ev(`(()=>{const rows=[...document.querySelectorAll('tbody tr')];
+        const moz=rows.find(r=>r.textContent.includes('Mozart'));
+        const tch=rows.find(r=>r.textContent.includes('Tchaikovsky'));
+        return moz && tch && moz.querySelector('.chip').style.background
+             !== tch.querySelector('.chip').style.background})()`));
+
+// --- 4f. one filter row, above everything it scopes -------------------------------------------
+check("the filter row is not inside the chart or the table card",
+      await ev(`(()=>{const f=document.getElementById('filters');
+        return !document.getElementById('viz').contains(f)
+            && f.parentElement.tagName === 'MAIN'})()`));
+check("the filter row comes before the chart",
+      await ev(`(()=>{const f=document.getElementById('filters'), g=document.querySelector('.grid');
+        return f.compareDocumentPosition(g) & Node.DOCUMENT_POSITION_FOLLOWING})()`) > 0);
+check("both filters still scope both views",
+      await ev(`!!document.getElementById('filters').querySelector('#q')
+             && !!document.getElementById('filters').querySelector('#hist')`));
+
+// --- 4g. the table shows surnames --------------------------------------------------------------
+// Full titles made the composer column the widest thing on a phone and sorted Joseph Haydn under
+// J. Surname only, with a forename added ONLY where the surname is shared.
+check("the table shows the surname, not the full title",
+      await ev(`document.querySelector('tbody tr td').textContent.trim() === 'Mozart'`),
+      await ev(`document.querySelector('tbody tr td').textContent.trim()`));
+check("the full name is still reachable from the row",
+      await ev(`document.querySelector('tbody tr td').title.includes('Wolfgang')`));
+check("a shared surname is disambiguated, an unshared one is not",
+      await ev(`(()=>{const t=[...document.querySelectorAll('tbody tr td:first-child')]
+        .map(c=>c.textContent.trim());
+        return t.includes('Haydn, Joseph') && t.includes('Haydn, Michael') && t.includes('Beethoven')})()`));
+check("no Wikipedia disambiguator leaks into the column",
+      await ev(`[...document.querySelectorAll('tbody tr td:first-child')]
+        .every(c => !/[()\\d]/.test(c.textContent))`));
+check("every surname override still names a composer",
+      (await ev(`Table.staleOverrides()`)).length === 0,
+      "stale: " + JSON.stringify(await ev(`Table.staleOverrides()`)));
+await ev(`[...document.querySelectorAll('thead th button')].find(b=>b.textContent==='Composer').click()`);
+await sleep(200);
+check("sorting by Composer sorts by surname",
+      await ev(`(()=>{const t=[...document.querySelectorAll('tbody tr td:first-child')]
+        .slice(0,3).map(c=>c.textContent.trim());
+        return t.every((v,i)=>i===0||t[i-1].localeCompare(v)<=0)})()`),
+      await ev(`[...document.querySelectorAll('tbody tr td:first-child')].slice(0,3)
+        .map(c=>c.textContent.trim()).join(' | ')`));
+
 // --- 5. sorting ---------------------------------------------------------------
 await goto(BASE);
 await ev(`[...document.querySelectorAll('thead th button')].find(b=>b.textContent==='Quartets').click()`);
@@ -291,7 +375,8 @@ check("sort by Died keeps living composers off the top",
       "first Died cell = " + await ev(`document.querySelectorAll('tbody tr')[0].children[2].textContent`));
 
 // --- 6. dark mode repaints the JS-baked colors --------------------------------
-await goto(BASE);
+// The timeline view, because the lifespan ramp is the legend piece that is baked from the tokens.
+await goto(BASE + "#v=scatter");
 const lightFill = await ev(`document.querySelector('#plot svg circle.dot').getAttribute('fill')`);
 await ev(`Theme.set('dark')`); await sleep(400);
 const darkFill = await ev(`document.querySelector('#plot svg circle.dot').getAttribute('fill')`);

@@ -202,6 +202,32 @@ function renderLegend() {
   const el = $("legend");
   el.innerHTML = "";
 
+  // The views do not encode the same things, so they cannot share a key. In the readers view
+  // size means nothing (readership is the y axis) and hue is emphasis, not lifespan — showing
+  // the lifespan ramp and a size key there would label channels that are not carrying anything.
+  if (Chart.getMode() === "readers") {
+    const who = document.createElement("div");
+    who.innerHTML =
+      `<span class="lab">Named on the chart</span>` +
+      `<div class="swatches">` +
+        `<span class="sw"><i style="background:${g("--sel")}"></i>` +
+        `the seven, in birth order</span>` +
+        `<span class="sw"><i style="box-shadow:inset 0 0 0 2px ${g("--accent")}"></i>` +
+        `the outliers at either end</span>` +
+        `<span class="sw"><i style="background:${g("--muted")};opacity:.3"></i>` +
+        `the other ${Chart.plotted() - 13} composers</span>` +
+      `</div>`;
+    el.appendChild(who);
+
+    const dia = document.createElement("div");
+    dia.innerHTML =
+      `<span class="lab">Diagonals</span>` +
+      `<div class="swatches"><span class="sw">readers per quartet — higher above a line is ` +
+      `more read for what they wrote</span></div>`;
+    el.appendChild(dia);
+    return;
+  }
+
   const life = document.createElement("div");
   life.innerHTML =
     `<span class="lab">Lifespan</span>` +
@@ -271,13 +297,25 @@ function renderLegend() {
 //                    just tapped it is exactly the churn this avoids.
 const WIDE = matchMedia("(min-width:900px)");
 
+// The filter row is a sibling of .grid, which body.fs hides outright — so in full screen it moves
+// into the chart card, where CSS drops its search half and keeps the readership brush. Same move
+// as placeDetail, and it must run first so the two land in the right order.
+function placeFilters() {
+  const f = $("filters"), viz = $("viz");
+  const fs = document.body.classList.contains("fs");
+  const parent = fs ? viz : document.querySelector("main");
+  const before = fs ? viz.firstElementChild : document.querySelector(".grid");
+  if (f.parentNode === parent && f.nextElementSibling === before) return;
+  parent.insertBefore(f, before);
+}
+
 function placeDetail() {
   const det = $("detail"), viz = $("viz");
   const fs = document.body.classList.contains("fs");
   const inCard = !WIDE.matches || fs;
   det.classList.toggle("compact", inCard);
   const parent = inCard ? viz : document.querySelector(".grid");
-  const before = inCard ? (fs ? $("plot") : $("legend")) : null;
+  const before = inCard ? (fs ? $("plot") : viz.querySelector(".controls")) : null;
   if (det.parentNode === parent && det.nextElementSibling === before) return;
   parent.insertBefore(det, before);            // insertBefore(x, null) === appendChild
   renderDetail(selected, false);               // the strip and the panel say different things
@@ -293,7 +331,7 @@ function placeDetail() {
 // link rots without anyone noticing it rotted.
 function writeHash() {
   const p = new URLSearchParams();
-  if (Chart.getMode() !== "scatter") p.set("v", Chart.getMode());
+  if (Chart.getMode() !== Chart.defaultMode()) p.set("v", Chart.getMode());
   const q = $("q").value.trim();
   if (q) p.set("q", q);
   const r = Histogram.getRange();
@@ -369,7 +407,8 @@ function applyFilters(settled) {
 // chrome too — and its failure is ignored, never surfaced.
 function setFull(on) {
   document.body.classList.toggle("fs", on);
-  placeDetail();                     // the grid column is hidden in full screen; move, don't lose
+  placeFilters();                    // both are hidden by the full-screen layout where they live
+  placeDetail();
   $("fs").setAttribute("aria-pressed", String(on));
   $("fs").textContent = on ? "Exit full screen" : "Full screen";
   if (on && document.documentElement.requestFullscreen) {
@@ -437,11 +476,12 @@ async function start() {
   // Restore whatever the link asked for BEFORE the first paint, so a shared URL never shows the
   // default view for a frame and then jump-cuts to the real one.
   const link = readHash();
-  if (link.v && ["swarm", "lens"].includes(link.v)) setMode(link.v);
+  if (link.v && ["readers", "scatter", "swarm", "lens"].includes(link.v)) setMode(link.v);
   if (link.q) $("q").value = link.q;
   if (link.r) Histogram.setRange(link.r);
 
   renderLegend();
+  placeFilters();
   placeDetail();
   renderDetail(null, false);
   applyFilters(true);
@@ -453,11 +493,12 @@ async function start() {
   $("prov").textContent =
     `${ROWS.length} composers from the Wikipedia list (${Chart.plotted()} have a stated quartet `
     + `count and are plotted; the rest are in the table only). Dates from ${META.dates_source}. `
-    + `Dot size is readership of the composer's ENGLISH Wikipedia article — the `
+    + `Readership is of the composer's ENGLISH Wikipedia article — the `
     + `${META.views_stat}${mm.length ? ` from ${mm[0]} to ${mm[mm.length - 1]}` : ""}, a median `
     + `rather than a single month because one month runs about 12% off typical. Read it as how `
     + `familiar a name is to English speakers, not as importance: a Czech or Russian composer's `
-    + `readers are mostly on their own language's Wikipedia, which this does not count. `
+    + `readers are mostly on their own language's Wikipedia, which this does not count. It is the `
+    + `vertical axis in the Readers view and dot size in the other three. `
     + `A lifespan written "83+" is the composer's age today. Built ${META.generated}.`;
 
   wire();
@@ -513,6 +554,9 @@ function wire() {
 function setMode(mode) {
   document.querySelectorAll(".seg button").forEach(o => o.setAttribute("aria-pressed", String(o.dataset.mode === mode)));
   Chart.setMode(mode);
+  renderLegend();                    // the views encode different things and need different keys
+  Table.render(visible);             // and the row chips are painted from the view's encoding
+  Table.select(selected, false);
   $("hint").textContent = Chart.hint();
   $("reset").disabled = !Chart.zoomed();
   writeHash();

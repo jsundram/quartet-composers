@@ -35,6 +35,14 @@ CHROME=$(find_chrome) || { echo "ui-test: no Chromium found — skipping (this i
 # the PREVIOUS edit's JS until V is bumped — you would be testing code you already changed.
 PROFILE="$OUT/profile"
 
+# A browser left over from an interrupted run still holds $CDP. The new one then fails to bind and
+# node connects to the OLD one -- which has the PREVIOUS build in its service-worker cache, so the
+# suite silently tests code you already changed. That is the same trap the fresh profile exists to
+# avoid, arriving by a different door; take the port before starting.
+pkill -f "remote-debugging-port=$CDP" 2>/dev/null
+pkill -f "http.server $PORT" 2>/dev/null
+sleep 0.5
+
 python3 -m http.server "$PORT" --bind 127.0.0.1 >/dev/null 2>&1 &
 SERVER=$!
 "$CHROME" --headless --disable-gpu --no-sandbox --hide-scrollbars \

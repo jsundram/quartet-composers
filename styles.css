@@ -69,8 +69,20 @@ h1{ font-size:clamp(21px, 4.6vw, 32px); letter-spacing:-.015em; font-weight:650 
   #detail{ position:sticky; top:14px }
 }
 
+/* --- the filter row ---------------------------------------------------------------------------
+   One row, above the chart and the table, because both filters scope both views. It is a sibling
+   of .grid, not a child of either card — a filter drawn inside one card claims to scope that card.
+   app.js moves it INTO the chart card in full screen (where the chart is everything there is) and
+   hides the search half there, so the chart keeps the height it had. */
+.filters{ display:flex; flex-direction:column; gap:8px; margin-bottom:14px; padding:12px 14px }
+.filters .tablehead{ margin-bottom:0 }
+.filters .filterbar{ margin:0 }
+body.fs #filters{ margin:0 0 8px; padding:0; border:0; background:transparent }
+body.fs #filters .tablehead{ display:none }
+
 /* --- controls ------------------------------------------------------------------------------- */
-.controls{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px }
+/* margin-TOP: the controls sit under the plot now (see index.html). */
+.controls{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:12px 0 0 }
 .seg{ display:flex; border:1px solid var(--line); border-radius:999px; overflow:hidden }
 .seg button{
   font:500 13px/1 system-ui, sans-serif; color:var(--muted); background:transparent;
@@ -261,7 +273,11 @@ body.fs #viz{
           calc(8px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));
   display:flex; flex-direction:column; background:var(--card);
 }
-body.fs #plot{ flex:1 1 auto; min-height:0 }
+body.fs #plot{ flex:1 1 auto; min-height:0; order:2 }
+body.fs #filters{ order:0 }
+body.fs #detail.compact{ order:1 }
+body.fs .controls{ order:3; margin-top:8px }
+body.fs .legend{ order:4 }
 body.fs #plot svg{ height:100% }
 body.fs .hint{ display:none }
 body.fs .filterbar{ margin-bottom:6px }
@@ -274,7 +290,9 @@ body.fs .grid{ display:block }
    strip drops to one line. The chart is the whole reason for full screen. */
 @media (max-height:560px) and (min-width:560px){
   body.fs .legend{ display:none }
-  body.fs #detail.compact{ height:58px }
+  body.fs #detail.compact{ height:50px; padding:6px 82px 6px 10px }
+  body.fs #filters{ margin-bottom:6px }
+  body.fs .controls{ margin-top:6px }
 }
 
 /* Phone-specific sizing. Targets REAL touch devices, not just a narrow desktop window. */
@@ -304,7 +322,7 @@ body.fs .grid{ display:block }
   body{ background:#fff; color:#000; padding:0 }
   :root{ --plot:#fff; --grid:#ddd; --axis:#444; --card:#fff; --line:#999; --dot-line:#fff }
   .card{ border:0; padding:0 }
-  .controls, .tablehead, #flag, .detail-nav, #theme, .ver, .hint, .filterbar{ display:none }
+  .controls, .tablehead, #flag, .detail-nav, #theme, .ver, .hint, .filterbar, .filters{ display:none }
   .grid{ display:block }
   .scroll{ max-height:none; overflow:visible; border:0; background:none }
   thead th{ position:static }

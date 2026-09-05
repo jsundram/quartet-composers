@@ -25,13 +25,16 @@ ROOT = os.path.dirname(HERE)
 
 W, H = 1200, 630
 PLOT = {"x": 520, "y": 96, "w": 608, "h": 446}      # chart panel, right of the title block
-Y_DOMAIN = (0.85, 170)
-LIFE = (20, 72, 104)                                 # min / median / max completed lifespan (see build_data)
-R_RANGE = (2.4, 26)
-R_EXP = 0.35
+QX_DOMAIN = (0.85, 200)                              # quartets written, log -- as chart.js
+VY_DOMAIN = (0.85, 260000)                           # EN readers / month, log
+R_CONTEXT, R_NAMED = 3.6, 7.5                        # uniform: readership is the Y AXIS here
 
 BG, PANEL, INK, MUTED, GRID = "#14161a", "#191c21", "#eceef0", "#9aa3a8", "#2b313a"
-SHORT, MID, LONG, LIVING = "#f0a44a", "#7e8079", "#b3a4dd", "#8e979c"
+SEL, ACCENT = "#fb923c", "#7ec2f0"                   # dark --sel / --accent, as the app bakes them
+RATIOS = (1, 10, 100, 1000, 10000)                   # readers-per-quartet diagonals
+CANON = ("Franz Xaver Richter", "Joseph Haydn", "Luigi Boccherini", "Wolfgang Amadeus Mozart",
+         "Ludwig van Beethoven", "Béla Bartók", "Dmitri Shostakovich")
+OUTLIERS = ("Giuseppe Cambini", "Franz Krommer", "John Lodge Ellerton")
 
 # Labelled by hand: the point of the card is that a reader recognizes a name in it, and "top 6 by
 # pageviews" would print Beethoven/Mozart/Tchaikovsky — famous, but not famous *as quartet
@@ -39,40 +42,24 @@ SHORT, MID, LONG, LIVING = "#f0a44a", "#7e8079", "#b3a4dd", "#8e979c"
 # other (Cambini, Boccherini and Haydn are all born within 14 years and all in the top band), so
 # placement is explicit rather than automatic: (name, anchor, dx, dy) around the dot.
 LABELS = [
-    ("Giuseppe Cambini",     "middle", 0, "above"),
-    ("Luigi Boccherini",     "start",  9, "beside"),
-    ("Joseph Haydn",         "middle", 0, "below"),
-    ("Ludwig van Beethoven", "middle", 0, "above"),
-    ("Béla Bartók",           "middle", 0, "above"),
-    ("Dmitri Shostakovich",  "middle", 0, "above"),
+    ("Wolfgang Amadeus Mozart", "middle", 0, "above"),
+    ("Ludwig van Beethoven",    "end",   -9, "beside"),
+    ("Joseph Haydn",            "middle", 0, "above"),
+    ("Luigi Boccherini",        "middle", 0, "below"),
+    ("Béla Bartók",              "middle", 0, "above"),
+    ("Giuseppe Cambini",        "end",   -9, "beside"),
 ]
 
 
-def hexrgb(c):
-    return tuple(int(c[i:i + 2], 16) for i in (1, 3, 5))
-
-
-def mix(a, b, t):
-    ra, rb = hexrgb(a), hexrgb(b)
-    return "#%02x%02x%02x" % tuple(round(ra[i] + (rb[i] - ra[i]) * t) for i in range(3))
-
-
-def color(lifespan, living):
-    if living or lifespan is None:
-        return None                                  # open circle, same as the app
-    lo, mid, hi = LIFE
-    v = max(lo, min(hi, lifespan))
-    return mix(SHORT, MID, (v - lo) / (mid - lo)) if v <= mid else mix(MID, LONG, (v - mid) / (hi - mid))
-
-
-def x_domain(plotted):
-    """The same domain chart.js computes in setData(): the plottable birth years, snapped out to a
-    50-year grid. DERIVED rather than written down, because a hardcoded copy of a derived value is
-    a desync waiting for the next scrape — nothing would fail, the card would just quietly stop
-    matching the page."""
-    lo = min(r[1] for r in plotted)
-    hi = max(r[1] for r in plotted)
-    return (math.floor((lo - 8) / 50) * 50, math.ceil((hi + 8) / 50) * 50)
+def jitter(name):
+    """chart.js's FNV-1a name hash, in log space: quartet counts are integers, so without this the
+    card draws the same hard vertical stripes the app deliberately breaks up (313 composers sit on
+    "1"). Same encoding on both sides, per the note at the top of this file."""
+    a = 2166136261
+    for ch in name:
+        a ^= ord(ch)
+        a = (a * 16777619) & 0xFFFFFFFF
+    return 10 ** (((a / 4294967295) * 2 - 1) * 0.045)
 
 
 def esc(s):
@@ -85,18 +72,35 @@ def main():
     rows = data["rows"]
     max_views = max((r[4] or 0) for r in rows) or 1
     plotted = [r for r in rows if r[3] is not None and r[4] is not None]
+    by_name0 = {r[0]: r for r in rows}
 
-    x0, x1 = x_domain(plotted)
+    def logscale(dom, px, origin, flip=False):
+        lo, hi = math.log10(dom[0]), math.log10(dom[1])
+        def f(v):
+            t = (math.log10(max(v, dom[0])) - lo) / (hi - lo)
+            return origin + (px - t * px if flip else t * px)
+        return f
 
-    def sx(year):
-        return PLOT["x"] + (year - x0) / (x1 - x0) * PLOT["w"]
+    sx = logscale(QX_DOMAIN, PLOT["w"], PLOT["x"])
+    sy = logscale(VY_DOMAIN, PLOT["h"], PLOT["y"], flip=True)
 
-    def sy(q):
-        lo, hi = math.log10(Y_DOMAIN[0]), math.log10(Y_DOMAIN[1])
-        return PLOT["y"] + PLOT["h"] - (math.log10(q) - lo) / (hi - lo) * PLOT["h"]
-
-    def sr(v):
-        return R_RANGE[0] + (R_RANGE[1] - R_RANGE[0]) * (v / max_views) ** R_EXP
+    # Trim a segment to the plot rect (Liang-Barsky), same job as chart.js's trim(): a diagonal's
+    # endpoints are far outside the box and there is no clip path in a static SVG.
+    def clip(ax, ay, bx, by):
+        t0, t1, dx, dy = 0.0, 1.0, bx - ax, by - ay
+        for p_, q_ in ((-dx, ax - PLOT["x"]), (dx, PLOT["x"] + PLOT["w"] - ax),
+                       (-dy, ay - PLOT["y"]), (dy, PLOT["y"] + PLOT["h"] - ay)):
+            if p_ == 0:
+                if q_ < 0: return None
+                continue
+            r_ = q_ / p_
+            if p_ < 0:
+                if r_ > t1: return None
+                t0 = max(t0, r_)
+            else:
+                if r_ < t0: return None
+                t1 = min(t1, r_)
+        return (ax + t0 * dx, ay + t0 * dy, ax + t1 * dx, ay + t1 * dy)
 
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">',
            '  <!-- GENERATED by scripts/make-og-svg.py — do not hand-edit; rerun the script. -->',
@@ -104,34 +108,45 @@ def main():
            f'  <rect x="{PLOT["x"] - 26}" y="{PLOT["y"] - 26}" width="{PLOT["w"] + 52}" '
            f'height="{PLOT["h"] + 52}" rx="16" fill="{PANEL}"/>']
 
-    for year in range(x0 + 50, x1, 50):
-        out.append(f'  <line x1="{sx(year):.1f}" y1="{PLOT["y"]}" x2="{sx(year):.1f}" '
-                   f'y2="{PLOT["y"] + PLOT["h"]}" stroke="{GRID}" stroke-width="1"/>')
-        out.append(f'  <text x="{sx(year):.1f}" y="{PLOT["y"] + PLOT["h"] + 26}" fill="{MUTED}" '
-                   f'font-family="system-ui,sans-serif" font-size="17" text-anchor="middle">{year}</text>')
     for q in (1, 3, 10, 30, 100):
-        out.append(f'  <line x1="{PLOT["x"]}" y1="{sy(q):.1f}" x2="{PLOT["x"] + PLOT["w"]}" '
-                   f'y2="{sy(q):.1f}" stroke="{GRID}" stroke-width="1"/>')
-        out.append(f'  <text x="{PLOT["x"] - 12}" y="{sy(q) + 6:.1f}" fill="{MUTED}" '
-                   f'font-family="system-ui,sans-serif" font-size="17" text-anchor="end">{q}</text>')
+        out.append(f'  <line x1="{sx(q):.1f}" y1="{PLOT["y"]}" x2="{sx(q):.1f}" '
+                   f'y2="{PLOT["y"] + PLOT["h"]}" stroke="{GRID}" stroke-width="1"/>')
+        out.append(f'  <text x="{sx(q):.1f}" y="{PLOT["y"] + PLOT["h"] + 26}" fill="{MUTED}" '
+                   f'font-family="system-ui,sans-serif" font-size="17" text-anchor="middle">{q}</text>')
+    for v, lab in ((1, "1"), (100, "100"), (10000, "10k"), (100000, "100k")):
+        out.append(f'  <line x1="{PLOT["x"]}" y1="{sy(v):.1f}" x2="{PLOT["x"] + PLOT["w"]}" '
+                   f'y2="{sy(v):.1f}" stroke="{GRID}" stroke-width="1"/>')
+        out.append(f'  <text x="{PLOT["x"] - 12}" y="{sy(v) + 6:.1f}" fill="{MUTED}" '
+                   f'font-family="system-ui,sans-serif" font-size="17" text-anchor="end">{lab}</text>')
 
+    # The readers-per-quartet diagonals: the distance a dot sits above one IS the card's claim.
+    for k in RATIOS:
+        seg = clip(sx(QX_DOMAIN[0]), sy(k * QX_DOMAIN[0]), sx(QX_DOMAIN[1]), sy(k * QX_DOMAIN[1]))
+        if seg:
+            out.append(f'  <line x1="{seg[0]:.1f}" y1="{seg[1]:.1f}" x2="{seg[2]:.1f}" '
+                       f'y2="{seg[3]:.1f}" stroke="{GRID}" stroke-width="1"/>')
+
+    named = set(CANON) | set(OUTLIERS)
     for name, birth, death, quartets, views, lo, hi in sorted(rows, key=lambda r: -(r[4] or 0)):
-        if quartets is None or views is None:
+        if quartets is None or views is None or name in named:
             continue                                  # not plottable; the app omits it too
-        cx, cy, r = sx(birth), sy(quartets), sr(views)
-        fill = color(death - birth if death else None, death is None)
-        if fill is None:
-            out.append(f'  <circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" fill="none" '
-                       f'stroke="{LIVING}" stroke-width="1.4" opacity=".9"/>')
-        else:
-            out.append(f'  <circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" fill="{fill}" '
-                       f'stroke="{PANEL}" stroke-width="1" opacity=".92"/>')
+        out.append(f'  <circle cx="{sx(quartets * jitter(name + "q")):.1f}" '
+                   f'cy="{sy(views):.1f}" r="{R_CONTEXT}" fill="{MUTED}" opacity=".22"/>')
+    for name in OUTLIERS:
+        r = by_name0[name]
+        out.append(f'  <circle cx="{sx(r[3] * jitter(name + "q")):.1f}" cy="{sy(r[4]):.1f}" '
+                   f'r="{R_NAMED}" fill="none" stroke="{ACCENT}" stroke-width="2.4"/>')
+    for name in CANON:
+        r = by_name0[name]
+        out.append(f'  <circle cx="{sx(r[3] * jitter(name + "q")):.1f}" cy="{sy(r[4]):.1f}" '
+                   f'r="{R_NAMED}" fill="{SEL}" stroke="{PANEL}" stroke-width="1.6"/>')
 
     # A label that silently vanishes degrades the one image people see before they click, so this
     # is fatal, not a warning. It fires when a name changes spelling — which fetch_views.py now
     # does routinely, having corrected 79 of them in one run.
     by_name = {r[0]: r for r in rows}
-    absent = [n for n, _, _, _ in LABELS if n not in by_name]
+    absent = [n for n, _, _, _ in LABELS if n not in by_name] \
+           + [n for n in CANON + OUTLIERS if n not in by_name]
     if absent:
         print("ERROR: labelled composers are not in composers.json: %s\n"
               "       (names are canonical Wikipedia titles now — check the spelling)"
@@ -140,7 +155,7 @@ def main():
 
     for name, anchor, dx, where in LABELS:
         r = by_name[name]
-        cx, cy, rad = sx(r[1]), sy(r[3]), sr(r[4])
+        cx, cy, rad = sx(r[3] * jitter(r[0] + "q")), sy(r[4]), R_NAMED
         tx = cx + (dx + (rad if dx > 0 else -rad) if where == "beside" else 0)
         ty = {"above": cy - rad - 9, "below": cy + rad + 21}.get(where, cy + 6)
         # Halo painted in the PAGE background, not the panel's: a "beside" label can hang off the
@@ -158,19 +173,17 @@ def main():
         f'  <text x="72" y="316" fill="{MUTED}" font-family="system-ui,sans-serif" font-size="24">'
         f'{len(plotted)} composers, {min(r[1] for r in plotted)}–{max(r[1] for r in plotted)}.</text>',
         f'  <text x="72" y="350" fill="{MUTED}" font-family="system-ui,sans-serif" font-size="24">'
-        f'Birth year × quartets written.</text>',
+        f'Quartets written × readers.</text>',
         f'  <text x="72" y="384" fill="{MUTED}" font-family="system-ui,sans-serif" font-size="24">'
-        f'Size = typical monthly views.</text>',
-        f'  <rect x="72" y="410" width="220" height="12" rx="2" fill="url(#ramp)"/>',
-        f'  <text x="72" y="448" fill="{MUTED}" font-family="system-ui,sans-serif" font-size="17">'
-        f'short life</text>',
-        f'  <text x="292" y="448" fill="{MUTED}" font-family="system-ui,sans-serif" font-size="17" '
-        f'text-anchor="end">long life</text>',
+        f'Diagonals = readers per quartet.</text>',
+        f'  <circle cx="80" cy="424" r="7.5" fill="{SEL}"/>',
+        f'  <text x="98" y="430" fill="{MUTED}" font-family="system-ui,sans-serif" font-size="17">'
+        f'the seven who carry the form</text>',
+        f'  <circle cx="80" cy="456" r="7.5" fill="none" stroke="{ACCENT}" stroke-width="2.4"/>',
+        f'  <text x="98" y="462" fill="{MUTED}" font-family="system-ui,sans-serif" font-size="17">'
+        f'wrote the most, read the least</text>',
         f'  <text x="72" y="540" fill="{MUTED}" font-family="system-ui,sans-serif" font-size="18">'
         f'jsundram.github.io/quartet-composers</text>',
-        '  <defs><linearGradient id="ramp" x1="0" x2="1">'
-        f'<stop offset="0" stop-color="{SHORT}"/><stop offset=".5" stop-color="{MID}"/>'
-        f'<stop offset="1" stop-color="{LONG}"/></linearGradient></defs>',
         '</svg>',
     ]
 

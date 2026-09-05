@@ -44,7 +44,59 @@ window.Table = (function () {
   const norm = s => s.toLowerCase().replace(/[łøđðþßæœı]/g, c => FOLD[c])
                      .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-  function setData(r) { rows = r; rows.forEach(d => { d.key = norm(d.name); }); }
+  // ---- display names --------------------------------------------------------
+  // The table shows the SURNAME, and "Surname, Forename" only where a surname is shared. Two
+  // reasons: sorting by name now sorts the way a reader expects (all three Haydns together, not
+  // filed under J, M and F), and the composer column stops being the widest thing on a phone.
+  // The chart labels and the detail panel keep the full name -- there, recognising the person is
+  // the whole job.
+  //
+  // Everything else on the page treats a name as an opaque canonical Wikipedia title, so this is
+  // the one place that takes them apart, and it is a HEURISTIC on 884 human names. The rule is
+  // "the last word", which is right about 870 times; SURNAME holds the ones it is wrong about.
+  // That list is a judgment call, not a fact, and staleOverrides() reports any entry that no
+  // longer matches a composer so a pipeline rename shows up instead of silently doing nothing.
+  const SUFFIXES = new Set(["junior", "jr", "jr.", "sr", "sr.", "ii", "iii", "iv"]);
+  const SURNAME = {
+    // Compound surnames the last-word rule splits in half.
+    "Ralph Vaughan Williams": "Vaughan Williams",
+    "David Vaughan Thomas": "Vaughan Thomas",
+    "Vincenza Garelli della Morea": "Garelli della Morea",
+    "Tera de Marez Oyens": "de Marez Oyens",
+    // Capitalised particles that are part of the name, not a nobiliary prefix to drop.
+    "Alicia Van Buren": "Van Buren",
+    "Nancy Van de Vate": "Van de Vate",
+    // Family name FIRST: the article title is in Chinese order, so the last word is the given name.
+    "Chen Yi": "Chen",
+  };
+
+  function surnameOf(name) {
+    if (SURNAME[name]) return SURNAME[name];
+    // "Samuel Wesley (composer, born 1766)" -- a Wikipedia disambiguator, not part of the name.
+    const parts = name.replace(/\s*\([^)]*\)\s*$/, "").split(/\s+/);
+    let end = parts.length - 1, suffix = "";
+    if (end > 0 && SUFFIXES.has(parts[end].toLowerCase())) { suffix = " " + parts[end]; end--; }
+    // Lowercase nobiliary particles are dropped, which is how English indexes file them:
+    // "Ludwig van Beethoven" is under B, "Carl Ditters von Dittersdorf" under D.
+    return parts[end] + suffix;
+  }
+
+  function setData(r) {
+    rows = r;
+    const count = new Map();
+    rows.forEach(d => {
+      d.key = norm(d.name);
+      d.sur = surnameOf(d.name);
+      count.set(d.sur, (count.get(d.sur) || 0) + 1);
+    });
+    // Only a SHARED surname earns a forename, so the column stays as narrow as it can be.
+    rows.forEach(d => {
+      if (count.get(d.sur) < 2) { d.display = d.sur; return; }
+      const bare = d.name.replace(/\s*\([^)]*\)\s*$/, "");
+      const fore = bare.slice(0, bare.length - d.sur.length).trim();
+      d.display = fore ? `${d.sur}, ${fore}` : d.sur;
+    });
+  }
 
   function matches(q) {
     const t = norm(q.trim());
@@ -90,6 +142,9 @@ window.Table = (function () {
         if (av == null && bv == null) return a.name.localeCompare(b.name);
         return av == null ? 1 : -1;
       }
+      // Sorting the NAME column sorts what is on screen -- surname first, forename only as a
+      // tie-break. Sorting by the full title put Joseph Haydn under J.
+      if (k === "name") return sortDir * a.display.localeCompare(b.display);
       if (typeof av === "string") return sortDir * av.localeCompare(bv);
       return sortDir * (av - bv) || a.name.localeCompare(b.name);
     });
@@ -132,7 +187,10 @@ window.Table = (function () {
       chip.style.background = d.living ? "transparent" : Chart.colorOf(d);
       chip.style.boxShadow = d.living ? "inset 0 0 0 1.4px " + Chart.colorOf(d) : "none";
       c0.appendChild(chip);
-      c0.appendChild(document.createTextNode(d.name));
+      c0.appendChild(document.createTextNode(d.display));
+      // The full canonical title stays reachable: a tooltip on the cell, and the detail panel and
+      // the chart label both still print it in full.
+      c0.title = d.name;
       tr.appendChild(c0);
 
       tr.appendChild(cell(d.birth, "c-birth"));
@@ -181,5 +239,8 @@ window.Table = (function () {
     theadEl = opts.thead; tbodyEl = opts.tbody; cbSelect = opts.onSelect;
   }
 
-  return { init, setData, render, select, matches, ordered: () => order };
+  return { init, setData, render, select, matches, ordered: () => order,
+           // Override keys that no longer name a composer -- a pipeline rename, asserted empty by
+           // the UI suite so the entry cannot sit there doing nothing.
+           staleOverrides: () => Object.keys(SURNAME).filter(n => !rows.some(d => d.name === n)) };
 })();

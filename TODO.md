@@ -92,12 +92,38 @@ drawn. `X_DOMAIN` is now derived in `setData()` from the PLOTTABLE birth years (
 snapped out to a 50-year grid — 1700–2000. Nothing was dropped and no axis was broken.
 `make-og-svg.py` derives the same domain; keep them in step.
 
+### The Timeline view still spends hue on lifespan — the wrong colour job
+The Readers view moved colour onto the argument; Timeline, Swarm and Lens still carry the
+diverging orange↔purple lifespan ramp. Two problems with it, both measurable. A diverging scale
+encodes POLARITY — distance either side of a meaningful baseline — and lifespan has none: the ramp
+pivots on the median lifespan of whoever is currently in the dataset, which moves when the data
+does. And its midpoint `--c-mid` (#cec7ba) sits at 1.61:1 against the plot surface, so the most
+COMMON lifespan is the least visible dot on the chart. A sequential ramp (one hue, light→dark) is
+the honest form; emphasis is the better one if those views get an argument of their own.
+
+### The Readers view drops birth year entirely
+Which is the thing the mocked-up "canon path" would have added: joining the seven in birth order
+draws the chronological walk through output-and-attention space without spending an axis on it.
+It was proposed, not chosen — the direction picked was B as mocked. Cheap to add if wanted.
+
+### The share card labels six of the thirteen named composers
+Richter, Shostakovich, Krommer and Ellerton have dots on `assets/og.png` but no names. At 1200×630
+that is a deliberate density call, not an oversight — but it means the card's "the seven who carry
+the form" key names a set the card only half-identifies.
+
 ### The swarm hides the quartet count entirely
 Documented in the hint text, but a reader who lands on the swarm from a shared `#v=swarm` link has
 to read the hint to know the vertical axis means nothing. Consider dimming or removing the y-axis
 label there — currently it is just absent, which is quieter than it should be.
 
 ---
+
+### Surname extraction is a heuristic on 884 human names
+`SURNAME` in `table.js` overrides the seven the "last word" rule gets wrong today (compound
+surnames, capitalised particles, one name in Chinese order). There will be more it gets wrong that
+nobody has noticed: French particles are dropped where a French index would keep them
+(`de la Tombelle` → `Tombelle`), and any future non-Western name order will be silently reversed.
+`Table.staleOverrides()` catches renames, not misjudgements.
 
 ## Pipeline
 

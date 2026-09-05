@@ -36,11 +36,35 @@ window.Chart = (function () {
   const Y_TICKS = [1, 2, 3, 5, 10, 20, 30, 50, 100];
   let LIFE_MID = 72;                    // median completed lifespan; recomputed from the data
 
+  // ---- the readers view ----------------------------------------------------
+  // Output ACROSS, attention UP, so readers-per-quartet is a diagonal and the distance a composer
+  // sits above one is the argument: Mozart near 10,000 readers a quartet, Cambini on 1. The other
+  // views ask "when, and how much"; this one asks "and did it land".
+  const QX_DOMAIN = [0.85, 200];        // quartets written; largest stated is 149
+  const QX_TICKS = [1, 2, 3, 5, 10, 20, 30, 50, 100];
+  const VY_DOMAIN = [0.85, 260000];     // readers/mo; 1 .. 186,772 today
+  const VY_TICKS = [1, 10, 100, 1000, 10000, 100000];
+  const RATIOS = [1, 10, 100, 1000, 10000];   // the readers-per-quartet diagonals
+
+  // The editorial spine, and the only hardcoded composer NAMES in the app. They are canonical
+  // Wikipedia titles, which change spelling when the pipeline runs (see invariant 4), so a name
+  // that stops resolving is reported by missingNames() and asserted empty in the UI suite rather
+  // than quietly dropping a composer out of the argument.
+  const CANON = ["Franz Xaver Richter", "Joseph Haydn", "Luigi Boccherini",
+                 "Wolfgang Amadeus Mozart", "Ludwig van Beethoven", "Béla Bartók",
+                 "Dmitri Shostakovich"];
+  const OUTLIERS = ["Giuseppe Cambini", "Franz Krommer", "John Lodge Ellerton",
+                    "Claude Debussy", "George Gershwin", "Maurice Ravel"];
+  let canonIdx = [], outlierIdx = [], missing = [];
+
   let el, flagEl, cbHover, cbSelect, cbZoom;
-  let rows = [], mode = "scatter", visible = null, selected = null, hovered = null;
+  // The readers view is the DEFAULT: it is the one that makes the page's claim. The timeline is
+  // one tap away and still the honest overview of when the form was written.
+  const DEFAULT_MODE = "readers";
+  let rows = [], mode = DEFAULT_MODE, visible = null, selected = null, hovered = null;
   let svg, gPlot, gDots, gLabels, gAxX, gAxY, gGrid, gLens, gSel;
   let w = 0, h = 0, m = { top: 22, right: 14, bottom: 32, left: 46 };
-  let x0, y0, rScale, colorScale, C = {};
+  let x0, y0, qx, vy, rScale, colorScale, C = {};
   let transform = d3.zoomIdentity, zoom;
   let swarmY = null, swarmKey = "";      // memo: the sim is expensive, size/radius are its inputs
   let lens = null;                       // {x,y} focus in plot coords, or null
@@ -71,12 +95,23 @@ window.Chart = (function () {
         lifespan: r[2] == null ? null : r[2] - r[1],
         jx: j * 0.5,                                        // years
         jy: Math.pow(10, hash(r[0] + "y") * 0.04),          // multiplicative, log-uniform
+        // Quartet counts are integers, so on the readers view's log x they land in hard vertical
+        // stripes — 313 of the 790 sit on "1". Same idea as jx, in log space so the nudge is a
+        // constant PROPORTION of the axis rather than a constant number of quartets.
+        jq: Math.pow(10, hash(r[0] + "q") * 0.045),
       };
     });
     // The diverging ramp pivots on the MEDIAN completed lifespan of whoever is actually in the
     // data, rather than a number baked in when the dataset was half this size.
     const lived = rows.filter(d => d.lifespan != null).map(d => d.lifespan).sort((a, b) => a - b);
     if (lived.length) LIFE_MID = lived[lived.length >> 1];
+    const at = new Map(rows.map(d => [d.name, d.i]));
+    const resolve = list => list.filter(n => at.has(n)).map(n => at.get(n));
+    canonIdx = resolve(CANON);
+    outlierIdx = resolve(OUTLIERS);
+    missing = CANON.concat(OUTLIERS).filter(n => !at.has(n));
+    if (missing.length) console.error("Chart: named composers missing from the data:", missing);
+
     const yrs = rows.filter(plottable).map(d => d.birth);
     if (yrs.length) {
       X_DOMAIN = [Math.floor((d3.min(yrs) - 8) / 50) * 50, Math.ceil((d3.max(yrs) + 8) / 50) * 50];
@@ -90,7 +125,7 @@ window.Chart = (function () {
     C = {
       short: g("--c-short"), mid: g("--c-mid"), long: g("--c-long"), living: g("--c-living"),
       plot: g("--plot"), grid: g("--grid"), axis: g("--axis"), line: g("--dot-line"),
-      ink: g("--ink"), muted: g("--muted"), sel: g("--sel"),
+      ink: g("--ink"), muted: g("--muted"), sel: g("--sel"), accent: g("--accent"),
     };
     colorScale = d3.scaleLinear()
       .domain([20, LIFE_MID, 104])
@@ -103,9 +138,37 @@ window.Chart = (function () {
   // colouring a 40-year-old as "died young" states something untrue. They get an open circle: a
   // SHAPE difference, which also satisfies "never encode meaning in color alone" and survives
   // both color-blindness and a black-and-white print.
-  function fillOf(d) { return d.living ? C.plot : colorScale(d.lifespan); }
-  function strokeOf(d) { return d.living ? C.living : C.line; }
-  function colorOf(d) { return d.living ? C.living : colorScale(d.lifespan); }
+  // The readers view spends colour on the ARGUMENT rather than on lifespan: the seven filled in
+  // the selection orange, the outliers ringed in the accent, and the other 780 in one recessive
+  // grey. Emphasis, not eight hues — the point of the view is a handful of names against a field.
+  function fillOf(d) {
+    if (mode !== "readers") return d.living ? C.plot : colorScale(d.lifespan);
+    return isCanon(d.i) ? C.sel : named(d.i) ? "none" : C.muted;
+  }
+  function strokeOf(d) {
+    if (mode !== "readers") return d.living ? C.living : C.line;
+    return isCanon(d.i) ? C.plot : named(d.i) ? C.accent : "none";
+  }
+  function widthOf(d) {
+    if (mode !== "readers") return d.living ? 1.4 : 1;
+    return isCanon(d.i) ? 1.6 : named(d.i) ? 2 : 0;
+  }
+  function opacityOf(d) {
+    if (visible && !visible.has(d.i)) return 0.07;
+    if (mode !== "readers") return 0.92;
+    return named(d.i) ? 1 : 0.22;
+  }
+  function labelColorOf(d) {
+    return isCanon(d.i) ? C.sel : (mode === "readers" && named(d.i)) ? C.accent : C.ink;
+  }
+  // table.js paints its row chip with this, on the promise that a row and its dot are
+  // recognisably the same thing. So it follows the CURRENT view's encoding, not lifespan always —
+  // in the readers view that means the thirteen named composers are findable in the table by
+  // colour, and everyone else is the same recessive grey they are on the chart.
+  function colorOf(d) {
+    if (mode === "readers") return isCanon(d.i) ? C.sel : named(d.i) ? C.accent : C.muted;
+    return d.living ? C.living : colorScale(d.lifespan);
+  }
 
   // ---- geometry -----------------------------------------------------------
   function measure() {
@@ -117,7 +180,11 @@ window.Chart = (function () {
     // A portrait phone gets a TALLER scatter (0.8): the same 0.6 that reads well on a laptop
     // squeezes 466 dots into ~200px there and the log bands merge into stripes.
     const narrow = cw < 560;
-    const aspect = mode === "swarm" ? (narrow ? 0.58 : 0.44) : (narrow ? 0.82 : 0.6);
+    // The readers view is a square-ish cloud over five decades of y and two of x, so it wants a
+    // taller box than the timeline, which is naturally wide.
+    const aspect = mode === "swarm" ? (narrow ? 0.58 : 0.44)
+                 : mode === "readers" ? (narrow ? 0.98 : 0.62)
+                 : (narrow ? 0.82 : 0.6);
     // The full-screen floor is 120, not the 240 the windowed branch can afford. In full screen the
     // SVG is height:100% of its box, so a viewBox TALLER than the box does not scroll or crop — it
     // LETTERBOXES, scaling the whole chart down, fonts included, and centring it in a band of
@@ -132,6 +199,8 @@ window.Chart = (function () {
     h = ch - m.top - m.bottom;
     x0 = d3.scaleLinear().domain(X_DOMAIN).range([0, w]);
     y0 = d3.scaleLog().domain(Y_DOMAIN).range([h, 0]);
+    qx = d3.scaleLog().domain(QX_DOMAIN).range([0, w]);
+    vy = d3.scaleLog().domain(VY_DOMAIN).range([h, 0]);
     const maxViews = d3.max(rows, d => d.views) || 1;
     const rMax = Math.max(11, Math.min(26, w / 44));
     // Exponent 0.35, not the textbook 0.5: views span three orders of magnitude, and a true area
@@ -175,12 +244,42 @@ window.Chart = (function () {
 
   function lensRadius() { return Math.min(w, h) * 0.34; }
 
+  const vfmt = n => (n >= 1000 ? (n / 1000 >= 10 ? Math.round(n / 1000) : n / 1000) + "k"
+                               : String(n));
+
+  // Trim a segment to the plot box (Liang-Barsky). Returns null when it misses entirely.
+  function trim(a, b) {
+    let t0 = 0, t1 = 1;
+    const dx = b.x - a.x, dy = b.y - a.y;
+    for (const [p, q] of [[-dx, a.x], [dx, w - a.x], [-dy, a.y], [dy, h - a.y]]) {
+      if (p === 0) { if (q < 0) return null; continue; }
+      const r = q / p;
+      if (p < 0) { if (r > t1) return null; if (r > t0) t0 = r; }
+      else { if (r < t0) return null; if (r < t1) t1 = r; }
+    }
+    return { a: { x: a.x + t0 * dx, y: a.y + t0 * dy },
+             b: { x: a.x + t1 * dx, y: a.y + t1 * dy } };
+  }
+
   // Screen positions for the current mode + transform. One function, three modes — everything
   // downstream (dots, labels, Delaunay hit-testing, the selection ring) reads only this.
   function layout() {
     const tx = transform.rescaleX(x0);
     const out = new Array(rows.length);
-    if (mode === "swarm") {
+    if (mode === "readers") {
+      // Size is FREE here: readership is the y axis, so a radius that repeated it would double-
+      // encode one variable and spend the only channel left. Emphasis carries the argument
+      // instead. A composer with no page-view figure has no y at all, so park them off-frame and
+      // let inFrame() drop them from the paint, the hit test and the labels.
+      const rx = transform.rescaleX(qx), ry = transform.rescaleY(vy);
+      const base = Math.max(3.2, Math.min(5, w / 190));
+      for (const d of rows) {
+        out[d.i] = (d.quartets == null || d.views == null)
+          ? { x: -9e9, y: -9e9, r: 0 }
+          : { x: rx(d.quartets * d.jq), y: ry(Math.max(1, d.views)),
+              r: named(d.i) ? base * 1.65 : base };
+      }
+    } else if (mode === "swarm") {
       ensureSwarm();
       for (const d of rows) out[d.i] = { x: tx(d.birth + d.jx), y: swarmY[d.i], r: rScale(d.views) };
     } else if (mode === "lens" && lens) {
@@ -202,6 +301,8 @@ window.Chart = (function () {
   // all. Those rows stay in the TABLE — they are real composers — but are absent from the chart,
   // its hit-testing and its labels. Everything downstream reads plottability from here.
   const plottable = d => d.quartets != null;
+  const isCanon = i => canonIdx.includes(i);
+  const named = i => canonIdx.includes(i) || outlierIdx.includes(i);
   const isVisible = d => plottable(d) && (!visible || visible.has(d.i));
   // On screen for real: a zoom pans dots clean out of the plot, and one whose centre has left it
   // must not be painted, hit-tested or labelled. Reads the CURRENT layout, so it is only valid
@@ -219,7 +320,12 @@ window.Chart = (function () {
     // and narrow, and 40+ names there collide with dots even when they miss each other.
     const full = document.body.classList.contains("fs");
     const cap = full ? (w < 560 ? 20 : 42) : Math.max(4, Math.round(w / 62));
-    const cands = rows.filter(isVisible).sort((a, b) => b.views - a.views);
+    // The readers view labels the ten names it is ABOUT and nothing else. Filling the rest of the
+    // space with whoever is most-read next is exactly the flood that stops direct labels working:
+    // the argument is ten names against a field, so ten names is what gets written on it.
+    const cands = mode === "readers"
+      ? canonIdx.concat(outlierIdx).map(i => rows[i]).filter(isVisible)
+      : rows.filter(isVisible).sort((a, b) => b.views - a.views);
     if (selected != null && rows[selected] && isVisible(rows[selected])) {
       cands.splice(cands.indexOf(rows[selected]), 1);
       cands.unshift(rows[selected]);
@@ -233,11 +339,23 @@ window.Chart = (function () {
       // at nothing.
       if (!inFrame(q)) continue;
       const tw = d.name.length * 5.5 + 6, th = 12;
-      const bx = q.x - tw / 2, by = q.y - q.r - 4 - th;
-      if (bx < 0 || bx + tw > w || by < 0) continue;
-      if (boxes.some(o => bx < o.x + o.w && bx + tw > o.x && by < o.y + o.h && by + th > o.y)) continue;
-      boxes.push({ x: bx - 2, y: by - 1, w: tw + 4, h: th + 2 });
-      placed.push({ d, x: q.x, y: by + th - 2 });
+      // Above, then below, then beside. "Above" alone silently dropped exactly the composers the
+      // chart is about: Mozart sits 2.6% from the top of the readers view, Cambini hard against
+      // the right edge, Debussy and Gershwin against the left — every one of them had a dot and
+      // no room over it, so the name went missing from the argument it was making.
+      const spots = [[q.x - tw / 2, q.y - q.r - 4 - th],
+                     [q.x - tw / 2, q.y + q.r + 4],
+                     [q.x + q.r + 5, q.y - th / 2],
+                     [q.x - q.r - 5 - tw, q.y - th / 2]];
+      let put = null;
+      for (const [bx, by] of spots) {
+        if (bx < 0 || bx + tw > w || by < 0 || by + th > h) continue;
+        if (boxes.some(o => bx < o.x + o.w && bx + tw > o.x && by < o.y + o.h && by + th > o.y)) continue;
+        put = { bx, by }; break;
+      }
+      if (!put) continue;
+      boxes.push({ x: put.bx - 2, y: put.by - 1, w: tw + 4, h: th + 2 });
+      placed.push({ d, x: put.bx + tw / 2, y: put.by + th - 2 });
     }
     return placed;
   }
@@ -301,10 +419,15 @@ window.Chart = (function () {
        .attr("x", -over).attr("y", -over).attr("width", w + over * 2).attr("height", h + over * 2);
 
     // axes ---------------------------------------------------------------
-    const tx = transform.rescaleX(x0);
-    const ty = mode === "scatter" ? transform.rescaleY(y0) : y0;
-    const xTicks = tx.ticks(Math.max(3, Math.round(w / 90)));
-    const yTicks = Y_TICKS.filter(v => v >= ty.domain()[0] && v <= ty.domain()[1]);
+    const readers = mode === "readers";
+    const tx = readers ? transform.rescaleX(qx) : transform.rescaleX(x0);
+    const ty = readers ? transform.rescaleY(vy)
+             : mode === "scatter" ? transform.rescaleY(y0) : y0;
+    const inDom = (sc, v) => v >= sc.domain()[0] && v <= sc.domain()[1];
+    const xTicks = readers ? QX_TICKS.filter(v => inDom(tx, v))
+                           : tx.ticks(Math.max(3, Math.round(w / 90)));
+    const yTicks = readers ? VY_TICKS.filter(v => inDom(ty, v))
+                           : Y_TICKS.filter(v => inDom(ty, v));
 
     const gx = gGrid.selectAll("line.gx").data(xTicks, String);
     gx.exit().remove();
@@ -317,22 +440,49 @@ window.Chart = (function () {
       .attr("y1", ty).attr("y2", ty).attr("x1", 0).attr("x2", w)
       .attr("stroke", C.grid).attr("stroke-width", 1);
 
+    // The readers-per-quartet diagonals. Both axes are log, so v = ratio x q is a straight line
+    // on screen and two endpoints define it -- but those endpoints are usually far outside the
+    // box, so each is trimmed to the plot rather than drawn and clipped: gGrid is not clipped,
+    // and the label has to sit where the line actually ENTERS the picture.
+    const diag = [];
+    if (readers) {
+      for (const k of RATIOS) {
+        const [q1, q2] = tx.domain();
+        const seg = trim({ x: tx(q1), y: ty(k * q1) }, { x: tx(q2), y: ty(k * q2) });
+        if (seg) diag.push({ k, ...seg });
+      }
+    }
+    const dg = gGrid.selectAll("line.dg").data(diag, d => d.k);
+    dg.exit().remove();
+    dg.enter().append("line").attr("class", "dg").merge(dg)
+      .attr("x1", d => d.a.x).attr("y1", d => d.a.y).attr("x2", d => d.b.x).attr("y2", d => d.b.y)
+      .attr("stroke", C.grid).attr("stroke-width", 1);
+    const dl = gGrid.selectAll("text.dl").data(diag, d => d.k);
+    dl.exit().remove();
+    dl.enter().append("text").attr("class", "dl").attr("font-size", 9.5).merge(dl)
+      .attr("x", d => d.a.x + 4).attr("y", d => d.a.y - 5)
+      .attr("text-anchor", "start").attr("fill", C.axis).attr("opacity", 0.9)
+      .text(d => (w < 560 ? `${vfmt(d.k)}/quartet`
+                          : `${vfmt(d.k)} reader${d.k === 1 ? "" : "s"} per quartet`));
+
     const lx = gAxX.selectAll("text").data(xTicks, String);
     lx.exit().remove();
     lx.enter().append("text").attr("text-anchor", "middle").attr("font-size", 11).merge(lx)
-      .attr("x", tx).attr("y", h + 15).attr("fill", C.axis).text(d3.format("d"));
+      .attr("x", tx).attr("y", h + 15).attr("fill", C.axis)
+      .text(readers ? String : d3.format("d"));
     // The title sits on its own line BELOW the ticks. Sharing their baseline put it on top of the
     // rightmost tick label at almost every width — the axis ends where the plot ends, so there is
     // never spare room out there.
     gAxX.selectAll("text.ttl").remove();
     gAxX.append("text").attr("class", "ttl").attr("x", w).attr("y", h + 33)
       .attr("text-anchor", "end").attr("font-size", 11).attr("font-weight", 600)
-      .attr("fill", C.muted).text("birth year →");
+      .attr("fill", C.muted).text(readers ? "quartets written →" : "birth year →");
 
     const ly = gAxY.selectAll("text").data(mode === "swarm" ? [] : yTicks, String);
     ly.exit().remove();
     ly.enter().append("text").attr("text-anchor", "end").attr("font-size", 11).merge(ly)
-      .attr("x", -7).attr("y", d => ty(d) + 4).attr("fill", C.axis).text(String);
+      .attr("x", -7).attr("y", d => ty(d) + 4).attr("fill", C.axis)
+      .text(readers ? vfmt : String);
     // Horizontal, ABOVE the plot rather than rotated beside it. Rotated it has to live inside
     // m.left, which on a phone is only wide enough for the tick labels — the two overlapped and
     // "100" rendered as "00". Above the plot it also just reads better at any width.
@@ -341,7 +491,8 @@ window.Chart = (function () {
       gAxY.append("text").attr("class", "ttl")
         .attr("x", -m.left + 4).attr("y", -8).attr("text-anchor", "start")
         .attr("font-size", 11).attr("font-weight", 600).attr("fill", C.muted)
-        .text("↑ quartets written (log scale)");
+        .text(readers ? "↑ English Wikipedia readers / month"
+                      : "↑ quartets written (log scale)");
     }
 
     // dots ---------------------------------------------------------------
@@ -356,11 +507,11 @@ window.Chart = (function () {
       .merge(sel)
       .attr("cx", d => pos[d.i].x).attr("cy", d => pos[d.i].y).attr("r", d => pos[d.i].r)
       .attr("fill", fillOf).attr("stroke", strokeOf)
-      .attr("stroke-width", d => (d.living ? 1.4 : 1))
+      .attr("stroke-width", widthOf)
       // 0.07, not the 0.12 that read fine at 466 dots: at 884 the filtered-out mass is most of
       // the ink, and the readership brush exists precisely to get it out of the way. Still drawn
       // rather than removed, so you can see WHERE in the field the survivors sit.
-      .attr("opacity", d => (visible && !visible.has(d.i) ? 0.07 : 0.92))
+      .attr("opacity", opacityOf)
       .attr("display", d => (inFrame(pos[d.i]) ? null : "none"));
 
     // selection ring + labels ---------------------------------------------
@@ -382,7 +533,7 @@ window.Chart = (function () {
       .merge(lb)
       .attr("x", d => d.x).attr("y", d => d.y)
       .attr("stroke", C.plot)
-      .attr("fill", d => (cur && d.d.i === cur.i ? C.sel : C.ink))
+      .attr("fill", d => (cur && d.d.i === cur.i ? C.sel : labelColorOf(d.d)))
       .attr("font-weight", d => (cur && d.d.i === cur.i ? 700 : 500))
       .text(d => d.d.name);
 
@@ -502,6 +653,11 @@ window.Chart = (function () {
   function getMode() { return mode; }
 
   const HINTS = {
+    readers: "Across is how many quartets a composer wrote; up is how much their English Wikipedia "
+           + "article is read. The diagonals are readers per quartet, so how far a dot sits ABOVE "
+           + "one is the whole point: Mozart and Beethoven are read about ten thousand times a "
+           + "month per quartet they wrote, Cambini about once. Drag to pan, scroll or pinch to "
+           + "zoom, tap a dot for the rest.",
     scatter: "Fixed axes. Drag to pan, scroll or pinch to zoom, tap or click a dot to pin it. Ties are nudged by up to half a year so overlapping composers stay separately clickable.",
     swarm: "Composers pushed apart until nothing overlaps. Vertical position means nothing here — the quartet count is dropped, and size (views) and color (lifespan) are unchanged. Read it as a timeline of how crowded each generation was. Drag or pinch to spread it further.",
     lens: "A circular magnifier over a fixed chart: the axes never move. Move the pointer (or drag on a touch screen) to aim it; tap to pin a composer.",
@@ -509,6 +665,10 @@ window.Chart = (function () {
   function hint() { return HINTS[mode]; }
 
   return { init, setData, setMode, getMode, setFilter, setSelected, resize, rerender,
+           defaultMode: () => DEFAULT_MODE,
+           // Empty unless a pipeline run renamed one of the composers the readers view argues
+           // about; the UI suite asserts it, so a rename fails loudly instead of dropping a dot.
+           missingNames: () => missing.slice(),
            resetZoom, zoomed, colorOf, hint, midLife: () => LIFE_MID,
            // How many rows the chart can actually place — the table shows more (see isVisible).
            plotted: () => rows.filter(plottable).length,
