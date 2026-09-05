@@ -65,10 +65,15 @@ plain static assets. Read README.md first for what the app is.
 
 ## Testing
 
-Three suites, all dependency-free:
+Four suites, all dependency-free:
 
 - `node scripts/sw.test.mjs` — the service worker's fetch handler under mocked SW globals.
 - `python3 scripts/sw-lint.py` — the precache contract (invariant 1).
+- `python3 scripts/validate.py` — **the data gate**, and the most important one here. Every serious
+  defect this dataset has had was a plausible-looking wrong number that no test caught; this
+  compares composers.json against its schema, the other caches, and the previous commit. Run it
+  after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
+  if you weaken a check, that goes red.
 - `scripts/ui-test.sh` — 39 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
@@ -77,6 +82,13 @@ Three suites, all dependency-free:
 
 The first two run in CI. `ui-test.sh` does not (it needs a browser) — run it by hand after touching
 `chart.js`, `table.js`, or `styles.css`.
+
+## Where to pick up
+
+`TODO.md` holds the open work with the reasoning behind each item, including one known defect (the
+readership brush has no keyboard path) and two things deliberately NOT being done, with why. Read it
+before starting something; it exists so a cold session doesn't re-derive a decision that was already
+made on evidence.
 
 ## Conventions
 

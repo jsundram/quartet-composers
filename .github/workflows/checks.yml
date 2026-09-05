@@ -33,3 +33,16 @@ jobs:
         run: node scripts/sw.test.mjs
       - name: precache lint (scripts/sw-lint.py)
         run: python3 scripts/sw-lint.py
+
+  data:
+    runs-on: ubuntu-latest
+    steps:
+      # fetch-depth 2 so validate.py can diff composers.json against the previous commit; the
+      # drift checks are the only thing that can see a wrong-article join, which looks entirely
+      # plausible in isolation.
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 2 }
+      - name: data gate (scripts/validate.py)
+        run: python3 scripts/validate.py
+      - name: the gate's own tests (scripts/validate.test.py)
+        run: python3 scripts/validate.test.py

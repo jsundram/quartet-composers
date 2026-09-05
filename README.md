@@ -39,7 +39,7 @@ python3 scripts/fetch_views.py      # 12 monthly counts each -> data/pageviews.j
 python3 scripts/build_data.py       # combine the three -> composers.json
 ```
 
-Then **bump `V` in `sw.js`** — `composers.json` is precached, so without a bump the new numbers
+Then run the data gate and **bump `V` in `sw.js`** — `composers.json` is precached, so without a bump the new numbers
 reach the repo and nobody's phone. `scripts/sw-lint.py` guards it; enable the hook with
 `git config core.hooksPath .githooks`.
 
@@ -101,6 +101,8 @@ matched to the same human.
 ## Checks
 
 ```sh
+python3 scripts/validate.py       # THE DATA GATE — see below; run it after every rebuild
+python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (11 cases)
 scripts/ui-test.sh           # 39 behavioural checks in a real headless Chrome (lens, tap-to-pin,
                              #   brush filter, theme repaint, 390px layout, offline, print) — no deps
 node scripts/sw.test.mjs     # 24 tests of the service worker's fetch handler
@@ -108,8 +110,23 @@ python3 scripts/sw-lint.py   # precache contract: V bumped, SHELL paths exist, n
 python3 scripts/og-lint.py   # share card size (a card over ~250 KB previews as a grey box)
 ```
 
-`sw.test.mjs` and `sw-lint.py` also run in CI; `ui-test.sh` needs a browser, so it's a local check
-and skips with exit 0 rather than failing if there isn't one.
+`validate.py`, `validate.test.py`, `sw.test.mjs` and `sw-lint.py` all run in CI; `ui-test.sh` needs
+a browser, so it's a local check and skips with exit 0 rather than failing if there isn't one.
+
+### Why there's a data gate
+
+Every serious bug this dataset has had was a **data** bug, and not one was caught by a test — they
+were caught by a human noticing a number looked off, twice only after it was already live. A
+redirect returning 41 views instead of 14,330. The second President of the United States outranking
+Beethoven. A living composer reported dead because Wikidata marks known-wrong values `deprecated`
+rather than deleting them. Every one produced *plausible-looking output*, which is precisely what
+unit tests and code review are worst at catching.
+
+`validate.py` compares `composers.json` against three things — its schema, the other cached files,
+and the previous commit — and fails the build. Drift against the last commit is the only check that
+can see a wrong-article join, because 144,948 views is implausible only *next to* what the same row
+said last time. `validate.test.py` reproduces each historical defect in a throwaway copy and asserts
+the gate rejects it, so a weakened check goes red instead of quietly green.
 
 ## Layout
 
@@ -122,7 +139,8 @@ sw.js             offline shell + the V cache-busting constant
 composers.json    the dataset (generated — edit data/ and rebuild)
 d3.v7.min.js      vendored, not a CDN
 data/             cached pipeline inputs + the 2014 archive (not shipped)
-scripts/          pipeline, review tools, lints (never shipped)
+scripts/          pipeline, review tools, lints, the data gate (never shipped)
+TODO.md           open work, with the reasoning — read before picking something up
 ```
 
 Built on [pwa-starter](https://github.com/jsundram/pwa-starter); vendored files carry a

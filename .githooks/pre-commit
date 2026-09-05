@@ -7,6 +7,11 @@
 python3 scripts/sw-lint.py || true
 python3 scripts/og-lint.py || true
 
+# The data gate. Every serious defect this dataset has had was a plausible-looking wrong NUMBER
+# that no test caught; validate.py compares composers.json against its schema, the other caches,
+# and the previous commit. Warn-only here like the rest; CI runs it with a real exit code.
+python3 scripts/validate.py || true
+
 # Behavioral tests: the offline / lie-fi fetch-handler contract. Skipped quietly if node is
 # absent (the toolchain is otherwise Python; node is only needed for these).
 if command -v node >/dev/null 2>&1; then
