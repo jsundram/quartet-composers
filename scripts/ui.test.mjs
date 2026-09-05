@@ -336,8 +336,17 @@ check("every named composer still resolves in the data",
 // labeller that only ever tries "above" drops exactly the two dots the argument is built on.
 const named = await ev(`[...document.querySelectorAll('#plot svg text')]
   .filter(t => t.getAttribute('font-size') === '10.5').map(t => t.textContent)`);
-for (const who of ["Wolfgang Amadeus Mozart", "Giuseppe Cambini", "Joseph Haydn"])
-  check(`${who} is labelled in the readers view`, named.includes(who), named.length + " labels placed");
+// A label prints the SHORT name, not the canonical title -- and the short form is a function of
+// the whole roster (a shared surname earns an initial), so this asks names.js rather than
+// hardcoding "Mozart", which would go stale in exactly the way a second Mozart would cause.
+for (const who of ["Wolfgang Amadeus Mozart", "Giuseppe Cambini", "Joseph Haydn"]) {
+  const label = await ev(`Names.short(${JSON.stringify(who)})`);
+  check(`${who} is labelled in the readers view`, named.includes(label),
+        `looking for ${JSON.stringify(label)} among ${named.length} labels placed`);
+}
+check("the labels are shortened, not the full Wikipedia titles",
+      named.every(t => t.length < 20) && named.includes("J. Haydn"),
+      JSON.stringify(named));
 check("only the named composers are labelled", named.length <= 13, named.length + " labels");
 check("the readers-per-quartet diagonals are drawn",
       await ev(`document.querySelectorAll('#plot svg line.dg').length >= 4`),
@@ -374,7 +383,8 @@ check("pinning an unnamed composer does not delete someone else's label",
       labelsBefore.every(n => labelsAfter.includes(n)),
       "lost: " + JSON.stringify(labelsBefore.filter(n => !labelsAfter.includes(n))));
 check("the pinned composer gets a label of its own",
-      labelsAfter.includes("Pyotr Ilyich Tchaikovsky"), labelsAfter.length + " labels");
+      // Two Tchaikovskys in the data, so the short form carries an initial to tell them apart.
+      labelsAfter.includes("P. Tchaikovsky"), JSON.stringify(labelsAfter));
 // --sel is the PINNED colour; tinting the canon with it elsewhere made seven composers look
 // pinned with nothing pinned.
 await goto(BASE + "#v=scatter");
@@ -397,7 +407,7 @@ check("and says something different in the readers view",
 // the readers view still says exactly what it is about -- the thirteen -- and nothing else.
 await goto(BASE);
 const restLabels = await ev(`[...document.querySelectorAll('#plot svg text')]
-  .filter(t=>new Set(ROWS.map(d=>d.name)).has(t.textContent)).length`);
+  .filter(t=>new Set(ROWS.map(d=>Names.short(d.name))).has(t.textContent)).length`);
 const pbox = await ev(`(()=>{const b=document.querySelector('#plot svg rect.bg').getBoundingClientRect();
   return {x:b.x,y:b.y,w:b.width,h:b.height}})()`);
 for (let i = 0; i < 6; i++) {
@@ -407,19 +417,19 @@ for (let i = 0; i < 6; i++) {
 }
 await sleep(400);
 const zoomLabels = await ev(`[...document.querySelectorAll('#plot svg text')]
-  .filter(t=>new Set(ROWS.map(d=>d.name)).has(t.textContent)).length`);
+  .filter(t=>new Set(ROWS.map(d=>Names.short(d.name))).has(t.textContent)).length`);
 check("zooming the readers view reveals more names", zoomLabels > restLabels,
       `${restLabels} at rest -> ${zoomLabels} zoomed in`);
 check("the names it reveals are ones the seed never had",
-      await ev(`(()=>{const seed=new Set(Chart.seedNames());
+      await ev(`(()=>{const seed=new Set(Chart.seedNames().map(Names.short));
         return [...document.querySelectorAll('#plot svg text')].map(t=>t.textContent)
-          .filter(t=>new Set(ROWS.map(d=>d.name)).has(t)).some(n=>!seed.has(n))})()`));
+          .filter(t=>new Set(ROWS.map(d=>Names.short(d.name))).has(t)).some(n=>!seed.has(n))})()`));
 await ev(`document.getElementById('reset').click()`);
 await sleep(600);
 check("and the resting picture is still just the seed",
-      await ev(`(()=>{const seed=new Set(Chart.seedNames());
+      await ev(`(()=>{const seed=new Set(Chart.seedNames().map(Names.short));
         return [...document.querySelectorAll('#plot svg text')].map(t=>t.textContent)
-          .filter(t=>new Set(ROWS.map(d=>d.name)).has(t)).every(n=>seed.has(n))})()`),
+          .filter(t=>new Set(ROWS.map(d=>Names.short(d.name))).has(t)).every(n=>seed.has(n))})()`),
       "a derived name is showing at rest, where the view should say only what it is about");
 
 // --- 4f. one filter row, above everything it scopes -------------------------------------------
@@ -454,8 +464,8 @@ check("a compound surname is not split in half",
         .some(c => c.textContent.trim() === 'Maxwell Davies')`),
       "Peter Maxwell Davies is filed under Maxwell Davies, not Davies");
 check("every surname override still names a composer",
-      (await ev(`Table.staleOverrides()`)).length === 0,
-      "stale: " + JSON.stringify(await ev(`Table.staleOverrides()`)));
+      (await ev(`Names.staleOverrides()`)).length === 0,
+      "stale: " + JSON.stringify(await ev(`Names.staleOverrides()`)));
 await ev(`[...document.querySelectorAll('thead th button')].find(b=>b.textContent==='Composer').click()`);
 await sleep(200);
 check("sorting by Composer sorts by surname",
@@ -536,22 +546,30 @@ check("the kept dots are emphasised, not merely less dim",
 // refused to say who they are. A filtered field names its own most-read survivors.
 const wlabels = await ev(`[...document.querySelectorAll('#plot svg text')].map(t=>t.textContent)`);
 check("a filtered readers view still names somebody",
-      wlabels.some(t => t.includes("Florence Price")) && wlabels.length > 3,
+      wlabels.includes("Price") && wlabels.length > 3,
       wlabels.filter(t => !/quartet|readers|written|month/.test(t)).join(" | "));
 // Prominence, not readership: filtered to the women, readership names whoever has the biggest
 // article (Beach, Monk — one quartet each, famous for other work) and never reaches the two who
 // actually wrote the quartets. This is the difference the ranking exists to make.
 check("the filtered view names the composers who stand out ON THIS CHART",
-      wlabels.some(t => t.includes("Kats-Chernin")) && wlabels.some(t => t.includes("Vrebalov")),
+      wlabels.includes("Kats-Chernin") && wlabels.includes("Vrebalov"),
       wlabels.filter(t => /[A-Za-z]{4} /.test(t)).join(" | "));
 check("it names only composers the filter kept",
+      // Both sides in the chart's vocabulary: the label prints the SHORT name and the cell's
+      // title carries the canonical one, so the row titles are shortened to compare them.
       await ev(`(()=>{const kept=new Set([...document.querySelectorAll('tbody tr td:first-child')]
-          .map(c=>c.title));
-        const everyone=new Set(ROWS.map(d=>d.name));
+          .map(c=>Names.short(c.title)));
+        const everyone=new Set(ROWS.map(d=>Names.short(d.name)));
         const drawn=[...document.querySelectorAll('#plot svg text')].map(t=>t.textContent)
           .filter(t=>everyone.has(t));           // the rest of the <text> nodes are axis furniture
         return drawn.length > 0 && drawn.every(n=>kept.has(n))})()`),
-      "labels naming a filtered-out composer");
+      // Naming them: "a label is wrong" is a bug report you would otherwise reproduce by hand.
+      "filtered out but still labelled: " + JSON.stringify(await ev(
+        `(()=>{const kept=new Set([...document.querySelectorAll('tbody tr td:first-child')]
+            .map(c=>Names.short(c.title)));
+          const everyone=new Set(ROWS.map(d=>Names.short(d.name)));
+          return [...document.querySelectorAll('#plot svg text')].map(t=>t.textContent)
+            .filter(t=>everyone.has(t) && !kept.has(t))})()`)));
 
 // The diagonal captions live in the grid layer, so they were never in the label collision map —
 // invisible while the thirteen sat in open space, systematic once ten names crowd the left band.
@@ -559,7 +577,7 @@ check("no composer label is printed over a diagonal caption",
       await ev(`(()=>{const box=e=>e.getBoundingClientRect();
         const all=[...document.querySelectorAll('#plot svg text')];
         const dg=all.filter(t=>/per quartet|\\/quartet/.test(t.textContent)).map(box);
-        const names=new Set(ROWS.map(d=>d.name));
+        const names=new Set(ROWS.map(d=>Names.short(d.name)));
         const nm=all.filter(t=>names.has(t.textContent)).map(box);
         return nm.length > 0 && !nm.some(a=>dg.some(b =>
           a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top))})()`),

@@ -18,6 +18,7 @@ the app must not ship a build step and this must not ship a JS runtime.
 import json
 import math
 import os
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -49,6 +50,62 @@ LABELS = [
     ("Béla Bartók",              "middle", 0, "above"),
     ("Giuseppe Cambini",        "end",   -9, "beside"),
 ]
+
+
+# names.js's display rule, duplicated for the same reason the scales are: the card must not ship a
+# JS runtime, and a label here that disagrees with the one on the page is exactly the mismatch
+# invariant 14 exists to prevent. Surname alone, an initial where a surname is shared, the full
+# title where even that is ambiguous.
+SUFFIXES = {"junior", "jr", "jr.", "sr", "sr.", "ii", "iii", "iv"}
+SURNAME_OVERRIDES = {
+    "Ralph Vaughan Williams": "Vaughan Williams",
+    "David Vaughan Thomas": "Vaughan Thomas",
+    "Peter Maxwell Davies": "Maxwell Davies",
+    "Vincenza Garelli della Morea": "Garelli della Morea",
+    "Tera de Marez Oyens": "de Marez Oyens",
+    "Alicia Van Buren": "Van Buren",
+    "Nancy Van de Vate": "Van de Vate",
+    "Chen Yi": "Chen",
+}
+
+
+def bare(name):
+    """Drop a Wikipedia disambiguator: 'Samuel Wesley (composer, born 1766)'."""
+    return re.sub(r"\s*\([^)]*\)\s*$", "", name)
+
+
+def surname_of(name):
+    if name in SURNAME_OVERRIDES:
+        return SURNAME_OVERRIDES[name]
+    parts = bare(name).split()
+    end, suffix = len(parts) - 1, ""
+    if end > 0 and parts[end].lower() in SUFFIXES:
+        suffix, end = " " + parts[end], end - 1
+    return parts[end] + suffix
+
+
+def short_names(names):
+    """canonical title -> the label the page's chart would print."""
+    groups = {}
+    for n in names:
+        groups.setdefault(surname_of(n), []).append(n)
+    out = {}
+    for sur, members in groups.items():
+        fores = {n: bare(n).replace(sur, "").strip() for n in members}
+        initials = {}
+        for f in fores.values():
+            initials[f[:1]] = initials.get(f[:1], 0) + 1
+        for n in members:
+            f = fores[n]
+            if len(members) < 2 or not f:
+                out[n] = sur
+            elif bare(n).startswith(sur):          # family-name-first title; leave the order alone
+                out[n] = bare(n)
+            elif initials[f[0]] == 1:
+                out[n] = "%s. %s" % (f[0], sur)
+            else:
+                out[n] = bare(n)
+    return out
 
 
 def jitter(name):
@@ -154,6 +211,7 @@ def main():
               % ", ".join(absent), file=sys.stderr)
         return 1
 
+    short = short_names([r[0] for r in rows])
     for name, anchor, dx, where in LABELS:
         r = by_name[name]
         cx, cy, rad = sx(r[3] * jitter(r[0] + "q")), sy(r[4]), R_NAMED
@@ -164,7 +222,7 @@ def main():
         out.append(f'  <text x="{tx:.1f}" y="{ty:.1f}" fill="{INK}" '
                    f'font-family="system-ui,sans-serif" font-size="18" font-weight="600" '
                    f'text-anchor="{anchor}" stroke="{BG}" stroke-width="4" '
-                   f'paint-order="stroke" stroke-linejoin="round">{esc(name)}</text>')
+                   f'paint-order="stroke" stroke-linejoin="round">{esc(short[name])}</text>')
 
     out += [
         f'  <text x="72" y="192" fill="{INK}" font-family="Georgia,serif" font-size="54" '

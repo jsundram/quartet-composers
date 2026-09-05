@@ -815,12 +815,12 @@
   <circle cx="839.0" cy="122.5" r="7.5" fill="#fb923c" stroke="#191c21" stroke-width="1.6"/>
   <circle cx="729.0" cy="193.6" r="7.5" fill="#fb923c" stroke="#191c21" stroke-width="1.6"/>
   <circle cx="829.1" cy="165.0" r="7.5" fill="#fb923c" stroke="#191c21" stroke-width="1.6"/>
-  <text x="895.4" y="91.2" fill="#eceef0" font-family="system-ui,sans-serif" font-size="18" font-weight="600" text-anchor="middle" stroke="#14161a" stroke-width="4" paint-order="stroke" stroke-linejoin="round">Wolfgang Amadeus Mozart</text>
-  <text x="822.5" y="128.5" fill="#eceef0" font-family="system-ui,sans-serif" font-size="18" font-weight="600" text-anchor="end" stroke="#14161a" stroke-width="4" paint-order="stroke" stroke-linejoin="round">Ludwig van Beethoven</text>
-  <text x="1001.5" y="157.0" fill="#eceef0" font-family="system-ui,sans-serif" font-size="18" font-weight="600" text-anchor="middle" stroke="#14161a" stroke-width="4" paint-order="stroke" stroke-linejoin="round">Joseph Haydn</text>
-  <text x="1033.9" y="268.9" fill="#eceef0" font-family="system-ui,sans-serif" font-size="18" font-weight="600" text-anchor="middle" stroke="#14161a" stroke-width="4" paint-order="stroke" stroke-linejoin="round">Luigi Boccherini</text>
-  <text x="729.0" y="177.1" fill="#eceef0" font-family="system-ui,sans-serif" font-size="18" font-weight="600" text-anchor="middle" stroke="#14161a" stroke-width="4" paint-order="stroke" stroke-linejoin="round">Béla Bartók</text>
-  <text x="1085.7" y="352.5" fill="#eceef0" font-family="system-ui,sans-serif" font-size="18" font-weight="600" text-anchor="end" stroke="#14161a" stroke-width="4" paint-order="stroke" stroke-linejoin="round">Giuseppe Cambini</text>
+  <text x="895.4" y="91.2" fill="#eceef0" font-family="system-ui,sans-serif" font-size="18" font-weight="600" text-anchor="middle" stroke="#14161a" stroke-width="4" paint-order="stroke" stroke-linejoin="round">Mozart</text>
+  <text x="822.5" y="128.5" fill="#eceef0" font-family="system-ui,sans-serif" font-size="18" font-weight="600" text-anchor="end" stroke="#14161a" stroke-width="4" paint-order="stroke" stroke-linejoin="round">Beethoven</text>
+  <text x="1001.5" y="157.0" fill="#eceef0" font-family="system-ui,sans-serif" font-size="18" font-weight="600" text-anchor="middle" stroke="#14161a" stroke-width="4" paint-order="stroke" stroke-linejoin="round">J. Haydn</text>
+  <text x="1033.9" y="268.9" fill="#eceef0" font-family="system-ui,sans-serif" font-size="18" font-weight="600" text-anchor="middle" stroke="#14161a" stroke-width="4" paint-order="stroke" stroke-linejoin="round">Boccherini</text>
+  <text x="729.0" y="177.1" fill="#eceef0" font-family="system-ui,sans-serif" font-size="18" font-weight="600" text-anchor="middle" stroke="#14161a" stroke-width="4" paint-order="stroke" stroke-linejoin="round">Bartók</text>
+  <text x="1085.7" y="352.5" fill="#eceef0" font-family="system-ui,sans-serif" font-size="18" font-weight="600" text-anchor="end" stroke="#14161a" stroke-width="4" paint-order="stroke" stroke-linejoin="round">Cambini</text>
   <text x="72" y="192" fill="#eceef0" font-family="Georgia,serif" font-size="54" font-weight="700">String Quartet</text>
   <text x="72" y="254" fill="#eceef0" font-family="Georgia,serif" font-size="54" font-weight="700">Composers</text>
   <text x="72" y="316" fill="#9aa3a8" font-family="system-ui,sans-serif" font-size="24">790 composers, 1709–1989.</text>

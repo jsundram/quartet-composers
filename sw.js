@@ -31,7 +31,7 @@
 // one that never updates. The seven review rounds behind this design: #7.
 
 // pwa-starter: sw.js @ d2fad01  (Google Fonts branch removed — this app ships system fonts only.)
-const V = "quartets-v16";   // <-- BUMP ON EVERY SHELL CHANGE (rename the stem freely; keep the digits)
+const V = "quartets-v17";   // <-- BUMP ON EVERY SHELL CHANGE (rename the stem freely; keep the digits)
 
 // "quartets-v" — the stem shared by every cache generation. app.js's VER_PREFIX must match it, and the
 // NUMERIC TAIL is load-bearing: it orders generations for the collect below and for checkVer()'s
@@ -47,7 +47,7 @@ function verNum(name) {
 
 const SHELL = [
   "./", "./index.html", "./styles.css",
-  "./app.js", "./theme.js", "./chart.js", "./table.js", "./histogram.js", "./ping.js",
+  "./app.js", "./theme.js", "./names.js", "./chart.js", "./table.js", "./histogram.js", "./ping.js",
   "./manifest.json",
   // d3 is VENDORED, not loaded from a CDN. A CDN <script> is the one gap that passes every other
   // check on this list and still opens to a blank chart on a plane — and this app is nothing but
@@ -326,8 +326,8 @@ async function cacheLookup(req) {
 //   - composers.json  the whole point. Present, the page is a chart; absent, it is a headline.
 // styles.css is deliberately NOT here: unstyled, the page is ugly but completely usable, and
 // trading that for the offline page would be the "gating on a nice-to-have" mistake.
-const BOOT = ["./d3.v7.min.js", "./theme.js", "./chart.js", "./table.js", "./histogram.js",
-              "./app.js", "./composers.json"];
+const BOOT = ["./d3.v7.min.js", "./theme.js", "./names.js", "./chart.js", "./table.js",
+              "./histogram.js", "./app.js", "./composers.json"];
 const BOOT_DEPS = { "": BOOT, "index.html": BOOT };
 
 // Request pathname → BOOT_DEPS key, relative to the SW scope (works at user.github.io/repo/).

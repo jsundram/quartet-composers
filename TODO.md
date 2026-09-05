@@ -170,11 +170,13 @@ label there — currently it is just absent, which is quieter than it should be.
 ---
 
 ### Surname extraction is a heuristic on 884 human names
-`SURNAME` in `table.js` overrides the seven the "last word" rule gets wrong today (compound
+`SURNAME` in `names.js` overrides the eight the "last word" rule gets wrong today (compound
 surnames, capitalised particles, one name in Chinese order). There will be more it gets wrong that
 nobody has noticed: French particles are dropped where a French index would keep them
 (`de la Tombelle` → `Tombelle`), and any future non-Western name order will be silently reversed.
-`Table.staleOverrides()` catches renames, not misjudgements.
+`Names.staleOverrides()` catches renames, not misjudgements. The stakes went up when the chart
+labels started printing the same short form: a misjudged surname is now on the plot, not only in
+a table cell whose `title` still carries the full name.
 
 ## Pipeline
 

@@ -148,6 +148,7 @@ the gate rejects it, so a weakened check goes red instead of quietly green.
 index.html        structure          styles.css   design system (light/dark/print)
 app.js            boot + selection   chart.js     the three views
 table.js          the data table     histogram.js the readership filter (log histogram + brush)
+names.js          canonical Wikipedia title -> the short name the chart and the table print
 theme.js          three-state theme + the JS-baked-color contract
 sw.js             offline shell + the V cache-busting constant
 composers.json    the dataset (generated — edit data/ and rebuild)

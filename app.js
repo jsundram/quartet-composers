@@ -398,7 +398,7 @@ const pillValues = () => [...document.querySelectorAll("#gender button")]
 // worst way: the composer is in neither filter while the provenance line, which counts only the
 // composers with NO claim, still implies everyone else is reachable. validate.py fails the build
 // on it; this is the same assertion on the app's side, and the UI suite asserts it empty. Exactly
-// the job Chart.missingNames() and Table.staleOverrides() do for the other hardcoded vocabularies.
+// the job Chart.missingNames() and Names.staleOverrides() do for the other hardcoded vocabularies.
 function unfilterableGenders() {
   const reach = new Set(pillValues());
   return [...new Set(ROWS.filter(d => d.gender != null && !reach.has(d.gender)).map(d => d.gender))];
@@ -523,6 +523,11 @@ async function start() {
                          views_stat: "median", dates_source: "Wikidata", generated: "",
                          gender_source: "Wikidata P21, \u201csex or gender\u201d" },
                        data.meta || {});
+
+  // FIRST: both the chart's labels and the table's name column are shortened by names.js, and it
+  // needs the whole roster to know which surnames are shared. Neither module can display a name
+  // before this runs.
+  Names.setData(data.rows.map(r => r[0]));
 
   Chart.setData(data.rows);
   Chart.init({

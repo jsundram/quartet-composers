@@ -43,8 +43,8 @@ plain static assets. Read README.md first for what the app is.
    `CANON` and `OUTLIERS` in `chart.js` are thirteen canonical Wikipedia titles, which change
    spelling when the pipeline runs (invariant 4). `Chart.missingNames()` reports any that stop
    resolving and the UI suite asserts it empty, so a rename fails loudly instead of dropping a
-   composer out of the argument the view is making. `table.js`'s `SURNAME` override map carries
-   the same contract via `Table.staleOverrides()`. Adding a name to either means adding it to the
+   composer out of the argument the view is making. `names.js`'s `SURNAME` override map carries
+   the same contract via `Names.staleOverrides()`. Adding a name to either means adding it to the
    list, not to a comment. The gender pills are a third such vocabulary: `index.html` names the
    values the UI can filter, `app.js` reads its URL whitelist off the pills rather than repeating
    them, and a stated P21 label no pill reaches fails both `validate.py` and
@@ -87,9 +87,9 @@ plain static assets. Read README.md first for what the app is.
    characters; a new one means a new `FOLD` entry.
 
 14. **`scripts/make-og-svg.py` duplicates chart.js's scales on purpose.** Same log domains, same
-   jitter hash, same emphasis, and the same two uniform radii — readership is the Y AXIS in this
-   view, so the card has no radius scale either. It renders the READERS view, because that is
-   what a bare URL opens on. Changing an encoding in `chart.js` means changing it there too, or
+   jitter hash, same emphasis, the same two uniform radii — readership is the Y AXIS in this
+   view, so the card has no radius scale either — and the same short-name rule from `names.js`.
+   It renders the READERS view, because that is what a bare URL opens on. Changing an encoding in `chart.js` means changing it there too, or
    the share card stops matching the page. They are duplicated rather than shared because the app
    must not ship a build step and the card must not ship a JS runtime.
 
@@ -138,9 +138,15 @@ made on evidence.
   of the chart card or the table card — all THREE filters (search, readership brush, gender pills)
   scope both views, and a filter drawn inside one card says otherwise. `placeFilters()` moves it into `#viz` in full screen (where the chart
   is everything) and CSS drops its search half there to keep the chart's height.
-- **The table shows surnames; everything else shows the full title.** `table.js` is the only place
-  that takes a canonical Wikipedia name apart, and it is a heuristic — see `SURNAME` there. The
-  chart labels and the detail panel keep the full name, and the row's `title` attribute carries it.
+- **The table and the chart show short names; the detail panel shows the full title.**
+  `names.js` is the only place that takes a canonical Wikipedia name apart, and it is a heuristic
+  — see `SURNAME` there. It derives BOTH forms from one shared-surname map, so the two can never
+  disagree about who needs more than a surname: `filed()` gives the table "Haydn, Joseph" (a
+  column that sorts on the string it prints), `short()` gives the chart "J. Haydn" (a label that
+  has to fit beside its dot), and a surname shared by two people whose initials also match falls
+  through to the full name — Ferdinand and Félicien David. The detail panel, the hover flag and
+  the row's `title` attribute all keep the canonical title, where recognising the person is the
+  job. `make-og-svg.py` duplicates `short()` for the same reason it duplicates the scales.
 - **The provenance line is built, not assigned.** `setProv()` in `app.js` linkifies every Wikidata
   property id it prints (`P569` -> its definition page), because an id is jargon a reader cannot
   check from the page. It links the TEXT rather than storing anchors in `composers.json`: that file
@@ -150,9 +156,14 @@ made on evidence.
   gender filter — so anything binding `.seg button` must scope itself (`.controls .seg button`).
   Unscoped, the switcher's handler landed on the filter's buttons and a pill press called
   `setMode(undefined)`: the chart left every named mode at once and the URL grew `#v=undefined`.
+- **`names.js` loads before `chart.js` and `table.js`, and `Names.setData()` runs before either
+  gets data.** The short form of a name is a function of the WHOLE roster (a shared surname earns
+  an initial), so neither module can display a name until the roster has been counted. It is a
+  SHELL and a BOOT dep like every other load-bearing script — see invariants 1 and 2.
 - `index.html` owns structure, `styles.css` owns looks, `app.js` owns boot and the shared state
   (which composer is selected, which filters are active). `chart.js`, `table.js` and
-  `histogram.js` never talk to each other — the filters compose in `applyFilters()`, where each
+  `histogram.js` never talk to each other (they share `names.js` and `Chart.colorOf`, which are
+  read-only lookups, not state) — the filters compose in `applyFilters()`, where each
   source returns "a Set of indices, or null for everything" and they are intersected. The gender
   filter is the one with no module of its own (`genderMatches()` in `app.js`): three buttons and a
   string, nothing to render and no data to hold. A fourth filter that DOES draw something belongs
@@ -174,6 +185,10 @@ made on evidence.
   state (pinned, with the nav row) and ellipsizes the name. Without that, moving the mouse across
   the chart pumps the legend up and down. Touch screens get neither rule — no hover to churn, and
   the space is the chart's.
+- **A chart label prints the short name, not the canonical title.** 7 characters on average
+  instead of 15, and because `pickLabels()` is first-come-first-served on space, halving every box
+  is what lets the names behind it find room at all. The label text and the width estimate must
+  come from the same string — `pickLabels()` computes it once and carries it on the placement.
 - **Labels are a function of zoom, not a list.** `pickLabels()` in `chart.js` spends a budget that
   grows with the zoom (`base × (1 + log₂ k)`) on candidates that are frame-culled, so pinching in
   names what is in the frame. In the Readers view the curated thirteen are the SEED and fill the

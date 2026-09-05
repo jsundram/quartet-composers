@@ -45,72 +45,17 @@ window.Table = (function () {
                      .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
   // ---- display names --------------------------------------------------------
-  // The table shows the SURNAME, and "Surname, Forename" only where a surname is shared. Two
-  // reasons: sorting by name now sorts the way a reader expects (all three Haydns together, not
-  // filed under J, M and F), and the composer column stops being the widest thing on a phone.
-  // The chart labels and the detail panel keep the full name -- there, recognising the person is
-  // the whole job.
-  //
-  // Everything else on the page treats a name as an opaque canonical Wikipedia title, so this is
-  // the one place that takes them apart, and it is a HEURISTIC on 884 human names. The rule is
-  // "the last word", which is right about 870 times; SURNAME holds the ones it is wrong about.
-  // That list is a judgment call, not a fact, and staleOverrides() reports any entry that no
-  // longer matches a composer so a pipeline rename shows up instead of silently doing nothing.
-  //
-  // AUDITED against all 884 (2026-09-05), which is worth redoing after a re-scrape rather than
-  // trusting. Two classes can break the rule and both were checked exhaustively:
-  //   family-name-first — only "Chen Yi". "Isang Yun", "Unsuk Chin" and "Shigeru Kan-no" carry
-  //     Westernised article titles, so the last word IS the family name and the rule is right.
-  //   compound surnames — found by listing the penultimate word of every 3+ word name; ~80 are
-  //     ordinary middle names and the five below are not.
-  // Left deliberately alone: French and Dutch particles file under the last word here
-  // ("Fernand de la Tombelle" → Tombelle, "Louise Haenel de Cronenthall" → Cronenthall), where a
-  // French index would keep the particle. Both are still recognisable, and the whole point of the
-  // column is to be narrow.
-  const SUFFIXES = new Set(["junior", "jr", "jr.", "sr", "sr.", "ii", "iii", "iv"]);
-  const SURNAME = {
-    // Compound surnames the last-word rule splits in half.
-    "Ralph Vaughan Williams": "Vaughan Williams",
-    "David Vaughan Thomas": "Vaughan Thomas",
-    "Peter Maxwell Davies": "Maxwell Davies",
-    "Vincenza Garelli della Morea": "Garelli della Morea",
-    "Tera de Marez Oyens": "de Marez Oyens",
-    // Capitalised particles that are part of the name, not a nobiliary prefix to drop.
-    "Alicia Van Buren": "Van Buren",
-    "Nancy Van de Vate": "Van de Vate",
-    // Family name FIRST: the article title is in Chinese order, so the last word is the given name.
-    "Chen Yi": "Chen",
-  };
-
-  function surnameOf(name) {
-    if (SURNAME[name]) return SURNAME[name];
-    // "Samuel Wesley (composer, born 1766)" -- a Wikipedia disambiguator, not part of the name.
-    const parts = name.replace(/\s*\([^)]*\)\s*$/, "").split(/\s+/);
-    let end = parts.length - 1, suffix = "";
-    if (end > 0 && SUFFIXES.has(parts[end].toLowerCase())) { suffix = " " + parts[end]; end--; }
-    // Lowercase nobiliary particles are dropped, which is how English indexes file them:
-    // "Ludwig van Beethoven" is under B, "Carl Ditters von Dittersdorf" under D.
-    return parts[end] + suffix;
-  }
+  // The table shows the SURNAME, and "Surname, Forename" only where a surname is shared, so that
+  // sorting by name sorts the way a reader expects and the composer column stops being the widest
+  // thing on a phone. names.js owns the rule -- the chart labels shorten the same 884 names by the
+  // same judgment, and the two must not drift apart about who needs a forename. The detail panel
+  // keeps the full title, where recognising the person is the whole job.
 
   function setData(r) {
     rows = r;
-    const count = new Map();
     rows.forEach(d => {
       d.key = norm(d.name);
-      d.sur = surnameOf(d.name);
-      count.set(d.sur, (count.get(d.sur) || 0) + 1);
-    });
-    // Only a SHARED surname earns a forename, so the column stays as narrow as it can be.
-    rows.forEach(d => {
-      if (count.get(d.sur) < 2) { d.display = d.sur; return; }
-      const bare = d.name.replace(/\s*\([^)]*\)\s*$/, "");
-      // Remove the surname WHEREVER it sits, not by slicing a suffix off the end: the family-name
-      // -first overrides put it at the front, so "Chen Yi" with surname "Chen" was yielding a
-      // forename of "Che". Inert today only because no other composer's name ends in "Chen" --
-      // exactly the kind of thing a re-scrape changes.
-      const fore = bare.replace(d.sur, "").replace(/\s+/g, " ").trim();
-      d.display = fore ? `${d.sur}, ${fore}` : d.sur;
+      d.display = Names.filed(d.name);
     });
   }
 
@@ -266,8 +211,5 @@ window.Table = (function () {
     theadEl = opts.thead; tbodyEl = opts.tbody; cbSelect = opts.onSelect;
   }
 
-  return { init, setData, render, repaintChips, select, matches, ordered: () => order,
-           // Override keys that no longer name a composer -- a pipeline rename, asserted empty by
-           // the UI suite so the entry cannot sit there doing nothing.
-           staleOverrides: () => Object.keys(SURNAME).filter(n => !rows.some(d => d.name === n)) };
+  return { init, setData, render, repaintChips, select, matches, ordered: () => order };
 })();

@@ -370,6 +370,11 @@ window.Chart = (function () {
   // Beethoven". Width is estimated rather than measured — a getBBox() per candidate would force
   // ~30 synchronous layouts per frame during a zoom, and being 10% off just costs a little
   // whitespace. The selected composer is placed FIRST so it never loses its label to a rival.
+  //
+  // A label prints the SHORT name (names.js), not the canonical Wikipedia title: 7 characters on
+  // average instead of 15. That is not only tidier — the placer is first-come-first-served on
+  // space, so halving every box is what lets the ones behind it find room at all. The full title
+  // is still one hover or tap away in the detail panel, and the flag prints it on the way.
   function pickLabels(p, diag) {
     // Full screen earns more labels, but not proportionally more: a phone in full screen is TALL
     // and narrow, and 40+ names there collide with dots even when they miss each other.
@@ -422,7 +427,8 @@ window.Chart = (function () {
       // land inside the frame while the dot it names is outside it, which prints a name pointing
       // at nothing.
       if (!inFrame(q)) continue;
-      const tw = d.name.length * 5.5 + 6, th = 12;
+      const text = Names.short(d.name);
+      const tw = text.length * 5.5 + 6, th = 12;
       // Above, then below, then beside. "Above" alone silently dropped exactly the composers the
       // chart is about: Mozart sits 2.6% from the top of the readers view, Cambini hard against
       // the right edge, Debussy and Gershwin against the left — every one of them had a dot and
@@ -439,7 +445,7 @@ window.Chart = (function () {
       }
       if (!put) continue;
       boxes.push({ x: put.bx - 2, y: put.by - 1, w: tw + 4, h: th + 2 });
-      placed.push({ d, x: put.bx + tw / 2, y: put.by + th - 2 });
+      placed.push({ d, text, x: put.bx + tw / 2, y: put.by + th - 2 });
     }
     return placed;
   }
@@ -622,7 +628,7 @@ window.Chart = (function () {
       .attr("stroke", C.plot)
       .attr("fill", d => (cur && d.d.i === cur.i ? C.sel : labelColorOf(d.d)))
       .attr("font-weight", d => (cur && d.d.i === cur.i ? 700 : 500))
-      .text(d => d.d.name);
+      .text(d => d.text);
 
     gLens.attr("class", "lens-edge")
       .style("display", mode === "lens" && lens ? null : "none")
