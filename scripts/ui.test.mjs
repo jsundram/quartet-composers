@@ -190,6 +190,29 @@ check("the brushed range is in the URL", (await ev(`location.hash`)).includes("r
       await ev(`decodeURIComponent(location.hash)`));
 check("a readout names the range", (await ev(`document.getElementById('hist-read').textContent`)).includes("views"),
       await ev(`document.getElementById('hist-read').textContent`));
+// The range annotates the axis under its own handles instead of sitting inline among the controls.
+check("the selected range is drawn on the axis, at its end points",
+      await ev(`(()=>{const read=document.getElementById('hist-read').textContent;
+        const ends=[...document.querySelectorAll('#hist svg g.ends text')];
+        return ends.length === 2 && ends.every(t => read.includes(t.textContent))})()`),
+      await ev(`[...document.querySelectorAll('#hist svg g.ends text')]
+        .map(t=>t.textContent).join(" .. ")`));
+check("no axis tick is printed under the range labels",
+      await ev(`(()=>{const b=e=>e.getBoundingClientRect();
+        const t=[...document.querySelectorAll('#hist svg g.axis text')].map(b);
+        const e2=[...document.querySelectorAll('#hist svg g.ends text')].map(b);
+        return !t.some(a=>e2.some(c=>a.left < c.right && a.right > c.left))})()`));
+// THE REPORTED BUG: .seg is overflow:hidden, so when Clear appeared the pill group gave up width
+// and clipped its last pill — the filter lost the word "Men" while you were using the filter.
+check("the gender pills are not clipped when Clear appears",
+      await ev(`(()=>{const g=document.getElementById('gender');
+        return g.scrollWidth <= g.clientWidth + 1})()`),
+      await ev(`(()=>{const g=document.getElementById('gender');
+        return g.scrollWidth + " vs " + g.clientWidth})()`));
+check("every gender pill is fully inside the filter row",
+      await ev(`(()=>{const row=document.querySelector('.filterbar').getBoundingClientRect();
+        return [...document.querySelectorAll('#gender button')].every(b=>{
+          const r=b.getBoundingClientRect(); return r.right <= row.right + 0.5 && r.left >= row.left - 0.5})})()`));
 
 // The two filters must INTERSECT, not replace one another.
 await ev(`(()=>{const q=document.getElementById('q'); q.value='quartet';
@@ -478,6 +501,34 @@ check("the kept dots are emphasised, not merely less dim",
         .filter(c=>+c.getAttribute('opacity')>0.5).length > 150`),
       "opacities: " + await ev(`[...new Set([...document.querySelectorAll('#plot svg circle.dot')]
         .map(c=>c.getAttribute('opacity')))].sort().join(' ')`));
+// Every one of the thirteen names the readers view argues about is a man, so a women filter used
+// to leave the view with 219 emphasised dots and no labels at all: it showed where they are and
+// refused to say who they are. A filtered field names its own most-read survivors.
+const wlabels = await ev(`[...document.querySelectorAll('#plot svg text')].map(t=>t.textContent)`);
+check("a filtered readers view still names somebody",
+      wlabels.some(t => t.includes("Florence Price")) && wlabels.length > 3,
+      wlabels.filter(t => !/quartet|readers|written|month/.test(t)).join(" | "));
+check("it names only composers the filter kept",
+      await ev(`(()=>{const kept=new Set([...document.querySelectorAll('tbody tr td:first-child')]
+          .map(c=>c.title));
+        const everyone=new Set(ROWS.map(d=>d.name));
+        const drawn=[...document.querySelectorAll('#plot svg text')].map(t=>t.textContent)
+          .filter(t=>everyone.has(t));           // the rest of the <text> nodes are axis furniture
+        return drawn.length > 0 && drawn.every(n=>kept.has(n))})()`),
+      "labels naming a filtered-out composer");
+
+// The diagonal captions live in the grid layer, so they were never in the label collision map —
+// invisible while the thirteen sat in open space, systematic once ten names crowd the left band.
+check("no composer label is printed over a diagonal caption",
+      await ev(`(()=>{const box=e=>e.getBoundingClientRect();
+        const all=[...document.querySelectorAll('#plot svg text')];
+        const dg=all.filter(t=>/per quartet|\\/quartet/.test(t.textContent)).map(box);
+        const names=new Set(ROWS.map(d=>d.name));
+        const nm=all.filter(t=>names.has(t.textContent)).map(box);
+        return nm.length > 0 && !nm.some(a=>dg.some(b =>
+          a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top))})()`),
+      "a name is sitting on a readers-per-quartet caption");
+
 check("the filter is in the URL", (await ev(`location.hash`)).includes("g=female"),
       await ev(`decodeURIComponent(location.hash)`));
 // The pills wear the view switcher's `.seg` look. An unscoped ".seg button" handler bound the

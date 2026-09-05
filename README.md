@@ -117,7 +117,7 @@ matched to the same human.
 ```sh
 python3 scripts/validate.py       # THE DATA GATE — see below; run it after every rebuild
 python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (15 cases)
-scripts/ui-test.sh           # 115 behavioural checks in a real headless Chrome (lens, tap-to-pin,
+scripts/ui-test.sh           # 122 behavioural checks in a real headless Chrome (lens, tap-to-pin,
                              #   the three filters, theme repaint, 390px layout, offline, print) — no deps
 node scripts/sw.test.mjs     # 24 tests of the service worker's fetch handler
 python3 scripts/sw-lint.py   # precache contract: V bumped, SHELL paths exist, no cross-origin

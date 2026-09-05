@@ -47,6 +47,12 @@ unspent channel is shape, and shape does not read at a 2.5px radius among 790 ma
 The pills live on the readership row, so they survive full screen where `.tablehead` does not. On a
 phone they take a third line rather than crowding the brush.
 
+One thing the filter exposed: all thirteen composers the Readers view labels are men, so "Women"
+drew 219 emphasised dots with no name on any of them — it answered "where are they" and refused to
+answer "who". While a filter is on, the view now names the most-read ten of whoever is left
+(`EXTRA_LABELS` in `chart.js`), which is what the other three views do all the time. Unfiltered it
+is unchanged: the thirteen and nothing else.
+
 ### Readership is displayed to two significant figures; the data has one meaningful one
 `twoSig()` in `app.js` quantizes the median to two figures and floors it, so Mozart reads "180k+"
 rather than "186,772". Two is a guess, not a derivation: the honest input is the 12-month spread,

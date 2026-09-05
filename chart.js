@@ -49,6 +49,10 @@ window.Chart = (function () {
   const VY_DOMAIN = [0.85, 260000];     // readers/mo; 1 .. 186,772 today
   const VY_TICKS = [1, 10, 100, 1000, 10000, 100000];
   const RATIOS = [1, 10, 100, 1000, 10000];   // the readers-per-quartet diagonals
+  // How many unnamed composers the readers view will name while a filter is on (see pickLabels).
+  // Ten, because the view's whole character is a readable handful rather than every name that
+  // fits: a filter narrows the argument, it does not turn this into the timeline.
+  const EXTRA_LABELS = 10;
 
   // The editorial spine, and the only hardcoded composer NAMES in the app. They are canonical
   // Wikipedia titles, which change spelling when the pipeline runs (see invariant 4), so a name
@@ -333,16 +337,32 @@ window.Chart = (function () {
   // Beethoven". Width is estimated rather than measured — a getBBox() per candidate would force
   // ~30 synchronous layouts per frame during a zoom, and being 10% off just costs a little
   // whitespace. The selected composer is placed FIRST so it never loses its label to a rival.
-  function pickLabels(p) {
+  function pickLabels(p, diag) {
     // Full screen earns more labels, but not proportionally more: a phone in full screen is TALL
     // and narrow, and 40+ names there collide with dots even when they miss each other.
     const full = document.body.classList.contains("fs");
     const cap = full ? (w < 560 ? 20 : 42) : Math.max(4, Math.round(w / 62));
-    // The readers view labels the ten names it is ABOUT and nothing else. Filling the rest of the
-    // space with whoever is most-read next is exactly the flood that stops direct labels working:
-    // the argument is ten names against a field, so ten names is what gets written on it.
+    // The readers view labels the thirteen names it is ABOUT and nothing else. Filling the rest of
+    // the space with whoever is most-read next is exactly the flood that stops direct labels
+    // working: the argument is a handful of names against a field, so that is what gets written
+    // on it.
+    //
+    // UNLESS A FILTER IS ON, and then the argument is a different one. Every one of the thirteen
+    // is a man, so "Women" left the view with 219 emphasised dots and not a single name on any of
+    // them — the filter answered "where are they" and refused to answer "who". A filtered field is
+    // also small enough that the flood the rule guards against cannot happen. So the survivors of
+    // the named set keep their labels and the most-read of whoever else is left fills in behind
+    // them, which is exactly what the other three views do all the time.
+    const readersCands = () => {
+      const keep = canonIdx.concat(outlierIdx).map(i => rows[i]).filter(isVisible);
+      if (!visible) return keep;
+      const rest = rows.filter(d => isVisible(d) && !named(d.i))
+                       .sort((a, b) => b.views - a.views)
+                       .slice(0, EXTRA_LABELS);
+      return keep.concat(rest);
+    };
     const cands = mode === "readers"
-      ? canonIdx.concat(outlierIdx).map(i => rows[i]).filter(isVisible)
+      ? readersCands()
       : rows.filter(isVisible).sort((a, b) => b.views - a.views);
     // The selected composer is placed FIRST so it never loses its label to a rival -- but it is
     // only in `cands` if it was a candidate. In the readers view the list is the 13 named, so
@@ -354,6 +374,14 @@ window.Chart = (function () {
       cands.unshift(rows[selected]);
     }
     const placed = [], boxes = [];
+    // The diagonal captions are drawn in the grid layer, so they were never candidates and nothing
+    // kept a name off them: "Florence Price" printed straight through "10k readers per quartet".
+    // Rare before, because the thirteen sit in open space — systematic the moment a filter puts
+    // ten names in the crowded left band, which is where those captions start. Same width estimate
+    // the names use, one font size down (9.5 vs 10.5).
+    for (const d of (diag || [])) {
+      boxes.push({ x: d.a.x + 2, y: d.a.y - 16, w: d.label.length * 5 + 6, h: 13 });
+    }
     for (const d of cands) {
       if (placed.length >= cap) break;
       const q = p[d.i];
@@ -472,7 +500,11 @@ window.Chart = (function () {
       for (const k of RATIOS) {
         const [q1, q2] = tx.domain();
         const seg = trim({ x: tx(q1), y: ty(k * q1) }, { x: tx(q2), y: ty(k * q2) });
-        if (seg) diag.push({ k, ...seg });
+        // The caption is built here rather than in the .text() call because pickLabels has to
+        // MEASURE it: these sit in the grid layer, are not label candidates, and so were invisible
+        // to the collision pass that keeps names off each other.
+        if (seg) diag.push({ k, ...seg, label: w < 560 ? `${vfmt(k)}/quartet`
+                                                       : `${vfmt(k)} reader${k === 1 ? "" : "s"} per quartet` });
       }
     }
     const dg = gGrid.selectAll("line.dg").data(diag, d => d.k);
@@ -485,8 +517,7 @@ window.Chart = (function () {
     dl.enter().append("text").attr("class", "dl").attr("font-size", 9.5).merge(dl)
       .attr("x", d => d.a.x + 4).attr("y", d => d.a.y - 5)
       .attr("text-anchor", "start").attr("fill", C.axis).attr("opacity", 0.9)
-      .text(d => (w < 560 ? `${vfmt(d.k)}/quartet`
-                          : `${vfmt(d.k)} reader${d.k === 1 ? "" : "s"} per quartet`));
+      .text(d => d.label);
 
     const lx = gAxX.selectAll("text").data(xTicks, String);
     lx.exit().remove();
@@ -547,7 +578,7 @@ window.Chart = (function () {
         .attr("fill", "none").attr("stroke", C.sel).attr("stroke-width", 2.2);
     }
 
-    const labs = pickLabels(pos);
+    const labs = pickLabels(pos, diag);
     const lb = gLabels.selectAll("text").data(labs, d => d.d.i);
     lb.exit().remove();
     lb.enter().append("text")

@@ -120,10 +120,18 @@ body.fs #filters .tablehead{ display:none }
    primary action on the page. Touch sizing is restored in the phone block below — .seg.sm outranks
    the .seg button rule there on specificity, so it has to opt back in rather than inherit. */
 .seg.sm button{ min-height:30px; padding:0 11px; font-size:12px }
-#gender{ margin-left:auto }                    /* pinned right; the brush takes the slack */
+/* flex:none is load-bearing, not tidiness. `.seg` is overflow:hidden, so when the Clear button
+   appears and the row runs out of room the pill group SHRANK and clipped its last pill — the
+   filter lost the word "Men" exactly when you were using the filter beside it. The histogram is
+   the one thing here that may give up width (it has min-width:0); everything else is content that
+   has to stay whole. margin-left:auto pins the group right, so the brush absorbs the change and
+   the pills do not move at all. */
+#gender{ margin-left:auto; flex:0 0 auto }
+/* A little more air than the row's own 12px gap. With the readout gone, the readership Clear
+   button ends up directly beside the word "Gender", where it reads as if it clears that. */
+#gender-label{ margin-left:6px }
 #hist{ flex:1 1 auto; min-width:0; margin-right:2px; touch-action:none }   /* touch-action:none so d3-brush owns the drag */
 #hist svg{ display:block; width:100%; height:auto; overflow:visible }
-#hist-read{ font:500 11px/1 ui-monospace, monospace; color:var(--accent); white-space:nowrap }
 #hist-clear{ min-height:28px; padding:0 10px; font-size:12px }
 /* d3-brush chrome: keep the unselected area readable and give the handles a visible grip. */
 #hist .selection{ fill:var(--accent); fill-opacity:.10; stroke:var(--accent); stroke-opacity:.55 }

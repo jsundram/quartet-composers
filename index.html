@@ -83,7 +83,9 @@
     <div class="filterbar">
       <label id="hist-label" for="hist">Readership</label>
       <div id="hist" role="group" aria-labelledby="hist-label"></div>
-      <span id="hist-read"></span>
+      <!-- The range is drawn ON the axis now, under its own end points (histogram.js). This keeps
+           the same words for a screen reader, which cannot read text inside a role="img". -->
+      <span id="hist-read" class="sr-only"></span>
       <button type="button" id="hist-clear" class="btn" hidden>Clear</button>
 
       <!-- Buttons, not a <select>: three states that are all worth one press, and pressed state is

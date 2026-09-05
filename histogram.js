@@ -19,7 +19,7 @@ window.Histogram = (function () {
   const AXIS = 15;              // tick labels below it
   const PAD = 2;
 
-  let el, cb, svg, gBars, gAxis, brush, gBrush;
+  let el, cb, svg, gBars, gAxis, gEnds, brush, gBrush;
   let rows = [], counts = [], edges = [], x = null, y = null;
   let range = null;             // [lo, hi] in views, or null for "everything"
   let w = 0, C = {};
@@ -68,11 +68,51 @@ window.Histogram = (function () {
       .attr("fill", (d, i) => (inRange(i) ? C.sel : C.bar))
       .attr("opacity", (d, i) => (inRange(i) ? 0.75 : 0.5));
 
-    const ticks = [1, 10, 100, 1000, 10000, 100000].filter(t => t >= edges[0] && t <= edges[BINS]);
+    // THE RANGE ANNOTATES ITS OWN END POINTS. It used to sit inline in the filter row as
+    // "1.8k-30k views/mo", which put a readout among the controls, cost ~110px of a row that also
+    // holds the gender pills, and appeared and disappeared as you brushed. Under the handles it
+    // says the same thing about the thing it describes, and the row stays still.
+    //
+    // The two are placed before the ticks because they win: a tick label they would collide with
+    // is dropped, not overlapped. The axis reads 1 / 10 / 100 / 1k / 10k / 100k, so a selection
+    // edge lands on one of those often enough that overlap is the normal case, not the corner.
+    const half = t => (t.length * 5.6) / 2 + 3;                      // 10px digits, estimated
+    const clamp = v => Math.max(half(fmt(v)), Math.min(w - half(fmt(v)), x(v)));
+    const ends = range ? [{ v: range[0], x: clamp(range[0]) }, { v: range[1], x: clamp(range[1]) }]
+                       : [];
+    // A narrow brush puts both labels on the same few pixels. Push them apart rather than
+    // stacking them: the pair still reads as the two ends of one selection.
+    if (ends.length === 2) {
+      const need = half(fmt(ends[0].v)) + half(fmt(ends[1].v)) + 4;
+      const gap = ends[1].x - ends[0].x;
+      if (gap < need) {
+        const mid = (ends[0].x + ends[1].x) / 2;
+        ends[0].x = Math.max(half(fmt(ends[0].v)), mid - need / 2);
+        ends[1].x = Math.min(w - half(fmt(ends[1].v)), mid + need / 2);
+      }
+    }
+    const ticks = [1, 10, 100, 1000, 10000, 100000]
+      .filter(t => t >= edges[0] && t <= edges[BINS])
+      .filter(t => !ends.some(e => Math.abs(x(t) - e.x) < half(fmt(t)) + half(fmt(e.v)) + 3));
     const tk = gAxis.selectAll("text").data(ticks);
     tk.exit().remove();
     tk.enter().append("text").attr("font-size", 10).attr("text-anchor", "middle").merge(tk)
       .attr("x", t => x(t)).attr("y", H + 11).attr("fill", C.axis).text(fmt);
+
+    // Keyed by INDEX, not by value: a drag changes both numbers every frame, so a value key would
+    // exit and re-enter two <text> nodes per frame instead of updating the two that are there.
+    const en = gEnds.selectAll("text").data(ends);
+    en.exit().remove();
+    en.enter().append("text").attr("font-size", 10).attr("font-weight", 600)
+      .attr("text-anchor", "middle").merge(en)
+      .attr("x", d => d.x).attr("y", H + 11).attr("fill", C.sel).text(d => fmt(d.v));
+
+    // The <svg> is role="img", so nothing drawn inside it reaches a screen reader — including the
+    // two numbers above. The label carries the state instead, and #hist-read keeps the sentence.
+    svg.attr("aria-label", range
+      ? `Distribution of monthly Wikipedia readership; drag to filter by it. `
+        + `Filtered to ${label()}.`
+      : "Distribution of monthly Wikipedia readership; drag to filter by it");
   }
 
   function measure() {
@@ -84,8 +124,9 @@ window.Histogram = (function () {
     d3.select(el).selectAll("svg").remove();
     svg = d3.select(el).append("svg").attr("role", "img")
       .attr("aria-label", "Distribution of monthly Wikipedia readership; drag to filter by it");
-    gBars = svg.append("g");
-    gAxis = svg.append("g");
+    gBars = svg.append("g").attr("class", "bars");
+    gAxis = svg.append("g").attr("class", "axis");
+    gEnds = svg.append("g").attr("class", "ends");   // the selected range, under its own handles
 
     // handleSize 20 so the grab edges clear the ~44px touch-target floor without a wider brush.
     brush = d3.brushX().extent([[0, 0], [w, H]]).handleSize(20)
