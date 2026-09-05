@@ -21,7 +21,6 @@ const WIKI = name => "https://en.wikipedia.org/w/index.php?search=" + encodeURIC
 
 let META = {}, ROWS = [], selected = null, hovered = null, visible = null;
 let byName = new Map();
-const fmt = new Intl.NumberFormat();
 
 const $ = id => document.getElementById(id);
 
@@ -46,6 +45,26 @@ function selectFromTable(i) {
   writeHash();
 }
 
+// ---- readership, stated to the precision it actually has --------------------
+// The view count is a MEASURE, not a tally: the median of twelve monthly page-view totals, where
+// any single month runs about 12% off typical. "186,772" claims six significant figures for a
+// number that has about two, and it is stale the next time fetch_views.py runs. So the panel
+// quantizes to two figures and rounds DOWN — "180k+" is a claim that survives a refresh.
+//
+// The TABLE keeps the exact figure. That is the row-by-row data view: it sorts on this column, and
+// a column reading "1.2k+" eleven times in a row hides the ordering it was sorted by.
+function twoSig(n, dir) {                       // dir: -1 rounds down, +1 rounds up
+  if (n < 100) return Math.round(n);            // already two figures or fewer
+  const p = Math.pow(10, Math.floor(Math.log10(n)) - 1);
+  return (dir < 0 ? Math.floor(n / p) : Math.ceil(n / p)) * p;
+}
+// The median rounds DOWN, which is what makes the "+" true. The 12-month range rounds OUTWARD —
+// never inward — so it cannot come out narrower than the spread actually was, and so the median
+// always sits inside the range printed beside it. Rounding both bounds to nearest would let
+// views=999, lo=995 print "990+ (1k–2k)", a median below its own low bound.
+const atLeast = v => Histogram.fmt(twoSig(v, -1)) + "+";
+const spread = (lo, hi) => `${Histogram.fmt(twoSig(lo, -1))}–${Histogram.fmt(twoSig(hi, 1))}`;
+
 // ---- detail panel ----------------------------------------------------------
 // Percentile among the rows that HAVE the value. Counting nulls as zero would tell a composer
 // with 3 quartets that they out-wrote the 105 composers whose count simply couldn't be read.
@@ -53,19 +72,32 @@ function pct(d, key) {
   if (d[key] == null) return null;
   const known = ROWS.filter(o => o[key] != null);
   const below = known.reduce((n, o) => n + (o[key] < d[key] ? 1 : 0), 0);
-  return Math.round((below / known.length) * 100);
+  // FLOOR, not round: the most-read composer beats 883 of 884, and rounding 99.9 printed "more
+  // read than 100%" — a claim about the whole list that includes them, and so can't be true.
+  return Math.floor((below / known.length) * 100);
 }
+
+// TIGHT is the full-screen strip: two lines in a fixed-height box above the chart, where every
+// pixel it takes is a pixel of chart. It drops the percentile line, the Wikipedia link, Prev/Next
+// and the 12-month range beside the median — all of which are back the moment you leave full
+// screen. Fixed height and always present is the point: see placeDetail.
+const tight = () => $("detail").classList.contains("compact")
+                 && document.body.classList.contains("fs");
 
 function renderDetail(i, preview) {
   const el = $("detail");
+  const lean = tight();
   el.innerHTML = "";
+  el.classList.toggle("on", i != null);      // .compact is hidden until something IS selected
   if (i == null) {
     const p = document.createElement("p");
     p.className = "empty";
     const living = ROWS.filter(d => d.living).length;
-    p.textContent = `${ROWS.length} composers, born ${d3.min(ROWS, d => d.birth)}–`
-      + `${d3.max(ROWS, d => d.birth)}. ${living} are still living. `
-      + `Select a dot or a row for the details.`;
+    p.textContent = lean
+      ? "Select a dot for the details."
+      : `${ROWS.length} composers, born ${d3.min(ROWS, d => d.birth)}–`
+        + `${d3.max(ROWS, d => d.birth)}. ${living} are still living. `
+        + `Select a dot or a row for the details.`;
     el.appendChild(p);
     return;
   }
@@ -78,10 +110,18 @@ function renderDetail(i, preview) {
   const dates = document.createElement("p");
   dates.className = "dates";
   // Age is read off the clock, not baked at build time, so a cached copy stays right next year.
-  dates.textContent = d.living
+  const life = d.living
     ? `b. ${d.birth} · living, age ${new Date().getFullYear() - d.birth}`
     : `${d.birth}–${d.death} · lived ${d.lifespan} years`;
+  // In the strip the two <dl> rows collapse onto this line — one wrapped line beats a labelled
+  // grid when the whole box is two lines tall.
+  dates.textContent = lean
+    ? [life,
+       d.quartets == null ? "quartet count not stated" : `${d.quartets} quartet${d.quartets === 1 ? "" : "s"}`,
+       d.views == null ? "no readership data" : `${atLeast(d.views)} readers/mo`].join(" · ")
+    : life;
   el.appendChild(dates);
+  if (lean) { navRow(el, preview, true); return; }
 
   const dl = document.createElement("dl");
   const add = (k, v) => {
@@ -93,7 +133,7 @@ function renderDetail(i, preview) {
   // The median, with its own 12-month range beside it — the spread is part of the measurement,
   // and hiding it implies a precision a page-view count does not have.
   add("EN readers / mo", d.views == null ? "no data"
-      : `${fmt.format(d.views)}  (${fmt.format(d.lo)}–${fmt.format(d.hi)})`);
+      : `${atLeast(d.views)}  (${spread(d.lo, d.hi)})`);
   el.appendChild(dl);
 
   const rank = document.createElement("p");
@@ -114,16 +154,24 @@ function renderDetail(i, preview) {
   a.style.fontSize = "13px";
   el.appendChild(a);
 
-  if (!preview) {
-    const nav = document.createElement("div");
-    nav.className = "detail-nav";
+  navRow(el, preview, false);
+}
+
+// Prev/Next step through the table's order and are worth their width in the panel; in the strip
+// only Clear survives, and it stays put during a hover preview so the one control there does not
+// blink in and out as the pointer crosses the field.
+function navRow(el, preview, lean) {
+  if (preview && !(lean && selected != null)) return;
+  const nav = document.createElement("div");
+  nav.className = "detail-nav";
+  if (!lean) {
     nav.appendChild(navBtn("‹ Prev", -1));
     nav.appendChild(navBtn("Next ›", 1));
-    const clear = navBtn("Clear", 0);
-    clear.onclick = () => show(null, false);
-    nav.appendChild(clear);
-    el.appendChild(nav);
   }
+  const clear = navBtn("Clear", 0);
+  clear.onclick = () => show(null, false);
+  nav.appendChild(clear);
+  el.appendChild(nav);
 }
 
 function navBtn(label, step) {
@@ -161,23 +209,38 @@ function renderLegend() {
     `<div class="ticks"><span>20 yrs</span><span>${Chart.midLife()} (median)</span><span>104</span></div>`;
   el.appendChild(life);
 
+  // Size key. Circle AND label are laid out together in one SVG, each pair centred in a cell as
+  // wide as the WIDER of the two. The old version stepped from circle to circle and then spread
+  // the three numbers with `justify-content:space-between` over the same total width — two
+  // different layouts for one row, so on a phone (where the circles shrink but the text does not)
+  // the labels closed up into "1005k150k".
   const KEYS = [100, 5000, 150000];
+  const lab = v => (v >= 1000 ? Math.round(v / 1000) + "k" : String(v));
+  const FS = 10.5;                                   // px; ~0.62em per digit in the system UI font
   const rs = KEYS.map(v => Chart.radiusOf(v));
-  const rMax = rs[rs.length - 1];
-  let cx = 2, circles = "", ticks = "";
+  const rMax = Math.max(...rs);
+  const base = rMax * 2;                             // circles sit ON this line, biggest last
+  let cx = 0, body = "";
   for (let k = 0; k < KEYS.length; k++) {
-    cx += rs[k];
-    circles += `<circle cx="${cx.toFixed(1)}" cy="${(rMax * 2 - rs[k]).toFixed(1)}" r="${rs[k].toFixed(1)}" `
-             + `fill="none" stroke="${g("--muted")}" stroke-width="1"/>`;
-    ticks += `<span>${KEYS[k] >= 1000 ? Math.round(KEYS[k] / 1000) + "k" : KEYS[k]}</span>`;
-    cx += rs[k] + 5;
+    const cell = Math.max(rs[k] * 2, lab(KEYS[k]).length * FS * 0.62) + 12;
+    const c = cx + cell / 2;
+    body += `<circle cx="${c.toFixed(1)}" cy="${(base - rs[k]).toFixed(1)}" r="${rs[k].toFixed(1)}" `
+          + `fill="none" stroke="${g("--muted")}" stroke-width="1"/>`
+          + `<text x="${c.toFixed(1)}" y="${(base + 13).toFixed(1)}" text-anchor="middle" `
+          + `font-size="${FS}" fill="${g("--muted")}">${lab(KEYS[k])}</text>`;
+    cx += cell;
   }
   const size = document.createElement("div");
+  // The SVG is aria-hidden, so the three key values live again in a visually-hidden sentence —
+  // moving them from a <div class="ticks"> into <text> nodes took the size key's only
+  // quantitative content out of the accessibility tree, while the ramp above kept its readable
+  // ticks. A screen reader heard the label and then nothing.
   size.innerHTML =
     `<span class="lab">EN Wikipedia readers / mo</span>` +
-    `<svg width="${Math.ceil(cx)}" height="${Math.ceil(rMax * 2 + 1)}" aria-hidden="true" `
-      + `style="display:block">${circles}</svg>` +
-    `<div class="ticks" style="width:${Math.ceil(cx)}px">${ticks}</div>`;
+    `<svg width="${Math.ceil(cx)}" height="${Math.ceil(base + 17)}" aria-hidden="true" `
+      + `style="display:block">${body}</svg>` +
+    `<span class="sr-only">Circle area shows monthly readers; the keys drawn are `
+      + `${KEYS.map(lab).join(", ")}.</span>`;
   el.appendChild(size);
 
   const other = document.createElement("div");
@@ -188,6 +251,36 @@ function renderLegend() {
       `still living — final lifespan unknown, so no color</span>` +
     `</div>`;
   el.appendChild(other);
+}
+
+// ---- where the detail panel lives -------------------------------------------
+// On a wide screen it is the second grid column, sitting beside the chart. Below 900px it is a
+// full screen-height BELOW the chart — you tap a dot and the answer is somewhere off-screen — and
+// in full screen the grid column is display:none, so a tap produced no visible answer at all.
+// So on a phone, and in full screen at any width, the SAME element moves inside the chart card.
+// Moving it rather than rendering a second compact copy keeps one detail view, one selection, and
+// one set of Prev/Next buttons; styles.css does the rest.
+//
+// The two in-card positions are NOT interchangeable:
+//   phone, in flow   BELOW the plot, free to be as tall as the content. Nothing above it moves
+//                    when it grows, so the chart stays exactly where the eye left it.
+//   full screen      ABOVE the plot, between the readership filter and the chart, at a FIXED
+//                    height that is drawn whether or not anything is pinned. Every pixel there is
+//                    a pixel of chart, and a box that changed size would re-lay out the chart on
+//                    every tap and on every hover — the dot moving out from under the finger that
+//                    just tapped it is exactly the churn this avoids.
+const WIDE = matchMedia("(min-width:900px)");
+
+function placeDetail() {
+  const det = $("detail"), viz = $("viz");
+  const fs = document.body.classList.contains("fs");
+  const inCard = !WIDE.matches || fs;
+  det.classList.toggle("compact", inCard);
+  const parent = inCard ? viz : document.querySelector(".grid");
+  const before = inCard ? (fs ? $("plot") : $("legend")) : null;
+  if (det.parentNode === parent && det.nextElementSibling === before) return;
+  parent.insertBefore(det, before);            // insertBefore(x, null) === appendChild
+  renderDetail(selected, false);               // the strip and the panel say different things
 }
 
 // ---- shareable state -------------------------------------------------------
@@ -276,6 +369,7 @@ function applyFilters(settled) {
 // chrome too — and its failure is ignored, never surfaced.
 function setFull(on) {
   document.body.classList.toggle("fs", on);
+  placeDetail();                     // the grid column is hidden in full screen; move, don't lose
   $("fs").setAttribute("aria-pressed", String(on));
   $("fs").textContent = on ? "Exit full screen" : "Full screen";
   if (on && document.documentElement.requestFullscreen) {
@@ -348,6 +442,7 @@ async function start() {
   if (link.r) Histogram.setRange(link.r);
 
   renderLegend();
+  placeDetail();
   renderDetail(null, false);
   applyFilters(true);
   if (link.c && byName.has(link.c)) show(byName.get(link.c), false);
@@ -410,6 +505,7 @@ function wire() {
     Table.render(visible);        // the row chips are baked too
     Table.select(selected, false);
   });
+  WIDE.addEventListener("change", placeDetail);   // rotation / a window drag crosses the breakpoint
   $("theme").onclick = () => Theme.cycle();
   themeLabel();
 }

@@ -25,7 +25,6 @@ ROOT = os.path.dirname(HERE)
 
 W, H = 1200, 630
 PLOT = {"x": 520, "y": 96, "w": 608, "h": 446}      # chart panel, right of the title block
-X_DOMAIN = (1700, 1992)
 Y_DOMAIN = (0.85, 170)
 LIFE = (20, 72, 104)                                 # min / median / max completed lifespan (see build_data)
 R_RANGE = (2.4, 26)
@@ -66,6 +65,16 @@ def color(lifespan, living):
     return mix(SHORT, MID, (v - lo) / (mid - lo)) if v <= mid else mix(MID, LONG, (v - mid) / (hi - mid))
 
 
+def x_domain(plotted):
+    """The same domain chart.js computes in setData(): the plottable birth years, snapped out to a
+    50-year grid. DERIVED rather than written down, because a hardcoded copy of a derived value is
+    a desync waiting for the next scrape — nothing would fail, the card would just quietly stop
+    matching the page."""
+    lo = min(r[1] for r in plotted)
+    hi = max(r[1] for r in plotted)
+    return (math.floor((lo - 8) / 50) * 50, math.ceil((hi + 8) / 50) * 50)
+
+
 def esc(s):
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
@@ -77,8 +86,10 @@ def main():
     max_views = max((r[4] or 0) for r in rows) or 1
     plotted = [r for r in rows if r[3] is not None and r[4] is not None]
 
+    x0, x1 = x_domain(plotted)
+
     def sx(year):
-        return PLOT["x"] + (year - X_DOMAIN[0]) / (X_DOMAIN[1] - X_DOMAIN[0]) * PLOT["w"]
+        return PLOT["x"] + (year - x0) / (x1 - x0) * PLOT["w"]
 
     def sy(q):
         lo, hi = math.log10(Y_DOMAIN[0]), math.log10(Y_DOMAIN[1])
@@ -93,7 +104,7 @@ def main():
            f'  <rect x="{PLOT["x"] - 26}" y="{PLOT["y"] - 26}" width="{PLOT["w"] + 52}" '
            f'height="{PLOT["h"] + 52}" rx="16" fill="{PANEL}"/>']
 
-    for year in range(1750, 2000, 50):
+    for year in range(x0 + 50, x1, 50):
         out.append(f'  <line x1="{sx(year):.1f}" y1="{PLOT["y"]}" x2="{sx(year):.1f}" '
                    f'y2="{PLOT["y"] + PLOT["h"]}" stroke="{GRID}" stroke-width="1"/>')
         out.append(f'  <text x="{sx(year):.1f}" y="{PLOT["y"] + PLOT["h"] + 26}" fill="{MUTED}" '

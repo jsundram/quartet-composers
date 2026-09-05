@@ -151,5 +151,9 @@ window.Histogram = (function () {
   }
 
   return { init, setData, resize, rerender, setRange, clear, matches, label,
+           // Shared with the detail panel (app.js) so the brush readout and the panel say a
+           // readership the same way — "17k" in one place and "17,314" in the other reads as two
+           // different measurements of two different things.
+           fmt,
            getRange: () => range };
 })();

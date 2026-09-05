@@ -39,26 +39,33 @@ plain static assets. Read README.md first for what the app is.
    deleted, so reading `claims[0]` reported Tania León — alive, Pulitzer 2021 — as dead since 1996.
    `year_of()` drops deprecated, prefers `preferred`, and ignores novalue/somevalue snaks.
 
-7. **`null` means unknown and must stay null.** `quartets: null` (the page's prose states no count)
+7. **Readership is a measure, not a tally — round it everywhere except the table.** It is the
+   median of twelve monthly page-view counts and any one month runs ~12% off typical, so the
+   detail panel states two significant figures floored, plus a "+" (`twoSig`/`atLeast` in
+   `app.js`), and formats through `Histogram.fmt` so the brush readout and the panel agree. The
+   table keeps the exact number because it sorts on that column. A new place that prints a view
+   count almost certainly wants `atLeast()`, not the raw integer.
+
+8. **`null` means unknown and must stay null.** `quartets: null` (the page's prose states no count)
    and `death: null` (living) are facts, not gaps to fill. Null quartets are shown in the table and
    excluded from the chart via `plottable()`; null death means the lifespan ramp does not apply and
    the dot is drawn open. Substituting a default puts a fabricated dot on the chart.
 
-8. **Grade the parser against the PAGE, not against 2014.** `scripts/audit_counts.py` samples
+9. **Grade the parser against the PAGE, not against 2014.** `scripts/audit_counts.py` samples
    parsed counts beside their source sentence for a human to grade; that is the real measure.
    `compare_2014.py` is useful for row matching (birth years agree 98.2%) but its count column is
    misleading — the page has been rewritten over twelve years, so disagreement is usually the
    parser being right. Optimising toward 2014 optimises toward being out of date.
 
-9. **The 2014 page views are not comparable to modern ones** and must never be plotted alongside
+10. **The 2014 page views are not comparable to modern ones** and must never be plotted alongside
    them: the pageviews API has no per-article data before 2015-07, so they came from a different
    measurement system. They are archived for provenance only.
 
-10. **Search folds `ł ø đ ß æ œ` before NFD** (`table.js`). Those have no Unicode decomposition, so
+11. **Search folds `ł ø đ ß æ œ` before NFD** (`table.js`). Those have no Unicode decomposition, so
    NFD alone leaves them intact and "lutoslawski" misses "Lutosławski". 58 names carry such
    characters; a new one means a new `FOLD` entry.
 
-6. **`scripts/make-og-svg.py` duplicates chart.js's scales on purpose.** Same domains, same 0.35
+12. **`scripts/make-og-svg.py` duplicates chart.js's scales on purpose.** Same domains, same 0.35
    radius exponent, same ramp. Changing an encoding in `chart.js` means changing it there too, or
    the share card stops matching the page. They are duplicated rather than shared because the app
    must not ship a build step and the card must not ship a JS runtime.
@@ -74,7 +81,7 @@ Four suites, all dependency-free:
   compares composers.json against its schema, the other caches, and the previous commit. Run it
   after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 39 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 67 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `scripts/audit_counts.py` — not automated: it prints parsed quartet counts beside the sentence
@@ -103,3 +110,20 @@ made on evidence.
 - Anything that BAKES a color into JS (SVG fills in `chart.js` and `histogram.js`, the legend in
   `app.js`) needs a `rerender()` wired into `Theme.subscribe`. Adding a fourth such component
   means adding a fourth call there.
+- **There is ONE detail panel, and `app.js`'s `placeDetail()` moves it.** Beside the chart above
+  900px; inside `#viz` (`.compact`) on a phone and in full screen at any width, because the grid
+  column is a screen-height away there and `display:none` in full screen. Never render a second
+  compact copy — the selection, the nav buttons and the `.on` state all assume one element.
+  The two in-card positions differ on purpose: BELOW the plot on a phone (free to grow; nothing
+  above it moves), ABOVE the plot in full screen as a fixed-height strip that is drawn even when
+  empty. **Its height must stay constant**: `#plot` is `flex:1` in full screen, so a box that grew
+  on select would trip the ResizeObserver and re-lay out the chart under the finger that just
+  tapped it. `tight()` in `app.js` is what trims the content to fit that box.
+- **A hover previews into the detail panel, so its box is reserved wherever a pointer exists.**
+  `@media (hover:hover) and (pointer:fine)` gives `.compact` a `min-height` covering its TALLEST
+  state (pinned, with the nav row) and ellipsizes the name. Without that, moving the mouse across
+  the chart pumps the legend up and down. Touch screens get neither rule — no hover to churn, and
+  the space is the chart's.
+- **Anything the zoom moves must be clipped.** `chart.js` clips the dots, labels, selection ring
+  and lens to `#plot-clip`; a new zoom-transformed group needs the same `clip-path`, or a pinch
+  lays it out over the axes and past the card edge.

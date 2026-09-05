@@ -26,7 +26,12 @@
 window.Chart = (function () {
   const TOUCH = !matchMedia("(hover: hover) and (pointer: fine)").matches;
 
-  const X_DOMAIN = [1580, 2000];        // data runs 1582..1989; pad so no dot sits on an axis
+  // Set from the data in setData(). It covers the PLOTTABLE rows only, which is not the same as
+  // the roster: the three names born before 1700 (Allegri 1582, Scarlatti 1660, Telemann 1681)
+  // have no stated quartet count, so a domain starting at 1580 spent a third of the width on a
+  // stretch where the chart can never draw a dot. Snapped out to a 50-year grid so the ticks stay
+  // round; make-og-svg.py derives the same domain the same way.
+  let X_DOMAIN = [1700, 2000];
   const Y_DOMAIN = [0.85, 170];         // log; the largest stated count is 149 (Cambini)
   const Y_TICKS = [1, 2, 3, 5, 10, 20, 30, 50, 100];
   let LIFE_MID = 72;                    // median completed lifespan; recomputed from the data
@@ -72,6 +77,10 @@ window.Chart = (function () {
     // data, rather than a number baked in when the dataset was half this size.
     const lived = rows.filter(d => d.lifespan != null).map(d => d.lifespan).sort((a, b) => a - b);
     if (lived.length) LIFE_MID = lived[lived.length >> 1];
+    const yrs = rows.filter(plottable).map(d => d.birth);
+    if (yrs.length) {
+      X_DOMAIN = [Math.floor((d3.min(yrs) - 8) / 50) * 50, Math.ceil((d3.max(yrs) + 8) / 50) * 50];
+    }
     swarmY = null;
   }
 
@@ -109,8 +118,13 @@ window.Chart = (function () {
     // squeezes 466 dots into ~200px there and the log bands merge into stripes.
     const narrow = cw < 560;
     const aspect = mode === "swarm" ? (narrow ? 0.58 : 0.44) : (narrow ? 0.82 : 0.6);
+    // The full-screen floor is 120, not the 240 the windowed branch can afford. In full screen the
+    // SVG is height:100% of its box, so a viewBox TALLER than the box does not scroll or crop — it
+    // LETTERBOXES, scaling the whole chart down, fonts included, and centring it in a band of
+    // empty card. A phone in landscape is 390px tall and the plot box lands under 240, so the
+    // floor meant to protect the chart was the thing shrinking it.
     const ch = full
-      ? Math.max(240, Math.round(box.height))
+      ? Math.max(120, Math.round(box.height))
       : Math.round(Math.max(260, Math.min(540, cw * aspect)));
     m.left = cw < 480 ? 38 : 46;
     m.bottom = cw < 480 ? 40 : 44;
@@ -189,6 +203,10 @@ window.Chart = (function () {
   // its hit-testing and its labels. Everything downstream reads plottability from here.
   const plottable = d => d.quartets != null;
   const isVisible = d => plottable(d) && (!visible || visible.has(d.i));
+  // On screen for real: a zoom pans dots clean out of the plot, and one whose centre has left it
+  // must not be painted, hit-tested or labelled. Reads the CURRENT layout, so it is only valid
+  // after layout() has run.
+  const inFrame = p => p.x >= 0 && p.x <= w && p.y >= 0 && p.y <= h;
 
   // ---- labels -------------------------------------------------------------
   // Greedy, most-viewed first, first-come-first-served on space. This is what makes the STATIC
@@ -210,6 +228,10 @@ window.Chart = (function () {
     for (const d of cands) {
       if (placed.length >= cap) break;
       const q = p[d.i];
+      // A dot the zoom has pushed off the plot must not keep its label: the label box can still
+      // land inside the frame while the dot it names is outside it, which prints a name pointing
+      // at nothing.
+      if (!inFrame(q)) continue;
       const tw = d.name.length * 5.5 + 6, th = 12;
       const bx = q.x - tw / 2, by = q.y - q.r - 4 - th;
       if (bx < 0 || bx + tw > w || by < 0) continue;
@@ -224,15 +246,25 @@ window.Chart = (function () {
   function build() {
     d3.select(el).selectAll("svg").remove();
     svg = d3.select(el).append("svg").attr("role", "img");
+    // Everything that MOVES under a zoom is clipped to the plot rectangle. Without this a pinch
+    // pushed dots and their labels out into the margins, over the axis ticks and the y-axis title,
+    // where they read as stray ink belonging to no chart. (styles.css also stops the <svg> itself
+    // from overflowing, but that only catches what escapes the whole frame — the margins are
+    // inside it.) The axes and the grid are drawn from the CURRENT transform's ticks, so they are
+    // inside the box by construction and are left unclipped.
+    svg.append("defs").append("clipPath").attr("id", "plot-clip").append("rect").attr("class", "clip");
     gPlot = svg.append("g");
     gPlot.append("rect").attr("class", "bg");
     gGrid = gPlot.append("g");
+    gLens = gPlot.append("circle").attr("fill", "none").attr("pointer-events", "none")
+      .attr("clip-path", "url(#plot-clip)").style("display", "none");
+    gDots = gPlot.append("g").attr("clip-path", "url(#plot-clip)");
+    gSel = gPlot.append("g").attr("pointer-events", "none").attr("clip-path", "url(#plot-clip)");
+    // The axes are drawn AFTER the dots so their tick labels stay readable under the half-dot
+    // that legitimately overhangs the frame (see the clip note in draw()).
     gAxY = gPlot.append("g");
     gAxX = gPlot.append("g");
-    gLens = gPlot.append("circle").attr("fill", "none").attr("pointer-events", "none").style("display", "none");
-    gDots = gPlot.append("g");
-    gSel = gPlot.append("g").attr("pointer-events", "none");
-    gLabels = gPlot.append("g").attr("pointer-events", "none");
+    gLabels = gPlot.append("g").attr("pointer-events", "none").attr("clip-path", "url(#plot-clip)");
 
     zoom = d3.zoom().scaleExtent([1, 24])
       .on("zoom", ev => { transform = ev.transform; draw(); cbZoom && cbZoom(zoomed()); });
@@ -256,6 +288,17 @@ window.Chart = (function () {
        .attr("aria-label", ariaLabel());
     gPlot.attr("transform", `translate(${m.left},${m.top})`);
     gPlot.select("rect.bg").attr("width", w).attr("height", h).attr("fill", C.plot).attr("rx", 4);
+    // The clip lives in <defs> but is referenced from inside gPlot, so it is measured in gPlot's
+    // (translated) coordinate system — the same one the dots are placed in.
+    //
+    // It is inset OUTWARD by one maximum radius rather than drawn on the frame. A dot sits on its
+    // value, not inside it: Y_DOMAIN starts at 0.85, so a one-quartet composer's centre is ~1.3%
+    // of h above the bottom edge and a tight clip sliced Gershwin, Debussy and Ravel flat where
+    // they were never displaced by anything. Strays are handled by the frame test below instead,
+    // which is the right test anyway — a dot belongs on screen when its CENTRE is on screen.
+    const over = rScale.range()[1];
+    svg.select("clipPath rect.clip")
+       .attr("x", -over).attr("y", -over).attr("width", w + over * 2).attr("height", h + over * 2);
 
     // axes ---------------------------------------------------------------
     const tx = transform.rescaleX(x0);
@@ -317,11 +360,13 @@ window.Chart = (function () {
       // 0.07, not the 0.12 that read fine at 466 dots: at 884 the filtered-out mass is most of
       // the ink, and the readership brush exists precisely to get it out of the way. Still drawn
       // rather than removed, so you can see WHERE in the field the survivors sit.
-      .attr("opacity", d => (visible && !visible.has(d.i) ? 0.07 : 0.92));
+      .attr("opacity", d => (visible && !visible.has(d.i) ? 0.07 : 0.92))
+      .attr("display", d => (inFrame(pos[d.i]) ? null : "none"));
 
     // selection ring + labels ---------------------------------------------
     gSel.selectAll("*").remove();
-    const cur = selected != null && rows[selected] && isVisible(rows[selected]) ? rows[selected] : null;
+    const cur = selected != null && rows[selected] && isVisible(rows[selected])
+             && inFrame(pos[selected]) ? rows[selected] : null;
     if (cur) {
       gSel.append("circle").attr("class", "sel-ring")
         .attr("cx", pos[cur.i].x).attr("cy", pos[cur.i].y).attr("r", pos[cur.i].r + 5)
@@ -349,7 +394,7 @@ window.Chart = (function () {
     // Hit-test index over the CURRENT screen positions and the CURRENT visible subset — this is
     // what makes the whole canvas a tap target instead of the 2.2px discs. Rebuilt every draw;
     // Delaunay.from on 466 points is well under a millisecond.
-    idx = vis.map(d => d.i);
+    idx = vis.filter(d => inFrame(pos[d.i])).map(d => d.i);
     delaunay = idx.length > 1 ? d3.Delaunay.from(idx, i => pos[i].x, i => pos[i].y) : null;
   }
 

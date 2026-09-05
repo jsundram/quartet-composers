@@ -102,8 +102,12 @@ h1{ font-size:clamp(21px, 4.6vw, 32px); letter-spacing:-.015em; font-weight:650 
 #hist .overlay{ cursor:crosshair }
 
 /* --- chart ---------------------------------------------------------------------------------- */
+#viz{ position:relative }                      /* the compact detail panel anchors to this in full screen */
 #plot{ position:relative; touch-action:none }   /* touch-action:none so d3-zoom owns the gesture */
-#plot svg{ display:block; width:100%; height:auto; overflow:visible }
+/* overflow:hidden, not the SVG default of visible: chart.js clips the dots to the plot rectangle,
+   and this is the backstop for anything else a zoom pushes past the frame. Nothing in the chart is
+   drawn outside its own viewBox, so there is nothing legitimate to lose here. */
+#plot svg{ display:block; width:100%; height:auto; overflow:hidden }
 .hint{ font-size:12px; color:var(--muted); margin-top:8px }
 
 /* Name flag that tracks the cursor on a real pointer. Never shown on touch — there the tap
@@ -118,7 +122,9 @@ h1{ font-size:clamp(21px, 4.6vw, 32px); letter-spacing:-.015em; font-weight:650 
 #flag small{ display:block; font-weight:400; color:var(--muted) }
 
 /* --- legend --------------------------------------------------------------------------------- */
-.legend{ display:flex; gap:18px; flex-wrap:wrap; align-items:flex-end; margin-top:12px; font-size:12px }
+/* column-gap 22px: the size key's outermost circle sits close to its cell edge, so the old 18px
+   let it crowd the "Also" column on a phone. */
+.legend{ display:flex; gap:14px 22px; flex-wrap:wrap; align-items:flex-end; margin-top:12px; font-size:12px }
 .legend .lab{ color:var(--muted); display:block; margin-bottom:4px }
 .ramp{ width:170px; height:10px; border-radius:2px; border:1px solid var(--line) }
 .ticks{ display:flex; justify-content:space-between; color:var(--muted); font-size:11px; margin-top:2px }
@@ -135,7 +141,54 @@ h1{ font-size:clamp(21px, 4.6vw, 32px); letter-spacing:-.015em; font-weight:650 
 #detail dd{ font-variant-numeric:tabular-nums }
 #detail .empty{ color:var(--muted); font-size:13px }
 #detail .rank{ color:var(--muted); font-size:12px }
-.detail-nav{ display:flex; gap:6px; margin-top:4px }
+.detail-nav{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap }
+
+/* The compact form: app.js moves this same element INTO the chart card on a phone and in full
+   screen (see placeDetail), where it must read as part of the card, not as a card inside a card.
+   Hidden until something is pinned, so an unselected chart keeps the full width for the chart. */
+#detail.compact{
+  border:0; border-top:1px solid var(--line); border-radius:0; background:transparent;
+  padding:10px 0 0; margin-top:10px;
+}
+#detail.compact h2{ font-size:15px }
+#detail.compact .dates{ margin-bottom:6px }
+#detail.compact dl{ margin-bottom:6px }
+/* On a touch screen it is hidden until something is pinned: there is no hover to churn the layout
+   and the space belongs to the chart. Where a real pointer exists the panel PREVIEWS on hover, so
+   its box is reserved and always drawn — otherwise the legend under it would jump every time the
+   cursor crossed a dot. Same split chart.js uses for TOUCH. */
+@media (hover:none), (pointer:coarse){
+  #detail.compact:not(.on){ display:none }
+}
+@media (hover:hover) and (pointer:fine){
+  /* Tall enough for the tallest state — a pinned composer, which adds the Prev/Next/Clear row —
+     so neither a hover nor a click moves the legend below it. The name is ellipsized here for the
+     same reason: a two-line name would blow the reservation. A touch screen gets neither rule,
+     because it has no hover and would just be losing chart space. */
+  #detail.compact{ min-height:196px }
+  #detail.compact h2{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+}
+
+/* Full screen: a FIXED-height strip between the readership filter and the chart, drawn whether or
+   not anything is pinned. It used to float over the bottom of the chart, which buried the x-axis
+   and the legend; giving it its own slice costs 76px of chart once, instead of covering the part
+   you were reading every time you tapped. The height is fixed because #plot is flex:1 here — a box
+   that grew on select (or on HOVER) would re-lay out the chart under the pointer. */
+body.fs #detail.compact{
+  /* display, explicitly: it beats the touch rule above that hides an empty compact panel. In full
+     screen the empty box is the point — it is what keeps the chart the same height either way. */
+  display:block; flex:0 0 auto; position:relative; min-height:0; height:76px; overflow:hidden;
+  margin:0 0 8px; padding:8px 82px 8px 10px;             /* right padding clears the Clear button */
+  border:1px solid var(--line); border-radius:8px; background:var(--plot);
+}
+body.fs #detail.compact h2{
+  font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+body.fs #detail.compact .dates{ margin:0; font-size:12px }
+body.fs #detail.compact .empty{ font-size:12px }
+body.fs #detail.compact .detail-nav{ position:absolute; top:6px; right:6px; margin:0 }
+/* The strip carries none of these: they are back in the panel the moment you leave full screen. */
+body.fs #detail.compact dl, body.fs #detail.compact .rank, body.fs #detail.compact > a{ display:none }
 
 /* --- table ---------------------------------------------------------------------------------- */
 /* Visible to a screen reader, not on screen. display:none would remove it from the a11y tree too. */
@@ -150,7 +203,28 @@ h1{ font-size:clamp(21px, 4.6vw, 32px); letter-spacing:-.015em; font-weight:650 
   color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:999px;
 }
 #count{ font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums }
-.scroll{ position:relative; max-height:46vh; overflow:auto; border:1px solid var(--line); border-radius:8px; -webkit-overflow-scrolling:touch }
+/* 880 rows behind a 46vh window with nothing saying so: macOS and iOS both draw overlay
+   scrollbars that vanish when idle, so the box looked like a short, complete list. Two cues —
+   a scrollbar that stays put where the platform honors these properties, and a fade at the bottom
+   edge painted ONLY while there is more below. The fade is two stacked backgrounds: the "cover"
+   is attachment:local so it travels with the rows and slides over the shadow exactly as the last
+   row arrives; the shadow is attachment:scroll so it is pinned to the bottom of the box. */
+.scroll{
+  position:relative; max-height:46vh; overflow:auto; border:1px solid var(--line);
+  border-radius:8px; -webkit-overflow-scrolling:touch;
+  scrollbar-width:thin;
+  scrollbar-color:color-mix(in srgb, var(--muted) 45%, transparent) transparent;
+  background:
+    linear-gradient(to top, var(--card) 55%, transparent) bottom / 100% 22px no-repeat local,
+    linear-gradient(to top, color-mix(in srgb, var(--ink) 20%, transparent), transparent)
+      bottom / 100% 12px no-repeat scroll;
+}
+.scroll::-webkit-scrollbar{ width:10px; height:10px }
+.scroll::-webkit-scrollbar-track{ background:transparent }
+.scroll::-webkit-scrollbar-thumb{
+  background:color-mix(in srgb, var(--muted) 45%, transparent); border-radius:999px;
+  border:2px solid transparent; background-clip:padding-box;
+}
 table{ border-collapse:collapse; width:100%; font-size:13.5px }
 thead th{
   position:sticky; top:0; z-index:1; background:var(--card); text-align:left; white-space:nowrap;
@@ -194,6 +268,15 @@ body.fs .filterbar{ margin-bottom:6px }
 body.fs main > *:not(.grid), body.fs .grid > *:not(#viz){ display:none }
 body.fs .grid{ display:block }
 
+/* A phone on its side is 390px TALL, and full screen was spending two thirds of that on chrome:
+   the controls, the filter, the detail strip, and ~80px of legend. Below 560px of height (and wide
+   enough that this is a landscape phone rather than a short narrow window) the legend goes and the
+   strip drops to one line. The chart is the whole reason for full screen. */
+@media (max-height:560px) and (min-width:560px){
+  body.fs .legend{ display:none }
+  body.fs #detail.compact{ height:58px }
+}
+
 /* Phone-specific sizing. Targets REAL touch devices, not just a narrow desktop window. */
 @media (hover:none) and (pointer:coarse) and (max-width:800px){
   .scroll{ max-height:56vh }
@@ -223,7 +306,7 @@ body.fs .grid{ display:block }
   .card{ border:0; padding:0 }
   .controls, .tablehead, #flag, .detail-nav, #theme, .ver, .hint, .filterbar{ display:none }
   .grid{ display:block }
-  .scroll{ max-height:none; overflow:visible; border:0 }
+  .scroll{ max-height:none; overflow:visible; border:0; background:none }
   thead th{ position:static }
   tbody tr{ break-inside:avoid }
 }

@@ -28,6 +28,13 @@ screen reader. Either state the count in the label or drop the claim.
 
 ## Data quality
 
+### Readership is displayed to two significant figures; the data has one meaningful one
+`twoSig()` in `app.js` quantizes the median to two figures and floors it, so Mozart reads "180k+"
+rather than "186,772". Two is a guess, not a derivation: the honest input is the 12-month spread,
+which for Mozart runs 140k–390k — a factor of 2.8, i.e. barely one significant figure. A defensible
+rule would pick the number of figures from each composer's OWN spread rather than fixing it at two.
+The table deliberately keeps the exact value: it sorts on that column.
+
 ### 94 of 885 entries (11%) have no quartet count
 They are listed in the table and excluded from the chart. `python3 scripts/audit_counts.py --null`
 shows them. Most are entries that enumerate works without ever using the word "quartet"
@@ -64,16 +71,26 @@ Charles Wesley junior). Worth a pass to confirm none is a real loss.
 
 ## Interface
 
+### The full-screen strip drops four things, and says so nowhere
+`tight()` in `app.js` trims the panel to two lines for the fixed-height strip above the chart: the
+percentile line, the Wikipedia link, Prev/Next, and the 12-month range beside the median view count
+all disappear. All four are one tap away and back the moment you leave full screen, and the range
+is no longer load-bearing there — readership is now stated as "180k+" everywhere, so the strip no
+longer claims a precision it can't support. Left here as a record of what the strip is missing.
+
 ### The detail panel wastes most of its column on desktop
 It is ~200px tall in a full-height sticky column. The 12-month view series is already fetched and
 cached and currently unused by the UI — a **sparkline** there would fill the space with the one
 thing the panel is missing: whether this composer's readership is steady or spiking. `views_lo` and
 `views_hi` already ship; the full series does not, so this needs a schema addition.
 
-### 1580–1700 is ~20% of the x-axis for three composers
-Allegri (1582), Scarlatti (1660), Telemann (1681). Keeping them is honest — the form genuinely does
-not exist before ~1750 and the empty space says so — but it costs a fifth of the width. Options: a
-broken axis, a "precursors" toggle, or leave it. Decide deliberately rather than by inertia.
+### ~~1580–1700 is ~20% of the x-axis for three composers~~ — decided, 2026-09-05
+The premise was wrong, which is why it looked like a trade-off. Allegri (1582), Scarlatti (1660)
+and Telemann (1681) have no stated quartet count, so they are TABLE-ONLY rows and were never on
+the chart at all: the domain was spending 31% of the width on a stretch where no dot can ever be
+drawn. `X_DOMAIN` is now derived in `setData()` from the PLOTTABLE birth years (1709–1989 today),
+snapped out to a 50-year grid — 1700–2000. Nothing was dropped and no axis was broken.
+`make-og-svg.py` derives the same domain; keep them in step.
 
 ### The swarm hides the quartet count entirely
 Documented in the hint text, but a reader who lands on the swarm from a shared `#v=swarm` link has
