@@ -936,8 +936,17 @@ window.Chart = (function () {
            // ring MEANS right now instead of always claiming the curated six.
            derivedRings: () => ringIdx.length,
            readersPlotted: () => rows.filter(d => d.quartets != null && d.views != null).length,
-           // How many rows the chart can actually place — the table shows more (see isVisible).
-           plotted: () => rows.filter(plottable).length,
+           // What the chart can actually place — the table shows more (see isVisible). The birth
+           // extent is the PLOTTABLE one and the living count is of those same rows, because the
+           // empty detail panel describes the dots: it read "884 composers, born 1582-1989" over
+           // a chart whose x axis starts at 1709, the three names born before 1700 having no
+           // quartet count. Static on purpose — a filter changes what is highlighted, not what
+           // the chart can draw.
+           plottedStats: () => {
+             const p = rows.filter(plottable);
+             return { n: p.length, from: d3.min(p, d => d.birth), to: d3.max(p, d => d.birth),
+                      living: p.filter(d => d.living).length };
+           },
            // So the legend can draw its size key at the radii the chart ACTUALLY uses, rather
            // than three hand-picked circles that quietly stop matching when the scale changes.
            radiusOf: v => (rScale ? rScale(v) : 0) };

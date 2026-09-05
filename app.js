@@ -95,12 +95,15 @@ function renderDetail(i, preview) {
   if (i == null) {
     const p = document.createElement("p");
     p.className = "empty";
-    const living = ROWS.filter(d => d.living).length;
+    // The DOTS, not the roster: this sits beside the chart, so counting the 94 composers the
+    // list page never gives a quartet count described a picture they are not in — and dated it
+    // from a 1582 birth the x axis has no room for. The roster's own total is in #count and the
+    // difference is explained in the provenance line.
+    const st = Chart.plottedStats();
     p.textContent = lean
       ? "Select a dot for the details."
-      : `${ROWS.length} composers, born ${d3.min(ROWS, d => d.birth)}–`
-        + `${d3.max(ROWS, d => d.birth)}. ${living} are still living. `
-        + `Select a dot or a row for the details.`;
+      : `${st.n} composers are plotted, born ${st.from}–${st.to}. `
+        + `${st.living} are still living. Select a dot or a row for the details.`;
     el.appendChild(p);
     return;
   }
@@ -599,7 +602,7 @@ async function start() {
   const span = mm.length ? `, ${mm[0]} to ${mm[mm.length - 1]}` : "";
   const rev = META.list_revid ? ` (revision ${META.list_revid})` : "";
   setProv(
-    `${ROWS.length} composers from Wikipedia's list${rev}; ${Chart.plotted()} state a quartet `
+    `${ROWS.length} composers from Wikipedia's list${rev}; ${Chart.plottedStats().n} state a quartet `
     + `count and are plotted, the rest appear in the table only. Dates are ${META.dates_source}. `
     + `Readership is the ${META.views_stat} of the composer's English Wikipedia article${span} — `
     + `twelve rather than one because a single month runs about 12% off typical, and English only `

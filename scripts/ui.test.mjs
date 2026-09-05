@@ -514,6 +514,28 @@ check("linkifying did not disturb the sentence",
 check("the footnote does not restate the lede's framing",
       !/not as importance/.test(await ev(`document.getElementById('prov').textContent`)));
 
+// --- 4h2. the empty detail panel describes the DOTS, not the roster ---------------------------
+// It sits beside the chart and read "884 composers, born 1582–1989" — but the 94 rows the list
+// page states no quartet count for are in the table only, and three of them are the earliest
+// births on the roster, so the sentence dated a picture by composers it does not contain and
+// began a century before the x axis does. Static: plottability is not a filter (issue 8).
+await goto(BASE);
+const plotStats = await ev(`(async()=>{const d=await (await fetch('composers.json')).json();
+  const p=d.rows.filter(r=>r[3]!=null);
+  return {n:p.length, all:d.rows.length, from:Math.min(...p.map(r=>r[1])),
+          to:Math.max(...p.map(r=>r[1])), living:p.filter(r=>r[2]==null).length}})()`);
+const emptyPanel = await ev(`document.querySelector('#detail .empty').textContent`);
+check("the empty panel counts the composers the chart can place",
+      emptyPanel.includes(`${plotStats.n} composers`)
+      && !emptyPanel.includes(`${plotStats.all} composers`), emptyPanel);
+check("it dates them by the plotted births, not the roster's",
+      emptyPanel.includes(`${plotStats.from}–${plotStats.to}`),
+      `plotted births are ${plotStats.from}–${plotStats.to}; the panel says: ${emptyPanel}`);
+check("the living count is of those same rows",
+      emptyPanel.includes(`${plotStats.living} are still living`), emptyPanel);
+check("the count matches the dots actually drawn",
+      await ev(`document.querySelectorAll('circle.dot').length`) === plotStats.n);
+
 // --- 4i. the gender filter ---------------------------------------------------------------------
 // A third filter in a row that composes by intersection. It is the only one with no module, so
 // these checks are the only thing standing between it and a quiet divergence from the other two:

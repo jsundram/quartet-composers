@@ -114,7 +114,7 @@ Four suites, all dependency-free:
   compares composers.json against its schema, the other caches, and the previous commit. Run it
   after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 126 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 148 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `scripts/audit_counts.py` — not automated: it prints parsed quartet counts beside the sentence
@@ -157,6 +157,12 @@ made on evidence.
   through to the full name — Ferdinand and Félicien David. The detail panel, the hover flag and
   the row's `title` attribute all keep the canonical title, where recognising the person is the
   job. `make-og-svg.py` duplicates `short()` for the same reason it duplicates the scales.
+- **A number printed beside the chart counts the PLOTTABLE rows.** The empty detail panel said
+  "884 composers, born 1582–1989" next to an x axis starting at 1709 — the 94 rows with no stated
+  quartet count are in the table only, and three of them are the roster's earliest births.
+  `Chart.plottedStats()` is the one place that answers "what can the chart place", so the count,
+  the birth span and the living count can't disagree with each other or with `plottable()`. The
+  roster's own total belongs to the table and the provenance line, which state the difference.
 - **The provenance line is built, not assigned.** `setProv()` in `app.js` linkifies every Wikidata
   property id it prints (`P569` -> its definition page), because an id is jargon a reader cannot
   check from the page. It links the TEXT rather than storing anchors in `composers.json`: that file
