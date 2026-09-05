@@ -1,4 +1,4 @@
-// The chart: three ways to read the same 466 dots, sharing one layout + hit-test core.
+// The chart: three ways to read the same ~880 dots, sharing one layout + hit-test core.
 //
 // WHY THREE. The 2014 original had exactly one: a *cartesian* fisheye that distorted both axes
 // continuously under the cursor. It magnified beautifully and read terribly — with the axes
@@ -8,7 +8,7 @@
 //            static view is a real chart you can screenshot, print, or link. Detail comes from
 //            ordinary pan/zoom you opt into, not from a distortion that is always on.
 //   swarm    force-collided along the birth-year axis. Nothing overlaps, ever — the answer to
-//            "268 of 466 composers wrote 3 quartets or fewer and pile onto three log bands".
+//            "most composers here wrote three quartets or fewer and pile onto three log bands".
 //            Costs the quartet-count axis, which is why it isn't the default.
 //   lens     the experiment, rehabilitated. A CIRCULAR fisheye over a fixed base chart: the
 //            axes never move, the magnifier is a lens you drag around. This is what the original
@@ -26,10 +26,10 @@
 window.Chart = (function () {
   const TOUCH = !matchMedia("(hover: hover) and (pointer: fine)").matches;
 
-  const X_DOMAIN = [1700, 1992];        // data is 1707..1986; pad so no dot sits on an axis
-  const Y_DOMAIN = [0.85, 170];         // log; 1..149 quartets
+  const X_DOMAIN = [1580, 2000];        // data runs 1582..1989; pad so no dot sits on an axis
+  const Y_DOMAIN = [0.85, 170];         // log; the largest stated count is 149 (Cambini)
   const Y_TICKS = [1, 2, 3, 5, 10, 20, 30, 50, 100];
-  const LIFE_MID = 72;                  // median completed lifespan — the diverging midpoint
+  let LIFE_MID = 72;                    // median completed lifespan; recomputed from the data
 
   let el, flagEl, cbHover, cbSelect, cbZoom;
   let rows = [], mode = "scatter", visible = null, selected = null, hovered = null;
@@ -43,7 +43,7 @@ window.Chart = (function () {
 
   // ---- data prep ----------------------------------------------------------
   // Deterministic jitter from the name, so ties separate without the picture changing between
-  // renders. Ties are common (55 cells hold 2-4 composers at the same birth year AND count) and
+  // renders. Ties are very common (many cells hold several composers at one birth year AND count) and
   // an un-jittered scatter hides them completely — one dot is drawn over another and the one
   // underneath can never be hovered, tapped, or counted by eye. Kept small (half a year; ~9% in
   // count-space, well inside the gap between adjacent integer counts) and disclosed in the hint.
@@ -53,16 +53,25 @@ window.Chart = (function () {
     return ((a >>> 0) / 4294967295) * 2 - 1;     // -1..1
   }
 
+  // [name, birth, death, quartets, views, views_lo, views_hi]; death and quartets may be null.
+  // "living" is now simply the absence of a death date on Wikidata — a fact about today, not the
+  // 2014 dataset's inference from a field that overloaded lifespan with age-in-2014.
   function setData(raw) {
     rows = raw.map((r, i) => {
       const j = hash(r[0]);
       return {
-        i, name: r[0], birth: r[1], lifespan: r[2], quartets: r[3], views: r[4], living: !!r[5],
-        death: r[5] ? null : r[1] + r[2],
+        i, name: r[0], birth: r[1], death: r[2], quartets: r[3],
+        views: r[4], lo: r[5], hi: r[6],
+        living: r[2] == null,
+        lifespan: r[2] == null ? null : r[2] - r[1],
         jx: j * 0.5,                                        // years
         jy: Math.pow(10, hash(r[0] + "y") * 0.04),          // multiplicative, log-uniform
       };
     });
+    // The diverging ramp pivots on the MEDIAN completed lifespan of whoever is actually in the
+    // data, rather than a number baked in when the dataset was half this size.
+    const lived = rows.filter(d => d.lifespan != null).map(d => d.lifespan).sort((a, b) => a - b);
+    if (lived.length) LIFE_MID = lived[lived.length >> 1];
     swarmY = null;
   }
 
@@ -81,10 +90,10 @@ window.Chart = (function () {
       .clamp(true);
   }
 
-  // Living composers are NOT on the ramp: the source data stores age-in-2014 in the same field as
-  // lifespan (see scripts/build_data.py), so ramping them would paint a 29-year-old as died-young.
-  // They get an open circle instead — a SHAPE difference, which also satisfies "never encode
-  // meaning in color alone" and survives both color-blindness and a black-and-white print.
+  // Living composers are NOT on the ramp, because their final lifespan does not exist yet —
+  // colouring a 40-year-old as "died young" states something untrue. They get an open circle: a
+  // SHAPE difference, which also satisfies "never encode meaning in color alone" and survives
+  // both color-blindness and a black-and-white print.
   function fillOf(d) { return d.living ? C.plot : colorScale(d.lifespan); }
   function strokeOf(d) { return d.living ? C.living : C.line; }
   function colorOf(d) { return d.living ? C.living : colorScale(d.lifespan); }
@@ -104,16 +113,16 @@ window.Chart = (function () {
       ? Math.max(240, Math.round(box.height))
       : Math.round(Math.max(260, Math.min(540, cw * aspect)));
     m.left = cw < 480 ? 38 : 46;
-    m.bottom = cw < 480 ? 28 : 32;
+    m.bottom = cw < 480 ? 40 : 44;
     w = cw - m.left - m.right;
     h = ch - m.top - m.bottom;
     x0 = d3.scaleLinear().domain(X_DOMAIN).range([0, w]);
     y0 = d3.scaleLog().domain(Y_DOMAIN).range([h, 0]);
     const maxViews = d3.max(rows, d => d.views) || 1;
     const rMax = Math.max(11, Math.min(26, w / 44));
-    // Exponent 0.35, not the textbook 0.5: views span 0 to 163,000, and a true area encoding
-    // collapses the entire middle of the distribution onto the minimum radius. This keeps Haydn
-    // obviously large and the median composer still visibly a disc.
+    // Exponent 0.35, not the textbook 0.5: views span three orders of magnitude, and a true area
+    // encoding collapses the entire middle of the distribution onto the minimum radius. This keeps
+    // Mozart obviously large and the median composer still visibly a disc.
     rScale = d3.scalePow().exponent(0.35).domain([0, maxViews]).range([2.2, rMax]).clamp(true);
     return ch;
   }
@@ -124,7 +133,7 @@ window.Chart = (function () {
   function ensureSwarm() {
     const key = w + "x" + h + ":" + rScale.range()[1];
     if (swarmY && swarmKey === key) return;
-    const nodes = rows.map(d => ({ d, x: x0(d.birth), y: h / 2 }));
+    const nodes = rows.filter(plottable).map(d => ({ d, x: x0(d.birth), y: h / 2 }));
     d3.forceSimulation(nodes)
       .force("x", d3.forceX(n => x0(n.d.birth)).strength(1))
       .force("y", d3.forceY(h / 2).strength(0.045))
@@ -163,19 +172,23 @@ window.Chart = (function () {
     } else if (mode === "lens" && lens) {
       const f = makeLens(lensRadius(), 2.2);
       for (const d of rows) {
-        const p = f(x0(d.birth + d.jx), y0(d.quartets * d.jy), lens.x, lens.y);
+        const p = f(x0(d.birth + d.jx), y0((d.quartets || 1) * d.jy), lens.x, lens.y);
         out[d.i] = { x: p.x, y: p.y, r: rScale(d.views) * Math.max(1, Math.min(p.z, 2.6)) };
       }
     } else if (mode === "lens") {
-      for (const d of rows) out[d.i] = { x: x0(d.birth + d.jx), y: y0(d.quartets * d.jy), r: rScale(d.views) };
+      for (const d of rows) out[d.i] = { x: x0(d.birth + d.jx), y: y0((d.quartets || 1) * d.jy), r: rScale(d.views) };
     } else {
       const ty = transform.rescaleY(y0);
-      for (const d of rows) out[d.i] = { x: tx(d.birth + d.jx), y: ty(d.quartets * d.jy), r: rScale(d.views) };
+      for (const d of rows) out[d.i] = { x: tx(d.birth + d.jx), y: ty((d.quartets || 1) * d.jy), r: rScale(d.views) };
     }
     return out;
   }
 
-  const isVisible = d => !visible || visible.has(d.i);
+  // A composer whose quartet count the list page never states cannot be placed on a log axis at
+  // all. Those rows stay in the TABLE — they are real composers — but are absent from the chart,
+  // its hit-testing and its labels. Everything downstream reads plottability from here.
+  const plottable = d => d.quartets != null;
+  const isVisible = d => plottable(d) && (!visible || visible.has(d.i));
 
   // ---- labels -------------------------------------------------------------
   // Greedy, most-viewed first, first-come-first-served on space. This is what makes the STATIC
@@ -264,9 +277,12 @@ window.Chart = (function () {
     const lx = gAxX.selectAll("text").data(xTicks, String);
     lx.exit().remove();
     lx.enter().append("text").attr("text-anchor", "middle").attr("font-size", 11).merge(lx)
-      .attr("x", tx).attr("y", h + 18).attr("fill", C.axis).text(d3.format("d"));
+      .attr("x", tx).attr("y", h + 15).attr("fill", C.axis).text(d3.format("d"));
+    // The title sits on its own line BELOW the ticks. Sharing their baseline put it on top of the
+    // rightmost tick label at almost every width — the axis ends where the plot ends, so there is
+    // never spare room out there.
     gAxX.selectAll("text.ttl").remove();
-    gAxX.append("text").attr("class", "ttl").attr("x", w).attr("y", h + 18)
+    gAxX.append("text").attr("class", "ttl").attr("x", w).attr("y", h + 33)
       .attr("text-anchor", "end").attr("font-size", 11).attr("font-weight", 600)
       .attr("fill", C.muted).text("birth year →");
 
@@ -290,7 +306,7 @@ window.Chart = (function () {
     // deleting them, so "the three Haydns" still reads as three dots in a field of 466 instead of
     // three dots floating in an empty box. Only hit-testing and labels honor the filter.
     // Sorted big-behind-small so a large famous disc never buries a small one it fully covers.
-    const order = rows.slice().sort((a, b) => b.views - a.views);
+    const order = rows.filter(plottable).sort((a, b) => b.views - a.views);
     const sel = gDots.selectAll("circle.dot").data(order, d => d.i);
     sel.exit().remove();
     sel.enter().append("circle").attr("class", "dot").attr("stroke-width", 1)
@@ -446,6 +462,8 @@ window.Chart = (function () {
 
   return { init, setData, setMode, getMode, setFilter, setSelected, resize, rerender,
            resetZoom, zoomed, colorOf, hint, midLife: () => LIFE_MID, TOUCH,
+           // How many rows the chart can actually place — the table shows more (see isVisible).
+           plotted: () => rows.filter(plottable).length,
            // So the legend can draw its size key at the radii the chart ACTUALLY uses, rather
            // than three hand-picked circles that quietly stop matching when the scale changes.
            radiusOf: v => (rScale ? rScale(v) : 0) };

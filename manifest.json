@@ -1,7 +1,7 @@
 {
   "name": "String Quartet Composers",
   "short_name": "Quartets",
-  "description": "466 composers who wrote string quartets, plotted by birth year and output.",
+  "description": "884 composers who wrote string quartets, plotted by birth year and output.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -1,11 +1,11 @@
 // The data table. The chart answers "what does the field look like"; this answers "what exactly
-// am I looking at" — and it is the accessible, printable, Ctrl-F-able copy of the same 466 rows.
+// am I looking at" — and it is the accessible, printable, Ctrl-F-able copy of the same rows.
 //
 // It is not a second view bolted on: selection is shared both ways (click a row, the dot rings;
 // click a dot, the row highlights and scrolls into view) and the search box filters BOTH — matches
 // stay opaque in the chart, everything else drops to 12%.
 //
-// No virtualization on purpose. 466 rows is ~2,800 DOM nodes, which builds in a few milliseconds
+// No virtualization on purpose. ~880 rows is ~5,000 DOM nodes, which builds in a few milliseconds
 // and — the part that matters — keeps the browser's own find-in-page working, which a windowed
 // list silently breaks.
 
@@ -23,6 +23,10 @@ window.Table = (function () {
     { key: "views",    label: "Views",     num: true,  phone: true },
   ];
   const fmt = new Intl.NumberFormat();
+  const THIS_YEAR = new Date().getFullYear();
+  // Age today for someone with no death date. Read off the clock rather than baked at build time,
+  // so a cached copy opened next year still shows the right number.
+  const age = d => THIS_YEAR - d.birth;
 
   let theadEl, tbodyEl, cbSelect;
   let rows = [], view = [], sortKey = "views", sortDir = -1, selected = null;
@@ -34,8 +38,8 @@ window.Table = (function () {
   // NFD alone is not enough. It splits a letter into base + combining accent, which handles á é ö
   // — but ł, ø, đ, ß, æ and œ are single codepoints with NO decomposition, so they survive the
   // strip untouched and "lutoslawski" fails to find "Lutosławski". That is not hypothetical here:
-  // scripts/build_data.py's RENAMES put exactly those characters back into the data. Map them by
-  // hand first, then NFD the rest.
+  // names are canonical Wikipedia titles, so 58 of them carry exactly those characters. Map them
+  // by hand first, then NFD the rest.
   const FOLD = { "ł": "l", "ø": "o", "đ": "d", "ð": "d", "þ": "th", "ß": "ss", "æ": "ae", "œ": "oe", "ı": "i" };
   const norm = s => s.toLowerCase().replace(/[łøđðþßæœı]/g, c => FOLD[c])
                      .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -76,12 +80,15 @@ window.Table = (function () {
     const k = sortKey;
     return list.slice().sort((a, b) => {
       let av = a[k], bv = b[k];
-      // A living composer has no death year. Sort those to the end in BOTH directions rather than
-      // letting null compare as 0 and drag every living composer to the top of an ascending sort.
-      if (k === "death") {
+      // `lifespan` is null for the living, but their AGE is the meaningful sort key and is never
+      // null, so substitute it rather than banishing them to the end of the column.
+      if (k === "lifespan") { av = av == null ? age(a) : av; bv = bv == null ? age(b) : bv; }
+      // Everything else sorts nulls to the end in BOTH directions, rather than letting null
+      // compare as 0 and drag every living composer (no death year) or unparsed row (no quartet
+      // count) to the top of an ascending sort.
+      if (av == null || bv == null) {
         if (av == null && bv == null) return a.name.localeCompare(b.name);
-        if (av == null) return 1;
-        if (bv == null) return -1;
+        return av == null ? 1 : -1;
       }
       if (typeof av === "string") return sortDir * av.localeCompare(bv);
       return sortDir * (av - bv) || a.name.localeCompare(b.name);
@@ -130,11 +137,11 @@ window.Table = (function () {
 
       tr.appendChild(cell(d.birth, "c-birth"));
       tr.appendChild(cell(d.death == null ? "—" : d.death, "c-death wide-only"));
-      // "29+" for the living: the source stores age-in-2014 in the lifespan slot, so the honest
-      // reading is "at least this long", not "died at". Footnoted in the page footer.
-      tr.appendChild(cell(d.living ? d.lifespan + "+" : d.lifespan, "c-lifespan wide-only"));
-      tr.appendChild(cell(d.quartets, "c-quartets"));
-      tr.appendChild(cell(d.views ? fmt.format(d.views) : "—", "c-views"));
+      // For the living, "83+" is their age today and a true lower bound on the lifespan; for the
+      // dead it is the lifespan. Both are numbers you can sort, which is why they share a column.
+      tr.appendChild(cell(d.lifespan == null ? age(d) + "+" : d.lifespan, "c-lifespan wide-only"));
+      tr.appendChild(cell(d.quartets == null ? "—" : d.quartets, "c-quartets"));
+      tr.appendChild(cell(d.views == null ? "—" : fmt.format(d.views), "c-views"));
 
       trFor.set(d.i, tr);
       frag.appendChild(tr);

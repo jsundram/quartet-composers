@@ -2,198 +2,128 @@
 # /// script
 # requires-python = ">=3.9"
 # ///
-"""Join data/composers_raw.json + data/views.json -> composers.json (the file the app ships).
+"""Combine the three cached sources into composers.json, the one file the app fetches.
 
-Two source files, scraped separately in 2014, are keyed on names that DON'T quite match: the
-pageview keys carry Wikipedia's disambiguation suffix ("George Onslow (composer)") while the
-composer list does not. 28 of 477 rows join only after stripping it — an unstripped join silently
-gives those composers zero views, which reads as "obscure" rather than "unjoined". Strip, join,
-then assert the miss count so a future re-scrape can't quietly reintroduce the gap.
+    data/list.json       scrape_list.py     roster + quartet counts + prose dates
+    data/people.json     fetch_wikidata.py  canonical titles + P569/P570 birth and death
+    data/pageviews.json  fetch_views.py     12 monthly view counts per article
+                      -> composers.json
 
-Four more join by an explicit alias below — Wikipedia's article title differs from the list's
-spelling ("Vaclav Pichl" vs "Wenzel Pichl"). Kept as a visible table rather than a fuzzy matcher so
-a wrong join is reviewable instead of plausible.
+    python3 scripts/build_data.py
 
-No Wikipedia URL is emitted: both source files ASCII-strip diacritics ("Antonin Dvorak"), so a
-/wiki/<title> link is a coin flip on whether a redirect happens to exist. app.js builds a
-Special:Search "go" URL from the name instead, which lands on the article when the title resolves
-and on search results when it doesn't.
+NOTHING HERE TOUCHES THE NETWORK. Every input is a committed cache, so the statistic below can be
+changed and the dataset rebuilt offline, and the exact bytes that produced a deploy stay in git.
 
-THE FIELD NAMED "lifespan" IS NOT ALWAYS A LIFESPAN. The 2014 scrape wrote `died - born` for the
-dead and `2014 - born` for the living, in the same slot — so Mohammed Fairouz (b. 1985) carries a
-29 that means "age", not "died at 29". 139 of 466 rows are like that. Coloring them on a lifespan
-ramp would paint every living composer as tragically short-lived, so the join emits a `living`
-flag (death year == the snapshot year) and the app gives those rows their own visual treatment
-instead of a color on the ramp. The flag can't distinguish someone who actually died IN 2014 from
-someone alive that year; the UI says "living in 2014" rather than "living" for exactly that reason.
+THE VIEW NUMBER IS A MEDIAN, NOT A MONTH. Dot size is the loudest channel on the chart and page
+views are its noisiest input: a single month sits 12% off the 12-month median typically and 29% at
+worst, August is a seasonal trough, and one composer has a month at 2.13x his own median. The
+median ignores an anniversary or obituary spike rather than baking it in. min and max ship too, so
+the detail panel can show the spread instead of implying a precision that isn't there.
 
-Output is one denormalized file so index.html makes exactly one data fetch:
+WHAT "LIVING" MEANS NOW. It is `death is None` as of the last fetch_wikidata.py run — a fact about
+today, from a structured claim. The old dataset inferred it by testing `birth + lifespan == 2014`
+against a field that stored age-in-2014 for the living, which meant refreshing anything risked
+silently reclassifying 139 people. That whole mechanism is gone.
 
-    {"meta": {...}, "fields": [...], "rows": [[name, birth, lifespan, quartets, views, living], ...]}
-
-Run:  python3 scripts/build_data.py
+UNKNOWNS STAY NULL. A composer whose count the page's prose doesn't state gets quartets: null and
+is listed in the table but not plotted; an article with no page-view data gets views: null. The
+alternative — carrying a 2014 number forward — silently mixes a pre-2015 measurement system into a
+2026 dataset, and renders as a confident dot either way.
 """
+import datetime as dt
 import json
 import os
 import re
+import statistics
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-SUFFIX = re.compile(r"\s*\(composer\)$")
+LIST = os.path.join(ROOT, "data", "list.json")
+PEOPLE = os.path.join(ROOT, "data", "people.json")
+VIEWS = os.path.join(ROOT, "data", "pageviews.json")
+OUT = os.path.join(ROOT, "composers.json")
 
-SOURCE = "https://en.wikipedia.org/wiki/List_of_string_quartet_composers"
-
-# The year the COMPOSER LIST was scraped — which is what decides who was living, and is NOT the
-# same thing as the month the page views cover once fetch_views.py has been run.
-#
-# This was a bug: the living check originally read the year off views.json's month, so the first
-# `fetch_views.py` refresh would have compared 2026 against death years frozen in 2014, matched
-# nobody, and silently reclassified all 139 living composers as having died in 2014 — putting them
-# back on the lifespan ramp the flag exists to keep them off. data/composers_raw.json is a frozen
-# 2014 artifact and fetch_views.py never touches it, so this constant only changes if the composer
-# list itself is re-scraped. The assertion below is what makes that impossible to forget.
-COMPOSERS_SCRAPED = 2014
-
-# The 2014 scrape DELETED non-ASCII characters instead of transliterating them, so "Lutosławski"
-# was stored as "Lutosawski" — a string that matches no Wikipedia article. It went unnoticed for a
-# decade because the pageview file was mangled the same way, so the two agreed with each other
-# while both disagreeing with Wikipedia; it only surfaced when fetch_views.py asked the live API
-# and got nothing back for 23 titles. These seven are the ones a corrected spelling recovers (the
-# other sixteen are articles that really are gone). Applied to the DISPLAY name too, so the table
-# spells people's names correctly.
-#
-# "Johan Hoffmann" -> "Johann Hoffmann" is deliberately NOT here: the article exists and would
-# join, but at 22 views with a name that several unrelated people share, asserting the identity is
-# a guess. A stale number is better than a wrong person.
-RENAMES = {
-    "Ib Nrholm": "Ib Nørholm",
-    "Mieczysaw Weinberg": "Mieczysław Weinberg",
-    "Per Nrgard": "Per Nørgård",
-    "Stanisaw Moniuszko": "Stanisław Moniuszko",
-    "Witold Lutosawski": "Witold Lutosławski",
-    "Vahktang Kakhidze": "Vakhtang Kakhidze",       # transposed letters, not a diacritic
-}
-
-# Wikipedia disambiguators the composer list dropped but the 2014 pageview file kept. Without
-# these, "John Adams" resolves to the second President of the United States and his 144,948
-# monthly views land on a chart about string quartets — second place, above Beethoven. The
-# resolver has no way to know: "John Adams" is a real, valid, extremely popular article.
-#
-# This is why scripts/fetch_views.py resolves THESE titles rather than the bare names. Recovered
-# from the 2014 pageview file's own keys, which are the only surviving record of which article
-# each row was ever meant to point at.
-DISAMBIG = {
-    "Alexander Mackenzie": "Alexander Mackenzie (composer)",
-    "Alfred Hill": "Alfred Hill (composer)",
-    "Ben Johnston": "Ben Johnston (composer)",
-    "Christian Wolff": "Christian Wolff (composer)",
-    "David Diamond": "David Diamond (composer)",
-    "David Horne": "David Horne (composer)",
-    "David Johnstone": "David Johnstone (composer)",
-    "George Onslow": "George Onslow (composer)",
-    "Ian Wilson": "Ian Wilson (composer)",
-    "James Dillon": "James Dillon (composer)",
-    "James Douglas": "James Douglas (composer)",
-    "John Adams": "John Adams (composer)",
-    "John Ireland": "John Ireland (composer)",
-    "John McCabe": "John McCabe (composer)",
-    "Jonathan Harvey": "Jonathan Harvey (composer)",
-    "Josef Suk": "Josef Suk (composer)",
-    "Luigi Nono": "Luigi Nono (composer)",
-    "Nikolay Sokolov": "Nikolay Sokolov (composer)",
-    "Robert Kahn": "Robert Kahn (composer)",
-    "Robert Simpson": "Robert Simpson (composer)",
-    "Salvatore Pappalardo": "Salvatore Pappalardo (composer)",
-    "Thomas Wilson": "Thomas Wilson (composer)",
-    "Tom Johnson": "Tom Johnson (composer)",
-    "Tomas Svoboda": "Tomas Svoboda (composer)",
-}
-
-# composer-list spelling -> pageview-file spelling, for the rows the suffix strip doesn't reach.
-# Verified by hand against the article each name resolves to; a fifth entry belongs here only
-# after the same check.
-ALIASES = {
-    "Vaclav Pichl": "Wenzel Pichl",
-    "Sergei Ivanovich Taneyev": "Sergei Taneyev",
-    "Richard Wilson": "Richard Edward Wilson",
-    "Matthew Davidson": "Matthew de Lacey Davidson",
-}
+# Wikipedia's parenthetical qualifier is a URL disambiguator, not part of anybody's name, and every
+# row on this chart is a composer already.
+QUALIFIER = re.compile(r"\s*\((?:composer|musician|conductor|violinist|pianist|[^)]*musician)\)$", re.I)
 
 
 def main():
-    with open(os.path.join(ROOT, "data", "composers_raw.json")) as f:
-        composers = json.load(f)          # [name, birth_year, lifespan_years, quartet_count]
-    with open(os.path.join(ROOT, "data", "views.json")) as f:
-        blob = json.load(f)               # {"month": "YYYY-MM", "note": ..., "views": {title: n}}
-    views = blob["views"]
-    # Canonical Wikipedia titles, resolved by scripts/fetch_views.py through the MediaWiki API.
-    # These are the DISPLAY names: the 2014 scrape stored "Bela Bartok", Wikipedia says
-    # "Béla Bartók", and the second is both correct and what the pageview number belongs to.
-    titles = blob.get("titles", {})
-    # The snapshot month travels with the numbers rather than living in a constant here, so a
-    # refresh via scripts/fetch_views.py can't leave the UI claiming the wrong date. It also
-    # decides who counts as "living": the source stores age-in-snapshot-year for the living.
-    views_month = blob["month"]
+    with open(LIST, encoding="utf-8") as f:
+        listing = json.load(f)
+    with open(PEOPLE, encoding="utf-8") as f:
+        people = json.load(f)
+    with open(VIEWS, encoding="utf-8") as f:
+        pv = json.load(f)
+    months, series = pv["months"], pv["series"]
 
-    by_name = {SUFFIX.sub("", title): n for title, n in views.items()}
-    # RENAMES already put the corrected spelling in data/views.json's keys, so the join finds them
-    # directly; this only matters if someone restores an old views.json.
-    for old, new in RENAMES.items():
-        by_name.setdefault(SUFFIX.sub("", old), by_name.get(new, 0))
-
-    rows, unjoined = [], []
-    for name, birth, lifespan, quartets in composers:
-        if quartets <= 0:                 # this is a chart about quartets; no quartets, no row
+    rows, seen, dropped = [], {}, []
+    for e in listing["entries"]:
+        title = e["title"]
+        p = people.get(title, {})
+        canon = p.get("canonical", title)
+        birth, death = p.get("birth", e["birth"]), p.get("death", e["death"])
+        if birth is None:
+            dropped.append((title, "no birth year"))
             continue
-        raw = name
-        name = RENAMES.get(name, name)    # hand-fixes for names the API cannot resolve
-        display = titles.get(raw) or titles.get(name) or name
-        n = by_name.get(raw, by_name.get(name, by_name.get(ALIASES.get(name, ""), None)))
-        if n is None:
-            unjoined.append(name)
-            n = 0
-        living = 1 if birth + lifespan == COMPOSERS_SCRAPED else 0
-        # Strip Wikipedia's disambiguator: "Alfred Hill (composer)" is a URL, not a name, and every
-        # row on this chart is a composer already.
-        rows.append([SUFFIX.sub("", display), birth, lifespan, quartets, n, living])
+        if death is not None and death < birth:
+            dropped.append((title, "death %s before birth %s" % (death, birth)))
+            continue
 
-    # A re-scraped composer list with a stale COMPOSERS_SCRAPED yields zero living composers,
-    # which looks like clean data and is not. ~30% of this list was living; fail loudly instead.
-    living = sum(r[5] for r in rows)
-    if living < len(rows) // 10:
-        print("ERROR: only %d of %d composers read as living. data/composers_raw.json stores "
-              "age-in-scrape-year for the living, so COMPOSERS_SCRAPED (%d) is probably wrong "
-              "for this scrape." % (living, len(rows), COMPOSERS_SCRAPED), file=sys.stderr)
-        return 1
+        vals = [series.get(canon, {}).get(m) for m in months]
+        vals = [v for v in vals if v is not None]
+        if vals:
+            views = int(statistics.median(vals))
+            lo, hi = min(vals), max(vals)
+        else:
+            views = lo = hi = None
 
-    if unjoined:
-        print("ERROR: %d composers did not join to a pageview row:" % len(unjoined), file=sys.stderr)
-        for name in unjoined[:20]:
-            print("  " + name, file=sys.stderr)
-        return 1
+        name = QUALIFIER.sub("", canon)
+        # Two list entries can resolve to one article (an alias and the real title). Keep the
+        # richer row rather than letting the later one silently win.
+        row = [name, birth, death, e["quartets"], views, lo, hi]
+        if canon in seen:
+            prev = rows[seen[canon]]
+            better = sum(x is not None for x in row) > sum(x is not None for x in prev)
+            if better:
+                rows[seen[canon]] = row
+            dropped.append((title, "duplicate of %s" % canon))
+            continue
+        seen[canon] = len(rows)
+        rows.append(row)
 
     rows.sort(key=lambda r: (r[1], r[0]))
+
+    living = sum(1 for r in rows if r[2] is None)
+    no_count = sum(1 for r in rows if r[3] is None)
+    no_views = sum(1 for r in rows if r[4] is None)
     out = {
         "meta": {
-            "views_month": views_month,
-            "views_note": blob.get("note", ""),
-            # Deliberately separate from views_month: the UI must say "living in 2014" even when
-            # the view counts are from last month.
-            "scrape_year": COMPOSERS_SCRAPED,
-            "source": SOURCE,
+            "generated": dt.date.today().isoformat(),
+            "list_source": listing.get("source"),
+            "list_revid": listing.get("revid"),
+            "views_months": months,
+            "views_stat": "median of %d monthly counts" % len(months),
+            "views_note": "monthly English Wikipedia page views, a proxy for Anglophone familiarity",
+            "dates_source": "Wikidata P569/P570",
         },
-        "fields": ["name", "birth", "lifespan", "quartets", "views", "living"],
+        "fields": ["name", "birth", "death", "quartets", "views", "views_lo", "views_hi"],
         "rows": rows,
     }
-    path = os.path.join(ROOT, "composers.json")
-    with open(path, "w", encoding="utf-8") as f:
-        # ensure_ascii=False: names carry ł/ø/á, and \uXXXX escapes triple their byte cost for no
-        # benefit — the file is served as application/json; charset=utf-8.
+    with open(OUT, "w", encoding="utf-8") as f:
         json.dump(out, f, separators=(",", ":"), ensure_ascii=False)
         f.write("\n")
-    print("wrote composers.json — %d composers (%d living in %d), views for %s, %d bytes"
-          % (len(rows), living, COMPOSERS_SCRAPED, views_month, os.path.getsize(path)))
+
+    print("wrote composers.json - %d composers, %d bytes" % (len(rows), os.path.getsize(OUT)))
+    print("  living (no death date on Wikidata): %d" % living)
+    print("  no quartet count (listed, not plotted): %d" % no_count)
+    print("  no page-view data: %d" % no_views)
+    print("  views: median of %s .. %s" % (months[0], months[-1]))
+    if dropped:
+        print("  dropped %d entries:" % len(dropped))
+        for t, why in dropped:
+            print("     %-34s %s" % (t, why))
     return 0
 
 

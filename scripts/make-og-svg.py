@@ -27,7 +27,7 @@ W, H = 1200, 630
 PLOT = {"x": 520, "y": 96, "w": 608, "h": 446}      # chart panel, right of the title block
 X_DOMAIN = (1700, 1992)
 Y_DOMAIN = (0.85, 170)
-LIFE = (20, 72, 104)                                 # min / median / max completed lifespan
+LIFE = (20, 72, 104)                                 # min / median / max completed lifespan (see build_data)
 R_RANGE = (2.4, 26)
 R_EXP = 0.35
 
@@ -61,7 +61,7 @@ def mix(a, b, t):
 
 
 def color(lifespan, living):
-    if living:
+    if living or lifespan is None:
         return None                                  # open circle, same as the app
     lo, mid, hi = LIFE
     v = max(lo, min(hi, lifespan))
@@ -76,9 +76,11 @@ def main():
     with open(os.path.join(ROOT, "composers.json")) as f:
         data = json.load(f)
     rows = data["rows"]
-    max_views = max(r[4] for r in rows) or 1
+    max_views = max((r[4] or 0) for r in rows) or 1
     global VIEWS_MONTH
-    VIEWS_MONTH = data["meta"]["views_month"]
+    mm = data["meta"].get("views_months") or [""]
+    VIEWS_MONTH = "%s..%s" % (mm[0], mm[-1])
+    plotted = [r for r in rows if r[3] is not None and r[4] is not None]
 
     def sx(year):
         return PLOT["x"] + (year - X_DOMAIN[0]) / (X_DOMAIN[1] - X_DOMAIN[0]) * PLOT["w"]
@@ -107,9 +109,11 @@ def main():
         out.append(f'  <text x="{PLOT["x"] - 12}" y="{sy(q) + 6:.1f}" fill="{MUTED}" '
                    f'font-family="system-ui,sans-serif" font-size="17" text-anchor="end">{q}</text>')
 
-    for name, birth, life, quartets, views, living in sorted(rows, key=lambda r: -r[4]):
+    for name, birth, death, quartets, views, lo, hi in sorted(rows, key=lambda r: -(r[4] or 0)):
+        if quartets is None or views is None:
+            continue                                  # not plottable; the app omits it too
         cx, cy, r = sx(birth), sy(quartets), sr(views)
-        fill = color(life, living)
+        fill = color(death - birth if death else None, death is None)
         if fill is None:
             out.append(f'  <circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" fill="none" '
                        f'stroke="{LIVING}" stroke-width="1.4" opacity=".9"/>')
@@ -146,11 +150,11 @@ def main():
         f'  <text x="72" y="254" fill="{INK}" font-family="Georgia,serif" font-size="54" '
         f'font-weight="700">Composers</text>',
         f'  <text x="72" y="316" fill="{MUTED}" font-family="system-ui,sans-serif" font-size="24">'
-        f'{len(rows)} composers, {min(r[1] for r in rows)}–{max(r[1] for r in rows)}.</text>',
+        f'{len(plotted)} composers, {min(r[1] for r in plotted)}–{max(r[1] for r in plotted)}.</text>',
         f'  <text x="72" y="350" fill="{MUTED}" font-family="system-ui,sans-serif" font-size="24">'
         f'Birth year × quartets written.</text>',
         f'  <text x="72" y="384" fill="{MUTED}" font-family="system-ui,sans-serif" font-size="24">'
-        f'Size = page views, {VIEWS_MONTH}.</text>',
+        f'Size = typical monthly views.</text>',
         f'  <rect x="72" y="410" width="220" height="12" rx="2" fill="url(#ramp)"/>',
         f'  <text x="72" y="448" fill="{MUTED}" font-family="system-ui,sans-serif" font-size="17">'
         f'short life</text>',

@@ -47,9 +47,13 @@ function selectFromTable(i) {
 }
 
 // ---- detail panel ----------------------------------------------------------
+// Percentile among the rows that HAVE the value. Counting nulls as zero would tell a composer
+// with 3 quartets that they out-wrote the 105 composers whose count simply couldn't be read.
 function pct(d, key) {
-  const below = ROWS.reduce((n, o) => n + (o[key] < d[key] ? 1 : 0), 0);
-  return Math.round((below / ROWS.length) * 100);
+  if (d[key] == null) return null;
+  const known = ROWS.filter(o => o[key] != null);
+  const below = known.reduce((n, o) => n + (o[key] < d[key] ? 1 : 0), 0);
+  return Math.round((below / known.length) * 100);
 }
 
 function renderDetail(i, preview) {
@@ -60,7 +64,7 @@ function renderDetail(i, preview) {
     p.className = "empty";
     const living = ROWS.filter(d => d.living).length;
     p.textContent = `${ROWS.length} composers, born ${d3.min(ROWS, d => d.birth)}–`
-      + `${d3.max(ROWS, d => d.birth)}. ${living} were still living when the data was scraped. `
+      + `${d3.max(ROWS, d => d.birth)}. ${living} are still living. `
       + `Select a dot or a row for the details.`;
     el.appendChild(p);
     return;
@@ -73,10 +77,9 @@ function renderDetail(i, preview) {
 
   const dates = document.createElement("p");
   dates.className = "dates";
-  // scrape_year, NOT the views month: page views can be refreshed to last month while the
-  // birth/death data stays frozen at the 2014 composer-list scrape.
+  // Age is read off the clock, not baked at build time, so a cached copy stays right next year.
   dates.textContent = d.living
-    ? `b. ${d.birth} · living in ${META.scrape_year}, aged ${d.lifespan}`
+    ? `b. ${d.birth} · living, age ${new Date().getFullYear() - d.birth}`
     : `${d.birth}–${d.death} · lived ${d.lifespan} years`;
   el.appendChild(dates);
 
@@ -86,15 +89,21 @@ function renderDetail(i, preview) {
     const dd = document.createElement("dd"); dd.textContent = v;
     dl.appendChild(dt); dl.appendChild(dd);
   };
-  add("Quartets", d.quartets);
-  add("Views", d.views ? fmt.format(d.views) : "no data");
-  add("Lifespan", d.living ? `${d.lifespan}+ years` : `${d.lifespan} years`);
+  add("Quartets", d.quartets == null ? "not stated on the list" : d.quartets);
+  // The median, with its own 12-month range beside it — the spread is part of the measurement,
+  // and hiding it implies a precision a page-view count does not have.
+  add("Views / mo", d.views == null ? "no data"
+      : `${fmt.format(d.views)}  (${fmt.format(d.lo)}–${fmt.format(d.hi)})`);
   el.appendChild(dl);
 
   const rank = document.createElement("p");
   rank.className = "rank";
-  rank.textContent = `More quartets than ${pct(d, "quartets")}% of this list · `
-    + `more read than ${pct(d, "views")}%.`;
+  const parts = [];
+  const pq = pct(d, "quartets"), pv = pct(d, "views");
+  if (pq != null) parts.push(`more quartets than ${pq}% of the list`);
+  if (pv != null) parts.push(`more read than ${pv}%`);
+  if (d.quartets == null) parts.push("not plotted — the list page doesn't state a count");
+  rank.textContent = parts.join(" · ") + ".";
   el.appendChild(rank);
 
   const a = document.createElement("a");
@@ -176,7 +185,7 @@ function renderLegend() {
     `<span class="lab">Also</span>` +
     `<div class="swatches">` +
       `<span class="sw"><i style="box-shadow:inset 0 0 0 1.5px ${g("--c-living")}"></i>` +
-      `living in ${META.scrape_year} — lifespan unknown, so no color</span>` +
+      `still living — final lifespan unknown, so no color</span>` +
     `</div>`;
   el.appendChild(other);
 }
@@ -275,7 +284,9 @@ async function start() {
     $("plot").appendChild(p);
     return;
   }
-  META = Object.assign({ views_month: "2014-05", views_note: "", scrape_year: 2014 }, data.meta || {});
+  META = Object.assign({ views_months: [], views_note: "monthly English Wikipedia page views",
+                         views_stat: "median", dates_source: "Wikidata", generated: "" },
+                       data.meta || {});
 
   Chart.setData(data.rows);
   Chart.init({
@@ -290,8 +301,10 @@ async function start() {
   // chart.js keeps its own decorated copy (jitter, radius); this is the plain one the table and
   // detail panel read. Both are indexed identically, and that index IS the shared selection key.
   ROWS = data.rows.map((r, i) => ({
-    i, name: r[0], birth: r[1], lifespan: r[2], quartets: r[3], views: r[4], living: !!r[5],
-    death: r[5] ? null : r[1] + r[2],
+    i, name: r[0], birth: r[1], death: r[2], quartets: r[3],
+    views: r[4], lo: r[5], hi: r[6],
+    living: r[2] == null,
+    lifespan: r[2] == null ? null : r[2] - r[1],
   }));
 
   Table.init({ thead: $("thead"), tbody: $("tbody"), onSelect: selectFromTable });
@@ -310,13 +323,15 @@ async function start() {
   applySearch();
   if (link.c && byName.has(link.c)) show(byName.get(link.c), false);
   $("hint").textContent = Chart.hint();
-  // Two dates, and they can differ: fetch_views.py refreshes the view counts without touching
-  // the composer list, so say which is which rather than letting one imply the other.
-  $("prov").textContent = `${ROWS.length} composers. Birth and death dates and quartet counts come `
-    + `from a ${META.scrape_year} scrape of the composer list; page views are for `
-    + `${META.views_month} (${META.views_note || "monthly English Wikipedia pageviews"}). `
-    + `A lifespan written "29+" means the composer was still living in ${META.scrape_year}, so `
-    + `they lived at least that many years.`;
+  // Say exactly what each channel is and when it was measured. Three sources with three
+  // different freshnesses is precisely the situation where one date silently implies the others.
+  const mm = META.views_months || [];
+  $("prov").textContent =
+    `${ROWS.length} composers from the Wikipedia list (${Chart.plotted()} have a stated quartet `
+    + `count and are plotted; the rest are in the table only). Dates from ${META.dates_source}. `
+    + `Size is the ${META.views_stat} ${mm.length ? `from ${mm[0]} to ${mm[mm.length - 1]}` : ""} `
+    + `— ${META.views_note}; a median rather than one month because a single month runs about 12% `
+    + `off typical. A lifespan written "83+" is the composer's age today. Built ${META.generated}.`;
 
   wire();
 }

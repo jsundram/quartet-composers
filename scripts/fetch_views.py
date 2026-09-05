@@ -1,41 +1,38 @@
 #!/usr/bin/env python3
+# pwa-starter: none — this script is this repo's own
 # /// script
 # requires-python = ">=3.9"
 # ///
-"""Refresh data/views.json from the Wikimedia Pageviews API, then rebuild composers.json.
+"""Cache a monthly page-view SERIES per composer -> data/pageviews.json.
 
-The shipped numbers are a May 2014 snapshot — the same month the composer list was scraped. That
-is fine as history (and the UI says so plainly), but "who do people actually read about" moves,
-so this makes the number refreshable in one command instead of a scraping project.
+    python3 scripts/fetch_views.py                # top up through the last complete month
+    python3 scripts/fetch_views.py --months 24    # widen the window
+    python3 scripts/fetch_views.py --force        # refetch even months already cached
+    python3 scripts/fetch_views.py --dry-run      # fetch and report, write nothing
 
-    python3 scripts/fetch_views.py                 # the most recent COMPLETE month
-    python3 scripts/fetch_views.py --month 2026-01
-    python3 scripts/fetch_views.py --month 2026-01 --dry-run
+WHY A SERIES AND NOT A NUMBER. Dot size is the most visually dominant channel on the chart and
+page views are the noisiest input to it. Measured against a 12-month window, a single month is off
+the median by 12% typically and 29% at worst, and August is a seasonal trough that every sampled
+composer fell below. Philip Glass has a month at 2.13x his median. Sizing dots from one month
+means a chunk of the picture is weather.
 
-Stdlib only, no pip packages — same rule as the other scripts here.
+The fix costs nothing: `monthly` granularity returns EVERY month in the requested range from ONE
+request, so twelve months of data is the same ~880 calls that one month was. build_data.py takes
+the MEDIAN, which ignores a death-or-anniversary spike instead of baking it in permanently.
 
-TITLES ARE RESOLVED FIRST, AND THAT STEP IS THE WHOLE BALL GAME. Pageviews are counted PER TITLE,
-and a redirect is its own title with its own (tiny) count. The 2014 scrape stored ASCII-stripped
-names — "Bela Bartok", "Camille Saint-Saens" — which exist on Wikipedia as redirects. Asking the
-pageviews API for those returns the handful of hits that arrived through the redirect, not the
-article's traffic: Bartók came back as 41 views instead of 14,330, a 350x undercount that looks
-exactly like a composer nobody reads. It does not 404, so nothing complains.
+Storing the raw series rather than the computed statistic means the statistic can be changed
+without touching the network, a refresh only fetches months it does not already have, and the app
+can show a sparkline for free.
 
-So every name goes through the MediaWiki API with redirects=1 first (batched 50 at a time, ~10
-requests for the whole list), and pageviews are requested for the CANONICAL title. The resolved
-title is stored in data/views.json's "titles" map and becomes the composer's display name, which
-is how the table ends up spelling Dvořák correctly.
+TITLES MUST BE CANONICAL. Views are counted per title and a redirect is its own title with its own
+tiny count: asking for "Bela Bartok" returns 41 instead of Béla Bartók's 14,330, with a 200 and no
+error. Canonical titles come from data/people.json (scripts/fetch_wikidata.py). Run that first.
 
-WHAT IT DOES NOT DO: re-scrape the composer list. Names, birth/death years and quartet counts come
-from data/composers_raw.json, a frozen May 2014 artifact, and nothing here touches it — so a
-composer added to Wikipedia's list since 2014 is still absent, and someone who died since 2014
-still has no death year. Only the view counts and the spelling of names are refreshed.
+WHAT THIS DOES NOT DO: re-scrape the composer list (scripts/scrape_list.py) or re-read birth and
+death dates (scripts/fetch_wikidata.py).
 
-A name the API cannot resolve keeps its previous value rather than silently becoming zero — a zero
-renders as "obscure" in the chart, which is a lie of a different kind than "stale".
-
-AFTERWARDS: composers.json is a SHELL file in sw.js. Bump V or the new numbers never reach an
-installed copy — see THE ONE RULE at the top of sw.js. scripts/sw-lint.py will remind you.
+AFTERWARDS: composers.json is precached in sw.js. Bump V or the new numbers reach the repo and
+nobody's phone. scripts/sw-lint.py will remind you.
 """
 import argparse
 import calendar
@@ -50,115 +47,69 @@ import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-VIEWS = os.path.join(ROOT, "data", "views.json")
-COMPOSERS = os.path.join(ROOT, "data", "composers_raw.json")
+PEOPLE = os.path.join(ROOT, "data", "people.json")
+OUT = os.path.join(ROOT, "data", "pageviews.json")
 
 API = ("https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/"
        "en.wikipedia/all-access/user/{title}/monthly/{start}/{end}")
-WIKI_API = "https://en.wikipedia.org/w/api.php"
-BATCH = 50                      # MediaWiki's titles= limit for an anonymous client
-# The API rejects a generic agent. A contactable one is the documented etiquette, not a nicety.
 UA = "quartet-composers/1.0 (https://github.com/jsundram/quartet-composers)"
 
-# Politeness, tuned against the real limiter rather than the published headline rate. 0.06s/req
-# (~16/s) drew a 429 about 300 titles in; 0.15s (~7/s) runs the full list clean. The whole job is
-# under two minutes either way, so there is nothing to win by pushing it.
+# Tuned against the real limiter, not the published headline rate: 0.06s/req drew a 429 about 300
+# titles in. 0.15s (~7/s) runs the full list clean, and the whole job is ~2 minutes either way.
 PAUSE = 0.15
 TRIES = 5
-BACKOFF = [2, 5, 15, 40]        # seconds, used when the response carries no Retry-After
+BACKOFF = [2, 5, 15, 40]
+
+# The API has no per-article data before this. Anything earlier came from a different measurement
+# system (the pre-2015 dumps / stats.grok.se) and is NOT comparable to what this fetches — which
+# is why the 2014 numbers are archived rather than plotted alongside these.
+FLOOR = "2015-07"
 
 
-def last_complete_month():
-    first_of_this = dt.date.today().replace(day=1)
-    prev = first_of_this - dt.timedelta(days=1)
-    return "%04d-%02d" % (prev.year, prev.month)
+def months_back(n, end=None):
+    """The n complete months ending with `end` (default: the last complete month), as YYYY-MM."""
+    if end is None:
+        first_of_now = dt.date.today().replace(day=1)
+        end = first_of_now - dt.timedelta(days=1)
+    else:
+        y, m = int(end[:4]), int(end[5:7])
+        end = dt.date(y, m, calendar.monthrange(y, m)[1])
+    out = []
+    y, m = end.year, end.month
+    for _ in range(n):
+        out.append("%04d-%02d" % (y, m))
+        m -= 1
+        if m == 0:
+            y, m = y - 1, 12
+    return sorted(v for v in out if v >= FLOOR)
 
 
-def resolve(names):
-    """{name: canonical Wikipedia title} for every name the API can place.
-
-    Two different corrections happen here and both matter. `normalized` fixes capitalization and
-    underscores; `redirects` follows "Bela Bartok" -> "Béla Bartók". A name with no article comes
-    back under `pages` with a "missing" key and is simply left out of the result — the caller keeps
-    whatever it had.
-    """
-    out = {}
-    for i in range(0, len(names), BATCH):
-        chunk = names[i:i + BATCH]
-        q = urllib.parse.urlencode({
-            "action": "query", "format": "json", "redirects": "1",
-            "titles": "|".join(chunk),
-        })
-        req = urllib.request.Request(WIKI_API + "?" + q,
-                                     headers={"User-Agent": UA, "Accept": "application/json"})
-        for attempt in range(TRIES):
-            try:
-                with urllib.request.urlopen(req, timeout=30) as r:
-                    data = json.load(r).get("query", {})
-                break
-            except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError):
-                if attempt == TRIES - 1:
-                    raise
-                time.sleep(BACKOFF[min(attempt, len(BACKOFF) - 1)])
-
-        # Chase name -> normalized -> redirect, in that order, then confirm the endpoint exists.
-        step = {}
-        for m in data.get("normalized", []):
-            step[m["from"]] = m["to"]
-        for m in data.get("redirects", []):
-            step[m["from"]] = m["to"]
-        real = {p["title"] for p in data.get("pages", {}).values() if "missing" not in p}
-        for name in chunk:
-            t = name
-            for _ in range(4):                      # redirect chains are short; cap anyway
-                if t in step and step[t] != t:
-                    t = step[t]
-                else:
-                    break
-            if t in real:
-                out[name] = t
-        print("  resolved %d/%d" % (min(i + BATCH, len(names)), len(names)), end="\r", flush=True)
-        time.sleep(PAUSE)
-    print()
-    return out
+def stamps(months):
+    """REST start/end covering the whole span. `monthly` needs a range that SPANS full months —
+    passing the same first-of-month for both ends returns 400 'no full months between dates'."""
+    sy, sm = int(months[0][:4]), int(months[0][5:7])
+    ey, em = int(months[-1][:4]), int(months[-1][5:7])
+    return ("%04d%02d0100" % (sy, sm),
+            "%04d%02d%02d00" % (ey, em, calendar.monthrange(ey, em)[1]))
 
 
-def month_range(month):
-    """(start, end) REST timestamps covering exactly the given YYYY-MM.
-
-    `monthly` granularity wants a range that SPANS a full month, not one that names it: passing
-    the same first-of-month stamp for both ends returns 400 "no full months between dates". So
-    end is the LAST day of the month, not the first of the next — using the next month's first
-    would return two items (the second an incomplete current month) and invite an off-by-one.
-    """
-    y, m = int(month[:4]), int(month[5:7])
-    last = calendar.monthrange(y, m)[1]
-    return "%04d%02d0100" % (y, m), "%04d%02d%02d00" % (y, m, last)
-
-
-def fetch(title, month, tries=TRIES):
-    want = month.replace("-", "") + "0100"
-    start, end = month_range(month)
+def fetch(title, months):
+    """{'YYYY-MM': views} for one article. None means the article has no data at all (404)."""
+    start, end = stamps(months)
     url = API.format(title=urllib.parse.quote(title.replace(" ", "_"), safe=""),
                      start=start, end=end)
     req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
-    for attempt in range(tries):
+    for attempt in range(TRIES):
         try:
-            with urllib.request.urlopen(req, timeout=20) as r:
+            with urllib.request.urlopen(req, timeout=30) as r:
                 items = json.load(r).get("items") or []
-                # Match the timestamp rather than taking items[0]: a widened range would
-                # otherwise silently attribute another month's traffic to this one.
-                for it in items:
-                    if it.get("timestamp") == want:
-                        return it["views"]
-                return 0
+            return {"%s-%s" % (i["timestamp"][:4], i["timestamp"][4:6]): i["views"] for i in items}
         except urllib.error.HTTPError as e:
             if e.code == 404:
-                return None                       # no such article this month — caller keeps the old value
-            if e.code in (429, 500, 502, 503) and attempt < tries - 1:
-                # Honor Retry-After when the limiter sends one; it knows better than a guess.
+                return None
+            if e.code in (429, 500, 502, 503) and attempt < TRIES - 1:
                 wait = BACKOFF[min(attempt, len(BACKOFF) - 1)]
-                try:
+                try:                                  # honor Retry-After; it knows better
                     wait = max(wait, int(e.headers.get("Retry-After", 0)))
                 except (TypeError, ValueError):
                     pass
@@ -166,7 +117,7 @@ def fetch(title, month, tries=TRIES):
                 continue
             raise
         except (urllib.error.URLError, TimeoutError):
-            if attempt < tries - 1:
+            if attempt < TRIES - 1:
                 time.sleep(BACKOFF[min(attempt, len(BACKOFF) - 1)])
                 continue
             raise
@@ -175,93 +126,79 @@ def fetch(title, month, tries=TRIES):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--month", default=last_complete_month(), help="YYYY-MM (default: last complete month)")
-    ap.add_argument("--dry-run", action="store_true", help="fetch and report, write nothing")
+    ap.add_argument("--months", type=int, default=12, help="window length (default 12)")
+    ap.add_argument("--end", help="last month of the window, YYYY-MM (default: last complete)")
+    ap.add_argument("--force", action="store_true", help="refetch months already cached")
+    ap.add_argument("--dry-run", action="store_true", help="write nothing")
     args = ap.parse_args()
 
-    try:
-        dt.datetime.strptime(args.month, "%Y-%m")
-    except ValueError:
-        print("--month must look like 2026-01", file=sys.stderr)
+    want = months_back(args.months, args.end)
+    if not want:
+        print("no months in range (the API has nothing before %s)" % FLOOR, file=sys.stderr)
         return 2
 
-    with open(VIEWS, encoding="utf-8") as f:
-        blob = json.load(f)
-    with open(COMPOSERS, encoding="utf-8") as f:
-        composers = json.load(f)
+    with open(PEOPLE, encoding="utf-8") as f:
+        people = json.load(f)
+    titles = sorted({p["canonical"] for p in people.values()})
 
-    # Names come from the COMPOSER LIST, not from views.json's own keys. Deriving the work list
-    # from the file being rewritten made the set of titles self-perpetuating: a wrong key stayed
-    # wrong forever because it was the only record of what to ask for.
-    import build_data                                  # RENAMES lives there; one source of truth
-    names = sorted({build_data.RENAMES.get(c[0], c[0]) for c in composers if c[3] > 0})
-    raw_of = {build_data.RENAMES.get(c[0], c[0]): c[0] for c in composers if c[3] > 0}
+    cached = {"months": [], "series": {}}
+    if os.path.exists(OUT):
+        with open(OUT, encoding="utf-8") as f:
+            cached = json.load(f)
+    series = cached.get("series", {})
 
-    # Resolve the DISAMBIGUATED title where one is known. Handing the bare name to the resolver
-    # is what put the second President of the United States on this chart.
-    probe = {n: build_data.DISAMBIG.get(n, n) for n in names}
-    print("resolving %d titles through the MediaWiki API..." % len(names))
-    resolved = resolve(sorted(set(probe.values())))
-    canon = {n: resolved[probe[n]] for n in names if probe[n] in resolved}
-    unresolved = [n for n in names if n not in canon]
-    changed = {n: t for n, t in canon.items() if t != n}
-    print("  %d resolved, %d changed spelling, %d unresolved" % (len(canon), len(changed), len(unresolved)))
+    print("window %s .. %s (%d months), %d articles" % (want[0], want[-1], len(want), len(titles)))
+    todo = []
+    for t in titles:
+        have = series.get(t, {})
+        if args.force or any(m not in have for m in want):
+            todo.append(t)
+    print("  %d need fetching, %d already complete" % (len(todo), len(titles) - len(todo)))
 
-    prev = blob.get("views", {})
-    out, missing = {}, []
-    titles = names
-
-    failed = []
-    print("fetching %s page views..." % args.month)
-    for i, name in enumerate(titles, 1):
-        title = canon.get(name, name)
-        # NEVER let one title abort the run. A 429 at title 300 used to raise straight out of
-        # main() and discard 300 good fetches — losing several minutes of somebody else's rate
-        # limit to recover nothing. Retries are exhausted inside fetch(); if it still fails, keep
-        # the previous number and carry on, then report both lists at the end.
+    missing, failed = [], []
+    for i, t in enumerate(todo, 1):
         try:
-            n = fetch(title, args.month) if name in canon else None
-        except Exception as e:                     # noqa: BLE001 - any transport failure, same handling
-            failed.append("%s (%s)" % (title, e))
-            n = None
-        key = raw_of.get(name, name)               # views stay keyed by the COMPOSER-LIST name
-        if n is None:
-            if not failed or not failed[-1].startswith(title):
-                missing.append(title)
-            out[key] = prev.get(key, prev.get(name, prev.get(title, 0)))
+            got = fetch(t, want)
+        except Exception as e:                        # noqa: BLE001 - any transport failure
+            # NEVER let one title abort the run: a 429 at title 300 used to raise out of main()
+            # and discard 300 good fetches.
+            failed.append("%s (%s)" % (t, e))
+            got = None
+        if got is None:
+            missing.append(t)
         else:
-            out[key] = n
-        if i % 25 == 0 or i == len(titles):
-            print("  %d/%d" % (i, len(titles)), end="\r", flush=True)
+            series.setdefault(t, {}).update(got)
+        if i % 25 == 0 or i == len(todo):
+            print("  %d/%d" % (i, len(todo)), end="\r", flush=True)
         time.sleep(PAUSE)
-    print()
+    if todo:
+        print()
 
     if missing:
-        print("%d titles had no data for %s (previous value kept):" % (len(missing), args.month))
+        print("%d articles returned no data (no series stored):" % len(missing))
         for t in missing:
-            print("  " + t)
+            print("   " + t)
     if failed:
-        print("%d titles failed after %d retries (previous value kept) — rerun to pick them up:"
-              % (len(failed), TRIES))
+        print("%d failed after %d retries - rerun to pick them up:" % (len(failed), TRIES))
         for t in failed:
-            print("  " + t)
+            print("   " + t)
+
+    covered = sum(1 for t in titles if all(m in series.get(t, {}) for m in want))
+    print("\n%d/%d articles have the full %d-month window" % (covered, len(titles), len(want)))
 
     if args.dry_run:
-        print("dry run — data/views.json unchanged")
+        print("dry run - data/pageviews.json unchanged")
         return 0
 
-    blob["month"] = args.month
-    # The resolved title is what makes the NEXT run correct, and what build_data.py uses as the
-    # display name. Keyed by composer-list name, same as views.
-    blob["titles"] = {raw_of.get(n, n): t for n, t in sorted(canon.items())}
-    blob["views"] = dict(sorted(out.items()))
-    with open(VIEWS, "w", encoding="utf-8") as f:
-        json.dump(blob, f, indent=0, ensure_ascii=False)
-    print("wrote data/views.json for %s" % args.month)
-
-    os.system("%s %s" % (sys.executable, os.path.join(HERE, "build_data.py")))
-    print("\nNow bump V in sw.js — composers.json is a precached SHELL file and will not otherwise "
-          "reach an installed copy.")
+    out = {
+        "fetched": dt.date.today().isoformat(),
+        "months": want,
+        "note": "monthly English Wikipedia page views (agent=user), by canonical article title",
+        "series": {k: dict(sorted(v.items())) for k, v in sorted(series.items())},
+    }
+    with open(OUT, "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False, indent=0)
+    print("wrote data/pageviews.json (%d articles, %d bytes)" % (len(series), os.path.getsize(OUT)))
     return 0
 
 
