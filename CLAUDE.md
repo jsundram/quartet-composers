@@ -17,6 +17,11 @@ plain static assets. Read README.md first for what the app is.
    root page, every pixel here is drawn by JS, so a cached `index.html` without `d3.v7.min.js` or
    `composers.json` is a headline over an empty box. Adding a new load-bearing script means adding
    it to `SHELL`, to `BOOT`, and bumping `V`.
+   `sw.test.mjs` READS `BOOT` out of `sw.js` rather than keeping a copy, because a copy drifts and
+   then fails illegibly: a seeded shell missing one boot dep is judged unbootable, falls through to
+   a network that never settles under the fake clock, and the suite exits 1 having printed nothing
+   at all. If you reformat `BOOT` out of an array literal, the parse guard there fails by name —
+   fix the guard, don't delete it.
 
 3. **Colors read into JS can't be reached by a CSS variable swap.** `chart.js` bakes `--c-*` into
    SVG fills and `app.js` bakes them into the legend. Both re-read via `Theme.getCssColor` inside

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// pwa-starter: sw.test.mjs @ d2fad01  (fixtures retargeted from usage/ to this app's BOOT_DEPS)
+// pwa-starter: sw.test.mjs @ d2fad01  (fixtures retargeted from usage/ to this app's BOOT_DEPS,
+//                                       which are now READ OUT of sw.js rather than copied)
 // Behavioral tests for sw.js's fetch handler — the offline / "lie-fi" contract that this file
 // exists to hold. sw.js is dense with invariant-carrying prose; this is the executable half.
 //
@@ -121,6 +122,10 @@ const isPending = async (p) => (await Promise.race([p.then(() => false), flush()
 // loop and exit 0, staying green on the exact hang this suite exists to catch. The explicit
 // process.exit() at the very end is the ONLY sanctioned way to reach a clean exit; any earlier exit
 // (a hung await, a handler that rejects instead of settling respondWith) now surfaces as a red 1.
+//
+// Its signature is exit 1 with NO OUTPUT — the run stops mid-suite, so there is no failure line and
+// no summary. Silence here means "something never settled", not "the runner is broken"; the ok
+// lines printed before it stopped are where to look.
 process.exitCode = 1;
 
 let pass = 0, fail = 0;
@@ -130,8 +135,26 @@ function reset(mode = "ok", status = 200) { CACHE.clear(); fetchMode = mode; fet
 // scriptless markup and so has an EMPTY BOOT_DEPS — every pixel here is drawn by script, so the
 // ROOT document is the bootability case: cached but missing d3 (or the dataset) it is a headline
 // and a blank box, which is worse than the honest offline page.
-const BOOT_FILES = ["d3.v7.min.js", "theme.js", "names.js", "chart.js", "table.js",
-                    "histogram.js", "app.js", "composers.json"];
+//
+// READ OUT OF sw.js, not typed here, because a copy of this list DRIFTS AND FAILS ILLEGIBLY. Add
+// a script to BOOT (invariant 2) and forget the copy, and every seeded shell below is missing a
+// boot dep: the root nav is judged unbootable, falls through to a network that never settles under
+// the fake clock, and the IIFE never reaches its process.exit(). The suite then exits 1 having
+// printed NOTHING AT ALL — no failure name, no summary, no stack — which reads as a broken test
+// runner rather than as the one line you forgot. (That is the seeded exitCode below doing its job;
+// it just cannot tell you why.) Derived, the copy cannot drift.
+const BOOT_FILES = (() => {
+  const m = src.match(/const BOOT\s*=\s*\[([\s\S]*?)\]/);
+  const list = m ? [...m[1].matchAll(/"\.\/([^"]+)"/g)].map(x => x[1]) : [];
+  // A regex over source is only as good as the shape it assumes, so fail loudly if sw.js is
+  // reformatted out from under it rather than silently seeding an empty shell — which would look
+  // exactly like the drift this exists to prevent.
+  if (list.length < 4 || !list.includes("composers.json")) {
+    console.log("  FAIL - could not read BOOT out of sw.js: " + JSON.stringify(list));
+    process.exit(1);
+  }
+  return list;
+})();
 const seedBootableShell = () => {
   CACHE.set(BASE, makeResponse("CACHED_ROOT"));
   CACHE.set(b("index.html"), makeResponse("CACHED_INDEX"));
