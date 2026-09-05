@@ -398,6 +398,27 @@ check("sorting by Composer sorts by surname",
       await ev(`[...document.querySelectorAll('tbody tr td:first-child')].slice(0,3)
         .map(c=>c.textContent.trim()).join(' | ')`));
 
+// --- 4h. the footnote says true things about where the data came from --------------------------
+// Both of these were wrong on the live site. The footer credited the 2014 EXPERIMENT to Mike
+// Bostock, whose fisheye.js it merely used; and it said the composer list was "scraped from
+// Wikipedia in May 2014" when the list here is a fresh scrape and 2014 is the original's date.
+const footer = await ev(`document.querySelector('footer').textContent.replace(/\\s+/g,' ')`);
+const flinks = await ev(`[...document.querySelectorAll('footer a')].map(a => a.getAttribute('href'))`);
+check("the footnote links the original experiment",
+      flinks.some(h => h.includes("viz.runningwithdata.com/quartet_composers")), flinks.join(", "));
+check("it does not credit the experiment to the author of the fisheye plugin",
+      !/Bostock/.test(footer) && !flinks.some(h => h.includes("d3-plugins")),
+      "the fisheye code credit belongs in README.md and chart.js, where it is used");
+check("it does not date this page's composer list to 2014",
+      !/2014/.test(await ev(`document.getElementById('prov').textContent`)));
+check("the provenance names the revision it was scraped from",
+      (await ev(`document.getElementById('prov').textContent`)).includes("revision "),
+      await ev(`document.getElementById('prov').textContent.slice(0, 70)`));
+// The lede frames what readership MEANS; the footnote says where it came from. Saying both twice
+// is what "wordsmithing and consistency" was about.
+check("the footnote does not restate the lede's framing",
+      !/not as importance/.test(await ev(`document.getElementById('prov').textContent`)));
+
 // --- 5. sorting ---------------------------------------------------------------
 await goto(BASE);
 await ev(`[...document.querySelectorAll('thead th button')].find(b=>b.textContent==='Quartets').click()`);

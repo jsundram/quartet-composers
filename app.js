@@ -493,17 +493,20 @@ async function start() {
   $("hint").textContent = Chart.hint();
   // Say exactly what each channel is and when it was measured. Three sources with three
   // different freshnesses is precisely the situation where one date silently implies the others.
+  // Provenance only: where each number came from and what it does not cover. The lede frames what
+  // readership MEANS and the legend says which channel carries it, so neither is repeated here —
+  // this paragraph used to restate both, and to say the word "median" twice in one clause.
   const mm = META.views_months || [];
+  const span = mm.length ? `, ${mm[0]} to ${mm[mm.length - 1]}` : "";
+  const rev = META.list_revid ? ` (revision ${META.list_revid})` : "";
   $("prov").textContent =
-    `${ROWS.length} composers from the Wikipedia list (${Chart.plotted()} have a stated quartet `
-    + `count and are plotted; the rest are in the table only). Dates from ${META.dates_source}. `
-    + `Readership is of the composer's ENGLISH Wikipedia article — the `
-    + `${META.views_stat}${mm.length ? ` from ${mm[0]} to ${mm[mm.length - 1]}` : ""}, a median `
-    + `rather than a single month because one month runs about 12% off typical. Read it as how `
-    + `familiar a name is to English speakers, not as importance: a Czech or Russian composer's `
-    + `readers are mostly on their own language's Wikipedia, which this does not count. It is the `
-    + `vertical axis in the Readers view and dot size in the other three. `
-    + `A lifespan written "83+" is the composer's age today. Built ${META.generated}.`;
+    `${ROWS.length} composers from Wikipedia's list${rev}; ${Chart.plotted()} state a quartet `
+    + `count and are plotted, the rest appear in the table only. Dates are ${META.dates_source}. `
+    + `Readership is the ${META.views_stat} of the composer's English Wikipedia article${span} — `
+    + `twelve rather than one because a single month runs about 12% off typical, and English only `
+    + `because the pageviews API counts per title, so a composer read mostly in another language `
+    + `is undercounted. A lifespan written "83+" is the composer's age today. `
+    + `Built ${META.generated}.`;
 
   wire();
 }

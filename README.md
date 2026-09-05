@@ -7,7 +7,8 @@ Composers](https://en.wikipedia.org/wiki/List_of_string_quartet_composers), plot
 and number of quartets written, sized by how much their article is read and coloured by lifespan —
 with a searchable, sortable table of the same data underneath.
 
-A remake of a 2014 experiment that used a *cartesian* fisheye: both axes warped continuously under
+A remake of a [2014 experiment](http://viz.runningwithdata.com/quartet_composers/index.html) that
+used a *cartesian* fisheye: both axes warped continuously under
 the cursor. It magnified beautifully and read terribly — with the axes always moving there was no
 stable picture, hovering was the only way to learn anything, and a screenshot of it was nonsense.
 
