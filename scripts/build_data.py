@@ -73,7 +73,41 @@ RENAMES = {
     "Stanisaw Moniuszko": "Stanisław Moniuszko",
     "Witold Lutosawski": "Witold Lutosławski",
     "Vahktang Kakhidze": "Vakhtang Kakhidze",       # transposed letters, not a diacritic
-    "David Johnstone (composer)": "David Johnstone",  # article dropped its disambiguator
+}
+
+# Wikipedia disambiguators the composer list dropped but the 2014 pageview file kept. Without
+# these, "John Adams" resolves to the second President of the United States and his 144,948
+# monthly views land on a chart about string quartets — second place, above Beethoven. The
+# resolver has no way to know: "John Adams" is a real, valid, extremely popular article.
+#
+# This is why scripts/fetch_views.py resolves THESE titles rather than the bare names. Recovered
+# from the 2014 pageview file's own keys, which are the only surviving record of which article
+# each row was ever meant to point at.
+DISAMBIG = {
+    "Alexander Mackenzie": "Alexander Mackenzie (composer)",
+    "Alfred Hill": "Alfred Hill (composer)",
+    "Ben Johnston": "Ben Johnston (composer)",
+    "Christian Wolff": "Christian Wolff (composer)",
+    "David Diamond": "David Diamond (composer)",
+    "David Horne": "David Horne (composer)",
+    "David Johnstone": "David Johnstone (composer)",
+    "George Onslow": "George Onslow (composer)",
+    "Ian Wilson": "Ian Wilson (composer)",
+    "James Dillon": "James Dillon (composer)",
+    "James Douglas": "James Douglas (composer)",
+    "John Adams": "John Adams (composer)",
+    "John Ireland": "John Ireland (composer)",
+    "John McCabe": "John McCabe (composer)",
+    "Jonathan Harvey": "Jonathan Harvey (composer)",
+    "Josef Suk": "Josef Suk (composer)",
+    "Luigi Nono": "Luigi Nono (composer)",
+    "Nikolay Sokolov": "Nikolay Sokolov (composer)",
+    "Robert Kahn": "Robert Kahn (composer)",
+    "Robert Simpson": "Robert Simpson (composer)",
+    "Salvatore Pappalardo": "Salvatore Pappalardo (composer)",
+    "Thomas Wilson": "Thomas Wilson (composer)",
+    "Tom Johnson": "Tom Johnson (composer)",
+    "Tomas Svoboda": "Tomas Svoboda (composer)",
 }
 
 # composer-list spelling -> pageview-file spelling, for the rows the suffix strip doesn't reach.
@@ -93,6 +127,10 @@ def main():
     with open(os.path.join(ROOT, "data", "views.json")) as f:
         blob = json.load(f)               # {"month": "YYYY-MM", "note": ..., "views": {title: n}}
     views = blob["views"]
+    # Canonical Wikipedia titles, resolved by scripts/fetch_views.py through the MediaWiki API.
+    # These are the DISPLAY names: the 2014 scrape stored "Bela Bartok", Wikipedia says
+    # "Béla Bartók", and the second is both correct and what the pageview number belongs to.
+    titles = blob.get("titles", {})
     # The snapshot month travels with the numbers rather than living in a constant here, so a
     # refresh via scripts/fetch_views.py can't leave the UI claiming the wrong date. It also
     # decides who counts as "living": the source stores age-in-snapshot-year for the living.
@@ -108,13 +146,17 @@ def main():
     for name, birth, lifespan, quartets in composers:
         if quartets <= 0:                 # this is a chart about quartets; no quartets, no row
             continue
-        name = RENAMES.get(name, name)    # correct the spelling before joining AND before display
-        n = by_name.get(name, by_name.get(ALIASES.get(name, ""), None))
+        raw = name
+        name = RENAMES.get(name, name)    # hand-fixes for names the API cannot resolve
+        display = titles.get(raw) or titles.get(name) or name
+        n = by_name.get(raw, by_name.get(name, by_name.get(ALIASES.get(name, ""), None)))
         if n is None:
             unjoined.append(name)
             n = 0
         living = 1 if birth + lifespan == COMPOSERS_SCRAPED else 0
-        rows.append([name, birth, lifespan, quartets, n, living])
+        # Strip Wikipedia's disambiguator: "Alfred Hill (composer)" is a URL, not a name, and every
+        # row on this chart is a composer already.
+        rows.append([SUFFIX.sub("", display), birth, lifespan, quartets, n, living])
 
     # A re-scraped composer list with a stale COMPOSERS_SCRAPED yields zero living composers,
     # which looks like clean data and is not. ~30% of this list was living; fail loudly instead.

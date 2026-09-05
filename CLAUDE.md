@@ -24,7 +24,15 @@ plain static assets. Read README.md first for what the app is.
    through `getCssColor`, never `getComputedStyle` directly.
 
 4. **`composers.json` is generated.** Edit `data/composers_raw.json` / `data/views.json` and rerun
-   `scripts/build_data.py`; never hand-edit the output.
+   `scripts/build_data.py`; never hand-edit the output. Composer NAMES in the output are canonical
+   Wikipedia titles resolved by `fetch_views.py`, so they change spelling when it runs — anything
+   that hardcodes a name (`make-og-svg.py`'s `LABELS`, a test assertion) must use the canonical
+   form. Both now fail loudly rather than silently skipping.
+
+4b. **Never ask the pageviews API for an unresolved title.** Views are counted per title, a
+   redirect is its own title with its own tiny count, and the request succeeds either way — Bartók
+   returned 41 instead of 14,330. Resolve through the MediaWiki API first, and resolve the
+   `DISAMBIG` form where one exists, or "John Adams" silently becomes the US President.
 
 5. **The `lifespan` field is a lifespan only when `living` is 0.** For the other 139 rows it is
    age-in-2014. Anything that ramps, sorts, or averages it has to branch on `living` — see the long

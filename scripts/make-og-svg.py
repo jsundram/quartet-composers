@@ -46,7 +46,7 @@ LABELS = [
     ("Luigi Boccherini",     "start",  9, "beside"),
     ("Joseph Haydn",         "middle", 0, "below"),
     ("Ludwig van Beethoven", "middle", 0, "above"),
-    ("Bela Bartok",          "middle", 0, "above"),
+    ("Béla Bartók",           "middle", 0, "above"),
     ("Dmitri Shostakovich",  "middle", 0, "above"),
 ]
 
@@ -117,12 +117,19 @@ def main():
             out.append(f'  <circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" fill="{fill}" '
                        f'stroke="{PANEL}" stroke-width="1" opacity=".92"/>')
 
+    # A label that silently vanishes degrades the one image people see before they click, so this
+    # is fatal, not a warning. It fires when a name changes spelling — which fetch_views.py now
+    # does routinely, having corrected 79 of them in one run.
     by_name = {r[0]: r for r in rows}
+    absent = [n for n, _, _, _ in LABELS if n not in by_name]
+    if absent:
+        print("ERROR: labelled composers are not in composers.json: %s\n"
+              "       (names are canonical Wikipedia titles now — check the spelling)"
+              % ", ".join(absent), file=sys.stderr)
+        return 1
+
     for name, anchor, dx, where in LABELS:
-        r = by_name.get(name)
-        if not r:
-            print("WARNING: label %r is not in the data — skipped" % name, file=sys.stderr)
-            continue
+        r = by_name[name]
         cx, cy, rad = sx(r[1]), sy(r[3]), sr(r[4])
         tx = cx + (dx + (rad if dx > 0 else -rad) if where == "beside" else 0)
         ty = {"above": cy - rad - 9, "below": cy + rad + 21}.get(where, cy + 6)

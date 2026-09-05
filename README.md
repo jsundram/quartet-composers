@@ -45,14 +45,24 @@ The flag is keyed to `COMPOSERS_SCRAPED`, **not** to the page-view month — ref
 must not reclassify all 139 living composers as having died in 2014. `build_data.py` fails loudly
 if the constant and the data disagree.
 
-### Names with characters the 2014 scrape deleted
+### Names, and why the refresh resolves titles first
 
-That scrape dropped non-ASCII characters instead of transliterating them, so Lutosławski was stored
-as "Lutosawski" — a string matching no Wikipedia article. It hid for a decade because the *pageview*
-file was mangled identically, so the two agreed with each other while both disagreed with Wikipedia.
-It only surfaced when `fetch_views.py` asked the live API and got nothing back for 23 titles. Seven
-are recovered by `RENAMES` in `build_data.py` (the other sixteen are articles that really are gone),
-and `table.js` folds `ł ø đ ß æ œ` before NFD so searching "lutoslawski" still finds him.
+The 2014 scrape dropped non-ASCII characters instead of transliterating, so Bartók was stored as
+"Bela Bartok". That string is not nothing — it's a **redirect**, and Wikipedia counts pageviews *per
+title*. Asking the API for the redirect returns the handful of hits that came through it, not the
+article's traffic: Bartók came back as **41 views instead of 14,330**. It doesn't 404, so nothing
+complains; it just renders a major composer as a dot nobody reads.
+
+So `fetch_views.py` resolves every name through the MediaWiki API (`redirects=1`, batched 50 at a
+time) and asks for views on the **canonical** title. That fixed 79 names in one run and, as a bonus,
+gives the table correct spellings — 58 composers now display with their real diacritics, and
+`table.js` folds `ł ø đ ß æ œ` before NFD so searching "lutoslawski" still finds Lutosławski.
+
+Resolution alone isn't enough, though: the composer list dropped Wikipedia's `(composer)`
+disambiguators, so a bare "John Adams" resolves to the **second President of the United States**,
+whose 144,948 monthly views briefly landed on this chart above Beethoven. `DISAMBIG` in
+`build_data.py` recovers the 24 qualified titles from the 2014 file — the only surviving record of
+which article each row was meant to point at.
 
 ## Build
 
