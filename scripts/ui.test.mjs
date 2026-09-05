@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // UI tests: drives a real headless Chrome over the DevTools Protocol and asserts what the app
 // actually DOES — the lens magnifies, a tap pins, a theme flip re-bakes the SVG fills, the table
-// fits a 390px phone, an offline reload still paints 466 dots.
+// fits a 390px phone, an offline reload still paints every dot.
 //
 // No dependencies: node >= 22 ships a global WebSocket, so the whole CDP client is the ~25 lines
 // below. Run it through scripts/ui-test.sh, which starts the server and the browser for you.

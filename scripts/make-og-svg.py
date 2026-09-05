@@ -39,8 +39,6 @@ SHORT, MID, LONG, LIVING = "#f0a44a", "#7e8079", "#b3a4dd", "#8e979c"
 # composers*, which is what the chart is about. The four most prolific sit almost on top of each
 # other (Cambini, Boccherini and Haydn are all born within 14 years and all in the top band), so
 # placement is explicit rather than automatic: (name, anchor, dx, dy) around the dot.
-VIEWS_MONTH = ""
-
 LABELS = [
     ("Giuseppe Cambini",     "middle", 0, "above"),
     ("Luigi Boccherini",     "start",  9, "beside"),
@@ -77,9 +75,6 @@ def main():
         data = json.load(f)
     rows = data["rows"]
     max_views = max((r[4] or 0) for r in rows) or 1
-    global VIEWS_MONTH
-    mm = data["meta"].get("views_months") or [""]
-    VIEWS_MONTH = "%s..%s" % (mm[0], mm[-1])
     plotted = [r for r in rows if r[3] is not None and r[4] is not None]
 
     def sx(year):

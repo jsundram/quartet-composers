@@ -181,6 +181,5 @@ window.Table = (function () {
     theadEl = opts.thead; tbodyEl = opts.tbody; cbSelect = opts.onSelect;
   }
 
-  return { init, setData, render, select, matches, ordered: () => order,
-           count: () => rows.length };
+  return { init, setData, render, select, matches, ordered: () => order };
 })();

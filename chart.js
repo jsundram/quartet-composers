@@ -464,7 +464,7 @@ window.Chart = (function () {
   function hint() { return HINTS[mode]; }
 
   return { init, setData, setMode, getMode, setFilter, setSelected, resize, rerender,
-           resetZoom, zoomed, colorOf, hint, midLife: () => LIFE_MID, TOUCH,
+           resetZoom, zoomed, colorOf, hint, midLife: () => LIFE_MID,
            // How many rows the chart can actually place — the table shows more (see isVisible).
            plotted: () => rows.filter(plottable).length,
            // So the legend can draw its size key at the radii the chart ACTUALLY uses, rather
