@@ -523,7 +523,7 @@ const allRows = await ev(`document.querySelectorAll('tbody tr').length`);
 check("the gender filter lives in the one filter row, not in a card",
       await ev(`!!document.getElementById('filters').querySelector('#gender')`));
 await ev(`document.querySelector('#gender button[data-g="female"]').click()`);
-await sleep(300);
+await sleep(700);          // the frame closes in on the filter over 420ms; these read the settled state
 const women = await ev(`document.querySelectorAll('tbody tr').length`);
 check("filtering to women filters the table", women > 100 && women < allRows / 2,
       `${women} of ${allRows}`);
@@ -636,6 +636,73 @@ check("the footnote says whose statement the gender is",
       /P21/.test(await ev(`document.getElementById('prov').textContent`))
    && /neither filter/.test(await ev(`document.getElementById('prov').textContent`)),
       await ev(`document.getElementById('prov').textContent.slice(-220)`));
+
+// --- 4j. the frame follows the filter ---------------------------------------------------------
+// A filter used to leave the frame on the whole field: ask for the women and you got the same
+// picture with 600 dots dimmed and the survivors still crammed into the corner they always
+// occupied, which answers "where are they" at the resolution of the group you filtered AWAY. The
+// frame now closes in on what the filter kept — against the ghost of the field, which is still
+// drawn at 0.07, so it is a highlight and not a subtraction.
+await goto(BASE);
+check("nothing is fitted until something is filtered", await ev(`Chart.zoomK()`) === 1,
+      "k=" + await ev(`Chart.zoomK()`));
+await ev(`document.querySelector('#gender button[data-g="female"]').click()`);
+await sleep(700);
+const fitK = await ev(`Chart.zoomK()`);
+check("filtering closes the frame in on what it kept", fitK > 1.2, "k=" + fitK);
+// One scale for both axes, so it is the TIGHTER one that ends up filling its side of the box and
+// the other keeps whatever slack the aspect ratio leaves. Fitting the two independently would
+// stretch the picture and make the readers-per-quartet diagonals lie.
+check("and closes in until the kept dots fill the box",
+      await ev(`(()=>{const b=document.querySelector('#plot svg rect.bg');
+        const W=+b.getAttribute('width'), H=+b.getAttribute('height');
+        const kept=[...document.querySelectorAll('#plot svg circle.dot')]
+          .filter(c=>+c.getAttribute('opacity')>0.5 && c.getAttribute('display')!=='none');
+        const xs=kept.map(c=>+c.getAttribute('cx')), ys=kept.map(c=>+c.getAttribute('cy'));
+        return kept.length>50 && Math.max((Math.max(...xs)-Math.min(...xs))/W,
+                                          (Math.max(...ys)-Math.min(...ys))/H) > 0.8})()`),
+      "the fitted box does not fill the plot on either axis");
+// "Exactly" cuts both ways: a frame that fits the survivors and then leaves one of them outside
+// it is worse than no fit at all. cx below -1e6 is layout()'s park for a dot it cannot place at
+// all (no view count), which is absence, not exclusion.
+check("no composer the filter kept is left outside the frame",
+      await ev(`[...document.querySelectorAll('#plot svg circle.dot')]
+        .filter(c=>+c.getAttribute('opacity')>0.5 && c.getAttribute('display')==='none'
+                && +c.getAttribute('cx') > -1e6).length`) === 0,
+      "kept but off-frame");
+// The fitted box IS the resting view while the filter is on, so the reset button must read as off
+// — lighting it up says "you pinched" to a reader who only pressed a pill.
+check("a fitted frame does not read as a pinch", await ev(`document.getElementById('reset').disabled`));
+// ...and "reset" then means back to where this filter opens, not out to the whole field: dropping
+// the reader to the full extent would undo the filter's answer rather than their gesture.
+const fbox = await ev(`(()=>{const b=document.querySelector('#plot svg rect.bg').getBoundingClientRect();
+  return {x:b.x,y:b.y,w:b.width,h:b.height}})()`);
+for (let i = 0; i < 4; i++) {
+  await send("Input.dispatchMouseEvent", { type: "mouseWheel", x: fbox.x + fbox.w / 2,
+    y: fbox.y + fbox.h / 2, deltaX: 0, deltaY: -120, pointerType: "mouse" });
+  await sleep(80);
+}
+await sleep(300);
+check("pinching a filtered view still lights the reset button",
+      !(await ev(`document.getElementById('reset').disabled`)),
+      "k=" + await ev(`Chart.zoomK()`));
+await ev(`document.getElementById('reset').click()`);
+await sleep(700);
+check("reset returns to the filter's frame, not to the whole field",
+      Math.abs(await ev(`Chart.zoomK()`) - fitK) < 0.01, "k=" + await ev(`Chart.zoomK()`));
+await ev(`document.querySelector('#gender button[data-g=""]').click()`);
+await sleep(700);
+check("clearing the filter opens the frame back out", await ev(`Chart.zoomK()`) === 1,
+      "k=" + await ev(`Chart.zoomK()`));
+// Each view fits its own filter: the same composers occupy a different box in a timeline than in
+// a log-log readership cloud, so a view switch recomputes the frame instead of carrying it over.
+await goto(BASE + "#g=female&v=scatter");
+await sleep(700);
+const scatterK = await ev(`Chart.zoomK()`);
+// A modest fit, and that is the point: the women span nearly the whole birth-year range, so the
+// timeline has little to close in on where the readership cloud had a great deal.
+check("a filtered timeline fits its own box, not the readers view's",
+      scatterK > 1 && Math.abs(scatterK - fitK) > 0.05, `scatter k=${scatterK}, readers k=${fitK}`);
 
 // --- 5. sorting ---------------------------------------------------------------
 await goto(BASE);

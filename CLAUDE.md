@@ -189,6 +189,17 @@ made on evidence.
   instead of 15, and because `pickLabels()` is first-come-first-served on space, halving every box
   is what lets the names behind it find room at all. The label text and the width estimate must
   come from the same string — `pickLabels()` computes it once and carries it on the placement.
+- **A filter fits the frame, and the fit is the RESTING view.** `computeResting()` in `chart.js`
+  is the one answer to "where should this chart be sitting right now": identity with no filter,
+  the box that contains the kept dots with one. `setFilter()` transitions there when the gesture
+  settles (never mid-brush-drag), `resetZoom()` returns there rather than to the full extent, and
+  `zoomed()` is measured against it — so a filter that fits at 4x does not light the reset button
+  as though the reader had pinched. It is memoized because `zoomed()` is asked on every frame of a
+  pinch; the memo is invalidated by the only three things it depends on (the filter, the mode, the
+  box). The fit is measured from a `layout()` at `zoomIdentity`, not from the scales, so a fourth
+  encoding cannot forget to update it — and the swarm fits x ONLY, because its y is solved once at
+  k=1 and is not under the zoom at all. This works because a filter here is a HIGHLIGHT: the other
+  600 dots are still drawn at 0.07, so closing in shows the group against the ghost of its field.
 - **Labels are a function of zoom, not a list.** `pickLabels()` in `chart.js` spends a budget that
   grows with the zoom (`base × (1 + log₂ k)`) on candidates that are frame-culled, so pinching in
   names what is in the frame. In the Readers view the curated thirteen are the SEED and fill the

@@ -124,6 +124,7 @@ window.Chart = (function () {
       X_DOMAIN = [Math.floor((d3.min(yrs) - 8) / 50) * 50, Math.ceil((d3.max(yrs) + 8) / 50) * 50];
     }
     swarmY = null;
+    restingT = null;
     scoreProminence();
   }
 
@@ -450,6 +451,81 @@ window.Chart = (function () {
     return placed;
   }
 
+  // ---- fitting the frame to the filter ------------------------------------
+  // A filter closes the frame in on what it kept. That reads as a subtraction only if you forget
+  // that a filter here is a HIGHLIGHT: the other 600 dots are still drawn at 0.07, so what fills
+  // the box is the group you asked for against the GHOST of the field it came from, which is the
+  // comparison the filter was asking for in the first place. Clearing the filter opens back out.
+  //
+  // It also feeds the labels. The budget is a function of the zoom (pickLabels), so closing in on
+  // 219 women is what buys them names instead of an anonymous emphasised cloud.
+  //
+  // Measured from a layout() at zoomIdentity rather than from the scales, so the box is in the
+  // same geometry the dots are drawn in — three modes, one source of truth, and a fourth encoding
+  // cannot forget to update this. Costs one extra pass over 884 rows per settled filter change.
+  function baseLayout() {
+    const t = transform;
+    transform = d3.zoomIdentity;
+    const p = layout();
+    transform = t;
+    return p;
+  }
+
+  // Where the chart RESTS for the current filter: identity with no filter, the fitted box with
+  // one. resetZoom() returns here and zoomed() is measured against it, so a filter that fits at
+  // 4x does not light up the reset button as though the reader had pinched.
+  //
+  // MEMOIZED, because zoomed() is asked on every frame of a pinch (it drives the reset button) and
+  // computing it means a second full layout pass over 884 rows. Invalidated by the only three
+  // things it depends on: the filter, the mode and the box.
+  let restingT = null;
+  function restingTransform() {
+    if (!restingT) restingT = computeResting();
+    return restingT;
+  }
+
+  function computeResting() {
+    if (mode === "lens" || !visible || !rows.length) return d3.zoomIdentity;
+    const p = baseLayout();
+    let x1 = Infinity, x2 = -Infinity, y1 = Infinity, y2 = -Infinity, rMaxSeen = 0;
+    for (const d of rows) {
+      if (!isVisible(d)) continue;
+      const q = p[d.i];
+      // r === 0 is layout()'s park for a dot it cannot place at all (the readers view has no y
+      // for a composer with no view count), and it parks them at -9e9 — one of those in the box
+      // would fit the frame to a point nine billion pixels off screen.
+      if (!(q.r > 0) || !Number.isFinite(q.x) || !Number.isFinite(q.y)) continue;
+      x1 = Math.min(x1, q.x); x2 = Math.max(x2, q.x);
+      y1 = Math.min(y1, q.y); y2 = Math.max(y2, q.y);
+      rMaxSeen = Math.max(rMaxSeen, q.r);
+    }
+    if (x1 > x2) return d3.zoomIdentity;      // the filter kept nothing this chart can place
+    // Pad by the largest dot so the discs at the edge are whole, plus a little air for a label.
+    const pad = rMaxSeen + 10;
+    const fit = (span, px) => (span > 0 ? (px - pad * 2) / span : Infinity);
+    // The swarm's y is NOT under the zoom — its collisions are solved once at k=1 and only x is
+    // rescaled (see ensureSwarm) — so fitting it vertically would compute a scale that the dots
+    // then ignore.
+    const k = Math.max(1, Math.min(24, mode === "swarm" ? fit(x2 - x1, w)
+                                     : Math.min(fit(x2 - x1, w), fit(y2 - y1, h))));
+    // Centre the box, then hold the frame inside the data the way translateExtent does for a drag:
+    // panning past the edge of the domain is not a thing this chart lets you do by hand either.
+    const clamp = (v, px) => Math.max(px - k * px, Math.min(0, v));
+    return d3.zoomIdentity
+      .translate(clamp((w - k * (x1 + x2)) / 2, w),
+                 mode === "swarm" ? 0 : clamp((h - k * (y1 + y2)) / 2, h))
+      .scale(k);
+  }
+
+  const sameTransform = (a, b) => Math.abs(a.k - b.k) < 1e-3
+                               && Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5;
+
+  function goTo(t, animate) {
+    if (sameTransform(t, transform)) return;              // already there; don't restart a tween
+    if (animate) svg.transition().duration(420).call(zoom.transform, t);
+    else svg.call(zoom.transform, t);
+  }
+
   // ---- render -------------------------------------------------------------
   function build() {
     d3.select(el).selectAll("svg").remove();
@@ -723,9 +799,15 @@ window.Chart = (function () {
   function resize() {
     if (!svg) return;
     const pw = w, ph = h;
+    // Measured BEFORE the resize, because the resting box is a function of the box it is fitted
+    // to: a reader who had not pinched keeps a fitted frame across a rotation, and one who had
+    // keeps their own.
+    const resting = !zoomed();
     measure();
     if (w === pw && h === ph) return;
     swarmY = null;
+    restingT = null;
+    if (resting) transform = restingTransform();
     applyZoomBehavior();
     draw();
   }
@@ -740,13 +822,37 @@ window.Chart = (function () {
   function setMode(mNew) {
     if (mNew === mode) return;
     mode = mNew; lens = null; transform = d3.zoomIdentity;
-    measure(); applyZoomBehavior(); draw();
+    measure();
+    restingT = null;
+    // Each view fits its own filter: the same 219 composers occupy a different box in a timeline
+    // than in a log-log readership cloud, so the frame is recomputed rather than carried over.
+    transform = restingTransform();
+    applyZoomBehavior(); draw();
   }
 
-  function setFilter(set) { visible = set; scoreProminence(); draw(); }
+  // `settled` is false during a brush DRAG. The dimming follows every frame — watching the field
+  // thin out is the whole point of the control — but the frame closes in once, when the gesture
+  // ends. Re-fitting per frame would fly the chart around under a finger that is still moving.
+  let fitted = false;
+  function setFilter(set, settled) {
+    visible = set;
+    restingT = null;
+    scoreProminence();
+    draw();
+    // The FIRST fit snaps. A shared link arrives with its filter already applied, and animating
+    // there would show the unfiltered field for a beat and then jump-cut — the same reason the
+    // hash is read before the first paint.
+    if (settled !== false) { goTo(restingTransform(), fitted); fitted = true; }
+  }
   function setSelected(i) { selected = i; draw(); }
-  function resetZoom() { if (mode === "lens") { lens = null; draw(); return; } svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity); }
-  function zoomed() { return mode !== "lens" && transform.k !== 1; }
+  // "Reset" means back to where this filter opens, not back to the whole field: the fitted box IS
+  // the resting view while a filter is on, and dropping the reader out to the full extent would
+  // undo the filter's answer rather than their pinch.
+  function resetZoom() {
+    if (mode === "lens") { lens = null; draw(); return; }
+    goTo(restingTransform(), true);
+  }
+  function zoomed() { return mode !== "lens" && !sameTransform(transform, restingTransform()); }
   function getMode() { return mode; }
 
   const HINTS = {
@@ -754,7 +860,8 @@ window.Chart = (function () {
            + "article is read. The diagonals are readers per quartet, so how far a dot sits ABOVE "
            + "one is the whole point: Mozart and Beethoven are read about ten thousand times a "
            + "month per quartet they wrote, Cambini about once. Drag to pan, scroll or pinch to "
-           + "zoom, tap a dot for the rest.",
+           + "zoom, tap a dot for the rest. A filter closes the frame in on what it keeps; the "
+           + "rest of the field stays faintly drawn behind it.",
     scatter: "Fixed axes. Drag to pan, scroll or pinch to zoom, tap or click a dot to pin it. Ties are nudged by up to half a year so overlapping composers stay separately clickable.",
     swarm: "Composers pushed apart until nothing overlaps. Vertical position means nothing here — the quartet count is dropped, and size (views) and color (lifespan) are unchanged. Read it as a timeline of how crowded each generation was. Drag or pinch to spread it further.",
     lens: "A circular magnifier over a fixed chart: the axes never move. Move the pointer (or drag on a touch screen) to aim it; tap to pin a composer.",
@@ -770,6 +877,10 @@ window.Chart = (function () {
            // only these, and a zoom must show something else.
            seedNames: () => CANON.concat(OUTLIERS),
            resetZoom, zoomed, colorOf, hint,
+           // The current zoom scale, for the suite: "the frame closed in on the filter" is a
+           // claim about this number, and reading it off the axis ticks would be reading a
+           // rendering of it.
+           zoomK: () => transform.k,
            lifeDomain: () => LIFE_DOMAIN.slice(),
            // How many dots the readers view actually emphasises, and how many it can place at
            // all (it needs a view count as well as a quartet count). The legend used to hardcode

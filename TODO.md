@@ -119,6 +119,27 @@ Charles Wesley junior). Worth a pass to confirm none is a real loss.
 
 ## Interface
 
+### ~~A filter left the frame on the whole field~~ — done, 2026-09-05, [#6](https://github.com/jsundram/quartet-composers/issues/6)
+Filtering to the 276 women gave the same picture with 600 dots dimmed and the survivors still in
+the corner they always occupied — the frame was showing the group you had just filtered AWAY at
+full resolution. `computeResting()` now fits the frame to the kept dots, `resetZoom()` returns
+there rather than to the full extent, and `zoomed()` is measured against it so a fitted frame does
+not light the reset button as though the reader had pinched.
+
+It compounds with the zoom-driven label budget: closing in on the women takes the view from three
+names to eighteen, which is what turns "where are they" into "who are they".
+
+Deliberately NOT re-fitted mid-brush-drag — `settled` travels from `applyFilters()` into
+`setFilter()` — because the chart flying around under a finger that is still moving is worse than
+the stale frame it fixes.
+
+### ~~Chart labels printed the full Wikipedia title~~ — done, 2026-09-05, [#2](https://github.com/jsundram/quartet-composers/issues/2)
+15 characters average where the table had already settled on 7. The rule moved out of `table.js`
+into `names.js` and now serves both, deriving the table's "Haydn, Joseph" and the chart's
+"J. Haydn" from ONE shared-surname map so the two cannot drift apart about who needs more than a
+surname. The win is not only tidiness: `pickLabels()` is a greedy first-come placer, so halving
+every box is what lets the names behind it find room.
+
 ### The full-screen strip drops four things, and says so nowhere
 `tight()` in `app.js` trims the panel to two lines for the fixed-height strip above the chart: the
 percentile line, the Wikipedia link, Prev/Next, and the 12-month range beside the median view count

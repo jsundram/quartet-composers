@@ -433,7 +433,9 @@ function applyFilters(settled) {
   $("clear").hidden = !q;
   $("hist-clear").hidden = !Histogram.getRange();
   $("hist-read").textContent = Histogram.label();
-  Chart.setFilter(visible);
+  // `settled` travels with it: the chart closes its frame in on what the filter kept, and that
+  // must happen once at the end of a brush drag, not on every frame of one.
+  Chart.setFilter(visible, settled);
 
   const n = visible ? visible.size : ROWS.length;
   $("count").textContent = visible ? `${n} of ${ROWS.length}` : `${ROWS.length} composers`;
