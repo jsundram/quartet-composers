@@ -26,6 +26,7 @@ stable picture, hovering was the only way to learn anything, and a screenshot of
 | 477 composers, frozen 2014 scrape | **884**, re-scraped, with a repeatable pipeline (below) |
 | Dot size = one month of page views | **Median of 12 months** — a single month is 12% off typical, 29% at worst |
 | — | **Readership histogram with a drag-to-filter brush**, to get the long tail out of the way |
+| — | **Gender filter** from Wikidata [P21](https://www.wikidata.org/wiki/Property:P21) — 276 of the 884 are women, and the readers view shows the band they occupy |
 | — | Shareable URLs (`#v=swarm&c=Joseph+Haydn&r=1500-200000`), a share card generated from the real data, installable + offline |
 
 ## The pipeline
@@ -35,7 +36,7 @@ offline and the exact bytes behind a deploy stay in git.
 
 ```sh
 python3 scripts/scrape_list.py      # the wiki page  -> data/list.json + data/list.wiki
-python3 scripts/fetch_wikidata.py   # canonical titles + P569/P570 -> data/people.json
+python3 scripts/fetch_wikidata.py   # canonical titles + P569/P570 + P21 -> data/people.json
 python3 scripts/fetch_views.py      # 12 monthly counts each -> data/pageviews.json
 python3 scripts/build_data.py       # combine the three -> composers.json
 ```
@@ -51,7 +52,7 @@ python3 scripts/audit_counts.py     # sample parsed counts beside their source s
 python3 scripts/compare_2014.py     # diff against the archived 2014 snapshot, with reasons
 ```
 
-## Four data elements, four different problems
+## Five data elements, five different problems
 
 **(a) The roster** and **(b) quartet counts** come from the list page, which is *prose, not a
 table*: `*[[Joseph Haydn]] (1732–1809): Wrote sixty-eight string quartets…`. Seven rules read 791
@@ -61,7 +62,7 @@ count ships as a confident dot while a null is merely honest. Graded by hand on 
 quartets are typed as generic "musical work/composition" with nothing linking them to the genre, so
 a SPARQL count over the whole corpus returns four composers.
 
-**(c) Birth and death dates** come from **Wikidata** (P569/P570), not the page prose, so a composer
+**(c) Birth and death dates** come from **Wikidata** ([P569](https://www.wikidata.org/wiki/Property:P569) born, [P570](https://www.wikidata.org/wiki/Property:P570) died), not the page prose, so a composer
 who died last year isn't still shown as living. Rank matters: Wikidata marks known-wrong values
 `deprecated` rather than deleting them, and reading claims without checking rank reported Tania
 León — alive, Pulitzer 2021 — as having died in 1996.
@@ -79,6 +80,17 @@ traps, all of which this repo fell into first:
   own median. `monthly` granularity returns the whole range in **one request**, so twelve months
   costs exactly what one did. The stored series makes the statistic recomputable offline.
 
+**(e) Sex or gender** is **Wikidata [P21](https://www.wikidata.org/wiki/Property:P21)**, and it is the one element that is not a measurement but
+a statement about a person — so it is reported, never derived. Same rank discipline as the dates
+(the two share one `best_value()`), Wikidata's own labels kept as the values, and **no inference
+from names or pronouns** for the composers who have no claim: `null` is a fact here exactly as it
+is for an unstated quartet count. A value outside the label map ships as its raw QID rather than
+as a null — a stated fact filed under "not stated" is the one outcome that is wrong about someone
+rather than merely incomplete — and `validate.py` fails on it, so the fix is a label, not a
+mystery. 276 of the 884 are women, 219 of them plottable; one composer (Fernand de la Tombelle,
+the single row with no Wikidata item at all) has no claim and is in neither filter, which the
+provenance line says out loud.
+
 The honest name for (d) is **English Wikipedia readership**, not popularity — a Czech or Russian
 composer's readers are largely on their own language's Wikipedia, which this does not count. The
 UI says so in the legend ("EN Wikipedia readers / mo"), the lede, and the provenance line, rather
@@ -88,7 +100,8 @@ one bias for a messier one and is deliberately not attempted.
 Readership spans 1 to 186,772 monthly views with a **median of 233**: half the roster is composers
 essentially nobody reads, and at 884 dots they are most of the ink. Hence `histogram.js` — a
 log-scale histogram of the distribution with a drag-to-select brush, which is the control and the
-context in one 56px strip. It intersects with the search box; neither knows the other exists.
+context in one 56px strip. It intersects with the search box and the gender pills; none of the three knows the others exist —
+each returns "a Set of row indices, or null for everything" and `applyFilters()` intersects them.
 
 ## The 2014 data
 
@@ -103,9 +116,9 @@ matched to the same human.
 
 ```sh
 python3 scripts/validate.py       # THE DATA GATE — see below; run it after every rebuild
-python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (11 cases)
-scripts/ui-test.sh           # 39 behavioural checks in a real headless Chrome (lens, tap-to-pin,
-                             #   brush filter, theme repaint, 390px layout, offline, print) — no deps
+python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (15 cases)
+scripts/ui-test.sh           # 115 behavioural checks in a real headless Chrome (lens, tap-to-pin,
+                             #   the three filters, theme repaint, 390px layout, offline, print) — no deps
 node scripts/sw.test.mjs     # 24 tests of the service worker's fetch handler
 python3 scripts/sw-lint.py   # precache contract: V bumped, SHELL paths exist, no cross-origin
 python3 scripts/og-lint.py   # share card size (a card over ~250 KB previews as a grey box)

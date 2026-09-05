@@ -102,6 +102,42 @@ def dupes(d):
     rows[1][0] = rows[0][0]
 
 
+@case("P21 value shipped unlabelled, as a raw QID", "raw QID")
+def unlabelled_gender(d):
+    # What an item outside fetch_wikidata.py's GENDERS map looks like downstream. It is a REAL
+    # value, deliberately not nulled — so the gate is the only thing between it and a UI printing
+    # "Q48270" at somebody.
+    d["composers"]["rows"][0][7] = "Q48270"
+
+
+@case("the P21 read broke and the whole column is null", "floor 95%")
+def gender_column_lost(d):
+    for r in d["composers"]["rows"]:
+        r[7] = None
+
+
+@case("a real P21 label the UI has no pill for", "cannot filter")
+def unfilterable_gender(d):
+    # Not a corruption: "non-binary" is a value fetch_wikidata.py labels correctly and validate.py
+    # would otherwise wave through. The bug is that the app has two pills, so the row lands in
+    # neither filter and the footnote — which counts only the composers with NO claim — says so
+    # about nobody. The gate is what makes the two vocabularies drift loudly.
+    row = next(r for r in d["composers"]["rows"] if r[7] == "female")
+    row[7] = "non-binary"
+    # The CACHE has to agree, or this reproduces the previous case instead of this one.
+    for p_ in d["people"].values():
+        if p_.get("canonical", "").startswith(row[0]):
+            p_["gender"] = "non-binary"
+
+
+@case("a gender the cache never stated", "does not state")
+def invented_gender(d):
+    for r in d["composers"]["rows"]:
+        if r[7] == "female":
+            r[7] = "male"
+            break
+
+
 def run_case(name, expect, mutate):
     with tempfile.TemporaryDirectory() as tmp:
         os.makedirs(os.path.join(tmp, "data"))

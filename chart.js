@@ -89,7 +89,9 @@ window.Chart = (function () {
     return ((a >>> 0) / 4294967295) * 2 - 1;     // -1..1
   }
 
-  // [name, birth, death, quartets, views, views_lo, views_hi]; death and quartets may be null.
+  // [name, birth, death, quartets, views, views_lo, views_hi, gender]; death, quartets and gender
+  // may be null. This comment IS the schema for every positional read below — keep it in step with
+  // build_data.py's `fields`, which validate.py pins.
   // "living" is now simply the absence of a death date on Wikidata — a fact about today, not the
   // 2014 dataset's inference from a field that overloaded lifespan with age-in-2014.
   function setData(raw) {
@@ -158,10 +160,17 @@ window.Chart = (function () {
     if (mode !== "readers") return d.living ? 1.4 : 1;
     return isCanon(d.i) ? 1.6 : named(d.i) ? 2 : 0;
   }
+  // A FILTER HERE IS A HIGHLIGHT, not a subtraction: nothing is removed, the rest drops to 0.07.
+  // So in the readers view the filtered-IN dots have to carry the answer, and at the resting 0.22
+  // they could not — 219 women at 0.22 against 571 ghosts at 0.07 is a difference you have to
+  // hunt for, in the one view whose whole point is where a group sits against the field. While a
+  // filter is on they come up to 0.55; with no filter, 0.22 is right, because then the recessive
+  // mass IS the field the thirteen named composers are being read against.
   function opacityOf(d) {
     if (visible && !visible.has(d.i)) return 0.07;
     if (mode !== "readers") return 0.92;
-    return named(d.i) ? 1 : 0.22;
+    if (named(d.i)) return 1;
+    return visible ? 0.55 : 0.22;
   }
   // Both branches are readers-only: --sel is the PINNED colour, so tinting the seven with it in
   // Timeline/Swarm/Lens made seven composers look pinned with nothing pinned, and made the real

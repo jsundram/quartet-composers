@@ -2,11 +2,11 @@
 # /// script
 # requires-python = ">=3.9"
 # ///
-"""Resolve every composer to a canonical Wikipedia title + Wikidata birth/death dates.
+"""Resolve every composer to a canonical Wikipedia title + their Wikidata facts.
 
     python3 scripts/fetch_wikidata.py            # reads data/list.json, writes data/people.json
 
-Two jobs in one pass, because they need the same batched MediaWiki lookup:
+Three jobs in one pass, because they need the same batched MediaWiki lookup:
 
 1. CANONICAL TITLES. Page views are counted per title, and a redirect is its own title with its
    own (tiny) count — asking for "Bela Bartok" returns 41 views instead of Béla Bartók's 14,330,
@@ -18,7 +18,13 @@ Two jobs in one pass, because they need the same batched MediaWiki lookup:
    This is what retires the old inferred "living in 2014" flag: a composer either has a death year
    or does not, as of today, rather than as of a decade-old snapshot.
 
-Both are cached in data/people.json, so re-running the rest of the pipeline needs no network.
+3. SEX OR GENDER. P21, taken as Wikidata states it and labelled with Wikidata's own words. It is
+   not a claim this project makes about anyone, and it is not inferred: a composer with no P21
+   claim, or with no Wikidata item at all, gets null and stays null. Names and pronouns are NOT a
+   fallback — a guess here is a guess about a person, and the whole point of reading a structured
+   claim is that it is attributable to a source that can be corrected.
+
+All three are cached in data/people.json, so re-running the rest of the pipeline needs no network.
 
 WHERE THE TWO SOURCES DISAGREE the Wikidata value wins and the disagreement is reported, because a
 silent divergence between the chart's dates and the page it links to is the kind of thing nobody
@@ -102,8 +108,8 @@ def resolve_titles(titles):
     return out
 
 
-def year_of(claims):
-    """Year as an int, or None if there is no usable claim.
+def best_value(claims):
+    """The datavalue of the highest-ranked usable claim, or None. Shared by every property read.
 
     RANK IS LOAD-BEARING, not metadata. Wikidata marks a value it knows to be wrong as
     `deprecated` rather than deleting it, so a naive claims[0] happily reads a value the community
@@ -112,7 +118,11 @@ def year_of(claims):
     this dataset could say about a living person.
 
     So: drop deprecated outright, prefer `preferred` over `normal`, and ignore novalue/somevalue
-    snaks (which encode "known to have no value" / "value unknown" and carry no date at all).
+    snaks (which encode "known to have no value" / "value unknown" and carry no value at all).
+
+    It lives in one function because the rule is one rule. P21 arrived after P569/P570 and the
+    obvious way to add it was a second claims[0] read beside a correct one — which is how a fix
+    stays fixed for exactly as long as nobody adds a property.
     """
     usable = [c for c in claims
               if c.get("rank") != "deprecated" and c.get("mainsnak", {}).get("snaktype") == "value"]
@@ -121,8 +131,15 @@ def year_of(claims):
     preferred = [c for c in usable if c.get("rank") == "preferred"]
     c = (preferred or usable)[0]
     try:
-        v = c["mainsnak"]["datavalue"]["value"]
+        return c["mainsnak"]["datavalue"]["value"]
     except (KeyError, TypeError):
+        return None
+
+
+def year_of(claims):
+    """Year as an int, or None if there is no usable claim."""
+    v = best_value(claims)
+    if not isinstance(v, dict):
         return None
     # precision: 11 = day, 10 = month, 9 = year, 8 = decade, 7 = century. Below 9 the "year" is an
     # artifact of the encoding (a century claim serialises as +1700-00-00), not a fact.
@@ -137,8 +154,39 @@ def year_of(claims):
         return None
 
 
-def fetch_dates(qids):
-    """{qid: (birth_year, death_year)}"""
+# P21's value is an item, so the wire format is a QID and the label is ours to supply. These are
+# Wikidata's own English labels, lowercased, and the map is deliberately not exhaustive: an item
+# outside it keeps its QID (see gender_of), which is a value a human can look up and a check can
+# catch, rather than a null that reads as "Wikidata doesn't say".
+GENDERS = {
+    "Q6581097": "male",
+    "Q6581072": "female",
+    "Q1097630": "intersex",
+    "Q1052281": "trans woman",
+    "Q2449503": "trans man",
+    "Q48270": "non-binary",
+    "Q48279": "third gender",
+    "Q505371": "agender",
+}
+
+
+def gender_of(claims):
+    """Wikidata's P21 value as a label, its raw QID if unmapped, or None.
+
+    UNMAPPED IS NOT UNKNOWN. Falling back to None for a QID this file has never seen would file a
+    real, stated value under "no data" — the one outcome that is wrong about a person rather than
+    merely incomplete. So the QID goes through verbatim; validate.py fails on it, and the fix is a
+    line in GENDERS rather than a mystery about who is missing from a filter.
+    """
+    v = best_value(claims)
+    if not isinstance(v, dict):
+        return None
+    qid = v.get("id")
+    return GENDERS.get(qid, qid) if qid else None
+
+
+def fetch_facts(qids):
+    """{qid: (birth_year, death_year, gender)}"""
     out = {}
     for i in range(0, len(qids), BATCH):
         chunk = qids[i:i + BATCH]
@@ -146,8 +194,9 @@ def fetch_dates(qids):
                          "props": "claims", "ids": "|".join(chunk)}).get("entities", {})
         for qid, ent in d.items():
             claims = ent.get("claims", {})
-            out[qid] = (year_of(claims.get("P569", [])), year_of(claims.get("P570", [])))
-        print("  dates %d/%d" % (min(i + BATCH, len(qids)), len(qids)), end="\r", flush=True)
+            out[qid] = (year_of(claims.get("P569", [])), year_of(claims.get("P570", [])),
+                        gender_of(claims.get("P21", [])))
+        print("  claims %d/%d" % (min(i + BATCH, len(qids)), len(qids)), end="\r", flush=True)
         time.sleep(PAUSE)
     print()
     return out
@@ -163,14 +212,14 @@ def main():
     qids = sorted({q for _, q in resolved.values() if q})
     print("  %d resolved, %d with a Wikidata item" % (len(resolved), len(qids)))
 
-    print("fetching birth/death from Wikidata for %d items..." % len(qids))
-    dates = fetch_dates(qids)
+    print("fetching birth/death/gender from Wikidata for %d items..." % len(qids))
+    facts = fetch_facts(qids)
 
     people, disagree, no_wd = {}, [], []
     for e in entries:
         t = e["title"]
         canon, qid = resolved.get(t, (None, None))
-        wb, wd_ = dates.get(qid, (None, None)) if qid else (None, None)
+        wb, wd_, g = facts.get(qid, (None, None, None)) if qid else (None, None, None)
         if qid is None or (wb is None and wd_ is None):
             no_wd.append(t)
         # Wikidata wins where both exist; the page is the fallback for the rest.
@@ -181,7 +230,7 @@ def main():
         if wd_ is not None and e["death"] is not None and wd_ != e["death"]:
             disagree.append(("death", t, e["death"], wd_))
         people[t] = {"canonical": canon or t, "qid": qid, "birth": birth, "death": death,
-                     "wd_birth": wb, "wd_death": wd_}
+                     "wd_birth": wb, "wd_death": wd_, "gender": g}
 
     # A death year Wikidata knows about and the page does not is the interesting case: it is
     # exactly the "still shown as living years after they died" bug this script exists to end.
@@ -196,6 +245,17 @@ def main():
     print("\ndied since the list page last said otherwise: %d" % len(newly_dead))
     for t in newly_dead[:12]:
         print("   %-30s d. %s" % (t, people[t]["wd_death"]))
+
+    # Printed as a tally rather than a single "women" number: an unmapped QID showing up here is
+    # the one failure this property has, and it is invisible in a percentage.
+    tally = {}
+    for p_ in people.values():
+        tally[p_["gender"]] = tally.get(p_["gender"], 0) + 1
+    print("\nP21 sex or gender:")
+    for g_, n in sorted(tally.items(), key=lambda kv: -kv[1]):
+        note = "  <- not in GENDERS; add a label or validate.py will fail" \
+               if g_ and g_ not in GENDERS.values() else ""
+        print("   %-14s %d%s" % (g_ if g_ else "(none stated)", n, note))
 
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(people, f, ensure_ascii=False, indent=0, sort_keys=True)

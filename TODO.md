@@ -28,13 +28,24 @@ screen reader. Either state the count in the label or drop the claim.
 
 ## Data quality
 
-### Gender is not in the data — [#1](https://github.com/jsundram/quartet-composers/issues/1)
-`fetch_wikidata.py` already fetches each composer's full claim set and keeps only P569/P570, so
-P21 is one line away. Probed: 276 of 883 (31%) are women, 210 of them plottable, births
-1745–1989. Enough for a filter, and the Readers view already implies the finding — the most-read
-woman on the list is Florence Price at 8,001/mo against Mozart's 186,772. The issue carries the
-numbers, the pipeline steps and the two decisions to make first (where the control lives, and
-whether it is a filter or an encoding).
+### ~~Gender is not in the data~~ — done, 2026-09-05, [#1](https://github.com/jsundram/quartet-composers/issues/1)
+P21 ships as the eighth positional field. The probe held up exactly: 276 women of 884 (31%), 219
+of them plottable, births 1745–1989, and one composer with no claim at all (Fernand de la
+Tombelle, who has no Wikidata item either).
+
+Both open questions were answered **filter**, not encoding, and for the same reason: a filter here
+is ALREADY a highlight. Nothing is removed — `opacityOf()` drops the rest to 0.07 — so "show me
+the women" and "where are they" are the same gesture, and the Readers view keeps the band visible
+against the field. What the filter did need was volume: at the resting 0.22 the kept dots were
+barely separable from the ghosts, so while ANY filter is on they come up to 0.55. That is the
+whole encoding, it costs no new channel, and the search box and the brush got it too.
+
+A permanent encoding was rejected on the issue's own grounds. Readers spends fill on the seven and
+stroke on the outliers; the other three views spend fill on lifespan and stroke on living. The only
+unspent channel is shape, and shape does not read at a 2.5px radius among 790 marks.
+
+The pills live on the readership row, so they survive full screen where `.tablehead` does not. On a
+phone they take a third line rather than crowding the brush.
 
 ### Readership is displayed to two significant figures; the data has one meaningful one
 `twoSig()` in `app.js` quantizes the median to two figures and floors it, so Mozart reads "180k+"

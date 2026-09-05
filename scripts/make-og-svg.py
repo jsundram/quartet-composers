@@ -126,7 +126,9 @@ def main():
                        f'y2="{seg[3]:.1f}" stroke="{GRID}" stroke-width="1"/>')
 
     named = set(CANON) | set(OUTLIERS)
-    for name, birth, death, quartets, views, lo, hi in sorted(rows, key=lambda r: -(r[4] or 0)):
+    # `*_` rather than naming all eight: the card draws four of these fields, and a row that grew
+    # a column it does not draw (gender did) should not stop the share card from rendering.
+    for name, birth, death, quartets, views, *_ in sorted(rows, key=lambda r: -(r[4] or 0)):
         if quartets is None or views is None or name in named:
             continue                                  # not plottable; the app omits it too
         out.append(f'  <circle cx="{sx(quartets * jitter(name + "q")):.1f}" '

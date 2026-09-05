@@ -45,7 +45,11 @@ plain static assets. Read README.md first for what the app is.
    resolving and the UI suite asserts it empty, so a rename fails loudly instead of dropping a
    composer out of the argument the view is making. `table.js`'s `SURNAME` override map carries
    the same contract via `Table.staleOverrides()`. Adding a name to either means adding it to the
-   list, not to a comment.
+   list, not to a comment. The gender pills are a third such vocabulary: `index.html` names the
+   values the UI can filter, `app.js` reads its URL whitelist off the pills rather than repeating
+   them, and a stated P21 label no pill reaches fails both `validate.py` and
+   `unfilterableGenders()` — that composer is in NEITHER filter while the footnote counts only the
+   ones with no claim at all.
 
 8. **Each view encodes different things, so each needs its own key.** In Readers, size is the y
    AXIS and hue is emphasis; the lifespan ramp and the size key would be labelling channels that
@@ -59,10 +63,14 @@ plain static assets. Read README.md first for what the app is.
    table keeps the exact number because it sorts on that column. A new place that prints a view
    count almost certainly wants `atLeast()`, not the raw integer.
 
-10. **`null` means unknown and must stay null.** `quartets: null` (the page's prose states no count)
-   and `death: null` (living) are facts, not gaps to fill. Null quartets are shown in the table and
-   excluded from the chart via `plottable()`; null death means the lifespan ramp does not apply and
-   the dot is drawn open. Substituting a default puts a fabricated dot on the chart.
+10. **`null` means unknown and must stay null.** `quartets: null` (the page's prose states no count),
+   `death: null` (living) and `gender: null` (no Wikidata P21 claim) are facts, not gaps to fill.
+   Null quartets are shown in the table and excluded from the chart via `plottable()`; null death
+   means the lifespan ramp does not apply and the dot is drawn open; null gender is in NEITHER the
+   Women nor the Men filter, because "Women" means Wikidata says female, not "everyone we didn't
+   call a man". Substituting a default puts a fabricated dot on the chart. Gender is the one field
+   where the tempting default is a guess about a PERSON — never infer it from a name or a pronoun;
+   an unmapped P21 value ships as its raw QID and `validate.py` fails on it.
 
 11. **Grade the parser against the PAGE, not against 2014.** `scripts/audit_counts.py` samples
    parsed counts beside their source sentence for a human to grade; that is the real measure.
@@ -96,7 +104,7 @@ Four suites, all dependency-free:
   compares composers.json against its schema, the other caches, and the previous commit. Run it
   after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 97 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 115 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `scripts/audit_counts.py` — not automated: it prints parsed quartet counts beside the sentence
@@ -127,16 +135,28 @@ made on evidence.
 - Comments explain *why*, and especially what breaks otherwise. Match that; don't narrate what the
   next line does.
 - **One filter row, above everything it scopes.** `#filters` is a sibling of `.grid`, not a child
-  of the chart card or the table card — both filters scope both views, and a filter drawn inside
-  one card says otherwise. `placeFilters()` moves it into `#viz` in full screen (where the chart
+  of the chart card or the table card — all THREE filters (search, readership brush, gender pills)
+  scope both views, and a filter drawn inside one card says otherwise. `placeFilters()` moves it into `#viz` in full screen (where the chart
   is everything) and CSS drops its search half there to keep the chart's height.
 - **The table shows surnames; everything else shows the full title.** `table.js` is the only place
   that takes a canonical Wikipedia name apart, and it is a heuristic — see `SURNAME` there. The
   chart labels and the detail panel keep the full name, and the row's `title` attribute carries it.
+- **The provenance line is built, not assigned.** `setProv()` in `app.js` linkifies every Wikidata
+  property id it prints (`P569` -> its definition page), because an id is jargon a reader cannot
+  check from the page. It links the TEXT rather than storing anchors in `composers.json`: that file
+  is data and carries no markup, so a new property named by the pipeline is linked the moment it is
+  printed. Setting `$("prov").textContent` directly again would silently drop every link.
+- **`.seg` is a look, not a behaviour.** Two pill groups wear it — the chart view switcher and the
+  gender filter — so anything binding `.seg button` must scope itself (`.controls .seg button`).
+  Unscoped, the switcher's handler landed on the filter's buttons and a pill press called
+  `setMode(undefined)`: the chart left every named mode at once and the URL grew `#v=undefined`.
 - `index.html` owns structure, `styles.css` owns looks, `app.js` owns boot and the shared state
   (which composer is selected, which filters are active). `chart.js`, `table.js` and
   `histogram.js` never talk to each other — the filters compose in `applyFilters()`, where each
-  source returns "a Set of indices, or null for everything" and they are intersected.
+  source returns "a Set of indices, or null for everything" and they are intersected. The gender
+  filter is the one with no module of its own (`genderMatches()` in `app.js`): three buttons and a
+  string, nothing to render and no data to hold. A fourth filter that DOES draw something belongs
+  in its own file, on the same contract.
 - Anything that BAKES a color into JS (SVG fills in `chart.js` and `histogram.js`, the legend in
   `app.js`) needs a `rerender()` wired into `Theme.subscribe`. Adding a fourth such component
   means adding a fourth call there.

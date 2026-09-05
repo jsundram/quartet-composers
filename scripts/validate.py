@@ -44,6 +44,20 @@ THIS_YEAR = dt.date.today().year
 
 ERRORS, WARNINGS = [], []
 
+# A P21 value that never found a label in fetch_wikidata.py's GENDERS map. Matched structurally
+# rather than against a copy of that map, so ADDING a label there needs no edit here and only the
+# actual failure — an unlabelled value reaching the app — trips the gate.
+GENDER_QID = re.compile(r"^Q\d+$")
+
+# The values the UI can actually FILTER — the pills in index.html and the whitelist app.js accepts
+# from the URL. fetch_wikidata.py's GENDERS map is deliberately larger than this (it labels eight
+# P21 items), so the two vocabularies can drift apart, and a label that no pill can reach is a
+# person the app cannot show and the footnote miscounts: they are in neither filter, while the
+# provenance line only ever counts the composers with NO claim. Nothing else fails when that
+# happens, which is why it fails here — the same job Chart.missingNames() does for the canon.
+# Widening this means adding a pill in index.html AND the value to app.js's readHash whitelist.
+FILTERABLE = ("female", "male")
+
 
 def err(msg):
     ERRORS.append(msg)
@@ -81,7 +95,7 @@ def baseline_rows(path=None):
 # --------------------------------------------------------------- structure
 def check_structure(cur):
     fields = cur.get("fields") or []
-    expect = ["name", "birth", "death", "quartets", "views", "views_lo", "views_hi"]
+    expect = ["name", "birth", "death", "quartets", "views", "views_lo", "views_hi", "gender"]
     if fields != expect:
         err("fields changed: %s (app.js and chart.js index these POSITIONALLY, so a reorder "
             "silently shifts every column)" % fields)
@@ -96,7 +110,7 @@ def check_structure(cur):
         if len(r) != len(expect):
             err("row has %d fields, expected %d: %r" % (len(r), len(expect), r[:2]))
             continue
-        name, birth, death, quartets, views, lo, hi = r
+        name, birth, death, quartets, views, lo, hi, gender = r
         if not name or not isinstance(name, str):
             err("row with no name: %r" % (r,))
         if name in seen:
@@ -122,7 +136,31 @@ def check_structure(cur):
                 err("%s: bad view count %r" % (name, views))
             elif lo is None or hi is None or not (lo <= views <= hi):
                 err("%s: median %r outside its own range [%r, %r]" % (name, views, lo, hi))
+        # PRESENT BUT UNPARSED. P21's value arrives as a QID and fetch_wikidata.py labels it from a
+        # map that cannot be exhaustive. An unmapped value passes the QID through on purpose — it
+        # is a real, stated fact and nulling it would file a person under "Wikidata doesn't say" —
+        # so this is where it has to stop, because a raw QID matches no filter and reads as noise
+        # in the one place the UI prints it.
+        if gender is not None:
+            if not isinstance(gender, str) or not gender:
+                err("%s: bad gender %r" % (name, gender))
+            elif GENDER_QID.match(gender):
+                err("%s: gender is the raw QID %s — add its label to GENDERS in "
+                    "fetch_wikidata.py; shipped like this it matches no filter" % (name, gender))
+            elif gender != gender.lower():
+                err("%s: gender %r is not a Wikidata label as lowercased by fetch_wikidata.py"
+                    % (name, gender))
+            elif gender not in FILTERABLE:
+                err("%s: gender %r is a value the UI cannot filter — add a pill for it in "
+                    "index.html and the value to app.js's readHash whitelist, or the row is in "
+                    "NEITHER filter while the footnote still counts only the composers with no "
+                    "claim at all" % (name, gender))
     return rows
+
+
+# Wikipedia's parenthetical disambiguator, stripped from displayed names by build_data.py. Shared
+# by the two checks that compare a displayed name back to its cached canonical title.
+QUALIFIER = re.compile(r"\s*\((?:composer|musician|conductor|violinist|pianist|[^)]*musician)\)$", re.I)
 
 
 # --------------------------------------------------------------- cross-file
@@ -176,11 +214,32 @@ def check_sources(rows, people, pv, listing):
         err("%d/%d rows read as living — outside the plausible 15-60%% band, which is how the "
             "'living' logic breaking looks" % (living, n))
 
+    # Gender has one source and no fallback, so both ways it can break are silent: reading the
+    # wrong property nulls the column (the filter matches nobody and the footnote's count is a
+    # lie), and mis-reading the VALUE moves everyone into one bucket. Neither looks like an error.
+    have_gender = sum(1 for r in rows if r[7] is not None)
+    women = sum(1 for r in rows if r[7] == "female")
+    if have_gender / n < 0.95:
+        err("only %d/%d rows have a P21 value (floor 95%%) — the claim is on nearly every item, "
+            "so this is a read that broke, not a gap in Wikidata" % (have_gender, n))
+    # A separate `if`, not an `elif`: a partial read that ALSO mislabels values is two problems,
+    # and chaining them reports the second only after the first is fixed.
+    if not 0.15 < women / n < 0.50:
+        err("%d/%d rows read as female — outside the plausible 15-50%% band. The list has run "
+            "about 31%% women; a number outside this is a value being misread, not a re-scrape"
+            % (women, n))
+
+    # And it must be the CACHE's value, not one invented downstream — the same structural
+    # assertion check_names() makes about the names, for the same reason.
+    cached = {QUALIFIER.sub("", p["canonical"]): p.get("gender")
+              for p in people.values() if p.get("canonical")}
+    bad = [r[0] for r in rows if r[0] in cached and r[7] != cached[r[0]]]
+    if bad:
+        err("%d rows carry a gender that data/people.json does not state: %s"
+            % (len(bad), ", ".join(bad[:6])))
+
 
 # --------------------------------------------------------------- name sanity
-QUALIFIER = re.compile(r"\s*\((?:composer|musician|conductor|violinist|pianist|[^)]*musician)\)$", re.I)
-
-
 def check_names(rows, people):
     """Every displayed name must BE a canonical Wikipedia title, minus its disambiguator.
 
@@ -236,6 +295,16 @@ def check_drift(rows, prev):
         if o[3] and n[3] and (n[3] / o[3] > 5 or o[3] / n[3] > 5):
             warn("%s: quartet count %s -> %s (>5x) — check the sentence in data/list.wiki"
                  % (name, o[3], n[3]))
+        # A person's P21 does get corrected on Wikidata, and that correction should flow through.
+        # But it is also what a wrong-item join looks like from the other side, so it is never
+        # silent: this is a two-line diff to read, not a number to trust.
+        #
+        # Length-guarded because the BASELINE is whatever the last commit shipped, which is one
+        # field shorter across any schema addition — the commit that adds a field is exactly the
+        # one where a positional read of it crashes the gate that was meant to check it.
+        if len(o) > 7 and len(n) > 7 and o[7] != n[7]:
+            warn("%s: gender %r -> %r — a Wikidata correction, or the row joined to a different "
+                 "person" % (name, o[7], n[7]))
         if o[4] and n[4] and (n[4] / o[4] > 20 or o[4] / n[4] > 20):
             err("%s: page views %s -> %s (>20x). A jump this size is a wrong article, not a change "
                 "in readership — check the resolved title." % (name, o[4], n[4]))

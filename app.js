@@ -20,6 +20,9 @@ const DATA_URL = "./composers.json";
 const WIKI = name => "https://en.wikipedia.org/w/index.php?search=" + encodeURIComponent(name);
 
 let META = {}, ROWS = [], selected = null, hovered = null, visible = null;
+// "" = everyone. Otherwise a Wikidata P21 label, matched against the row verbatim — the control,
+// the data and the URL all carry the same word, so there is no third vocabulary to keep in step.
+let gender = "";
 let byName = new Map();
 
 const $ = id => document.getElementById(id);
@@ -337,6 +340,7 @@ function writeHash() {
   if (q) p.set("q", q);
   const r = Histogram.getRange();
   if (r) p.set("r", Math.round(r[0]) + "-" + Math.round(r[1]));
+  if (gender) p.set("g", gender);
   if (selected != null) p.set("c", ROWS[selected].name);
   const s = p.toString();
   history.replaceState(null, "", s ? "#" + s : location.pathname + location.search);
@@ -346,7 +350,12 @@ function readHash() {
   const p = new URLSearchParams(location.hash.replace(/^#/, ""));
   const r = (p.get("r") || "").match(/^(\d+)-(\d+)$/);
   return { v: p.get("v"), q: p.get("q") || "", c: p.get("c"),
-           r: r ? [+r[1], +r[2]] : null };
+           r: r ? [+r[1], +r[2]] : null,
+           // Whitelisted, not trusted: a hand-edited #g=anything would otherwise leave three
+           // unpressed pills over an empty table with no visible reason and no way back. The
+           // whitelist is READ OFF THE PILLS rather than written out again — a second copy of the
+           // vocabulary here is a copy that can disagree with the control it is filtering for.
+           g: pillValues().includes(p.get("g")) ? p.get("g") : "" };
 }
 
 async function share() {
@@ -379,12 +388,48 @@ function intersect(a, b) {
   return out;
 }
 
+// index.html's pills ARE the vocabulary: the values the UI can filter, read back rather than
+// listed a second time anywhere in here.
+const pillValues = () => [...document.querySelectorAll("#gender button")]
+  .map(b => b.dataset.g).filter(Boolean);
+
+// Every gender the data STATES that no pill can reach. fetch_wikidata.py labels eight P21 items
+// and index.html has two pills, so the two vocabularies can drift — and the drift is silent in the
+// worst way: the composer is in neither filter while the provenance line, which counts only the
+// composers with NO claim, still implies everyone else is reachable. validate.py fails the build
+// on it; this is the same assertion on the app's side, and the UI suite asserts it empty. Exactly
+// the job Chart.missingNames() and Table.staleOverrides() do for the other hardcoded vocabularies.
+function unfilterableGenders() {
+  const reach = new Set(pillValues());
+  return [...new Set(ROWS.filter(d => d.gender != null && !reach.has(d.gender)).map(d => d.gender))];
+}
+
+// The third filter. It is the only one with no module of its own, because it has nothing to
+// render and no data to hold — three buttons and a string. It still returns the same "a Set of
+// indices, or null for everything" the other two do, so intersect() never learns it exists.
+//
+// A composer with no P21 claim is in NEITHER set. That is the null rule (invariant 10) applied to
+// a filter: "Women" means Wikidata says female, not "everyone we didn't call a man".
+function genderMatches() {
+  if (!gender) return null;
+  const set = new Set();
+  for (const d of ROWS) if (d.gender === gender) set.add(d.i);
+  return set;
+}
+
+function setGender(g) {
+  gender = g;
+  document.querySelectorAll("#gender button").forEach(b =>
+    b.setAttribute("aria-pressed", String(b.dataset.g === g)));
+  applyFilters(true);
+}
+
 // `settled` is false during a brush DRAG. The chart repaint is cheap and watching the field thin
 // out is the whole point of the control, but rebuilding ~880 table rows every frame is the one
 // thing here that stutters — so the table waits for the gesture to end.
 function applyFilters(settled) {
   const q = $("q").value;
-  visible = intersect(Table.matches(q), Histogram.matches());
+  visible = intersect(intersect(Table.matches(q), Histogram.matches()), genderMatches());
   $("clear").hidden = !q;
   $("hist-clear").hidden = !Histogram.getRange();
   $("hist-read").textContent = Histogram.label();
@@ -400,6 +445,38 @@ function applyFilters(settled) {
     else Table.select(selected, false);
     writeHash();
   }
+}
+
+// ---- provenance ------------------------------------------------------------
+// "Dates are Wikidata P569/P570" names a source a reader cannot check: P569 is jargon that means
+// nothing until you can open it, and there is nowhere on the page to look it up. So every property
+// id in the provenance line becomes a link to its own Wikidata definition.
+//
+// The LINE is linkified, rather than the two meta strings carrying anchors. composers.json is data
+// and has no business holding markup; keeping the ids as plain text there means the pipeline can
+// name a new property (P?? for a birthplace, say) and it is linked the moment it is printed,
+// without a second place to remember. It is also why this builds nodes instead of setting
+// innerHTML: the text is assembled from the data file, and data never becomes markup here.
+const WD_PROP = /\bP[1-9]\d{0,6}\b/g;
+
+function setProv(text) {
+  const el = $("prov");
+  el.textContent = "";
+  let at = 0;
+  for (const m of text.matchAll(WD_PROP)) {
+    if (m.index > at) el.appendChild(document.createTextNode(text.slice(at, m.index)));
+    const a = document.createElement("a");
+    a.href = "https://www.wikidata.org/wiki/Property:" + m[0];
+    a.target = "_blank";
+    a.rel = "noopener";
+    // The id is the link text, so the sentence reads exactly as it did — and the title says what
+    // the link is for, because "P569" is not a promise a reader can evaluate before clicking.
+    a.title = "Wikidata property " + m[0] + " — what this value means and where it comes from";
+    a.textContent = m[0];
+    el.appendChild(a);
+    at = m.index + m[0].length;
+  }
+  el.appendChild(document.createTextNode(text.slice(at)));
 }
 
 // ---- full screen -----------------------------------------------------------
@@ -443,7 +520,8 @@ async function start() {
     return;
   }
   META = Object.assign({ views_months: [], views_note: "monthly English Wikipedia page views",
-                         views_stat: "median", dates_source: "Wikidata", generated: "" },
+                         views_stat: "median", dates_source: "Wikidata", generated: "",
+                         gender_source: "Wikidata P21, \u201csex or gender\u201d" },
                        data.meta || {});
 
   Chart.setData(data.rows);
@@ -460,10 +538,15 @@ async function start() {
   // detail panel read. Both are indexed identically, and that index IS the shared selection key.
   ROWS = data.rows.map((r, i) => ({
     i, name: r[0], birth: r[1], death: r[2], quartets: r[3],
-    views: r[4], lo: r[5], hi: r[6],
+    views: r[4], lo: r[5], hi: r[6], gender: r[7],
     living: r[2] == null,
     lifespan: r[2] == null ? null : r[2] - r[1],
   }));
+
+  // Loud, the way chart.js is about a renamed canon: the UI suite fails on a console error, so a
+  // P21 value the pills cannot reach cannot ship quietly. See unfilterableGenders().
+  const unreachable = unfilterableGenders();
+  if (unreachable.length) console.error("app: genders no pill can filter:", unreachable);
 
   // Written from the data: a hardcoded "884" sits inches from #count, which prints the real
   // number, so the next scrape would have them disagreeing in the same row.
@@ -483,6 +566,7 @@ async function start() {
   if (link.v && ["readers", "scatter", "swarm", "lens"].includes(link.v)) setMode(link.v);
   if (link.q) $("q").value = link.q;
   if (link.r) Histogram.setRange(link.r);
+  if (link.g) setGender(link.g);
 
   renderLegend();
   placeFilters();
@@ -497,16 +581,25 @@ async function start() {
   // readership MEANS and the legend says which channel carries it, so neither is repeated here —
   // this paragraph used to restate both, and to say the word "median" twice in one clause.
   const mm = META.views_months || [];
+  const unknownGender = ROWS.filter(d => d.gender == null).length;
   const span = mm.length ? `, ${mm[0]} to ${mm[mm.length - 1]}` : "";
   const rev = META.list_revid ? ` (revision ${META.list_revid})` : "";
-  $("prov").textContent =
+  setProv(
     `${ROWS.length} composers from Wikipedia's list${rev}; ${Chart.plotted()} state a quartet `
     + `count and are plotted, the rest appear in the table only. Dates are ${META.dates_source}. `
     + `Readership is the ${META.views_stat} of the composer's English Wikipedia article${span} — `
     + `twelve rather than one because a single month runs about 12% off typical, and English only `
     + `because the pageviews API counts per title, so a composer read mostly in another language `
     + `is undercounted. A lifespan written "83+" is the composer's age today. `
-    + `Built ${META.generated}.`;
+    // Whose statement this is, said plainly. The other two channels name a source because they
+    // are measurements; this one names a source because it is about a person, and the page has no
+    // business asserting it on its own account. The unknown count is stated for the same reason
+    // the quartet nulls are: the filter cannot reach those rows, and silence would read as none.
+    + `Gender is ${META.gender_source} as Wikidata records it, reported here rather than claimed `
+    + `by this page and never inferred from a name; ${unknownGender} `
+    + `composer${unknownGender === 1 ? " has" : "s have"} no such claim and `
+    + `${unknownGender === 1 ? "is" : "are"} in neither filter. `
+    + `Built ${META.generated}.`);
 
   wire();
 }
@@ -515,8 +608,14 @@ function wire() {
   $("q").addEventListener("input", () => applyFilters(true));
   $("clear").onclick = () => { $("q").value = ""; applyFilters(true); $("q").focus(); };
   $("hist-clear").onclick = () => Histogram.clear();   // fires "end" -> applyFilters
+  document.querySelectorAll("#gender button").forEach(b => {
+    b.onclick = () => setGender(b.dataset.g);
+  });
 
-  document.querySelectorAll(".seg button").forEach(b => {
+  // SCOPED to the chart card. `.seg` is a look — a pill group — and the gender filter wears it
+  // too; an unscoped ".seg button" bound the view switcher's handler over the filter's, so a pill
+  // called setMode(undefined) and the chart fell out of every named mode at once.
+  document.querySelectorAll(".controls .seg button").forEach(b => {
     b.onclick = () => setMode(b.dataset.mode);
   });
   $("share").onclick = share;
@@ -559,7 +658,7 @@ function wire() {
 }
 
 function setMode(mode) {
-  document.querySelectorAll(".seg button").forEach(o => o.setAttribute("aria-pressed", String(o.dataset.mode === mode)));
+  document.querySelectorAll(".controls .seg button").forEach(o => o.setAttribute("aria-pressed", String(o.dataset.mode === mode)));
   Chart.setMode(mode);
   renderLegend();                    // the views encode different things and need different keys
   // The chips are painted from the view's encoding, but a full Table.render() empties tbody and

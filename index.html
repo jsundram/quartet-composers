@@ -85,6 +85,16 @@
       <div id="hist" role="group" aria-labelledby="hist-label"></div>
       <span id="hist-read"></span>
       <button type="button" id="hist-clear" class="btn" hidden>Clear</button>
+
+      <!-- Buttons, not a <select>: three states that are all worth one press, and pressed state is
+           the only readout the filter needs. The values are Wikidata's own P21 labels, so the
+           control, the data and the URL all say the same word. -->
+      <span id="gender-label">Gender</span>
+      <div class="seg sm" id="gender" role="group" aria-labelledby="gender-label">
+        <button type="button" data-g="" aria-pressed="true">All</button>
+        <button type="button" data-g="female" aria-pressed="false">Women</button>
+        <button type="button" data-g="male" aria-pressed="false">Men</button>
+      </div>
     </div>
   </section>
 

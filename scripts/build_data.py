@@ -5,7 +5,7 @@
 """Combine the three cached sources into composers.json, the one file the app fetches.
 
     data/list.json       scrape_list.py     roster + quartet counts + prose dates
-    data/people.json     fetch_wikidata.py  canonical titles + P569/P570 birth and death
+    data/people.json     fetch_wikidata.py  canonical titles + P569/P570 dates + P21 gender
     data/pageviews.json  fetch_views.py     12 monthly view counts per article
                       -> composers.json
 
@@ -26,9 +26,11 @@ against a field that stored age-in-2014 for the living, which meant refreshing a
 silently reclassifying 139 people. That whole mechanism is gone.
 
 UNKNOWNS STAY NULL. A composer whose count the page's prose doesn't state gets quartets: null and
-is listed in the table but not plotted; an article with no page-view data gets views: null. The
-alternative — carrying a 2014 number forward — silently mixes a pre-2015 measurement system into a
-2026 dataset, and renders as a confident dot either way.
+is listed in the table but not plotted; an article with no page-view data gets views: null; a
+composer with no P21 claim gets gender: null. The alternative — carrying a 2014 number forward —
+silently mixes a pre-2015 measurement system into a 2026 dataset, and renders as a confident dot
+either way. For gender the alternative would be worse still: the only way to fill that null is to
+guess from a name, which is a guess about a person and is what invariant 10 exists to forbid.
 """
 import datetime as dt
 import json
@@ -64,6 +66,7 @@ def main():
         p = people.get(title, {})
         canon = p.get("canonical", title)
         birth, death = p.get("birth", e["birth"]), p.get("death", e["death"])
+        gender = p.get("gender")
         if birth is None:
             dropped.append((title, "no birth year"))
             continue
@@ -82,7 +85,7 @@ def main():
         name = QUALIFIER.sub("", canon)
         # Two list entries can resolve to one article (an alias and the real title). Keep the
         # richer row rather than letting the later one silently win.
-        row = [name, birth, death, e["quartets"], views, lo, hi]
+        row = [name, birth, death, e["quartets"], views, lo, hi, gender]
         if canon in seen:
             prev = rows[seen[canon]]
             better = sum(x is not None for x in row) > sum(x is not None for x in prev)
@@ -98,6 +101,8 @@ def main():
     living = sum(1 for r in rows if r[2] is None)
     no_count = sum(1 for r in rows if r[3] is None)
     no_views = sum(1 for r in rows if r[4] is None)
+    women = sum(1 for r in rows if r[7] == "female")
+    no_gender = sum(1 for r in rows if r[7] is None)
     out = {
         "meta": {
             "generated": dt.date.today().isoformat(),
@@ -107,8 +112,12 @@ def main():
             "views_stat": "median of %d monthly counts" % len(months),
             "views_note": "monthly English Wikipedia page views, a proxy for Anglophone familiarity",
             "dates_source": "Wikidata P569/P570",
+            # Named in the footnote so the page says whose statement this is. It is Wikidata's
+            # property, reported, not a claim this project makes about anyone.
+            "gender_source": "Wikidata P21, \u201csex or gender\u201d",
         },
-        "fields": ["name", "birth", "death", "quartets", "views", "views_lo", "views_hi"],
+        "fields": ["name", "birth", "death", "quartets", "views", "views_lo", "views_hi",
+                   "gender"],
         "rows": rows,
     }
     with open(OUT, "w", encoding="utf-8") as f:
@@ -119,6 +128,7 @@ def main():
     print("  living (no death date on Wikidata): %d" % living)
     print("  no quartet count (listed, not plotted): %d" % no_count)
     print("  no page-view data: %d" % no_views)
+    print("  women (P21 female): %d; no P21 claim: %d" % (women, no_gender))
     print("  views: median of %s .. %s" % (months[0], months[-1]))
     if dropped:
         print("  dropped %d entries:" % len(dropped))

@@ -58,13 +58,27 @@ async function shot(name) {
   writeFileSync(`${OUTDIR}/${name}.png`, Buffer.from(r.result.data, "base64"));
 }
 async function goto(url) {
-  await send("Page.navigate", { url });
   // A navigation that changes only the FRAGMENT is same-document: the app never re-runs, so
   // goto(BASE + "#v=scatter") from BASE quietly left the previous section's view in place and the
-  // checks that followed tested the wrong chart. Force the load.
-  if (url.includes("#")) await send("Page.reload", { ignoreCache: false });
+  // checks that followed tested the wrong chart.
+  //
+  // Forcing it with a follow-up Page.reload fixed that and introduced a RACE. The app rewrites its
+  // own URL on boot (writeHash -> replaceState) and drops anything it did not accept — an invalid
+  // "#g=chicken" becomes a bare path. When that rewrite landed between the navigate and the
+  // reload, the reload re-read the CLEANED url, the page came up in the DEFAULT readers view, and
+  // a later section asking for #legend .ramp dereferenced null and killed the whole run: every
+  // check after it silently never ran. It failed intermittently, which is worse than always.
+  //
+  // about:blank first makes every goto a real cross-document load, so the fragment is on the URL
+  // the app boots from and there is nothing to race. Do not "simplify" this back to one navigate.
+  await send("Page.navigate", { url: "about:blank" });
+  await send("Page.navigate", { url });
   for (let i = 0; i < 100; i++) { if (await ev("document.readyState === 'complete'")) break; await sleep(60); }
   await sleep(700);
+  // Cheap proof the navigation actually happened. Nothing asserts the fragment SURVIVED, because
+  // the app is allowed to rewrite it — it strips a value it rejects — and the sections that care
+  // check the state it produced instead.
+  if (await ev(`location.href`) === "about:blank") throw new Error("goto never left about:blank: " + url);
 }
 async function mouse(type, x, y) {
   await send("Input.dispatchMouseEvent", { type, x, y, button: type === "mouseMoved" ? "none" : "left",
@@ -416,8 +430,107 @@ check("the provenance names the revision it was scraped from",
       await ev(`document.getElementById('prov').textContent.slice(0, 70)`));
 // The lede frames what readership MEANS; the footnote says where it came from. Saying both twice
 // is what "wordsmithing and consistency" was about.
+// A property id is jargon until it is clickable: "Dates are Wikidata P569/P570" names a source
+// the reader has no way to check from the page. Every id in the line links to its definition.
+const props = await ev(`[...document.querySelectorAll('#prov a')]
+  .map(a => a.textContent + ' ' + a.getAttribute('href'))`);
+check("every Wikidata property id in the footnote is a link to its definition",
+      ["P569", "P570", "P21"].every(p =>
+        props.includes(`${p} https://www.wikidata.org/wiki/Property:${p}`)),
+      props.join(" | "));
+check("no property id is left as bare text",
+      await ev(`(()=>{const el=document.getElementById('prov');
+        const linked=[...el.querySelectorAll('a')].map(a=>a.textContent);
+        const all=el.textContent.match(/\\bP[1-9]\\d*\\b/g)||[];
+        return all.every(p=>linked.includes(p)) && all.length===linked.length})()`),
+      await ev(`(document.getElementById('prov').textContent.match(/\\bP[1-9]\\d*\\b/g)||[]).join()`));
+check("linkifying did not disturb the sentence",
+      /Dates are Wikidata P569\/P570\./.test(await ev(`document.getElementById('prov').textContent`)),
+      await ev(`document.getElementById('prov').textContent.slice(120, 220)`));
+
 check("the footnote does not restate the lede's framing",
       !/not as importance/.test(await ev(`document.getElementById('prov').textContent`)));
+
+// --- 4i. the gender filter ---------------------------------------------------------------------
+// A third filter in a row that composes by intersection. It is the only one with no module, so
+// these checks are the only thing standing between it and a quiet divergence from the other two:
+// the same "Set of indices or null" contract, the same URL round-trip, the same live chart.
+await goto(BASE);
+const allRows = await ev(`document.querySelectorAll('tbody tr').length`);
+check("the gender filter lives in the one filter row, not in a card",
+      await ev(`!!document.getElementById('filters').querySelector('#gender')`));
+await ev(`document.querySelector('#gender button[data-g="female"]').click()`);
+await sleep(300);
+const women = await ev(`document.querySelectorAll('tbody tr').length`);
+check("filtering to women filters the table", women > 100 && women < allRows / 2,
+      `${women} of ${allRows}`);
+check("the pressed pill is the only pressed pill",
+      await ev(`[...document.querySelectorAll('#gender button')]
+        .map(b=>b.getAttribute('aria-pressed')).join()`) === "false,true,false");
+check("it dims the rest of the chart rather than deleting it",
+      await ev(`(()=>{const d=[...document.querySelectorAll('#plot svg circle.dot')];
+        return d.length > 700 && d.filter(c=>+c.getAttribute('opacity')<0.2).length > 300})()`),
+      await ev(`document.querySelectorAll('#plot svg circle.dot').length`) + " dots drawn");
+// The point of option C: at the resting 0.22 the kept dots were barely separable from the 0.07
+// ghosts, in the view whose whole job is showing where a group sits against the field.
+check("the kept dots are emphasised, not merely less dim",
+      await ev(`[...document.querySelectorAll('#plot svg circle.dot')]
+        .filter(c=>+c.getAttribute('opacity')>0.5).length > 150`),
+      "opacities: " + await ev(`[...new Set([...document.querySelectorAll('#plot svg circle.dot')]
+        .map(c=>c.getAttribute('opacity')))].sort().join(' ')`));
+check("the filter is in the URL", (await ev(`location.hash`)).includes("g=female"),
+      await ev(`decodeURIComponent(location.hash)`));
+// The pills wear the view switcher's `.seg` look. An unscoped ".seg button" handler bound the
+// switcher over the filter, so a pill press called setMode(undefined) — the chart left every
+// named mode, the legend emptied and the URL grew "#v=undefined". Two groups, one class.
+check("filtering does not touch the chart view",
+      await ev(`Chart.getMode() === 'readers'`), await ev(`String(Chart.getMode())`));
+
+// fetch_wikidata.py can label eight P21 values and there are two pills, so the vocabularies can
+// drift. A stated gender no pill reaches is a composer in neither filter, while the footnote still
+// counts only the ones with no claim — silent in exactly the way the canon rename check exists for.
+check("every stated gender is reachable by a pill",
+      (await ev(`unfilterableGenders()`)).length === 0,
+      "unreachable: " + JSON.stringify(await ev(`unfilterableGenders()`)));
+
+// Unknown is in NEITHER set: Women + Men must not add up to the whole roster, or the null rule
+// has quietly been replaced by "everyone we didn't call a man".
+await ev(`document.querySelector('#gender button[data-g="male"]').click()`);
+await sleep(300);
+const men = await ev(`document.querySelectorAll('tbody tr').length`);
+check("a composer with no P21 claim is in neither filter", women + men < allRows,
+      `${women} + ${men} < ${allRows}`);
+
+// Intersection, not replacement — the same contract the search box and the brush hold to.
+await ev(`(()=>{const q=document.getElementById('q'); q.value='haydn';
+  q.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+await sleep(300);
+check("gender and search combine rather than override",
+      await ev(`document.querySelectorAll('tbody tr').length`) < 3, "haydn ∩ men");
+await ev(`(()=>{const q=document.getElementById('q'); q.value='';
+  q.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+await sleep(200);
+await ev(`document.querySelector('#gender button[data-g=""]').click()`);
+await sleep(300);
+check("clearing to All restores every row",
+      await ev(`document.querySelectorAll('tbody tr').length`) === allRows);
+check("clearing drops the filter from the URL", !(await ev(`location.hash`)).includes("g="));
+
+// A shared link has to arrive filtered, with the control showing it — a URL that filters the data
+// but leaves three unpressed pills is a state the reader cannot undo because they cannot see it.
+await goto(BASE + "#g=female");
+check("a shared link arrives filtered, with the pill pressed",
+      await ev(`document.querySelectorAll('tbody tr').length`) === women
+   && await ev(`document.querySelector('#gender button[data-g="female"]').getAttribute('aria-pressed') === 'true'`));
+// #g=nonsense must fall back to everyone rather than emptying the table with no visible cause.
+await goto(BASE + "#g=chicken");
+check("a junk gender in the URL falls back to everyone",
+      await ev(`document.querySelectorAll('tbody tr').length`) === allRows,
+      await ev(`document.querySelectorAll('tbody tr').length`) + " rows");
+check("the footnote says whose statement the gender is",
+      /P21/.test(await ev(`document.getElementById('prov').textContent`))
+   && /neither filter/.test(await ev(`document.getElementById('prov').textContent`)),
+      await ev(`document.getElementById('prov').textContent.slice(-220)`));
 
 // --- 5. sorting ---------------------------------------------------------------
 await goto(BASE);

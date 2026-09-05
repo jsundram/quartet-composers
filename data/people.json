@@ -3,6 +3,7 @@
 "birth": 1900,
 "canonical": "Aaron Copland",
 "death": 1990,
+"gender": "male",
 "qid": "Q192185",
 "wd_birth": 1900,
 "wd_death": 1990
@@ -11,6 +12,7 @@
 "birth": 1960,
 "canonical": "Aaron Jay Kernis",
 "death": null,
+"gender": "male",
 "qid": "Q302157",
 "wd_birth": 1960,
 "wd_death": null
@@ -19,6 +21,7 @@
 "birth": 1947,
 "canonical": "Ada Gentile",
 "death": null,
+"gender": "female",
 "qid": "Q2823868",
 "wd_birth": 1947,
 "wd_death": null
@@ -27,6 +30,7 @@
 "birth": 1763,
 "canonical": "Adalbert Gyrowetz",
 "death": 1850,
+"gender": "male",
 "qid": "Q347384",
 "wd_birth": 1763,
 "wd_death": 1850
@@ -35,6 +39,7 @@
 "birth": 1953,
 "canonical": "Adriana Hölszky",
 "death": null,
+"gender": "female",
 "qid": "Q273800",
 "wd_birth": 1953,
 "wd_death": null
@@ -43,6 +48,7 @@
 "birth": 1846,
 "canonical": "Agnes Tyrrell",
 "death": 1883,
+"gender": "female",
 "qid": "Q4693127",
 "wd_birth": 1846,
 "wd_death": 1883
@@ -51,6 +57,7 @@
 "birth": 1907,
 "canonical": "Ahmet Adnan Saygun",
 "death": 1991,
+"gender": "male",
 "qid": "Q401118",
 "wd_birth": 1907,
 "wd_death": 1991
@@ -59,6 +66,7 @@
 "birth": 1973,
 "canonical": "Airat Ichmouratov",
 "death": null,
+"gender": "male",
 "qid": "Q21063940",
 "wd_birth": 1973,
 "wd_death": null
@@ -67,6 +75,7 @@
 "birth": 1911,
 "canonical": "Alan Hovhaness",
 "death": 2000,
+"gender": "male",
 "qid": "Q542232",
 "wd_birth": 1911,
 "wd_death": 2000
@@ -75,6 +84,7 @@
 "birth": 1905,
 "canonical": "Alan Rawsthorne",
 "death": 1971,
+"gender": "male",
 "qid": "Q428560",
 "wd_birth": 1905,
 "wd_death": 1971
@@ -83,6 +93,7 @@
 "birth": 1885,
 "canonical": "Alban Berg",
 "death": 1935,
+"gender": "male",
 "qid": "Q78475",
 "wd_birth": 1885,
 "wd_death": 1935
@@ -91,6 +102,7 @@
 "birth": 1869,
 "canonical": "Albert Roussel",
 "death": 1937,
+"gender": "male",
 "qid": "Q313376",
 "wd_birth": 1869,
 "wd_death": 1937
@@ -99,6 +111,7 @@
 "birth": 1916,
 "canonical": "Alberto Ginastera",
 "death": 1983,
+"gender": "male",
 "qid": "Q311389",
 "wd_birth": 1916,
 "wd_death": 1983
@@ -107,6 +120,7 @@
 "birth": 1864,
 "canonical": "Alberto Nepomuceno",
 "death": 1920,
+"gender": "male",
 "qid": "Q1391980",
 "wd_birth": 1864,
 "wd_death": 1920
@@ -115,6 +129,7 @@
 "birth": 1865,
 "canonical": "Albéric Magnard",
 "death": 1914,
+"gender": "male",
 "qid": "Q982192",
 "wd_birth": 1865,
 "wd_death": 1914
@@ -123,6 +138,7 @@
 "birth": 1951,
 "canonical": "Aleksander Lasoń",
 "death": null,
+"gender": "male",
 "qid": "Q471986",
 "wd_birth": 1951,
 "wd_death": null
@@ -131,6 +147,7 @@
 "birth": 1970,
 "canonical": "Aleksandra Vrebalov",
 "death": null,
+"gender": "female",
 "qid": "Q4715591",
 "wd_birth": 1970,
 "wd_death": null
@@ -139,6 +156,7 @@
 "birth": 1757,
 "canonical": "Alessandro Rolla",
 "death": 1841,
+"gender": "male",
 "qid": "Q2143613",
 "wd_birth": 1757,
 "wd_death": 1841
@@ -147,6 +165,7 @@
 "birth": 1660,
 "canonical": "Alessandro Scarlatti",
 "death": 1725,
+"gender": "male",
 "qid": "Q183087",
 "wd_birth": 1660,
 "wd_death": 1725
@@ -155,6 +174,7 @@
 "birth": 1787,
 "canonical": "Alexander Alyabyev",
 "death": 1851,
+"gender": "male",
 "qid": "Q712094",
 "wd_birth": 1787,
 "wd_death": 1851
@@ -163,6 +183,7 @@
 "birth": 1833,
 "canonical": "Alexander Borodin",
 "death": 1887,
+"gender": "male",
 "qid": "Q164004",
 "wd_birth": 1833,
 "wd_death": 1887
@@ -171,6 +192,7 @@
 "birth": 1865,
 "canonical": "Alexander Glazunov",
 "death": 1936,
+"gender": "male",
 "qid": "Q25872",
 "wd_birth": 1865,
 "wd_death": 1936
@@ -179,6 +201,7 @@
 "birth": 1932,
 "canonical": "Alexander Goehr",
 "death": 2024,
+"gender": "male",
 "qid": "Q215847",
 "wd_birth": 1932,
 "wd_death": 2024
@@ -187,6 +210,7 @@
 "birth": 1864,
 "canonical": "Alexander Gretchaninov",
 "death": 1956,
+"gender": "male",
 "qid": "Q508270",
 "wd_birth": 1864,
 "wd_death": 1956
@@ -195,6 +219,7 @@
 "birth": 1847,
 "canonical": "Alexander Mackenzie (composer)",
 "death": 1935,
+"gender": "male",
 "qid": "Q674739",
 "wd_birth": 1847,
 "wd_death": 1935
@@ -203,6 +228,7 @@
 "birth": 1900,
 "canonical": "Alexander Mosolov",
 "death": 1973,
+"gender": "male",
 "qid": "Q918640",
 "wd_birth": 1900,
 "wd_death": 1973
@@ -211,6 +237,7 @@
 "birth": 1850,
 "canonical": "Alexander Taneyev",
 "death": 1918,
+"gender": "male",
 "qid": "Q1350717",
 "wd_birth": 1850,
 "wd_death": 1918
@@ -219,6 +246,7 @@
 "birth": 1899,
 "canonical": "Alexander Tcherepnin",
 "death": 1977,
+"gender": "male",
 "qid": "Q504011",
 "wd_birth": 1899,
 "wd_death": 1977
@@ -227,6 +255,7 @@
 "birth": 1871,
 "canonical": "Alexander von Zemlinsky",
 "death": 1942,
+"gender": "male",
 "qid": "Q78524",
 "wd_birth": 1871,
 "wd_death": 1942
@@ -235,6 +264,7 @@
 "birth": 1981,
 "canonical": "Alexandra Fol",
 "death": null,
+"gender": "female",
 "qid": "Q2833270",
 "wd_birth": 1981,
 "wd_death": null
@@ -243,6 +273,7 @@
 "birth": 1897,
 "canonical": "Alexandre Tansman",
 "death": 1986,
+"gender": "male",
 "qid": "Q550218",
 "wd_birth": 1897,
 "wd_death": 1986
@@ -251,6 +282,7 @@
 "birth": 1882,
 "canonical": "Alf Hurum",
 "death": 1972,
+"gender": "male",
 "qid": "Q5817693",
 "wd_birth": 1882,
 "wd_death": 1972
@@ -259,6 +291,7 @@
 "birth": 1869,
 "canonical": "Alfred Hill (composer)",
 "death": 1960,
+"gender": "male",
 "qid": "Q1970611",
 "wd_birth": 1869,
 "wd_death": 1960
@@ -267,6 +300,7 @@
 "birth": 1934,
 "canonical": "Alfred Schnittke",
 "death": 1998,
+"gender": "male",
 "qid": "Q158078",
 "wd_birth": 1934,
 "wd_death": 1998
@@ -275,6 +309,7 @@
 "birth": 1886,
 "canonical": "Algot Haquinius",
 "death": 1966,
+"gender": "male",
 "qid": "Q4724381",
 "wd_birth": 1886,
 "wd_death": 1966
@@ -283,6 +318,7 @@
 "birth": 1839,
 "canonical": "Alice Mary Smith",
 "death": 1884,
+"gender": "female",
 "qid": "Q1190960",
 "wd_birth": 1839,
 "wd_death": 1884
@@ -291,6 +327,7 @@
 "birth": 1860,
 "canonical": "Alicia Van Buren",
 "death": 1922,
+"gender": "female",
 "qid": "Q106560634",
 "wd_birth": 1860,
 "wd_death": 1922
@@ -299,6 +336,7 @@
 "birth": 1950,
 "canonical": "Alistair Hinton",
 "death": null,
+"gender": "male",
 "qid": "Q16145278",
 "wd_birth": 1950,
 "wd_death": null
@@ -307,6 +345,7 @@
 "birth": 1966,
 "canonical": "Alla Zahaikevych",
 "death": null,
+"gender": "female",
 "qid": "Q1981300",
 "wd_birth": 1966,
 "wd_death": null
@@ -315,6 +354,7 @@
 "birth": 1893,
 "canonical": "Alois Hába",
 "death": 1973,
+"gender": "male",
 "qid": "Q366711",
 "wd_birth": 1893,
 "wd_death": 1973
@@ -323,6 +363,7 @@
 "birth": 1938,
 "canonical": "Alvin Curran",
 "death": null,
+"gender": "male",
 "qid": "Q449059",
 "wd_birth": 1938,
 "wd_death": null
@@ -331,6 +372,7 @@
 "birth": 1853,
 "canonical": "Amanda Röntgen-Maier",
 "death": 1894,
+"gender": "female",
 "qid": "Q273661",
 "wd_birth": 1853,
 "wd_death": 1894
@@ -339,6 +381,7 @@
 "birth": 1867,
 "canonical": "Amy Beach",
 "death": 1944,
+"gender": "female",
 "qid": "Q235699",
 "wd_birth": 1867,
 "wd_death": 1944
@@ -347,6 +390,7 @@
 "birth": 1968,
 "canonical": "Ananda Sukarlan",
 "death": null,
+"gender": "male",
 "qid": "Q485788",
 "wd_birth": 1968,
 "wd_death": null
@@ -355,6 +399,7 @@
 "birth": 1962,
 "canonical": "Andersen Viana",
 "death": null,
+"gender": "male",
 "qid": "Q491373",
 "wd_birth": 1962,
 "wd_death": null
@@ -363,6 +408,7 @@
 "birth": 1767,
 "canonical": "Andreas Romberg",
 "death": 1821,
+"gender": "male",
 "qid": "Q213904",
 "wd_birth": 1767,
 "wd_death": 1821
@@ -371,6 +417,7 @@
 "birth": 1890,
 "canonical": "Andrés Isasi",
 "death": 1940,
+"gender": "male",
 "qid": "Q524358",
 "wd_birth": 1890,
 "wd_death": 1940
@@ -379,6 +426,7 @@
 "birth": 1921,
 "canonical": "Andrew Imbrie",
 "death": 2007,
+"gender": "male",
 "qid": "Q324435",
 "wd_birth": 1921,
 "wd_death": 2007
@@ -387,6 +435,7 @@
 "birth": 1951,
 "canonical": "Andrzej Krzanowski",
 "death": 1990,
+"gender": "male",
 "qid": "Q321161",
 "wd_birth": 1951,
 "wd_death": 1990
@@ -395,6 +444,7 @@
 "birth": 1938,
 "canonical": "Ann Carr-Boyd",
 "death": null,
+"gender": "female",
 "qid": "Q4766306",
 "wd_birth": 1938,
 "wd_death": null
@@ -403,6 +453,7 @@
 "birth": 1983,
 "canonical": "Ann Cleare",
 "death": null,
+"gender": "female",
 "qid": "Q56452478",
 "wd_birth": 1983,
 "wd_death": null
@@ -411,6 +462,7 @@
 "birth": 1937,
 "canonical": "Ann Southam",
 "death": 2010,
+"gender": "female",
 "qid": "Q523485",
 "wd_birth": 1937,
 "wd_death": 2010
@@ -419,6 +471,7 @@
 "birth": 1980,
 "canonical": "Anna Clyne",
 "death": null,
+"gender": "female",
 "qid": "Q4766925",
 "wd_birth": 1980,
 "wd_death": null
@@ -427,6 +480,7 @@
 "birth": 1978,
 "canonical": "Anna Meredith",
 "death": null,
+"gender": "female",
 "qid": "Q4767345",
 "wd_birth": 1978,
 "wd_death": null
@@ -435,6 +489,7 @@
 "birth": 1859,
 "canonical": "Anna Severine Lindeman",
 "death": 1938,
+"gender": "female",
 "qid": "Q18112879",
 "wd_birth": 1859,
 "wd_death": 1938
@@ -443,6 +498,7 @@
 "birth": 1943,
 "canonical": "Anne Lauber",
 "death": null,
+"gender": "female",
 "qid": "Q2851162",
 "wd_birth": 1943,
 "wd_death": null
@@ -451,6 +507,7 @@
 "birth": 1979,
 "canonical": "Annesley Black",
 "death": null,
+"gender": "female",
 "qid": "Q19259452",
 "wd_birth": 1979,
 "wd_death": null
@@ -459,6 +516,7 @@
 "birth": 1964,
 "canonical": "Annette Schlünz",
 "death": null,
+"gender": "female",
 "qid": "Q566695",
 "wd_birth": 1964,
 "wd_death": null
@@ -467,6 +525,7 @@
 "birth": 1960,
 "canonical": "Annie Gosfield",
 "death": null,
+"gender": "female",
 "qid": "Q4769296",
 "wd_birth": 1960,
 "wd_death": null
@@ -475,6 +534,7 @@
 "birth": 1794,
 "canonical": "Anselm Hüttenbrenner",
 "death": 1868,
+"gender": "male",
 "qid": "Q569557",
 "wd_birth": 1794,
 "wd_death": 1868
@@ -483,6 +543,7 @@
 "birth": 1936,
 "canonical": "Anthony Payne",
 "death": 2021,
+"gender": "male",
 "qid": "Q328021",
 "wd_birth": 1936,
 "wd_death": 2021
@@ -491,6 +552,7 @@
 "birth": 1742,
 "canonical": "Antoine-Laurent Baudron",
 "death": 1834,
+"gender": "male",
 "qid": "Q4775413",
 "wd_birth": 1742,
 "wd_death": 1834
@@ -499,6 +561,7 @@
 "birth": 1861,
 "canonical": "Anton Arensky",
 "death": 1906,
+"gender": "male",
 "qid": "Q313970",
 "wd_birth": 1861,
 "wd_death": 1906
@@ -507,6 +570,7 @@
 "birth": 1824,
 "canonical": "Anton Bruckner",
 "death": 1896,
+"gender": "male",
 "qid": "Q81752",
 "wd_birth": 1824,
 "wd_death": 1896
@@ -515,6 +579,7 @@
 "birth": 1742,
 "canonical": "Anton Ferdinand Titz",
 "death": 1810,
+"gender": "male",
 "qid": "Q328334",
 "wd_birth": 1742,
 "wd_death": 1810
@@ -523,6 +588,7 @@
 "birth": 1770,
 "canonical": "Anton Reicha",
 "death": 1836,
+"gender": "male",
 "qid": "Q311387",
 "wd_birth": 1770,
 "wd_death": 1836
@@ -531,6 +597,7 @@
 "birth": 1829,
 "canonical": "Anton Rubinstein",
 "death": 1894,
+"gender": "male",
 "qid": "Q87567",
 "wd_birth": 1829,
 "wd_death": 1894
@@ -539,6 +606,7 @@
 "birth": 1883,
 "canonical": "Anton Webern",
 "death": 1945,
+"gender": "male",
 "qid": "Q190933",
 "wd_birth": 1883,
 "wd_death": 1945
@@ -547,6 +615,7 @@
 "birth": 1741,
 "canonical": "Anton Zimmermann",
 "death": 1781,
+"gender": "male",
 "qid": "Q595923",
 "wd_birth": 1741,
 "wd_death": 1781
@@ -555,6 +624,7 @@
 "birth": 1818,
 "canonical": "Antonio Bazzini",
 "death": 1897,
+"gender": "male",
 "qid": "Q461296",
 "wd_birth": 1818,
 "wd_death": 1897
@@ -563,6 +633,7 @@
 "birth": 1772,
 "canonical": "Antonio Casimir Cartellieri",
 "death": 1807,
+"gender": "male",
 "qid": "Q601356",
 "wd_birth": 1772,
 "wd_death": 1807
@@ -571,6 +642,7 @@
 "birth": 1746,
 "canonical": "Antonio Rosetti",
 "death": 1792,
+"gender": "male",
 "qid": "Q604720",
 "wd_birth": 1746,
 "wd_death": 1792
@@ -579,6 +651,7 @@
 "birth": 1850,
 "canonical": "Antonio Scontrino",
 "death": 1922,
+"gender": "male",
 "qid": "Q322256",
 "wd_birth": 1850,
 "wd_death": 1922
@@ -587,6 +660,7 @@
 "birth": 1841,
 "canonical": "Antonín Dvořák",
 "death": 1904,
+"gender": "male",
 "qid": "Q7298",
 "wd_birth": 1841,
 "wd_death": 1904
@@ -595,6 +669,7 @@
 "birth": 1730,
 "canonical": "Antonín Kammel",
 "death": 1788,
+"gender": "male",
 "qid": "Q608455",
 "wd_birth": 1730,
 "wd_death": 1788
@@ -603,6 +678,7 @@
 "birth": 1761,
 "canonical": "Antonín Vranický",
 "death": 1820,
+"gender": "male",
 "qid": "Q595809",
 "wd_birth": 1761,
 "wd_death": 1820
@@ -611,6 +687,7 @@
 "birth": 1912,
 "canonical": "Arkady Filippenko",
 "death": 1983,
+"gender": "male",
 "qid": "Q2584747",
 "wd_birth": 1912,
 "wd_death": 1983
@@ -619,6 +696,7 @@
 "birth": 1970,
 "canonical": "Arlene Sierra",
 "death": null,
+"gender": "female",
 "qid": "Q4792177",
 "wd_birth": 1970,
 "wd_death": null
@@ -627,6 +705,7 @@
 "birth": 1883,
 "canonical": "Arnold Bax",
 "death": 1953,
+"gender": "male",
 "qid": "Q143198",
 "wd_birth": 1883,
 "wd_death": 1953
@@ -635,6 +714,7 @@
 "birth": 1874,
 "canonical": "Arnold Schoenberg",
 "death": 1951,
+"gender": "male",
 "qid": "Q154770",
 "wd_birth": 1874,
 "wd_death": 1951
@@ -643,6 +723,7 @@
 "birth": 1891,
 "canonical": "Arthur Bliss",
 "death": 1975,
+"gender": "male",
 "qid": "Q508953",
 "wd_birth": 1891,
 "wd_death": 1975
@@ -651,6 +732,7 @@
 "birth": 1904,
 "canonical": "Arthur Dennington",
 "death": 1988,
+"gender": "male",
 "qid": "Q20810755",
 "wd_birth": 1904,
 "wd_death": 1988
@@ -659,6 +741,7 @@
 "birth": 1872,
 "canonical": "Arthur Farwell",
 "death": 1952,
+"gender": "male",
 "qid": "Q709337",
 "wd_birth": 1872,
 "wd_death": 1952
@@ -667,6 +750,7 @@
 "birth": 1892,
 "canonical": "Arthur Honegger",
 "death": 1955,
+"gender": "male",
 "qid": "Q123164",
 "wd_birth": 1892,
 "wd_death": 1955
@@ -675,6 +759,7 @@
 "birth": 1892,
 "canonical": "Arthur Lourié",
 "death": 1966,
+"gender": "male",
 "qid": "Q710458",
 "wd_birth": 1892,
 "wd_death": 1966
@@ -683,6 +768,7 @@
 "birth": 1882,
 "canonical": "Artur Schnabel",
 "death": 1951,
+"gender": "male",
 "qid": "Q213688",
 "wd_birth": 1882,
 "wd_death": 1951
@@ -691,6 +777,7 @@
 "birth": 1954,
 "canonical": "Arturo Rodas",
 "death": null,
+"gender": "male",
 "qid": "Q371331",
 "wd_birth": 1954,
 "wd_death": null
@@ -699,6 +786,7 @@
 "birth": 1935,
 "canonical": "Arvo Pärt",
 "death": null,
+"gender": "male",
 "qid": "Q189534",
 "wd_birth": 1935,
 "wd_death": null
@@ -707,6 +795,7 @@
 "birth": 1847,
 "canonical": "August Klughardt",
 "death": 1902,
+"gender": "male",
 "qid": "Q513203",
 "wd_birth": 1847,
 "wd_death": 1902
@@ -715,6 +804,7 @@
 "birth": 1847,
 "canonical": "Augusta Holmès",
 "death": 1903,
+"gender": "female",
 "qid": "Q464636",
 "wd_birth": 1847,
 "wd_death": 1903
@@ -723,6 +813,7 @@
 "birth": 1964,
 "canonical": "Augusta Read Thomas",
 "death": null,
+"gender": "female",
 "qid": "Q514584",
 "wd_birth": 1964,
 "wd_death": null
@@ -731,6 +822,7 @@
 "birth": 1935,
 "canonical": "Aulis Sallinen",
 "death": null,
+"gender": "male",
 "qid": "Q542194",
 "wd_birth": 1935,
 "wd_death": null
@@ -739,6 +831,7 @@
 "birth": 1912,
 "canonical": "Barbara Pentland",
 "death": 2000,
+"gender": "female",
 "qid": "Q435339",
 "wd_birth": 1912,
 "wd_death": 2000
@@ -747,6 +840,7 @@
 "birth": 1938,
 "canonical": "Bart Berman",
 "death": null,
+"gender": "male",
 "qid": "Q553269",
 "wd_birth": 1938,
 "wd_death": null
@@ -755,6 +849,7 @@
 "birth": 1751,
 "canonical": "Bartolomeo Campagnoli",
 "death": 1827,
+"gender": "male",
 "qid": "Q213752",
 "wd_birth": 1751,
 "wd_death": 1827
@@ -763,6 +858,7 @@
 "birth": 1954,
 "canonical": "Beat Furrer",
 "death": null,
+"gender": "male",
 "qid": "Q568534",
 "wd_birth": 1954,
 "wd_death": null
@@ -771,6 +867,7 @@
 "birth": 1824,
 "canonical": "Bedřich Smetana",
 "death": 1884,
+"gender": "male",
 "qid": "Q48173",
 "wd_birth": 1824,
 "wd_death": 1884
@@ -779,6 +876,7 @@
 "birth": 1955,
 "canonical": "Behzad Ranjbaran",
 "death": null,
+"gender": "male",
 "qid": "Q4881022",
 "wd_birth": 1955,
 "wd_death": null
@@ -787,6 +885,7 @@
 "birth": 1926,
 "canonical": "Ben Johnston (composer)",
 "death": 2019,
+"gender": "male",
 "qid": "Q816527",
 "wd_birth": 1926,
 "wd_death": 2019
@@ -795,6 +894,7 @@
 "birth": 1913,
 "canonical": "Benjamin Britten",
 "death": 1976,
+"gender": "male",
 "qid": "Q150767",
 "wd_birth": 1913,
 "wd_death": 1976
@@ -803,6 +903,7 @@
 "birth": 1906,
 "canonical": "Benjamin Frankel",
 "death": 1973,
+"gender": "male",
 "qid": "Q286856",
 "wd_birth": 1906,
 "wd_death": 1973
@@ -811,6 +912,7 @@
 "birth": 1849,
 "canonical": "Benjamin Godard",
 "death": 1895,
+"gender": "male",
 "qid": "Q817524",
 "wd_birth": 1849,
 "wd_death": 1895
@@ -819,6 +921,7 @@
 "birth": 1924,
 "canonical": "Benjamin Lees",
 "death": 2010,
+"gender": "male",
 "qid": "Q711596",
 "wd_birth": 1924,
 "wd_death": 2010
@@ -827,6 +930,7 @@
 "birth": 1897,
 "canonical": "Benna Moe",
 "death": 1983,
+"gender": "female",
 "qid": "Q4889606",
 "wd_birth": 1897,
 "wd_death": 1983
@@ -835,6 +939,7 @@
 "birth": 1958,
 "canonical": "Bent Sørensen (composer)",
 "death": null,
+"gender": "male",
 "qid": "Q562988",
 "wd_birth": 1958,
 "wd_death": null
@@ -843,6 +948,7 @@
 "birth": 1911,
 "canonical": "Bernard Herrmann",
 "death": 1975,
+"gender": "male",
 "qid": "Q296804",
 "wd_birth": 1911,
 "wd_death": 1975
@@ -851,6 +957,7 @@
 "birth": 1887,
 "canonical": "Bernard van Dieren",
 "death": 1936,
+"gender": "male",
 "qid": "Q2352977",
 "wd_birth": 1887,
 "wd_death": 1936
@@ -859,6 +966,7 @@
 "birth": 1802,
 "canonical": "Bernhard Molique",
 "death": 1869,
+"gender": "male",
 "qid": "Q571562",
 "wd_birth": 1802,
 "wd_death": 1869
@@ -867,6 +975,7 @@
 "birth": 1767,
 "canonical": "Bernhard Romberg",
 "death": 1841,
+"gender": "male",
 "qid": "Q213914",
 "wd_birth": 1767,
 "wd_death": 1841
@@ -875,6 +984,7 @@
 "birth": 1903,
 "canonical": "Berthold Goldschmidt",
 "death": 1996,
+"gender": "male",
 "qid": "Q213910",
 "wd_birth": 1903,
 "wd_death": 1996
@@ -883,6 +993,7 @@
 "birth": 1925,
 "canonical": "Bertold Hummel",
 "death": 2002,
+"gender": "male",
 "qid": "Q561080",
 "wd_birth": 1925,
 "wd_death": 2002
@@ -891,6 +1002,7 @@
 "birth": 1926,
 "canonical": "Betsy Jolas",
 "death": null,
+"gender": "female",
 "qid": "Q262420",
 "wd_birth": 1926,
 "wd_death": null
@@ -899,6 +1011,7 @@
 "birth": 1935,
 "canonical": "Biancamaria Furgeri",
 "death": null,
+"gender": "female",
 "qid": "Q4902523",
 "wd_birth": 1935,
 "wd_death": null
@@ -907,6 +1020,7 @@
 "birth": 1957,
 "canonical": "Bob Ostertag",
 "death": null,
+"gender": "male",
 "qid": "Q2688717",
 "wd_birth": 1957,
 "wd_death": null
@@ -915,6 +1029,7 @@
 "birth": 1890,
 "canonical": "Bohuslav Martinů",
 "death": 1959,
+"gender": "male",
 "qid": "Q223258",
 "wd_birth": 1890,
 "wd_death": 1959
@@ -923,6 +1038,7 @@
 "birth": 1925,
 "canonical": "Boris Tchaikovsky",
 "death": 1996,
+"gender": "male",
 "qid": "Q893609",
 "wd_birth": 1925,
 "wd_death": 1996
@@ -931,6 +1047,7 @@
 "birth": 1921,
 "canonical": "Božidar Kantušer",
 "death": 1999,
+"gender": "male",
 "qid": "Q2923166",
 "wd_birth": 1921,
 "wd_death": 1999
@@ -939,6 +1056,7 @@
 "birth": 1917,
 "canonical": "Brian Boydell",
 "death": 2000,
+"gender": "male",
 "qid": "Q11334430",
 "wd_birth": 1917,
 "wd_death": 2000
@@ -947,6 +1065,7 @@
 "birth": 1943,
 "canonical": "Brian Ferneyhough",
 "death": null,
+"gender": "male",
 "qid": "Q462291",
 "wd_birth": 1943,
 "wd_death": null
@@ -955,6 +1074,7 @@
 "birth": 1920,
 "canonical": "Bruno Maderna",
 "death": 1973,
+"gender": "male",
 "qid": "Q351383",
 "wd_birth": 1920,
 "wd_death": 1973
@@ -963,6 +1083,7 @@
 "birth": 1952,
 "canonical": "Bunita Marcus",
 "death": null,
+"gender": "female",
 "qid": "Q4997707",
 "wd_birth": 1952,
 "wd_death": null
@@ -971,6 +1092,7 @@
 "birth": 1881,
 "canonical": "Béla Bartók",
 "death": 1945,
+"gender": "male",
 "qid": "Q83326",
 "wd_birth": 1881,
 "wd_death": 1945
@@ -979,6 +1101,7 @@
 "birth": 1907,
 "canonical": "Camargo Guarnieri",
 "death": 1993,
+"gender": "male",
 "qid": "Q721439",
 "wd_birth": 1907,
 "wd_death": 1993
@@ -987,6 +1110,7 @@
 "birth": 1835,
 "canonical": "Camille Saint-Saëns",
 "death": 1921,
+"gender": "male",
 "qid": "Q150445",
 "wd_birth": 1835,
 "wd_death": 1921
@@ -995,6 +1119,7 @@
 "birth": 1791,
 "canonical": "Carl Czerny",
 "death": 1857,
+"gender": "male",
 "qid": "Q215333",
 "wd_birth": 1791,
 "wd_death": 1857
@@ -1003,6 +1128,7 @@
 "birth": 1739,
 "canonical": "Carl Ditters von Dittersdorf",
 "death": 1799,
+"gender": "male",
 "qid": "Q78522",
 "wd_birth": 1739,
 "wd_death": 1799
@@ -1011,6 +1137,7 @@
 "birth": 1786,
 "canonical": "Carl Eberwein",
 "death": 1868,
+"gender": "male",
 "qid": "Q216234",
 "wd_birth": 1786,
 "wd_death": 1868
@@ -1019,6 +1146,7 @@
 "birth": 1723,
 "canonical": "Carl Friedrich Abel",
 "death": 1787,
+"gender": "male",
 "qid": "Q168539",
 "wd_birth": 1723,
 "wd_death": 1787
@@ -1027,6 +1155,7 @@
 "birth": 1798,
 "canonical": "Carl Gottlieb Reissiger",
 "death": 1859,
+"gender": "male",
 "qid": "Q213894",
 "wd_birth": 1798,
 "wd_death": 1859
@@ -1035,6 +1164,7 @@
 "birth": 1796,
 "canonical": "Carl Loewe",
 "death": 1869,
+"gender": "male",
 "qid": "Q158899",
 "wd_birth": 1796,
 "wd_death": 1869
@@ -1043,6 +1173,7 @@
 "birth": 1865,
 "canonical": "Carl Nielsen",
 "death": 1931,
+"gender": "male",
 "qid": "Q205139",
 "wd_birth": 1865,
 "wd_death": 1931
@@ -1051,6 +1182,7 @@
 "birth": 1824,
 "canonical": "Carl Reinecke",
 "death": 1910,
+"gender": "male",
 "qid": "Q159569",
 "wd_birth": 1824,
 "wd_death": 1910
@@ -1059,6 +1191,7 @@
 "birth": 1954,
 "canonical": "Carl Vine",
 "death": null,
+"gender": "male",
 "qid": "Q2269290",
 "wd_birth": 1954,
 "wd_death": null
@@ -1067,6 +1200,7 @@
 "birth": 1926,
 "canonical": "Carlos Veerhoff",
 "death": 2011,
+"gender": "male",
 "qid": "Q1043278",
 "wd_birth": 1926,
 "wd_death": 2011
@@ -1075,6 +1209,7 @@
 "birth": 1960,
 "canonical": "Caroline Charrière",
 "death": 2018,
+"gender": "female",
 "qid": "Q1044467",
 "wd_birth": 1960,
 "wd_death": 2018
@@ -1083,6 +1218,7 @@
 "birth": 1982,
 "canonical": "Caroline Shaw",
 "death": null,
+"gender": "female",
 "qid": "Q15430653",
 "wd_birth": 1982,
 "wd_death": null
@@ -1091,6 +1227,7 @@
 "birth": 1988,
 "canonical": "Cecilia Damström",
 "death": null,
+"gender": "female",
 "qid": "Q24701054",
 "wd_birth": 1988,
 "wd_death": null
@@ -1099,6 +1236,7 @@
 "birth": 1951,
 "canonical": "Cecilia McDowall",
 "death": null,
+"gender": "female",
 "qid": "Q5056448",
 "wd_birth": 1951,
 "wd_death": null
@@ -1107,6 +1245,7 @@
 "birth": 1954,
 "canonical": "Cecilie Ore",
 "death": null,
+"gender": "female",
 "qid": "Q4971308",
 "wd_birth": 1954,
 "wd_death": null
@@ -1115,6 +1254,7 @@
 "birth": 1818,
 "canonical": "Charles Gounod",
 "death": 1893,
+"gender": "male",
 "qid": "Q180278",
 "wd_birth": 1818,
 "wd_death": 1893
@@ -1123,6 +1263,7 @@
 "birth": 1803,
 "canonical": "Charles Hommann",
 "death": 1872,
+"gender": "male",
 "qid": "Q5079101",
 "wd_birth": 1803,
 "wd_death": 1872
@@ -1131,6 +1272,7 @@
 "birth": 1874,
 "canonical": "Charles Ives",
 "death": 1954,
+"gender": "male",
 "qid": "Q309648",
 "wd_birth": 1874,
 "wd_death": 1954
@@ -1139,6 +1281,7 @@
 "birth": 1867,
 "canonical": "Charles Koechlin",
 "death": 1950,
+"gender": "male",
 "qid": "Q72543",
 "wd_birth": 1867,
 "wd_death": 1950
@@ -1147,6 +1290,7 @@
 "birth": 1861,
 "canonical": "Charles Martin Loeffler",
 "death": 1935,
+"gender": "male",
 "qid": "Q1065471",
 "wd_birth": 1861,
 "wd_death": 1935
@@ -1155,6 +1299,7 @@
 "birth": 1852,
 "canonical": "Charles Villiers Stanford",
 "death": 1924,
+"gender": "male",
 "qid": "Q368264",
 "wd_birth": 1852,
 "wd_death": 1924
@@ -1163,6 +1308,7 @@
 "birth": 1757,
 "canonical": "Charles Wesley junior",
 "death": 1834,
+"gender": "male",
 "qid": "Q5083466",
 "wd_birth": 1757,
 "wd_death": 1834
@@ -1171,6 +1317,7 @@
 "birth": 1866,
 "canonical": "Charles Wood (composer)",
 "death": 1926,
+"gender": "male",
 "qid": "Q246913",
 "wd_birth": 1866,
 "wd_death": 1926
@@ -1179,6 +1326,7 @@
 "birth": 1938,
 "canonical": "Charles Wuorinen",
 "death": 2020,
+"gender": "male",
 "qid": "Q961861",
 "wd_birth": 1938,
 "wd_death": 2020
@@ -1187,6 +1335,7 @@
 "birth": 1982,
 "canonical": "Charlotte Bray",
 "death": null,
+"gender": "female",
 "qid": "Q5085863",
 "wd_birth": 1982,
 "wd_death": null
@@ -1195,6 +1344,7 @@
 "birth": 1965,
 "canonical": "Charlotte Seither",
 "death": null,
+"gender": "female",
 "qid": "Q1067335",
 "wd_birth": 1965,
 "wd_death": null
@@ -1203,6 +1353,7 @@
 "birth": 1953,
 "canonical": "Chen Yi (composer)",
 "death": null,
+"gender": "female",
 "qid": "Q464813",
 "wd_birth": 1953,
 "wd_death": null
@@ -1211,6 +1362,7 @@
 "birth": 1980,
 "canonical": "Cheryl Frances-Hoad",
 "death": null,
+"gender": "female",
 "qid": "Q5092725",
 "wd_birth": 1980,
 "wd_death": null
@@ -1219,6 +1371,7 @@
 "birth": 1745,
 "canonical": "Chevalier de Saint-Georges",
 "death": 1799,
+"gender": "male",
 "qid": "Q726953",
 "wd_birth": 1745,
 "wd_death": 1799
@@ -1227,6 +1380,7 @@
 "birth": 1941,
 "canonical": "Chick Corea",
 "death": 2021,
+"gender": "male",
 "qid": "Q192465",
 "wd_birth": 1941,
 "wd_death": 2021
@@ -1235,6 +1389,7 @@
 "birth": 1731,
 "canonical": "Christian Cannabich",
 "death": 1798,
+"gender": "male",
 "qid": "Q704681",
 "wd_birth": 1731,
 "wd_death": 1798
@@ -1243,6 +1398,7 @@
 "birth": 1856,
 "canonical": "Christian Sinding",
 "death": 1941,
+"gender": "male",
 "qid": "Q364854",
 "wd_birth": 1856,
 "wd_death": 1941
@@ -1251,6 +1407,7 @@
 "birth": 1934,
 "canonical": "Christian Wolff (composer)",
 "death": null,
+"gender": "male",
 "qid": "Q658733",
 "wd_birth": 1934,
 "wd_death": null
@@ -1259,6 +1416,7 @@
 "birth": 1949,
 "canonical": "Christopher Rouse (composer)",
 "death": 2019,
+"gender": "male",
 "qid": "Q125217",
 "wd_birth": 1949,
 "wd_death": 2019
@@ -1267,6 +1425,7 @@
 "birth": 1961,
 "canonical": "Cindy Cox",
 "death": null,
+"gender": "female",
 "qid": "Q5120509",
 "wd_birth": 1961,
 "wd_death": null
@@ -1275,6 +1434,7 @@
 "birth": 1953,
 "canonical": "Cindy McTee",
 "death": null,
+"gender": "female",
 "qid": "Q2487445",
 "wd_birth": 1953,
 "wd_death": null
@@ -1283,6 +1443,7 @@
 "birth": 1792,
 "canonical": "Cipriani Potter",
 "death": 1871,
+"gender": "male",
 "qid": "Q1092737",
 "wd_birth": 1792,
 "wd_death": 1871
@@ -1291,6 +1452,7 @@
 "birth": 1926,
 "canonical": "Claire Polin",
 "death": 1995,
+"gender": "female",
 "qid": "Q15490642",
 "wd_birth": 1926,
 "wd_death": 1995
@@ -1299,6 +1461,7 @@
 "birth": 1844,
 "canonical": "Clara Kathleen Rogers",
 "death": 1931,
+"gender": "female",
 "qid": "Q5126007",
 "wd_birth": 1844,
 "wd_death": 1931
@@ -1307,6 +1470,7 @@
 "birth": 1862,
 "canonical": "Claude Debussy",
 "death": 1918,
+"gender": "male",
 "qid": "Q4700",
 "wd_birth": 1862,
 "wd_death": 1918
@@ -1315,6 +1479,7 @@
 "birth": 1974,
 "canonical": "Claudia Molitor",
 "death": null,
+"gender": "female",
 "qid": "Q5129222",
 "wd_birth": 1974,
 "wd_death": null
@@ -1323,6 +1488,7 @@
 "birth": 1946,
 "canonical": "Colin Matthews",
 "death": null,
+"gender": "male",
 "qid": "Q2356593",
 "wd_birth": 1946,
 "wd_death": null
@@ -1331,6 +1497,7 @@
 "birth": 1912,
 "canonical": "Conlon Nancarrow",
 "death": 1997,
+"gender": "male",
 "qid": "Q703236",
 "wd_birth": 1912,
 "wd_death": 1997
@@ -1339,6 +1506,7 @@
 "birth": 1863,
 "canonical": "Cornélie van Oosterzee",
 "death": 1943,
+"gender": "female",
 "qid": "Q5172058",
 "wd_birth": 1863,
 "wd_death": 1943
@@ -1347,6 +1515,7 @@
 "birth": 1971,
 "canonical": "Craig Walsh",
 "death": null,
+"gender": "male",
 "qid": "Q5181568",
 "wd_birth": 1971,
 "wd_death": null
@@ -1355,6 +1524,7 @@
 "birth": 1930,
 "canonical": "Cristóbal Halffter",
 "death": 2021,
+"gender": "male",
 "qid": "Q375388",
 "wd_birth": 1930,
 "wd_death": 2021
@@ -1363,6 +1533,7 @@
 "birth": 1953,
 "canonical": "Cynthia Cozette Lee",
 "death": null,
+"gender": "female",
 "qid": "Q5200037",
 "wd_birth": 1953,
 "wd_death": null
@@ -1371,6 +1542,7 @@
 "birth": 1822,
 "canonical": "César Franck",
 "death": 1890,
+"gender": "male",
 "qid": "Q50187",
 "wd_birth": 1822,
 "wd_death": 1890
@@ -1379,6 +1551,7 @@
 "birth": 1895,
 "canonical": "Dane Rudhyar",
 "death": 1985,
+"gender": "male",
 "qid": "Q1159454",
 "wd_birth": 1895,
 "wd_death": 1985
@@ -1387,6 +1560,7 @@
 "birth": 1923,
 "canonical": "Daniel Pinkham",
 "death": 2006,
+"gender": "male",
 "qid": "Q4309772",
 "wd_birth": 1923,
 "wd_death": 2006
@@ -1395,6 +1569,7 @@
 "birth": 1892,
 "canonical": "Darius Milhaud",
 "death": 1974,
+"gender": "male",
 "qid": "Q186264",
 "wd_birth": 1892,
 "wd_death": 1974
@@ -1403,6 +1578,7 @@
 "birth": 1949,
 "canonical": "Dave Smith (composer)",
 "death": null,
+"gender": "male",
 "qid": "Q3017250",
 "wd_birth": 1949,
 "wd_death": null
@@ -1411,6 +1587,7 @@
 "birth": 1955,
 "canonical": "David A. Jaffe",
 "death": null,
+"gender": "male",
 "qid": "Q5230485",
 "wd_birth": 1955,
 "wd_death": null
@@ -1419,6 +1596,7 @@
 "birth": 1915,
 "canonical": "David Diamond (composer)",
 "death": 2005,
+"gender": "male",
 "qid": "Q919140",
 "wd_birth": 1915,
 "wd_death": 2005
@@ -1427,6 +1605,7 @@
 "birth": 1977,
 "canonical": "David Flynn (composer)",
 "death": null,
+"gender": "male",
 "qid": "Q5233708",
 "wd_birth": 1977,
 "wd_death": null
@@ -1435,6 +1614,7 @@
 "birth": 1954,
 "canonical": "David Garner (composer)",
 "death": null,
+"gender": "male",
 "qid": "Q29995060",
 "wd_birth": 1954,
 "wd_death": null
@@ -1443,6 +1623,7 @@
 "birth": 1970,
 "canonical": "David Horne (composer)",
 "death": null,
+"gender": "male",
 "qid": "Q5235141",
 "wd_birth": 1970,
 "wd_death": null
@@ -1451,6 +1632,7 @@
 "birth": 1943,
 "canonical": "David Matthews (composer)",
 "death": null,
+"gender": "male",
 "qid": "Q2055973",
 "wd_birth": 1943,
 "wd_death": null
@@ -1459,6 +1641,7 @@
 "birth": 1975,
 "canonical": "David Philip Hefti",
 "death": null,
+"gender": "male",
 "qid": "Q1176118",
 "wd_birth": 1975,
 "wd_death": null
@@ -1467,6 +1650,7 @@
 "birth": 1873,
 "canonical": "David Vaughan Thomas",
 "death": 1934,
+"gender": "male",
 "qid": "Q20804685",
 "wd_birth": 1873,
 "wd_death": 1934
@@ -1475,6 +1659,7 @@
 "birth": 1967,
 "canonical": "Deirdre Gribbin",
 "death": null,
+"gender": "female",
 "qid": "Q5252566",
 "wd_birth": 1967,
 "wd_death": null
@@ -1483,6 +1668,7 @@
 "birth": 1948,
 "canonical": "Diana Burrell",
 "death": null,
+"gender": "female",
 "qid": "Q5271116",
 "wd_birth": 1948,
 "wd_death": null
@@ -1491,6 +1677,7 @@
 "birth": 1930,
 "canonical": "Dieter Schnebel",
 "death": 2018,
+"gender": "male",
 "qid": "Q264475",
 "wd_birth": 1930,
 "wd_death": 2018
@@ -1499,6 +1686,7 @@
 "birth": 1884,
 "canonical": "Dina Appeldoorn",
 "death": 1938,
+"gender": "female",
 "qid": "Q5277831",
 "wd_birth": 1884,
 "wd_death": 1938
@@ -1507,6 +1695,7 @@
 "birth": 1979,
 "canonical": "Dinesh Subasinghe",
 "death": null,
+"gender": "male",
 "qid": "Q5278103",
 "wd_birth": 1979,
 "wd_death": null
@@ -1515,6 +1704,7 @@
 "birth": 1905,
 "canonical": "Dinorá de Carvalho",
 "death": 1980,
+"gender": "female",
 "qid": "Q539677",
 "wd_birth": 1905,
 "wd_death": 1980
@@ -1523,6 +1713,7 @@
 "birth": 1906,
 "canonical": "Dmitri Shostakovich",
 "death": 1975,
+"gender": "male",
 "qid": "Q80135",
 "wd_birth": 1906,
 "wd_death": 1975
@@ -1531,6 +1722,7 @@
 "birth": 1904,
 "canonical": "Dmitry Kabalevsky",
 "death": 1987,
+"gender": "male",
 "qid": "Q153776",
 "wd_birth": 1904,
 "wd_death": 1987
@@ -1539,6 +1731,7 @@
 "birth": 1980,
 "canonical": "Dobrinka Tabakova",
 "death": null,
+"gender": "female",
 "qid": "Q4449195",
 "wd_birth": 1980,
 "wd_death": null
@@ -1547,6 +1740,7 @@
 "birth": 1970,
 "canonical": "Donnacha Dennehy",
 "death": null,
+"gender": "male",
 "qid": "Q2003996",
 "wd_birth": 1970,
 "wd_death": null
@@ -1555,6 +1749,7 @@
 "birth": 1863,
 "canonical": "Dora Bright",
 "death": 1951,
+"gender": "female",
 "qid": "Q5297388",
 "wd_birth": 1863,
 "wd_death": 1951
@@ -1563,6 +1758,7 @@
 "birth": 1922,
 "canonical": "Doreen Carwithen",
 "death": 2003,
+"gender": "female",
 "qid": "Q5297654",
 "wd_birth": 1922,
 "wd_death": 2003
@@ -1571,6 +1767,7 @@
 "birth": 1893,
 "canonical": "Dorothy Gow",
 "death": 1982,
+"gender": "female",
 "qid": "Q5298438",
 "wd_birth": 1893,
 "wd_death": 1982
@@ -1579,6 +1776,7 @@
 "birth": 1966,
 "canonical": "Dorothy Hindman",
 "death": null,
+"gender": "female",
 "qid": "Q1250306",
 "wd_birth": 1966,
 "wd_death": null
@@ -1587,6 +1785,7 @@
 "birth": 1898,
 "canonical": "Dorothy Howell (composer)",
 "death": 1982,
+"gender": "female",
 "qid": "Q5298462",
 "wd_birth": 1898,
 "wd_death": 1982
@@ -1595,6 +1794,7 @@
 "birth": 1965,
 "canonical": "Dorothy Ker",
 "death": null,
+"gender": "female",
 "qid": "Q21998469",
 "wd_birth": 1965,
 "wd_death": null
@@ -1603,6 +1803,7 @@
 "birth": 1940,
 "canonical": "Dorothy Rudd Moore",
 "death": 2022,
+"gender": "female",
 "qid": "Q1954255",
 "wd_birth": 1940,
 "wd_death": 2022
@@ -1611,6 +1812,7 @@
 "birth": 1913,
 "canonical": "Dulcie Holland",
 "death": 2000,
+"gender": "female",
 "qid": "Q5313348",
 "wd_birth": 1913,
 "wd_death": 2000
@@ -1619,6 +1821,7 @@
 "birth": 1926,
 "canonical": "Earle Brown",
 "death": 2002,
+"gender": "male",
 "qid": "Q1277459",
 "wd_birth": 1926,
 "wd_death": 2002
@@ -1627,6 +1830,7 @@
 "birth": 1960,
 "canonical": "Edgar Meyer",
 "death": null,
+"gender": "male",
 "qid": "Q731734",
 "wd_birth": 1960,
 "wd_death": null
@@ -1635,6 +1839,7 @@
 "birth": 1925,
 "canonical": "Edith Borroff",
 "death": 2019,
+"gender": "female",
 "qid": "Q5338504",
 "wd_birth": 1925,
 "wd_death": 2019
@@ -1643,6 +1848,7 @@
 "birth": 1862,
 "canonical": "Edith Swepstone",
 "death": 1942,
+"gender": "female",
 "qid": "Q5338683",
 "wd_birth": 1862,
 "wd_death": 1942
@@ -1651,6 +1857,7 @@
 "birth": 1901,
 "canonical": "Edmund Rubbra",
 "death": 1986,
+"gender": "male",
 "qid": "Q958880",
 "wd_birth": 1901,
 "wd_death": 1986
@@ -1659,6 +1866,7 @@
 "birth": 1905,
 "canonical": "Eduard Tubin",
 "death": 1982,
+"gender": "male",
 "qid": "Q434931",
 "wd_birth": 1905,
 "wd_death": 1982
@@ -1667,6 +1875,7 @@
 "birth": 1843,
 "canonical": "Edvard Grieg",
 "death": 1907,
+"gender": "male",
 "qid": "Q80621",
 "wd_birth": 1843,
 "wd_death": 1907
@@ -1675,6 +1884,7 @@
 "birth": 1943,
 "canonical": "Edward Cowie",
 "death": null,
+"gender": "male",
 "qid": "Q5342432",
 "wd_birth": 1943,
 "wd_death": null
@@ -1683,6 +1893,7 @@
 "birth": 1857,
 "canonical": "Edward Elgar",
 "death": 1934,
+"gender": "male",
 "qid": "Q179631",
 "wd_birth": 1857,
 "wd_death": 1934
@@ -1691,6 +1902,7 @@
 "birth": 1827,
 "canonical": "Edward Mollenhauer",
 "death": 1914,
+"gender": "male",
 "qid": "Q18157683",
 "wd_birth": 1827,
 "wd_death": 1914
@@ -1699,6 +1911,7 @@
 "birth": 1972,
 "canonical": "Edward Top",
 "death": null,
+"gender": "male",
 "qid": "Q2152090",
 "wd_birth": 1972,
 "wd_death": null
@@ -1707,6 +1920,7 @@
 "birth": 1885,
 "canonical": "Egon Wellesz",
 "death": 1974,
+"gender": "male",
 "qid": "Q213680",
 "wd_birth": 1885,
 "wd_death": 1974
@@ -1715,6 +1929,7 @@
 "birth": 1916,
 "canonical": "Einar Englund",
 "death": 1999,
+"gender": "male",
 "qid": "Q918402",
 "wd_birth": 1916,
 "wd_death": 1999
@@ -1723,6 +1938,7 @@
 "birth": 1928,
 "canonical": "Einojuhani Rautavaara",
 "death": 2016,
+"gender": "male",
 "qid": "Q433592",
 "wd_birth": 1928,
 "wd_death": 2016
@@ -1731,6 +1947,7 @@
 "birth": 1973,
 "canonical": "Eivind Buene",
 "death": null,
+"gender": "male",
 "qid": "Q12012258",
 "wd_birth": 1973,
 "wd_death": null
@@ -1739,6 +1956,7 @@
 "birth": 1949,
 "canonical": "Eleanor Alberga",
 "death": null,
+"gender": "female",
 "qid": "Q1325702",
 "wd_birth": 1949,
 "wd_death": null
@@ -1747,6 +1965,7 @@
 "birth": 1943,
 "canonical": "Eleanor Cory",
 "death": null,
+"gender": "female",
 "qid": "Q5354254",
 "wd_birth": 1943,
 "wd_death": null
@@ -1755,6 +1974,7 @@
 "birth": 1950,
 "canonical": "Elena Firsova",
 "death": null,
+"gender": "female",
 "qid": "Q264808",
 "wd_birth": 1950,
 "wd_death": null
@@ -1763,6 +1983,7 @@
 "birth": 1957,
 "canonical": "Elena Kats-Chernin",
 "death": null,
+"gender": "female",
 "qid": "Q273213",
 "wd_birth": 1957,
 "wd_death": null
@@ -1771,6 +1992,7 @@
 "birth": 1963,
 "canonical": "Elena Ruehr",
 "death": null,
+"gender": "female",
 "qid": "Q16195301",
 "wd_birth": 1963,
 "wd_death": null
@@ -1779,6 +2001,7 @@
 "birth": 1889,
 "canonical": "Eleni Lambiri",
 "death": 1960,
+"gender": "female",
 "qid": "Q5359177",
 "wd_birth": 1889,
 "wd_death": 1960
@@ -1787,6 +2010,7 @@
 "birth": 1919,
 "canonical": "Eleonora Eksanishvili",
 "death": 2003,
+"gender": "female",
 "qid": "Q5359245",
 "wd_birth": 1919,
 "wd_death": 2003
@@ -1795,6 +2019,7 @@
 "birth": 1841,
 "canonical": "Elfrida Andrée",
 "death": 1929,
+"gender": "female",
 "qid": "Q451495",
 "wd_birth": 1841,
 "wd_death": 1929
@@ -1803,6 +2028,7 @@
 "birth": 1939,
 "canonical": "Elinor Armer",
 "death": null,
+"gender": "female",
 "qid": "Q5361133",
 "wd_birth": 1939,
 "wd_death": null
@@ -1811,6 +2037,7 @@
 "birth": 1906,
 "canonical": "Elisabeth Lutyens",
 "death": 1983,
+"gender": "female",
 "qid": "Q451307",
 "wd_birth": 1906,
 "wd_death": 1983
@@ -1819,6 +2046,7 @@
 "birth": 1954,
 "canonical": "Elisabetta Brusa",
 "death": null,
+"gender": "female",
 "qid": "Q3051113",
 "wd_birth": 1954,
 "wd_death": null
@@ -1827,6 +2055,7 @@
 "birth": 1872,
 "canonical": "Eliza Woods",
 "death": 1961,
+"gender": "female",
 "qid": "Q97073211",
 "wd_birth": 1872,
 "wd_death": 1961
@@ -1835,6 +2064,7 @@
 "birth": 1889,
 "canonical": "Elizabeth Gyring",
 "death": 1970,
+"gender": "female",
 "qid": "Q5362894",
 "wd_birth": 1889,
 "wd_death": 1970
@@ -1843,6 +2073,7 @@
 "birth": 1907,
 "canonical": "Elizabeth Maconchy",
 "death": 1994,
+"gender": "female",
 "qid": "Q457711",
 "wd_birth": 1907,
 "wd_death": 1994
@@ -1851,6 +2082,7 @@
 "birth": 1945,
 "canonical": "Elizabeth Raum",
 "death": null,
+"gender": "female",
 "qid": "Q5363406",
 "wd_birth": 1945,
 "wd_death": null
@@ -1859,6 +2091,7 @@
 "birth": 1939,
 "canonical": "Ellen Taaffe Zwilich",
 "death": null,
+"gender": "female",
 "qid": "Q457425",
 "wd_birth": 1939,
 "wd_death": null
@@ -1867,6 +2100,7 @@
 "birth": 1908,
 "canonical": "Elliott Carter",
 "death": 2012,
+"gender": "male",
 "qid": "Q318835",
 "wd_birth": 1908,
 "wd_death": 2012
@@ -1875,6 +2109,7 @@
 "birth": 1748,
 "canonical": "Emanuel Aloys Förster",
 "death": 1823,
+"gender": "male",
 "qid": "Q324490",
 "wd_birth": 1748,
 "wd_death": 1823
@@ -1883,6 +2118,7 @@
 "birth": 1901,
 "canonical": "Emil Hlobil",
 "death": 1987,
+"gender": "male",
 "qid": "Q1336256",
 "wd_birth": 1901,
 "wd_death": 1987
@@ -1891,6 +2127,7 @@
 "birth": 1860,
 "canonical": "Emil von Reznicek",
 "death": 1945,
+"gender": "male",
 "qid": "Q550639",
 "wd_birth": 1860,
 "wd_death": 1945
@@ -1899,6 +2136,7 @@
 "birth": 1812,
 "canonical": "Emilie Mayer",
 "death": 1883,
+"gender": "female",
 "qid": "Q447851",
 "wd_birth": 1812,
 "wd_death": 1883
@@ -1907,6 +2145,7 @@
 "birth": 1978,
 "canonical": "Emily Hall",
 "death": null,
+"gender": "female",
 "qid": "Q5372196",
 "wd_birth": 1978,
 "wd_death": null
@@ -1915,6 +2154,7 @@
 "birth": 1979,
 "canonical": "Emily Howard",
 "death": null,
+"gender": "female",
 "qid": "Q5372218",
 "wd_birth": 1979,
 "wd_death": null
@@ -1923,6 +2163,7 @@
 "birth": 1927,
 "canonical": "Emma Lou Diemer",
 "death": 2024,
+"gender": "female",
 "qid": "Q547252",
 "wd_birth": 1927,
 "wd_death": 2024
@@ -1931,6 +2172,7 @@
 "birth": 1863,
 "canonical": "Emánuel Moór",
 "death": 1931,
+"gender": "male",
 "qid": "Q324193",
 "wd_birth": 1863,
 "wd_death": 1931
@@ -1939,6 +2181,7 @@
 "birth": 1969,
 "canonical": "Enno Poppe",
 "death": null,
+"gender": "male",
 "qid": "Q830579",
 "wd_birth": 1969,
 "wd_death": null
@@ -1947,6 +2190,7 @@
 "birth": 1969,
 "canonical": "Eric Sessler",
 "death": null,
+"gender": "male",
 "qid": "Q27662217",
 "wd_birth": 1969,
 "wd_death": null
@@ -1955,6 +2199,7 @@
 "birth": 1962,
 "canonical": "Eric W. Sawyer",
 "death": null,
+"gender": "male",
 "qid": "Q5387690",
 "wd_birth": 1962,
 "wd_death": null
@@ -1963,6 +2208,7 @@
 "birth": 1936,
 "canonical": "Erich Urbanner",
 "death": null,
+"gender": "male",
 "qid": "Q701716",
 "wd_birth": 1936,
 "wd_death": null
@@ -1971,6 +2217,7 @@
 "birth": 1897,
 "canonical": "Erich Wolfgang Korngold",
 "death": 1957,
+"gender": "male",
 "qid": "Q313371",
 "wd_birth": 1897,
 "wd_death": 1957
@@ -1979,6 +2226,7 @@
 "birth": 1875,
 "canonical": "Erkki Melartin",
 "death": 1937,
+"gender": "male",
 "qid": "Q534960",
 "wd_birth": 1875,
 "wd_death": 1937
@@ -1987,6 +2235,7 @@
 "birth": 1959,
 "canonical": "Erkki-Sven Tüür",
 "death": null,
+"gender": "male",
 "qid": "Q462186",
 "wd_birth": 1959,
 "wd_death": null
@@ -1995,6 +2244,7 @@
 "birth": 1880,
 "canonical": "Ernest Bloch",
 "death": 1959,
+"gender": "male",
 "qid": "Q123234",
 "wd_birth": 1880,
 "wd_death": 1959
@@ -2003,6 +2253,7 @@
 "birth": 1855,
 "canonical": "Ernest Chausson",
 "death": 1899,
+"gender": "male",
 "qid": "Q312368",
 "wd_birth": 1855,
 "wd_death": 1899
@@ -2011,6 +2262,7 @@
 "birth": 1894,
 "canonical": "Ernest John Moeran",
 "death": 1950,
+"gender": "male",
 "qid": "Q1356404",
 "wd_birth": 1894,
 "wd_death": 1950
@@ -2019,6 +2271,7 @@
 "birth": 1838,
 "canonical": "Ernst Eduard Taubert",
 "death": 1934,
+"gender": "male",
 "qid": "Q11919639",
 "wd_birth": 1838,
 "wd_death": 1934
@@ -2027,6 +2280,7 @@
 "birth": 1740,
 "canonical": "Ernst Eichner",
 "death": 1777,
+"gender": "male",
 "qid": "Q473837",
 "wd_birth": 1740,
 "wd_death": 1777
@@ -2035,6 +2289,7 @@
 "birth": 1900,
 "canonical": "Ernst Krenek",
 "death": 1991,
+"gender": "male",
 "qid": "Q158436",
 "wd_birth": 1900,
 "wd_death": 1991
@@ -2043,6 +2298,7 @@
 "birth": 1832,
 "canonical": "Ernst Naumann",
 "death": 1910,
+"gender": "male",
 "qid": "Q5395101",
 "wd_birth": 1832,
 "wd_death": 1910
@@ -2051,6 +2307,7 @@
 "birth": 1887,
 "canonical": "Ernst Toch",
 "death": 1964,
+"gender": "male",
 "qid": "Q213635",
 "wd_birth": 1887,
 "wd_death": 1964
@@ -2059,6 +2316,7 @@
 "birth": 1877,
 "canonical": "Ernst von Dohnányi",
 "death": 1960,
+"gender": "male",
 "qid": "Q78532",
 "wd_birth": 1877,
 "wd_death": 1960
@@ -2067,6 +2325,7 @@
 "birth": 1958,
 "canonical": "Errollyn Wallen",
 "death": null,
+"gender": "female",
 "qid": "Q5395651",
 "wd_birth": 1958,
 "wd_death": null
@@ -2075,6 +2334,7 @@
 "birth": 1894,
 "canonical": "Erwin Schulhoff",
 "death": 1942,
+"gender": "male",
 "qid": "Q89540",
 "wd_birth": 1894,
 "wd_death": 1942
@@ -2083,6 +2343,7 @@
 "birth": 1922,
 "canonical": "Ester Mägi",
 "death": 2021,
+"gender": "female",
 "qid": "Q509461",
 "wd_birth": 1922,
 "wd_death": 2021
@@ -2091,6 +2352,7 @@
 "birth": 1926,
 "canonical": "Esther Scliar",
 "death": 1978,
+"gender": "female",
 "qid": "Q5401299",
 "wd_birth": 1926,
 "wd_death": 1978
@@ -2099,6 +2361,7 @@
 "birth": 1889,
 "canonical": "Ethel Glenn Hier",
 "death": 1971,
+"gender": "female",
 "qid": "Q5403125",
 "wd_birth": 1889,
 "wd_death": 1971
@@ -2107,6 +2370,7 @@
 "birth": 1858,
 "canonical": "Ethel Smyth",
 "death": 1944,
+"gender": "female",
 "qid": "Q236599",
 "wd_birth": 1858,
 "wd_death": 1944
@@ -2115,6 +2379,7 @@
 "birth": 1864,
 "canonical": "Eugen d'Albert",
 "death": 1932,
+"gender": "male",
 "qid": "Q57178",
 "wd_birth": 1864,
 "wd_death": 1932
@@ -2123,6 +2388,7 @@
 "birth": 1951,
 "canonical": "Eugeniusz Knapik",
 "death": null,
+"gender": "male",
 "qid": "Q2655222",
 "wd_birth": 1951,
 "wd_death": null
@@ -2131,6 +2397,7 @@
 "birth": 1883,
 "canonical": "Eva Ruth Spalding",
 "death": 1969,
+"gender": "female",
 "qid": "Q110633539",
 "wd_birth": 1883,
 "wd_death": 1969
@@ -2139,6 +2406,7 @@
 "birth": 1956,
 "canonical": "Eve de Castro-Robinson",
 "death": null,
+"gender": "female",
 "qid": "Q5416211",
 "wd_birth": 1956,
 "wd_death": null
@@ -2147,6 +2415,7 @@
 "birth": 1910,
 "canonical": "Evgeny Golubev",
 "death": 1988,
+"gender": "male",
 "qid": "Q706139",
 "wd_birth": 1910,
 "wd_death": 1988
@@ -2155,6 +2424,7 @@
 "birth": 1867,
 "canonical": "Ewald Straesser",
 "death": 1933,
+"gender": "male",
 "qid": "Q5418883",
 "wd_birth": 1867,
 "wd_death": 1933
@@ -2163,6 +2433,7 @@
 "birth": 1960,
 "canonical": "Ezequiel Viñao",
 "death": null,
+"gender": "male",
 "qid": "Q4111971",
 "wd_birth": 1960,
 "wd_death": null
@@ -2171,6 +2442,7 @@
 "birth": 1924,
 "canonical": "Ezra Laderman",
 "death": 2015,
+"gender": "male",
 "qid": "Q1386080",
 "wd_birth": 1924,
 "wd_death": 2015
@@ -2179,6 +2451,7 @@
 "birth": 1928,
 "canonical": "Ezra Sims",
 "death": 2015,
+"gender": "male",
 "qid": "Q2282732",
 "wd_birth": 1928,
 "wd_death": 2015
@@ -2187,6 +2460,7 @@
 "birth": 1805,
 "canonical": "Fanny Hensel",
 "death": 1847,
+"gender": "female",
 "qid": "Q57286",
 "wd_birth": 1805,
 "wd_death": 1847
@@ -2195,6 +2469,7 @@
 "birth": 1887,
 "canonical": "Fartein Valen",
 "death": 1952,
+"gender": "male",
 "qid": "Q1367549",
 "wd_birth": 1887,
 "wd_death": 1952
@@ -2203,6 +2478,7 @@
 "birth": 1947,
 "canonical": "Faye-Ellen Silverman",
 "death": null,
+"gender": "female",
 "qid": "Q515472",
 "wd_birth": 1947,
 "wd_death": null
@@ -2211,6 +2487,7 @@
 "birth": 1970,
 "canonical": "Fazıl Say",
 "death": null,
+"gender": "male",
 "qid": "Q430941",
 "wd_birth": 1970,
 "wd_death": null
@@ -2219,6 +2496,7 @@
 "birth": 1849,
 "canonical": "Felicia Tuczek",
 "death": 1905,
+"gender": "female",
 "qid": "Q106906316",
 "wd_birth": 1849,
 "wd_death": 1905
@@ -2227,6 +2505,7 @@
 "birth": 1863,
 "canonical": "Felix Blumenfeld",
 "death": 1931,
+"gender": "male",
 "qid": "Q1349550",
 "wd_birth": 1863,
 "wd_death": 1931
@@ -2235,6 +2514,7 @@
 "birth": 1835,
 "canonical": "Felix Draeseke",
 "death": 1913,
+"gender": "male",
 "qid": "Q505062",
 "wd_birth": 1835,
 "wd_death": 1913
@@ -2243,6 +2523,7 @@
 "birth": 1809,
 "canonical": "Felix Mendelssohn",
 "death": 1847,
+"gender": "male",
 "qid": "Q46096",
 "wd_birth": 1809,
 "wd_death": 1847
@@ -2251,6 +2532,7 @@
 "birth": 1835,
 "canonical": "Felix Otto Dessoff",
 "death": 1892,
+"gender": "male",
 "qid": "Q569463",
 "wd_birth": 1835,
 "wd_death": 1892
@@ -2259,6 +2541,7 @@
 "birth": 1863,
 "canonical": "Felix Weingartner",
 "death": 1942,
+"gender": "male",
 "qid": "Q316920",
 "wd_birth": 1863,
 "wd_death": 1942
@@ -2267,6 +2550,7 @@
 "birth": 1810,
 "canonical": "Ferdinand David (musician)",
 "death": 1873,
+"gender": "male",
 "qid": "Q215083",
 "wd_birth": 1810,
 "wd_death": 1873
@@ -2275,6 +2559,7 @@
 "birth": 1791,
 "canonical": "Ferdinand Hérold",
 "death": 1833,
+"gender": "male",
 "qid": "Q362639",
 "wd_birth": 1791,
 "wd_death": 1833
@@ -2283,6 +2568,7 @@
 "birth": 1784,
 "canonical": "Ferdinand Ries",
 "death": 1838,
+"gender": "male",
 "qid": "Q213558",
 "wd_birth": 1784,
 "wd_death": 1838
@@ -2291,6 +2577,7 @@
 "birth": 1854,
 "canonical": "Fernand de la Tombelle",
 "death": 1928,
+"gender": null,
 "qid": null,
 "wd_birth": null,
 "wd_death": null
@@ -2299,6 +2586,7 @@
 "birth": 1896,
 "canonical": "Fernande Decruck",
 "death": 1954,
+"gender": "female",
 "qid": "Q19560341",
 "wd_birth": 1896,
 "wd_death": 1954
@@ -2307,6 +2595,7 @@
 "birth": 1866,
 "canonical": "Ferruccio Busoni",
 "death": 1924,
+"gender": "male",
 "qid": "Q219551",
 "wd_birth": 1866,
 "wd_death": 1924
@@ -2315,6 +2604,7 @@
 "birth": 1867,
 "canonical": "Fini Henriques",
 "death": 1940,
+"gender": "male",
 "qid": "Q64892",
 "wd_birth": 1867,
 "wd_death": 1940
@@ -2323,6 +2613,7 @@
 "birth": 1887,
 "canonical": "Florence Price",
 "death": 1953,
+"gender": "female",
 "qid": "Q520522",
 "wd_birth": 1887,
 "wd_death": 1953
@@ -2331,6 +2622,7 @@
 "birth": 1870,
 "canonical": "Florent Schmitt",
 "death": 1958,
+"gender": "male",
 "qid": "Q321630",
 "wd_birth": 1870,
 "wd_death": 1958
@@ -2339,6 +2631,7 @@
 "birth": 1729,
 "canonical": "Florian Leopold Gassmann",
 "death": 1774,
+"gender": "male",
 "qid": "Q700816",
 "wd_birth": 1729,
 "wd_death": 1774
@@ -2347,6 +2640,7 @@
 "birth": 1883,
 "canonical": "Fran Lhotka",
 "death": 1962,
+"gender": "male",
 "qid": "Q983940",
 "wd_birth": 1883,
 "wd_death": 1962
@@ -2355,6 +2649,7 @@
 "birth": 1897,
 "canonical": "Francisco Mignone",
 "death": 1986,
+"gender": "male",
 "qid": "Q716174",
 "wd_birth": 1897,
 "wd_death": 1986
@@ -2363,6 +2658,7 @@
 "birth": 1875,
 "canonical": "Franco Alfano",
 "death": 1954,
+"gender": "male",
 "qid": "Q312638",
 "wd_birth": 1875,
 "wd_death": 1954
@@ -2371,6 +2667,7 @@
 "birth": 1947,
 "canonical": "Franghiz Ali-Zadeh",
 "death": null,
+"gender": "female",
 "qid": "Q288110",
 "wd_birth": 1947,
 "wd_death": null
@@ -2379,6 +2676,7 @@
 "birth": 1879,
 "canonical": "Frank Bridge",
 "death": 1941,
+"gender": "male",
 "qid": "Q366636",
 "wd_birth": 1879,
 "wd_death": 1941
@@ -2387,6 +2685,7 @@
 "birth": 1754,
 "canonical": "Franz Anton Hoffmeister",
 "death": 1812,
+"gender": "male",
 "qid": "Q706138",
 "wd_birth": 1754,
 "wd_death": 1812
@@ -2395,6 +2694,7 @@
 "birth": 1728,
 "canonical": "Franz Asplmayr",
 "death": 1786,
+"gender": "male",
 "qid": "Q1446126",
 "wd_birth": 1728,
 "wd_death": 1786
@@ -2403,6 +2703,7 @@
 "birth": 1796,
 "canonical": "Franz Berwald",
 "death": 1868,
+"gender": "male",
 "qid": "Q217044",
 "wd_birth": 1796,
 "wd_death": 1868
@@ -2411,6 +2712,7 @@
 "birth": 1756,
 "canonical": "Franz Grill",
 "death": 1793,
+"gender": "male",
 "qid": "Q1446995",
 "wd_birth": 1756,
 "wd_death": 1793
@@ -2419,6 +2721,7 @@
 "birth": 1759,
 "canonical": "Franz Krommer",
 "death": 1831,
+"gender": "male",
 "qid": "Q698047",
 "wd_birth": 1759,
 "wd_death": 1831
@@ -2427,6 +2730,7 @@
 "birth": 1803,
 "canonical": "Franz Lachner",
 "death": 1890,
+"gender": "male",
 "qid": "Q713451",
 "wd_birth": 1803,
 "wd_death": 1890
@@ -2435,6 +2739,7 @@
 "birth": 1874,
 "canonical": "Franz Schmidt (composer)",
 "death": 1939,
+"gender": "male",
 "qid": "Q434601",
 "wd_birth": 1874,
 "wd_death": 1939
@@ -2443,6 +2748,7 @@
 "birth": 1797,
 "canonical": "Franz Schubert",
 "death": 1828,
+"gender": "male",
 "qid": "Q7312",
 "wd_birth": 1797,
 "wd_death": 1828
@@ -2451,6 +2757,7 @@
 "birth": 1787,
 "canonical": "Franz Xaver Gebel",
 "death": 1843,
+"gender": "male",
 "qid": "Q1449611",
 "wd_birth": 1787,
 "wd_death": 1843
@@ -2459,6 +2766,7 @@
 "birth": 1709,
 "canonical": "Franz Xaver Richter",
 "death": 1789,
+"gender": "male",
 "qid": "Q113911",
 "wd_birth": 1709,
 "wd_death": 1789
@@ -2467,6 +2775,7 @@
 "birth": 1935,
 "canonical": "François-Bernard Mâche",
 "death": null,
+"gender": "male",
 "qid": "Q2246028",
 "wd_birth": 1935,
 "wd_death": null
@@ -2475,6 +2784,7 @@
 "birth": 1734,
 "canonical": "François-Joseph Gossec",
 "death": 1829,
+"gender": "male",
 "qid": "Q313667",
 "wd_birth": 1734,
 "wd_death": 1829
@@ -2483,6 +2793,7 @@
 "birth": 1943,
 "canonical": "Fred Lerdahl",
 "death": null,
+"gender": "male",
 "qid": "Q5495769",
 "wd_birth": 1943,
 "wd_death": null
@@ -2491,6 +2802,7 @@
 "birth": 1970,
 "canonical": "Alfred Momotenko-Levitsky",
 "death": null,
+"gender": "male",
 "qid": "Q16212297",
 "wd_birth": 1970,
 "wd_death": null
@@ -2499,6 +2811,7 @@
 "birth": 1902,
 "canonical": "Freda Swain",
 "death": 1985,
+"gender": "female",
 "qid": "Q5496661",
 "wd_birth": 1902,
 "wd_death": 1985
@@ -2507,6 +2820,7 @@
 "birth": 1862,
 "canonical": "Frederick Delius",
 "death": 1934,
+"gender": "male",
 "qid": "Q312698",
 "wd_birth": 1862,
 "wd_death": 1934
@@ -2515,6 +2829,7 @@
 "birth": 1962,
 "canonical": "Fredrik Sixten",
 "death": null,
+"gender": "male",
 "qid": "Q4419073",
 "wd_birth": 1962,
 "wd_death": null
@@ -2523,6 +2838,7 @@
 "birth": 1989,
 "canonical": "Freya Waley-Cohen",
 "death": null,
+"gender": "female",
 "qid": "Q76204478",
 "wd_birth": 1989,
 "wd_death": null
@@ -2531,6 +2847,7 @@
 "birth": 1891,
 "canonical": "Frida Kern",
 "death": 1988,
+"gender": "female",
 "qid": "Q1317807",
 "wd_birth": 1891,
 "wd_death": 1988
@@ -2539,6 +2856,7 @@
 "birth": 1789,
 "canonical": "Friedrich Ernst Fesca",
 "death": 1826,
+"gender": "male",
 "qid": "Q325731",
 "wd_birth": 1789,
 "wd_death": 1826
@@ -2547,6 +2865,7 @@
 "birth": 1839,
 "canonical": "Friedrich Gernsheim",
 "death": 1916,
+"gender": "male",
 "qid": "Q213751",
 "wd_birth": 1839,
 "wd_death": 1916
@@ -2555,6 +2874,7 @@
 "birth": 1821,
 "canonical": "Friedrich Kiel",
 "death": 1885,
+"gender": "male",
 "qid": "Q694191",
 "wd_birth": 1821,
 "wd_death": 1885
@@ -2563,6 +2883,7 @@
 "birth": 1862,
 "canonical": "Friedrich Klose",
 "death": 1942,
+"gender": "male",
 "qid": "Q458560",
 "wd_birth": 1862,
 "wd_death": 1942
@@ -2571,6 +2892,7 @@
 "birth": 1786,
 "canonical": "Friedrich Schneider",
 "death": 1853,
+"gender": "male",
 "qid": "Q213906",
 "wd_birth": 1786,
 "wd_death": 1853
@@ -2579,6 +2901,7 @@
 "birth": 1878,
 "canonical": "Fritz Brun",
 "death": 1959,
+"gender": "male",
 "qid": "Q124166",
 "wd_birth": 1878,
 "wd_death": 1959
@@ -2587,6 +2910,7 @@
 "birth": 1875,
 "canonical": "Fritz Kreisler",
 "death": 1962,
+"gender": "male",
 "qid": "Q78517",
 "wd_birth": 1875,
 "wd_death": 1962
@@ -2595,6 +2919,7 @@
 "birth": 1810,
 "canonical": "Félicien David",
 "death": 1876,
+"gender": "male",
 "qid": "Q951933",
 "wd_birth": 1810,
 "wd_death": 1876
@@ -2603,6 +2928,7 @@
 "birth": 1845,
 "canonical": "Gabriel Fauré",
 "death": 1924,
+"gender": "male",
 "qid": "Q104919",
 "wd_birth": 1845,
 "wd_death": 1924
@@ -2611,6 +2937,7 @@
 "birth": 1972,
 "canonical": "Gabriela Lena Frank",
 "death": null,
+"gender": "female",
 "qid": "Q1489991",
 "wd_birth": 1972,
 "wd_death": null
@@ -2619,6 +2946,7 @@
 "birth": 1944,
 "canonical": "Gabriella Cecchi",
 "death": null,
+"gender": "female",
 "qid": "Q5516034",
 "wd_birth": 1944,
 "wd_death": null
@@ -2627,6 +2955,7 @@
 "birth": 1744,
 "canonical": "Gaetano Brunetti",
 "death": 1798,
+"gender": "male",
 "qid": "Q972592",
 "wd_birth": 1744,
 "wd_death": 1798
@@ -2635,6 +2964,7 @@
 "birth": 1797,
 "canonical": "Gaetano Donizetti",
 "death": 1848,
+"gender": "male",
 "qid": "Q101698",
 "wd_birth": 1797,
 "wd_death": 1848
@@ -2643,6 +2973,7 @@
 "birth": 1962,
 "canonical": "Galina Grigorjeva",
 "death": null,
+"gender": "female",
 "qid": "Q544608",
 "wd_birth": 1962,
 "wd_death": null
@@ -2651,6 +2982,7 @@
 "birth": 1943,
 "canonical": "Gavin Bryars",
 "death": null,
+"gender": "male",
 "qid": "Q713939",
 "wd_birth": 1943,
 "wd_death": null
@@ -2659,6 +2991,7 @@
 "birth": 1770,
 "canonical": "Georg Abraham Schneider",
 "death": 1839,
+"gender": "male",
 "qid": "Q322434",
 "wd_birth": 1770,
 "wd_death": 1839
@@ -2667,6 +3000,7 @@
 "birth": 1953,
 "canonical": "Georg Friedrich Haas",
 "death": null,
+"gender": "male",
 "qid": "Q49388",
 "wd_birth": 1953,
 "wd_death": null
@@ -2675,6 +3009,7 @@
 "birth": 1790,
 "canonical": "Georg Gerson",
 "death": 1825,
+"gender": "male",
 "qid": "Q1504449",
 "wd_birth": 1790,
 "wd_death": 1825
@@ -2683,6 +3018,7 @@
 "birth": 1681,
 "canonical": "Georg Philipp Telemann",
 "death": 1767,
+"gender": "male",
 "qid": "Q75854",
 "wd_birth": 1681,
 "wd_death": 1767
@@ -2691,6 +3027,7 @@
 "birth": 1844,
 "canonical": "Georg Wilhelm Rauchenecker",
 "death": 1906,
+"gender": "male",
 "qid": "Q75985",
 "wd_birth": 1844,
 "wd_death": 1906
@@ -2699,6 +3036,7 @@
 "birth": 1813,
 "canonical": "George Alexander Macfarren",
 "death": 1887,
+"gender": "male",
 "qid": "Q1374708",
 "wd_birth": 1813,
 "wd_death": 1887
@@ -2707,6 +3045,7 @@
 "birth": 1900,
 "canonical": "George Antheil",
 "death": 1959,
+"gender": "male",
 "qid": "Q137739",
 "wd_birth": 1900,
 "wd_death": 1959
@@ -2715,6 +3054,7 @@
 "birth": 1929,
 "canonical": "George Crumb",
 "death": 2022,
+"gender": "male",
 "qid": "Q356804",
 "wd_birth": 1929,
 "wd_death": 2022
@@ -2723,6 +3063,7 @@
 "birth": 1881,
 "canonical": "George Enescu",
 "death": 1955,
+"gender": "male",
 "qid": "Q77177",
 "wd_birth": 1881,
 "wd_death": 1955
@@ -2731,6 +3072,7 @@
 "birth": 1898,
 "canonical": "George Gershwin",
 "death": 1937,
+"gender": "male",
 "qid": "Q123829",
 "wd_birth": 1898,
 "wd_death": 1937
@@ -2739,6 +3081,7 @@
 "birth": 1784,
 "canonical": "George Onslow (composer)",
 "death": 1853,
+"gender": "male",
 "qid": "Q380935",
 "wd_birth": 1784,
 "wd_death": 1853
@@ -2747,6 +3090,7 @@
 "birth": 1915,
 "canonical": "George Perle",
 "death": 2009,
+"gender": "male",
 "qid": "Q201359",
 "wd_birth": 1915,
 "wd_death": 2009
@@ -2755,6 +3099,7 @@
 "birth": 1918,
 "canonical": "George Rochberg",
 "death": 2005,
+"gender": "male",
 "qid": "Q710733",
 "wd_birth": 1918,
 "wd_death": 2005
@@ -2763,6 +3108,7 @@
 "birth": 1951,
 "canonical": "George Tsontakis",
 "death": null,
+"gender": "male",
 "qid": "Q2114123",
 "wd_birth": 1951,
 "wd_death": null
@@ -2771,6 +3117,7 @@
 "birth": 1965,
 "canonical": "Georges Lentz",
 "death": null,
+"gender": "male",
 "qid": "Q1298330",
 "wd_birth": 1965,
 "wd_death": null
@@ -2779,6 +3126,7 @@
 "birth": 1917,
 "canonical": "Geraldine Mucha",
 "death": 2012,
+"gender": "female",
 "qid": "Q3305113",
 "wd_birth": 1917,
 "wd_death": 2012
@@ -2787,6 +3135,7 @@
 "birth": 1957,
 "canonical": "Gerhard Präsent",
 "death": null,
+"gender": "male",
 "qid": "Q90380",
 "wd_birth": 1957,
 "wd_death": null
@@ -2795,6 +3144,7 @@
 "birth": 1892,
 "canonical": "Germaine Tailleferre",
 "death": 1983,
+"gender": "female",
 "qid": "Q376383",
 "wd_birth": 1892,
 "wd_death": 1983
@@ -2803,6 +3153,7 @@
 "birth": 1905,
 "canonical": "Giacinto Scelsi",
 "death": 1988,
+"gender": "male",
 "qid": "Q456751",
 "wd_birth": 1905,
 "wd_death": 1988
@@ -2811,6 +3162,7 @@
 "birth": 1858,
 "canonical": "Giacomo Puccini",
 "death": 1924,
+"gender": "male",
 "qid": "Q7311",
 "wd_birth": 1858,
 "wd_death": 1924
@@ -2819,6 +3171,7 @@
 "birth": 1882,
 "canonical": "Gian Francesco Malipiero",
 "death": 1973,
+"gender": "male",
 "qid": "Q318968",
 "wd_birth": 1882,
 "wd_death": 1973
@@ -2827,6 +3180,7 @@
 "birth": 1975,
 "canonical": "Gilda Lyons",
 "death": null,
+"gender": "female",
 "qid": "Q18344534",
 "wd_birth": 1975,
 "wd_death": null
@@ -2835,6 +3189,7 @@
 "birth": 1941,
 "canonical": "Gillian Whitehead",
 "death": null,
+"gender": "female",
 "qid": "Q5562312",
 "wd_birth": 1941,
 "wd_death": null
@@ -2843,6 +3198,7 @@
 "birth": 1724,
 "canonical": "Giovanni Battista Cirri",
 "death": 1808,
+"gender": "male",
 "qid": "Q451069",
 "wd_birth": 1724,
 "wd_death": 1808
@@ -2851,6 +3207,7 @@
 "birth": 1700,
 "canonical": "Giovanni Battista Sammartini",
 "death": 1775,
+"gender": "male",
 "qid": "Q217435",
 "wd_birth": 1700,
 "wd_death": 1775
@@ -2859,6 +3216,7 @@
 "birth": 1755,
 "canonical": "Giovanni Battista Viotti",
 "death": 1824,
+"gender": "male",
 "qid": "Q313188",
 "wd_birth": 1755,
 "wd_death": 1824
@@ -2867,6 +3225,7 @@
 "birth": 1740,
 "canonical": "Giovanni Paisiello",
 "death": 1816,
+"gender": "male",
 "qid": "Q202303",
 "wd_birth": 1740,
 "wd_death": 1816
@@ -2875,6 +3234,7 @@
 "birth": 1841,
 "canonical": "Giovanni Sgambati",
 "death": 1914,
+"gender": "male",
 "qid": "Q1339344",
 "wd_birth": 1841,
 "wd_death": 1914
@@ -2883,6 +3243,7 @@
 "birth": 1932,
 "canonical": "Gitta Steiner",
 "death": 1990,
+"gender": "female",
 "qid": "Q5565151",
 "wd_birth": 1932,
 "wd_death": 1990
@@ -2891,6 +3252,7 @@
 "birth": 1890,
 "canonical": "Giulia Recli",
 "death": 1970,
+"gender": "female",
 "qid": "Q3769296",
 "wd_birth": 1890,
 "wd_death": 1970
@@ -2899,6 +3261,7 @@
 "birth": 1746,
 "canonical": "Giuseppe Cambini",
 "death": 1825,
+"gender": "male",
 "qid": "Q656230",
 "wd_birth": 1746,
 "wd_death": 1825
@@ -2907,6 +3270,7 @@
 "birth": 1813,
 "canonical": "Giuseppe Verdi",
 "death": 1901,
+"gender": "male",
 "qid": "Q7317",
 "wd_birth": 1813,
 "wd_death": 1901
@@ -2915,6 +3279,7 @@
 "birth": 1932,
 "canonical": "Glenn Gould",
 "death": 1982,
+"gender": "male",
 "qid": "Q216924",
 "wd_birth": 1932,
 "wd_death": 1982
@@ -2923,6 +3288,7 @@
 "birth": 1933,
 "canonical": "Gloria Coates",
 "death": 2023,
+"gender": "female",
 "qid": "Q178208",
 "wd_birth": 1933,
 "wd_death": 2023
@@ -2931,6 +3297,7 @@
 "birth": 1945,
 "canonical": "Graciane Finzi",
 "death": null,
+"gender": "female",
 "qid": "Q3113039",
 "wd_birth": 1945,
 "wd_death": null
@@ -2939,6 +3306,7 @@
 "birth": 1963,
 "canonical": "Graham Fitkin",
 "death": null,
+"gender": "male",
 "qid": "Q5592824",
 "wd_birth": 1963,
 "wd_death": null
@@ -2947,6 +3315,7 @@
 "birth": 1962,
 "canonical": "Graham Waterhouse",
 "death": null,
+"gender": "male",
 "qid": "Q1541977",
 "wd_birth": 1962,
 "wd_death": null
@@ -2955,6 +3324,7 @@
 "birth": 1909,
 "canonical": "Grażyna Bacewicz",
 "death": 1969,
+"gender": "female",
 "qid": "Q230978",
 "wd_birth": 1909,
 "wd_death": 1969
@@ -2963,6 +3333,7 @@
 "birth": 1952,
 "canonical": "Grażyna Krzanowska",
 "death": null,
+"gender": "female",
 "qid": "Q5598520",
 "wd_birth": 1952,
 "wd_death": null
@@ -2971,6 +3342,7 @@
 "birth": 1967,
 "canonical": "Gregor Huebner",
 "death": null,
+"gender": "male",
 "qid": "Q1545097",
 "wd_birth": 1967,
 "wd_death": null
@@ -2979,6 +3351,7 @@
 "birth": 1582,
 "canonical": "Gregorio Allegri",
 "death": 1652,
+"gender": "male",
 "qid": "Q216695",
 "wd_birth": 1582,
 "wd_death": 1652
@@ -2987,6 +3360,7 @@
 "birth": 1907,
 "canonical": "Guirne Creith",
 "death": 1996,
+"gender": "female",
 "qid": "Q2517600",
 "wd_birth": 1907,
 "wd_death": 1996
@@ -2995,6 +3369,7 @@
 "birth": 1925,
 "canonical": "Gunther Schuller",
 "death": 2015,
+"gender": "male",
 "qid": "Q704154",
 "wd_birth": 1925,
 "wd_death": 2015
@@ -3003,6 +3378,7 @@
 "birth": 1865,
 "canonical": "Gustav Jenner",
 "death": 1920,
+"gender": "male",
 "qid": "Q315150",
 "wd_birth": 1865,
 "wd_death": 1920
@@ -3011,6 +3387,7 @@
 "birth": 1877,
 "canonical": "Gustave Samazeuilh",
 "death": 1967,
+"gender": "male",
 "qid": "Q447590",
 "wd_birth": 1877,
 "wd_death": 1967
@@ -3019,6 +3396,7 @@
 "birth": 1864,
 "canonical": "Guy Ropartz",
 "death": 1955,
+"gender": "male",
 "qid": "Q1379409",
 "wd_birth": 1864,
 "wd_death": 1955
@@ -3027,6 +3405,7 @@
 "birth": 1947,
 "canonical": "Gwyneth Van Anden Walker",
 "death": null,
+"gender": "female",
 "qid": "Q5623852",
 "wd_birth": 1947,
 "wd_death": null
@@ -3035,6 +3414,7 @@
 "birth": 1926,
 "canonical": "György Kurtág",
 "death": null,
+"gender": "male",
 "qid": "Q48184",
 "wd_birth": 1926,
 "wd_death": null
@@ -3043,6 +3423,7 @@
 "birth": 1923,
 "canonical": "György Ligeti",
 "death": 2006,
+"gender": "male",
 "qid": "Q154331",
 "wd_birth": 1923,
 "wd_death": 2006
@@ -3051,6 +3432,7 @@
 "birth": 1903,
 "canonical": "Günter Raphael",
 "death": 1960,
+"gender": "male",
 "qid": "Q542279",
 "wd_birth": 1903,
 "wd_death": 1960
@@ -3059,6 +3441,7 @@
 "birth": 1958,
 "canonical": "Hanna Havrylets",
 "death": 2022,
+"gender": "female",
 "qid": "Q5648689",
 "wd_birth": 1958,
 "wd_death": 2022
@@ -3067,6 +3450,7 @@
 "birth": 1961,
 "canonical": "Hanna Kulenty",
 "death": null,
+"gender": "female",
 "qid": "Q453451",
 "wd_birth": 1961,
 "wd_death": null
@@ -3075,6 +3459,7 @@
 "birth": 1984,
 "canonical": "Hannah Kendall",
 "death": null,
+"gender": "female",
 "qid": "Q19874820",
 "wd_birth": 1984,
 "wd_death": null
@@ -3083,6 +3468,7 @@
 "birth": 1898,
 "canonical": "Hanns Eisler",
 "death": 1962,
+"gender": "male",
 "qid": "Q78704",
 "wd_birth": 1898,
 "wd_death": 1962
@@ -3091,6 +3477,7 @@
 "birth": 1952,
 "canonical": "Hans Abrahamsen",
 "death": null,
+"gender": "male",
 "qid": "Q937743",
 "wd_birth": 1952,
 "wd_death": null
@@ -3099,6 +3486,7 @@
 "birth": 1901,
 "canonical": "Hans Erich Apostel",
 "death": 1972,
+"gender": "male",
 "qid": "Q643317",
 "wd_birth": 1901,
 "wd_death": 1972
@@ -3107,6 +3495,7 @@
 "birth": 1899,
 "canonical": "Hans Krása",
 "death": 1944,
+"gender": "male",
 "qid": "Q695501",
 "wd_birth": 1899,
 "wd_death": 1944
@@ -3115,6 +3504,7 @@
 "birth": 1869,
 "canonical": "Hans Pfitzner",
 "death": 1949,
+"gender": "male",
 "qid": "Q57358",
 "wd_birth": 1869,
 "wd_death": 1949
@@ -3123,6 +3513,7 @@
 "birth": 1926,
 "canonical": "Hans Werner Henze",
 "death": 2012,
+"gender": "male",
 "qid": "Q76915",
 "wd_birth": 1926,
 "wd_death": 2012
@@ -3131,6 +3522,7 @@
 "birth": 1960,
 "canonical": "Hanspeter Kyburz",
 "death": null,
+"gender": "male",
 "qid": "Q690254",
 "wd_birth": 1960,
 "wd_death": null
@@ -3139,6 +3531,7 @@
 "birth": 1934,
 "canonical": "Harrison Birtwistle",
 "death": 2022,
+"gender": "male",
 "qid": "Q354335",
 "wd_birth": 1934,
 "wd_death": 2022
@@ -3147,6 +3540,7 @@
 "birth": 1843,
 "canonical": "Heinrich von Herzogenberg",
 "death": 1900,
+"gender": "male",
 "qid": "Q680690",
 "wd_birth": 1843,
 "wd_death": 1900
@@ -3155,6 +3549,7 @@
 "birth": 1939,
 "canonical": "Heinz Holliger",
 "death": null,
+"gender": "male",
 "qid": "Q123359",
 "wd_birth": 1939,
 "wd_death": null
@@ -3163,6 +3558,7 @@
 "birth": 1946,
 "canonical": "Heinz Winbeck",
 "death": 2019,
+"gender": "male",
 "qid": "Q1601172",
 "wd_birth": 1946,
 "wd_death": 2019
@@ -3171,6 +3567,7 @@
 "birth": 1887,
 "canonical": "Heitor Villa-Lobos",
 "death": 1959,
+"gender": "male",
 "qid": "Q203514",
 "wd_birth": 1887,
 "wd_death": 1959
@@ -3179,6 +3576,7 @@
 "birth": 1981,
 "canonical": "Helen Grime",
 "death": null,
+"gender": "female",
 "qid": "Q5702416",
 "wd_birth": 1981,
 "wd_death": null
@@ -3187,6 +3585,7 @@
 "birth": 1972,
 "canonical": "Helena Tulve",
 "death": null,
+"gender": "female",
 "qid": "Q458031",
 "wd_birth": 1972,
 "wd_death": null
@@ -3195,6 +3594,7 @@
 "birth": 1974,
 "canonical": "Helena Winkelman",
 "death": null,
+"gender": "female",
 "qid": "Q1601911",
 "wd_birth": 1974,
 "wd_death": null
@@ -3203,6 +3603,7 @@
 "birth": 1935,
 "canonical": "Helmut Lachenmann",
 "death": null,
+"gender": "male",
 "qid": "Q549442",
 "wd_birth": 1935,
 "wd_death": null
@@ -3211,6 +3612,7 @@
 "birth": 1916,
 "canonical": "Henri Dutilleux",
 "death": 2013,
+"gender": "male",
 "qid": "Q318829",
 "wd_birth": 1916,
 "wd_death": 2013
@@ -3219,6 +3621,7 @@
 "birth": 1901,
 "canonical": "Henri Sauguet",
 "death": 1989,
+"gender": "male",
 "qid": "Q708863",
 "wd_birth": 1901,
 "wd_death": 1989
@@ -3227,6 +3630,7 @@
 "birth": 1820,
 "canonical": "Henri Vieuxtemps",
 "death": 1881,
+"gender": "male",
 "qid": "Q312790",
 "wd_birth": 1820,
 "wd_death": 1881
@@ -3235,6 +3639,7 @@
 "birth": 1741,
 "canonical": "Henri-Joseph Rigel",
 "death": 1799,
+"gender": "male",
 "qid": "Q475990",
 "wd_birth": 1741,
 "wd_death": 1799
@@ -3243,6 +3648,7 @@
 "birth": 1895,
 "canonical": "Henriëtte Bosmans",
 "death": 1952,
+"gender": "female",
 "qid": "Q468248",
 "wd_birth": 1895,
 "wd_death": 1952
@@ -3251,6 +3657,7 @@
 "birth": 1897,
 "canonical": "Henry Cowell",
 "death": 1965,
+"gender": "male",
 "qid": "Q434610",
 "wd_birth": 1897,
 "wd_death": 1965
@@ -3259,6 +3666,7 @@
 "birth": 1871,
 "canonical": "Henry Kimball Hadley",
 "death": 1937,
+"gender": "male",
 "qid": "Q707340",
 "wd_birth": 1871,
 "wd_death": 1937
@@ -3267,6 +3675,7 @@
 "birth": 1973,
 "canonical": "Henry Vega",
 "death": null,
+"gender": "male",
 "qid": "Q5729515",
 "wd_birth": 1973,
 "wd_death": null
@@ -3275,6 +3684,7 @@
 "birth": 1933,
 "canonical": "Henryk Górecki",
 "death": 2010,
+"gender": "male",
 "qid": "Q294568",
 "wd_birth": 1933,
 "wd_death": 2010
@@ -3283,6 +3693,7 @@
 "birth": 1936,
 "canonical": "Herbert Blendinger",
 "death": 2020,
+"gender": "male",
 "qid": "Q1608073",
 "wd_birth": 1936,
 "wd_death": 2020
@@ -3291,6 +3702,7 @@
 "birth": 1899,
 "canonical": "Herbert Griffiths",
 "death": 1969,
+"gender": "male",
 "qid": "Q20738373",
 "wd_birth": 1899,
 "wd_death": 1969
@@ -3299,6 +3711,7 @@
 "birth": 1840,
 "canonical": "Hermann Goetz",
 "death": 1876,
+"gender": "male",
 "qid": "Q61841",
 "wd_birth": 1840,
 "wd_death": 1876
@@ -3307,6 +3720,7 @@
 "birth": 1947,
 "canonical": "Hilary Tann",
 "death": 2023,
+"gender": "female",
 "qid": "Q14949186",
 "wd_birth": 1947,
 "wd_death": 2023
@@ -3315,6 +3729,7 @@
 "birth": 1957,
 "canonical": "Hilda Paredes",
 "death": null,
+"gender": "female",
 "qid": "Q5761449",
 "wd_birth": 1957,
 "wd_death": null
@@ -3323,6 +3738,7 @@
 "birth": 1858,
 "canonical": "Hilda Sehested",
 "death": 1936,
+"gender": "female",
 "qid": "Q1618184",
 "wd_birth": 1858,
 "wd_death": 1936
@@ -3331,6 +3747,7 @@
 "birth": 1892,
 "canonical": "Hilding Rosenberg",
 "death": 1985,
+"gender": "male",
 "qid": "Q959391",
 "wd_birth": 1892,
 "wd_death": 1985
@@ -3339,6 +3756,7 @@
 "birth": 1942,
 "canonical": "Horațiu Rădulescu",
 "death": 2008,
+"gender": "male",
 "qid": "Q1235832",
 "wd_birth": 1942,
 "wd_death": 2008
@@ -3347,6 +3765,7 @@
 "birth": 1896,
 "canonical": "Howard Hanson",
 "death": 1981,
+"gender": "male",
 "qid": "Q382748",
 "wd_birth": 1896,
 "wd_death": 1981
@@ -3355,6 +3774,7 @@
 "birth": 1848,
 "canonical": "Hubert Parry",
 "death": 1918,
+"gender": "male",
 "qid": "Q354250",
 "wd_birth": 1848,
 "wd_death": 1918
@@ -3363,6 +3783,7 @@
 "birth": 1888,
 "canonical": "Hugo Kauder",
 "death": 1972,
+"gender": "male",
 "qid": "Q5934086",
 "wd_birth": 1888,
 "wd_death": 1972
@@ -3371,6 +3792,7 @@
 "birth": 1863,
 "canonical": "Hugo Kaun",
 "death": 1932,
+"gender": "male",
 "qid": "Q460110",
 "wd_birth": 1863,
 "wd_death": 1932
@@ -3379,6 +3801,7 @@
 "birth": 1860,
 "canonical": "Hugo Wolf",
 "death": 1903,
+"gender": "male",
 "qid": "Q215747",
 "wd_birth": 1860,
 "wd_death": 1903
@@ -3387,6 +3810,7 @@
 "birth": 1776,
 "canonical": "Hyacinthe Jadin",
 "death": 1800,
+"gender": "male",
 "qid": "Q1639751",
 "wd_birth": 1776,
 "wd_death": 1800
@@ -3395,6 +3819,7 @@
 "birth": 1964,
 "canonical": "Ian Wilson (composer)",
 "death": null,
+"gender": "male",
 "qid": "Q2799689",
 "wd_birth": 1964,
 "wd_death": null
@@ -3403,6 +3828,7 @@
 "birth": 1922,
 "canonical": "Iannis Xenakis",
 "death": 2001,
+"gender": "male",
 "qid": "Q152880",
 "wd_birth": 1922,
 "wd_death": 2001
@@ -3411,6 +3837,7 @@
 "birth": 1931,
 "canonical": "Ib Nørholm",
 "death": 2019,
+"gender": "male",
 "qid": "Q1655734",
 "wd_birth": 1931,
 "wd_death": 2019
@@ -3419,6 +3846,7 @@
 "birth": 1859,
 "canonical": "Ida Moberg",
 "death": 1947,
+"gender": "female",
 "qid": "Q8112426",
 "wd_birth": 1859,
 "wd_death": 1947
@@ -3427,6 +3855,7 @@
 "birth": 1903,
 "canonical": "Iet Stants",
 "death": 1968,
+"gender": "female",
 "qid": "Q28064178",
 "wd_birth": 1903,
 "wd_death": 1968
@@ -3435,6 +3864,7 @@
 "birth": 1757,
 "canonical": "Ignaz Pleyel",
 "death": 1831,
+"gender": "male",
 "qid": "Q314019",
 "wd_birth": 1757,
 "wd_death": 1831
@@ -3443,6 +3873,7 @@
 "birth": 1881,
 "canonical": "Ignatz Waghalter",
 "death": 1949,
+"gender": "male",
 "qid": "Q214131",
 "wd_birth": 1881,
 "wd_death": 1949
@@ -3451,6 +3882,7 @@
 "birth": 1807,
 "canonical": "Ignaz Lachner",
 "death": 1895,
+"gender": "male",
 "qid": "Q113063",
 "wd_birth": 1807,
 "wd_death": 1895
@@ -3459,6 +3891,7 @@
 "birth": 1882,
 "canonical": "Igor Stravinsky",
 "death": 1971,
+"gender": "male",
 "qid": "Q7314",
 "wd_birth": 1882,
 "wd_death": 1971
@@ -3467,6 +3900,7 @@
 "birth": 1845,
 "canonical": "Ika Peyron",
 "death": 1922,
+"gender": "female",
 "qid": "Q1195141",
 "wd_birth": 1845,
 "wd_death": 1922
@@ -3475,6 +3909,7 @@
 "birth": 1880,
 "canonical": "Ildebrando Pizzetti",
 "death": 1968,
+"gender": "male",
 "qid": "Q379267",
 "wd_birth": 1880,
 "wd_death": 1968
@@ -3483,6 +3918,7 @@
 "birth": 1907,
 "canonical": "Imogen Holst",
 "death": 1984,
+"gender": "female",
 "qid": "Q444380",
 "wd_birth": 1907,
 "wd_death": 1984
@@ -3491,6 +3927,7 @@
 "birth": 1889,
 "canonical": "Ina Boyle",
 "death": 1967,
+"gender": "female",
 "qid": "Q6013167",
 "wd_birth": 1889,
 "wd_death": 1967
@@ -3499,6 +3936,7 @@
 "birth": 1942,
 "canonical": "Ingram Marshall",
 "death": 2022,
+"gender": "male",
 "qid": "Q3150959",
 "wd_birth": 1942,
 "wd_death": 2022
@@ -3507,6 +3945,7 @@
 "birth": 1971,
 "canonical": "Ingrid Stölzel",
 "death": null,
+"gender": "female",
 "qid": "Q28043337",
 "wd_birth": 1971,
 "wd_death": null
@@ -3515,6 +3954,7 @@
 "birth": 1956,
 "canonical": "Iris Szeghy",
 "death": null,
+"gender": "female",
 "qid": "Q440497",
 "wd_birth": 1956,
 "wd_death": null
@@ -3523,6 +3963,7 @@
 "birth": 1963,
 "canonical": "Isabel Mundry",
 "death": null,
+"gender": "female",
 "qid": "Q71786",
 "wd_birth": 1963,
 "wd_death": null
@@ -3531,6 +3972,7 @@
 "birth": 1917,
 "canonical": "Isang Yun",
 "death": 1995,
+"gender": "male",
 "qid": "Q153611",
 "wd_birth": 1917,
 "wd_death": 1995
@@ -3539,6 +3981,7 @@
 "birth": 1967,
 "canonical": "Isidora Žebeljan",
 "death": 2020,
+"gender": "female",
 "qid": "Q1565523",
 "wd_birth": 1967,
 "wd_death": 2020
@@ -3547,6 +3990,7 @@
 "birth": 1941,
 "canonical": "Ivana Loudová",
 "death": 2017,
+"gender": "female",
 "qid": "Q1396028",
 "wd_birth": 1941,
 "wd_death": 2017
@@ -3555,6 +3999,7 @@
 "birth": 1936,
 "canonical": "Iván Erőd",
 "death": 2019,
+"gender": "male",
 "qid": "Q1121393",
 "wd_birth": 1936,
 "wd_death": 2019
@@ -3563,6 +4008,7 @@
 "birth": 1879,
 "canonical": "Jacob Weinberg",
 "death": 1956,
+"gender": "male",
 "qid": "Q19668022",
 "wd_birth": 1879,
 "wd_death": 1956
@@ -3571,6 +4017,7 @@
 "birth": 1930,
 "canonical": "Jacqueline Fontyn",
 "death": null,
+"gender": "female",
 "qid": "Q273031",
 "wd_birth": 1930,
 "wd_death": null
@@ -3579,6 +4026,7 @@
 "birth": 1813,
 "canonical": "Jakob Rosenhain",
 "death": 1894,
+"gender": "male",
 "qid": "Q216233",
 "wd_birth": 1813,
 "wd_death": 1894
@@ -3587,6 +4035,7 @@
 "birth": 1957,
 "canonical": "James Clarke (composer)",
 "death": null,
+"gender": "male",
 "qid": "Q6131392",
 "wd_birth": 1957,
 "wd_death": null
@@ -3595,6 +4044,7 @@
 "birth": 1950,
 "canonical": "James Dillon (composer)",
 "death": null,
+"gender": "male",
 "qid": "Q709092",
 "wd_birth": 1950,
 "wd_death": null
@@ -3603,6 +4053,7 @@
 "birth": 1932,
 "canonical": "James Douglas (composer)",
 "death": 2022,
+"gender": "male",
 "qid": "Q6132767",
 "wd_birth": 1932,
 "wd_death": 2022
@@ -3611,6 +4062,7 @@
 "birth": 1969,
 "canonical": "James Francis Brown",
 "death": null,
+"gender": "male",
 "qid": "Q6134146",
 "wd_birth": 1969,
 "wd_death": null
@@ -3619,6 +4071,7 @@
 "birth": 1959,
 "canonical": "James MacMillan",
 "death": null,
+"gender": "male",
 "qid": "Q714541",
 "wd_birth": 1959,
 "wd_death": null
@@ -3627,6 +4080,7 @@
 "birth": 1801,
 "canonical": "Jan Kalivoda",
 "death": 1866,
+"gender": "male",
 "qid": "Q642243",
 "wd_birth": 1801,
 "wd_death": 1866
@@ -3635,6 +4089,7 @@
 "birth": 1934,
 "canonical": "Jan Klusák",
 "death": null,
+"gender": "male",
 "qid": "Q1664987",
 "wd_birth": 1934,
 "wd_death": null
@@ -3643,6 +4098,7 @@
 "birth": 1760,
 "canonical": "Jan Ladislav Dussek",
 "death": 1812,
+"gender": "male",
 "qid": "Q357172",
 "wd_birth": 1760,
 "wd_death": 1812
@@ -3651,6 +4107,7 @@
 "birth": 1946,
 "canonical": "Jane O'Leary",
 "death": null,
+"gender": "female",
 "qid": "Q6152594",
 "wd_birth": 1946,
 "wd_death": null
@@ -3659,6 +4116,7 @@
 "birth": 1937,
 "canonical": "Janet Beat",
 "death": null,
+"gender": "female",
 "qid": "Q6153186",
 "wd_birth": 1937,
 "wd_death": null
@@ -3667,6 +4125,7 @@
 "birth": 1879,
 "canonical": "Jean Cras",
 "death": 1932,
+"gender": "male",
 "qid": "Q1685459",
 "wd_birth": 1879,
 "wd_death": 1932
@@ -3675,6 +4134,7 @@
 "birth": 1912,
 "canonical": "Jean Françaix",
 "death": 1997,
+"gender": "male",
 "qid": "Q39319",
 "wd_birth": 1912,
 "wd_death": 1997
@@ -3683,6 +4143,7 @@
 "birth": 1896,
 "canonical": "Jean Rivier",
 "death": 1987,
+"gender": "male",
 "qid": "Q1685791",
 "wd_birth": 1896,
 "wd_death": 1987
@@ -3691,6 +4152,7 @@
 "birth": 1865,
 "canonical": "Jean Sibelius",
 "death": 1957,
+"gender": "male",
 "qid": "Q45682",
 "wd_birth": 1865,
 "wd_death": 1957
@@ -3699,6 +4161,7 @@
 "birth": 1895,
 "canonical": "Jeanne Barbillion",
 "death": 1992,
+"gender": "female",
 "qid": "Q98137338",
 "wd_birth": 1895,
 "wd_death": 1992
@@ -3707,6 +4170,7 @@
 "birth": 1878,
 "canonical": "Jeanne Beijerman-Walraven",
 "death": 1969,
+"gender": "female",
 "qid": "Q6172024",
 "wd_birth": 1878,
 "wd_death": 1969
@@ -3715,6 +4179,7 @@
 "birth": 1948,
 "canonical": "Jeanne Zaidel-Rudolph",
 "death": null,
+"gender": "female",
 "qid": "Q6172220",
 "wd_birth": 1948,
 "wd_death": null
@@ -3723,6 +4188,7 @@
 "birth": 1974,
 "canonical": "Jefferson Friedman",
 "death": null,
+"gender": "male",
 "qid": "Q6175472",
 "wd_birth": 1974,
 "wd_death": null
@@ -3731,6 +4197,7 @@
 "birth": 1939,
 "canonical": "Jennifer Fowler",
 "death": null,
+"gender": "female",
 "qid": "Q6178325",
 "wd_birth": 1939,
 "wd_death": null
@@ -3739,6 +4206,7 @@
 "birth": 1962,
 "canonical": "Jennifer Higdon",
 "death": null,
+"gender": "female",
 "qid": "Q289468",
 "wd_birth": 1962,
 "wd_death": null
@@ -3747,6 +4215,7 @@
 "birth": 1974,
 "canonical": "Jennifer Walshe",
 "death": null,
+"gender": "female",
 "qid": "Q2313131",
 "wd_birth": 1974,
 "wd_death": null
@@ -3755,6 +4224,7 @@
 "birth": 1941,
 "canonical": "Jenny McLeod",
 "death": 2022,
+"gender": "female",
 "qid": "Q6179396",
 "wd_birth": 1941,
 "wd_death": 2022
@@ -3763,6 +4233,7 @@
 "birth": 1981,
 "canonical": "Jessie Montgomery",
 "death": null,
+"gender": "female",
 "qid": "Q62113600",
 "wd_birth": 1981,
 "wd_death": null
@@ -3771,6 +4242,7 @@
 "birth": 1961,
 "canonical": "Jesús Rueda (composer)",
 "death": null,
+"gender": "male",
 "qid": "Q5930645",
 "wd_birth": 1961,
 "wd_death": null
@@ -3779,6 +4251,7 @@
 "birth": 1978,
 "canonical": "Jimmy López",
 "death": null,
+"gender": "male",
 "qid": "Q4352979",
 "wd_birth": 1978,
 "wd_death": null
@@ -3787,6 +4260,7 @@
 "birth": 1779,
 "canonical": "Joachim Nicolas Eggert",
 "death": 1813,
+"gender": "male",
 "qid": "Q70158",
 "wd_birth": 1779,
 "wd_death": 1813
@@ -3795,6 +4269,7 @@
 "birth": 1822,
 "canonical": "Joachim Raff",
 "death": 1882,
+"gender": "male",
 "qid": "Q547301",
 "wd_birth": 1822,
 "wd_death": 1882
@@ -3803,6 +4278,7 @@
 "birth": 1938,
 "canonical": "Joan Tower",
 "death": null,
+"gender": "female",
 "qid": "Q293218",
 "wd_birth": 1938,
 "wd_death": null
@@ -3811,6 +4287,7 @@
 "birth": 1943,
 "canonical": "Joanna Bruzdowicz",
 "death": 2021,
+"gender": "female",
 "qid": "Q441274",
 "wd_birth": 1943,
 "wd_death": 2021
@@ -3819,6 +4296,7 @@
 "birth": 1882,
 "canonical": "Joaquín Turina",
 "death": 1949,
+"gender": "male",
 "qid": "Q318077",
 "wd_birth": 1882,
 "wd_death": 1949
@@ -3827,6 +4305,7 @@
 "birth": 1946,
 "canonical": "Joelle Wallach",
 "death": null,
+"gender": "female",
 "qid": "Q1691766",
 "wd_birth": 1946,
 "wd_death": null
@@ -3835,6 +4314,7 @@
 "birth": 1982,
 "canonical": "Joey Roukens",
 "death": null,
+"gender": "male",
 "qid": "Q4846653",
 "wd_birth": 1982,
 "wd_death": null
@@ -3843,6 +4323,7 @@
 "birth": 1805,
 "canonical": "Johan Peter Emilius Hartmann",
 "death": 1900,
+"gender": "male",
 "qid": "Q507807",
 "wd_birth": 1805,
 "wd_death": 1900
@@ -3851,6 +4332,7 @@
 "birth": 1840,
 "canonical": "Johan Svendsen",
 "death": 1911,
+"gender": "male",
 "qid": "Q336668",
 "wd_birth": 1840,
 "wd_death": 1911
@@ -3859,6 +4341,7 @@
 "birth": 1739,
 "canonical": "Johann Baptist Wanhal",
 "death": 1813,
+"gender": "male",
 "qid": "Q450670",
 "wd_birth": 1739,
 "wd_death": 1813
@@ -3867,6 +4350,7 @@
 "birth": 1736,
 "canonical": "Johann Georg Albrechtsberger",
 "death": 1809,
+"gender": "male",
 "qid": "Q314164",
 "wd_birth": 1736,
 "wd_death": 1809
@@ -3875,6 +4359,7 @@
 "birth": 1832,
 "canonical": "Johann Joseph Abert",
 "death": 1915,
+"gender": "male",
 "qid": "Q550772",
 "wd_birth": 1832,
 "wd_death": 1915
@@ -3883,6 +4368,7 @@
 "birth": 1778,
 "canonical": "Johann Nepomuk Hummel",
 "death": 1837,
+"gender": "male",
 "qid": "Q151953",
 "wd_birth": 1778,
 "wd_death": 1837
@@ -3891,6 +4377,7 @@
 "birth": 1888,
 "canonical": "Johanna Beyer",
 "death": 1944,
+"gender": "female",
 "qid": "Q4163817",
 "wd_birth": 1888,
 "wd_death": 1944
@@ -3899,6 +4386,7 @@
 "birth": 1969,
 "canonical": "Johanna Doderer",
 "death": null,
+"gender": "female",
 "qid": "Q86409",
 "wd_birth": 1969,
 "wd_death": null
@@ -3907,6 +4395,7 @@
 "birth": 1868,
 "canonical": "Johanna Müller-Hermann",
 "death": 1941,
+"gender": "female",
 "qid": "Q534512",
 "wd_birth": 1868,
 "wd_death": 1941
@@ -3915,6 +4404,7 @@
 "birth": 1879,
 "canonical": "Johanna Senfter",
 "death": 1961,
+"gender": "female",
 "qid": "Q544248",
 "wd_birth": 1879,
 "wd_death": 1961
@@ -3923,6 +4413,7 @@
 "birth": 1801,
 "canonical": "Johannes Bernardus van Bree",
 "death": 1857,
+"gender": "male",
 "qid": "Q1697249",
 "wd_birth": 1801,
 "wd_death": 1857
@@ -3931,6 +4422,7 @@
 "birth": 1833,
 "canonical": "Johannes Brahms",
 "death": 1897,
+"gender": "male",
 "qid": "Q7294",
 "wd_birth": 1833,
 "wd_death": 1897
@@ -3939,6 +4431,7 @@
 "birth": 1767,
 "canonical": "Johannes Spech",
 "death": 1836,
+"gender": "male",
 "qid": "Q1290717",
 "wd_birth": 1767,
 "wd_death": 1836
@@ -3947,6 +4440,7 @@
 "birth": 1816,
 "canonical": "Johannes Verhulst",
 "death": 1891,
+"gender": "male",
 "qid": "Q964611",
 "wd_birth": 1816,
 "wd_death": 1891
@@ -3955,6 +4449,7 @@
 "birth": 1947,
 "canonical": "John Adams (composer)",
 "death": null,
+"gender": "male",
 "qid": "Q84114",
 "wd_birth": 1947,
 "wd_death": null
@@ -3963,6 +4458,7 @@
 "birth": 1868,
 "canonical": "John Blackwood McEwen",
 "death": 1948,
+"gender": "male",
 "qid": "Q373617",
 "wd_birth": 1868,
 "wd_death": 1948
@@ -3971,6 +4467,7 @@
 "birth": 1912,
 "canonical": "John Cage",
 "death": 1992,
+"gender": "male",
 "qid": "Q180727",
 "wd_birth": 1912,
 "wd_death": 1992
@@ -3979,6 +4476,7 @@
 "birth": 1938,
 "canonical": "John Corigliano",
 "death": null,
+"gender": "male",
 "qid": "Q450620",
 "wd_birth": 1938,
 "wd_death": null
@@ -3987,6 +4485,7 @@
 "birth": 1933,
 "canonical": "John Exton (composer)",
 "death": 2009,
+"gender": "male",
 "qid": "Q21598395",
 "wd_birth": 1933,
 "wd_death": 2009
@@ -3995,6 +4494,7 @@
 "birth": 1897,
 "canonical": "John Fernström",
 "death": 1961,
+"gender": "male",
 "qid": "Q955559",
 "wd_birth": 1897,
 "wd_death": 1961
@@ -4003,6 +4503,7 @@
 "birth": 1938,
 "canonical": "John Harbison",
 "death": null,
+"gender": "male",
 "qid": "Q2527585",
 "wd_birth": 1938,
 "wd_death": null
@@ -4011,6 +4512,7 @@
 "birth": 1879,
 "canonical": "John Ireland (composer)",
 "death": 1962,
+"gender": "male",
 "qid": "Q505910",
 "wd_birth": 1879,
 "wd_death": 1962
@@ -4019,6 +4521,7 @@
 "birth": 1932,
 "canonical": "John Kinsella (composer)",
 "death": 2021,
+"gender": "male",
 "qid": "Q11866752",
 "wd_birth": 1932,
 "wd_death": 2021
@@ -4027,6 +4530,7 @@
 "birth": 1801,
 "canonical": "John Lodge Ellerton",
 "death": 1873,
+"gender": "male",
 "qid": "Q6245118",
 "wd_birth": 1801,
 "wd_death": 1873
@@ -4035,6 +4539,7 @@
 "birth": 1953,
 "canonical": "John Luther Adams",
 "death": null,
+"gender": "male",
 "qid": "Q788469",
 "wd_birth": 1953,
 "wd_death": null
@@ -4043,6 +4548,7 @@
 "birth": 1939,
 "canonical": "John McCabe (composer)",
 "death": 2015,
+"gender": "male",
 "qid": "Q949396",
 "wd_birth": 1939,
 "wd_death": 2015
@@ -4051,6 +4557,7 @@
 "birth": 1944,
 "canonical": "John Tavener",
 "death": 2013,
+"gender": "male",
 "qid": "Q317350",
 "wd_birth": 1944,
 "wd_death": 2013
@@ -4059,6 +4566,7 @@
 "birth": 1908,
 "canonical": "John Verrall (composer)",
 "death": 2001,
+"gender": "male",
 "qid": "Q2470426",
 "wd_birth": 1908,
 "wd_death": 2001
@@ -4067,6 +4575,7 @@
 "birth": 1954,
 "canonical": "John Woolrich",
 "death": null,
+"gender": "male",
 "qid": "Q3333082",
 "wd_birth": 1954,
 "wd_death": null
@@ -4075,6 +4584,7 @@
 "birth": 1953,
 "canonical": "John Zorn",
 "death": null,
+"gender": "male",
 "qid": "Q298726",
 "wd_birth": 1953,
 "wd_death": null
@@ -4083,6 +4593,7 @@
 "birth": 1939,
 "canonical": "Jonathan Harvey (composer)",
 "death": 2012,
+"gender": "male",
 "qid": "Q499742",
 "wd_birth": 1939,
 "wd_death": 2012
@@ -4091,6 +4602,7 @@
 "birth": 1969,
 "canonical": "Jonathan Powell (musician)",
 "death": 2025,
+"gender": "male",
 "qid": "Q6274175",
 "wd_birth": 1969,
 "wd_death": 2025
@@ -4099,6 +4611,7 @@
 "birth": 1921,
 "canonical": "Joonas Kokkonen",
 "death": 1996,
+"gender": "male",
 "qid": "Q651112",
 "wd_birth": 1921,
 "wd_death": 1996
@@ -4107,6 +4620,7 @@
 "birth": 1961,
 "canonical": "Jorge Grundman",
 "death": null,
+"gender": "male",
 "qid": "Q6278078",
 "wd_birth": 1961,
 "wd_death": null
@@ -4115,6 +4629,7 @@
 "birth": 1859,
 "canonical": "Josef Bohuslav Foerster",
 "death": 1951,
+"gender": "male",
 "qid": "Q450803",
 "wd_birth": 1859,
 "wd_death": 1951
@@ -4123,6 +4638,7 @@
 "birth": 1737,
 "canonical": "Josef Mysliveček",
 "death": 1781,
+"gender": "male",
 "qid": "Q313974",
 "wd_birth": 1737,
 "wd_death": 1781
@@ -4131,6 +4647,7 @@
 "birth": 1839,
 "canonical": "Josef Rheinberger",
 "death": 1901,
+"gender": "male",
 "qid": "Q365555",
 "wd_birth": 1839,
 "wd_death": 1901
@@ -4139,6 +4656,7 @@
 "birth": 1874,
 "canonical": "Josef Suk (composer)",
 "death": 1935,
+"gender": "male",
 "qid": "Q312700",
 "wd_birth": 1874,
 "wd_death": 1935
@@ -4147,6 +4665,7 @@
 "birth": 1910,
 "canonical": "Josef Tal",
 "death": 2008,
+"gender": "male",
 "qid": "Q213520",
 "wd_birth": 1910,
 "wd_death": 2008
@@ -4155,6 +4674,7 @@
 "birth": 1979,
 "canonical": "Joseph Hallman",
 "death": null,
+"gender": "male",
 "qid": "Q16218521",
 "wd_birth": 1979,
 "wd_death": null
@@ -4163,6 +4683,7 @@
 "birth": 1732,
 "canonical": "Joseph Haydn",
 "death": 1809,
+"gender": "male",
 "qid": "Q7349",
 "wd_birth": 1732,
 "wd_death": 1809
@@ -4171,6 +4692,7 @@
 "birth": 1878,
 "canonical": "Joseph Holbrooke",
 "death": 1958,
+"gender": "male",
 "qid": "Q1358354",
 "wd_birth": 1878,
 "wd_death": 1958
@@ -4179,6 +4701,7 @@
 "birth": 1777,
 "canonical": "Joseph Küffner",
 "death": 1856,
+"gender": "male",
 "qid": "Q106000",
 "wd_birth": 1777,
 "wd_death": 1856
@@ -4187,6 +4710,7 @@
 "birth": 1765,
 "canonical": "Joseph Leopold Eybler",
 "death": 1846,
+"gender": "male",
 "qid": "Q697194",
 "wd_birth": 1765,
 "wd_death": 1846
@@ -4195,6 +4719,7 @@
 "birth": 1756,
 "canonical": "Joseph Martin Kraus",
 "death": 1792,
+"gender": "male",
 "qid": "Q453272",
 "wd_birth": 1756,
 "wd_death": 1792
@@ -4203,6 +4728,7 @@
 "birth": 1882,
 "canonical": "Joseph Marx",
 "death": 1964,
+"gender": "male",
 "qid": "Q506561",
 "wd_birth": 1882,
 "wd_death": 1964
@@ -4211,6 +4737,7 @@
 "birth": 1974,
 "canonical": "Joseph Phibbs",
 "death": null,
+"gender": "male",
 "qid": "Q27942122",
 "wd_birth": 1974,
 "wd_death": null
@@ -4219,6 +4746,7 @@
 "birth": 1870,
 "canonical": "Joseph Ryelandt",
 "death": 1965,
+"gender": "male",
 "qid": "Q1707941",
 "wd_birth": 1870,
 "wd_death": 1965
@@ -4227,6 +4755,7 @@
 "birth": 1773,
 "canonical": "Joseph Woelfl",
 "death": 1812,
+"gender": "male",
 "qid": "Q564973",
 "wd_birth": 1773,
 "wd_death": 1812
@@ -4235,6 +4764,7 @@
 "birth": 1880,
 "canonical": "Joseph-Ermend Bonnal",
 "death": 1944,
+"gender": "male",
 "qid": "Q446053",
 "wd_birth": 1880,
 "wd_death": 1944
@@ -4243,6 +4773,7 @@
 "birth": 1815,
 "canonical": "Josephine Lang",
 "death": 1880,
+"gender": "female",
 "qid": "Q276246",
 "wd_birth": 1815,
 "wd_death": 1880
@@ -4251,6 +4782,7 @@
 "birth": 1931,
 "canonical": "Joyce Mekeel",
 "death": 1997,
+"gender": "female",
 "qid": "Q6297584",
 "wd_birth": 1931,
 "wd_death": 1997
@@ -4259,6 +4791,7 @@
 "birth": 1954,
 "canonical": "Joël-François Durand",
 "death": null,
+"gender": "male",
 "qid": "Q684032",
 "wd_birth": 1954,
 "wd_death": null
@@ -4267,6 +4800,7 @@
 "birth": 1806,
 "canonical": "Juan Crisóstomo Arriaga",
 "death": 1826,
+"gender": "male",
 "qid": "Q313669",
 "wd_birth": 1806,
 "wd_death": 1826
@@ -4275,6 +4809,7 @@
 "birth": 1941,
 "canonical": "Judith Bailey (composer)",
 "death": 2025,
+"gender": "female",
 "qid": "Q16105550",
 "wd_birth": 1941,
 "wd_death": 2025
@@ -4283,6 +4818,7 @@
 "birth": 1945,
 "canonical": "Judith Lang Zaimont",
 "death": null,
+"gender": "female",
 "qid": "Q520104",
 "wd_birth": 1945,
 "wd_death": null
@@ -4291,6 +4827,7 @@
 "birth": 1988,
 "canonical": "Julia Adolphe",
 "death": null,
+"gender": "female",
 "qid": "Q39506763",
 "wd_birth": 1988,
 "wd_death": null
@@ -4299,6 +4836,7 @@
 "birth": 1964,
 "canonical": "Julia Gomelskaya",
 "death": 2016,
+"gender": "female",
 "qid": "Q4142911",
 "wd_birth": 1964,
 "wd_death": 2016
@@ -4307,6 +4845,7 @@
 "birth": 1870,
 "canonical": "Julia Klumpke",
 "death": 1961,
+"gender": "female",
 "qid": "Q19507654",
 "wd_birth": 1870,
 "wd_death": 1961
@@ -4315,6 +4854,7 @@
 "birth": 1905,
 "canonical": "Julia Smith (composer)",
 "death": 1989,
+"gender": "female",
 "qid": "Q517729",
 "wd_birth": 1905,
 "wd_death": 1989
@@ -4323,6 +4863,7 @@
 "birth": 1948,
 "canonical": "Julia Tsenova",
 "death": 2010,
+"gender": "female",
 "qid": "Q545162",
 "wd_birth": 1948,
 "wd_death": 2010
@@ -4331,6 +4872,7 @@
 "birth": 1958,
 "canonical": "Julia Wolfe",
 "death": null,
+"gender": "female",
 "qid": "Q6306853",
 "wd_birth": 1958,
 "wd_death": null
@@ -4339,6 +4881,7 @@
 "birth": 1943,
 "canonical": "Julio Estrada (composer)",
 "death": null,
+"gender": "male",
 "qid": "Q346908",
 "wd_birth": 1943,
 "wd_death": null
@@ -4347,6 +4890,7 @@
 "birth": 1843,
 "canonical": "Ján Levoslav Bella",
 "death": 1936,
+"gender": "male",
 "qid": "Q964103",
 "wd_birth": 1843,
 "wd_death": 1936
@@ -4355,6 +4899,7 @@
 "birth": 1899,
 "canonical": "Jón Leifs",
 "death": 1968,
+"gender": "male",
 "qid": "Q523053",
 "wd_birth": 1899,
 "wd_death": 1968
@@ -4363,6 +4908,7 @@
 "birth": 1769,
 "canonical": "Józef Elsner",
 "death": 1854,
+"gender": "male",
 "qid": "Q471647",
 "wd_birth": 1769,
 "wd_death": 1854
@@ -4371,6 +4917,7 @@
 "birth": 1837,
 "canonical": "Józef Wieniawski",
 "death": 1912,
+"gender": "male",
 "qid": "Q1319981",
 "wd_birth": 1837,
 "wd_death": 1912
@@ -4379,6 +4926,7 @@
 "birth": 1973,
 "canonical": "Jörg Widmann",
 "death": null,
+"gender": "male",
 "qid": "Q462746",
 "wd_birth": 1973,
 "wd_death": null
@@ -4387,6 +4935,7 @@
 "birth": 1953,
 "canonical": "Jürg Frey",
 "death": null,
+"gender": "male",
 "qid": "Q54932748",
 "wd_birth": 1953,
 "wd_death": null
@@ -4395,6 +4944,7 @@
 "birth": 1952,
 "canonical": "Kaija Saariaho",
 "death": 2023,
+"gender": "female",
 "qid": "Q241432",
 "wd_birth": 1952,
 "wd_death": 2023
@@ -4403,6 +4953,7 @@
 "birth": 1949,
 "canonical": "Kalevi Aho",
 "death": null,
+"gender": "male",
 "qid": "Q521079",
 "wd_birth": 1949,
 "wd_death": null
@@ -4411,6 +4962,7 @@
 "birth": 1894,
 "canonical": "Kalitha Dorothy Fox",
 "death": 1934,
+"gender": "female",
 "qid": "Q6353247",
 "wd_birth": 1894,
 "wd_death": 1934
@@ -4419,6 +4971,7 @@
 "birth": 1921,
 "canonical": "Karel Husa",
 "death": 2016,
+"gender": "male",
 "qid": "Q1729163",
 "wd_birth": 1921,
 "wd_death": 2016
@@ -4427,6 +4980,7 @@
 "birth": 1862,
 "canonical": "Karel Kovařovic",
 "death": 1920,
+"gender": "male",
 "qid": "Q2099524",
 "wd_birth": 1862,
 "wd_death": 1920
@@ -4435,6 +4989,7 @@
 "birth": 1961,
 "canonical": "Karen Tanaka",
 "death": null,
+"gender": "female",
 "qid": "Q4451038",
 "wd_birth": 1961,
 "wd_death": null
@@ -4443,6 +4998,7 @@
 "birth": 1905,
 "canonical": "Karl Amadeus Hartmann",
 "death": 1963,
+"gender": "male",
 "qid": "Q366100",
 "wd_birth": 1905,
 "wd_death": 1963
@@ -4451,6 +5007,7 @@
 "birth": 1830,
 "canonical": "Karl Goldmark",
 "death": 1915,
+"gender": "male",
 "qid": "Q239214",
 "wd_birth": 1830,
 "wd_death": 1915
@@ -4459,6 +5016,7 @@
 "birth": 1881,
 "canonical": "Karl Weigl",
 "death": 1949,
+"gender": "male",
 "qid": "Q331334",
 "wd_birth": 1881,
 "wd_death": 1949
@@ -4467,6 +5025,7 @@
 "birth": 1928,
 "canonical": "Karlheinz Stockhausen",
 "death": 2007,
+"gender": "male",
 "qid": "Q154556",
 "wd_birth": 1928,
 "wd_death": 2007
@@ -4475,6 +5034,7 @@
 "birth": 1955,
 "canonical": "Karmella Tsepkolenko",
 "death": null,
+"gender": "female",
 "qid": "Q6372741",
 "wd_birth": 1955,
 "wd_death": null
@@ -4483,6 +5043,7 @@
 "birth": 1882,
 "canonical": "Karol Szymanowski",
 "death": 1937,
+"gender": "male",
 "qid": "Q295400",
 "wd_birth": 1882,
 "wd_death": 1937
@@ -4491,6 +5052,7 @@
 "birth": 1977,
 "canonical": "Kasia Glowicka",
 "death": null,
+"gender": "female",
 "qid": "Q6374507",
 "wd_birth": 1977,
 "wd_death": null
@@ -4499,6 +5061,7 @@
 "birth": 1825,
 "canonical": "Kate Loder",
 "death": 1904,
+"gender": "female",
 "qid": "Q6375604",
 "wd_birth": 1825,
 "wd_death": 1904
@@ -4507,6 +5070,7 @@
 "birth": 1979,
 "canonical": "Kate Moore (composer)",
 "death": null,
+"gender": "female",
 "qid": "Q6375669",
 "wd_birth": 1979,
 "wd_death": null
@@ -4515,6 +5079,7 @@
 "birth": 1874,
 "canonical": "Katharine Emily Eggar",
 "death": 1961,
+"gender": "female",
 "qid": "Q6376182",
 "wd_birth": 1874,
 "wd_death": 1961
@@ -4523,6 +5088,7 @@
 "birth": 1937,
 "canonical": "Katherine Hoover",
 "death": 2018,
+"gender": "female",
 "qid": "Q6376410",
 "wd_birth": 1937,
 "wd_death": 2018
@@ -4531,6 +5097,7 @@
 "birth": 1975,
 "canonical": "Kati Agócs",
 "death": null,
+"gender": "female",
 "qid": "Q6377342",
 "wd_birth": 1975,
 "wd_death": null
@@ -4539,6 +5106,7 @@
 "birth": 1967,
 "canonical": "Katia Tiutiunnik",
 "death": null,
+"gender": "female",
 "qid": "Q6377370",
 "wd_birth": 1967,
 "wd_death": null
@@ -4547,6 +5115,7 @@
 "birth": 1968,
 "canonical": "Kenneth Hesketh",
 "death": null,
+"gender": "male",
 "qid": "Q6390207",
 "wd_birth": 1968,
 "wd_death": null
@@ -4555,6 +5124,7 @@
 "birth": 1978,
 "canonical": "Kerry Andrew",
 "death": null,
+"gender": "female",
 "qid": "Q6394449",
 "wd_birth": 1978,
 "wd_death": null
@@ -4563,6 +5133,7 @@
 "birth": 1949,
 "canonical": "Kevin Volans",
 "death": null,
+"gender": "male",
 "qid": "Q2379963",
 "wd_birth": 1949,
 "wd_death": null
@@ -4571,6 +5142,7 @@
 "birth": 1944,
 "canonical": "Klaas de Vries (composer)",
 "death": null,
+"gender": "male",
 "qid": "Q1744178",
 "wd_birth": 1944,
 "wd_death": null
@@ -4579,6 +5151,7 @@
 "birth": 1906,
 "canonical": "Klaus Egge",
 "death": 1979,
+"gender": "male",
 "qid": "Q610575",
 "wd_birth": 1906,
 "wd_death": 1979
@@ -4587,6 +5160,7 @@
 "birth": 1962,
 "canonical": "Konstantia Gourzi",
 "death": null,
+"gender": "female",
 "qid": "Q1112583",
 "wd_birth": 1962,
 "wd_death": null
@@ -4595,6 +5169,7 @@
 "birth": 1924,
 "canonical": "Krystyna Moszumańska-Nazar",
 "death": 2008,
+"gender": "female",
 "qid": "Q519116",
 "wd_birth": 1924,
 "wd_death": 2008
@@ -4603,6 +5178,7 @@
 "birth": 1943,
 "canonical": "Krzysztof Meyer",
 "death": null,
+"gender": "male",
 "qid": "Q652558",
 "wd_birth": 1943,
 "wd_death": null
@@ -4611,6 +5187,7 @@
 "birth": 1933,
 "canonical": "Krzysztof Penderecki",
 "death": 2020,
+"gender": "male",
 "qid": "Q153469",
 "wd_birth": 1933,
 "wd_death": 2020
@@ -4619,6 +5196,7 @@
 "birth": 1887,
 "canonical": "Kurt Atterberg",
 "death": 1974,
+"gender": "male",
 "qid": "Q440388",
 "wd_birth": 1887,
 "wd_death": 1974
@@ -4627,6 +5205,7 @@
 "birth": 1908,
 "canonical": "Kurt Hessenberg",
 "death": 1994,
+"gender": "male",
 "qid": "Q880925",
 "wd_birth": 1908,
 "wd_death": 1994
@@ -4635,6 +5214,7 @@
 "birth": 1935,
 "canonical": "La Monte Young",
 "death": null,
+"gender": "male",
 "qid": "Q432822",
 "wd_birth": 1935,
 "wd_death": null
@@ -4643,6 +5223,7 @@
 "birth": 1930,
 "canonical": "Larry Austin",
 "death": 2018,
+"gender": "male",
 "qid": "Q1806028",
 "wd_birth": 1930,
 "wd_death": 2018
@@ -4651,6 +5232,7 @@
 "birth": 1956,
 "canonical": "Laura Kaminsky",
 "death": null,
+"gender": "female",
 "qid": "Q6499071",
 "wd_birth": 1956,
 "wd_death": null
@@ -4659,6 +5241,7 @@
 "birth": 1962,
 "canonical": "Laura Schwendinger",
 "death": null,
+"gender": "female",
 "qid": "Q6499413",
 "wd_birth": 1962,
 "wd_death": null
@@ -4667,6 +5250,7 @@
 "birth": 1959,
 "canonical": "Lawrence Dillon",
 "death": null,
+"gender": "male",
 "qid": "Q6503993",
 "wd_birth": 1959,
 "wd_death": null
@@ -4675,6 +5259,7 @@
 "birth": 1924,
 "canonical": "Lejaren Hiller",
 "death": 1994,
+"gender": "male",
 "qid": "Q899159",
 "wd_birth": 1924,
 "wd_death": 1994
@@ -4683,6 +5268,7 @@
 "birth": 1950,
 "canonical": "Lejla Agolli",
 "death": null,
+"gender": "female",
 "qid": "Q4356513",
 "wd_birth": 1950,
 "wd_death": null
@@ -4691,6 +5277,7 @@
 "birth": 1903,
 "canonical": "Lennox Berkeley",
 "death": 1989,
+"gender": "male",
 "qid": "Q514975",
 "wd_birth": 1903,
 "wd_death": 1989
@@ -4699,6 +5286,7 @@
 "birth": 1939,
 "canonical": "Leo Brouwer",
 "death": null,
+"gender": "male",
 "qid": "Q454933",
 "wd_birth": 1939,
 "wd_death": null
@@ -4707,6 +5295,7 @@
 "birth": 1893,
 "canonical": "Leo Ornstein",
 "death": 2002,
+"gender": "male",
 "qid": "Q1558656",
 "wd_birth": 1893,
 "wd_death": 2002
@@ -4715,6 +5304,7 @@
 "birth": 1919,
 "canonical": "Leon Kirchner",
 "death": 2009,
+"gender": "male",
 "qid": "Q928971",
 "wd_birth": 1919,
 "wd_death": 2009
@@ -4723,6 +5313,7 @@
 "birth": 1962,
 "canonical": "Leonie Holmes",
 "death": null,
+"gender": "female",
 "qid": "Q107631230",
 "wd_birth": 1962,
 "wd_death": null
@@ -4731,6 +5322,7 @@
 "birth": 1747,
 "canonical": "Leopold Koželuch",
 "death": 1818,
+"gender": "male",
 "qid": "Q693843",
 "wd_birth": 1747,
 "wd_death": 1818
@@ -4739,6 +5331,7 @@
 "birth": 1854,
 "canonical": "Leoš Janáček",
 "death": 1928,
+"gender": "male",
 "qid": "Q184933",
 "wd_birth": 1854,
 "wd_death": 1928
@@ -4747,6 +5340,7 @@
 "birth": 1973,
 "canonical": "Lera Auerbach",
 "death": null,
+"gender": "female",
 "qid": "Q241503",
 "wd_birth": 1973,
 "wd_death": null
@@ -4755,6 +5349,7 @@
 "birth": 1950,
 "canonical": "Libby Larsen",
 "death": null,
+"gender": "female",
 "qid": "Q2161571",
 "wd_birth": 1950,
 "wd_death": null
@@ -4763,6 +5358,7 @@
 "birth": 1979,
 "canonical": "Linda Buckley",
 "death": null,
+"gender": "female",
 "qid": "Q63384162",
 "wd_birth": 1979,
 "wd_death": null
@@ -4771,6 +5367,7 @@
 "birth": 1957,
 "canonical": "Linda Catlin Smith",
 "death": null,
+"gender": "female",
 "qid": "Q6551447",
 "wd_birth": 1957,
 "wd_death": null
@@ -4779,6 +5376,7 @@
 "birth": 1971,
 "canonical": "Lior Navok",
 "death": null,
+"gender": "male",
 "qid": "Q372577",
 "wd_birth": 1971,
 "wd_death": null
@@ -4787,6 +5385,7 @@
 "birth": 1966,
 "canonical": "Liza Lim",
 "death": null,
+"gender": "female",
 "qid": "Q6660407",
 "wd_birth": 1966,
 "wd_death": null
@@ -4795,6 +5394,7 @@
 "birth": 1951,
 "canonical": "Lois V. Vierk",
 "death": null,
+"gender": "female",
 "qid": "Q6668390",
 "wd_birth": 1951,
 "wd_death": null
@@ -4803,6 +5403,7 @@
 "birth": 1951,
 "canonical": "Lorenzo Ferrero",
 "death": null,
+"gender": "male",
 "qid": "Q6680710",
 "wd_birth": 1951,
 "wd_death": null
@@ -4811,6 +5412,7 @@
 "birth": 1970,
 "canonical": "Lotta Wennäkoski",
 "death": null,
+"gender": "female",
 "qid": "Q11876265",
 "wd_birth": 1970,
 "wd_death": null
@@ -4819,6 +5421,7 @@
 "birth": 1917,
 "canonical": "Lou Harrison",
 "death": 2003,
+"gender": "male",
 "qid": "Q590911",
 "wd_birth": 1917,
 "wd_death": 2003
@@ -4827,6 +5430,7 @@
 "birth": 1939,
 "canonical": "Louis Andriessen",
 "death": 2021,
+"gender": "male",
 "qid": "Q504743",
 "wd_birth": 1939,
 "wd_death": 2021
@@ -4835,6 +5439,7 @@
 "birth": 1884,
 "canonical": "Louis Gruenberg",
 "death": 1964,
+"gender": "male",
 "qid": "Q1374446",
 "wd_birth": 1884,
 "wd_death": 1964
@@ -4843,6 +5448,7 @@
 "birth": 1784,
 "canonical": "Louis Spohr",
 "death": 1859,
+"gender": "male",
 "qid": "Q57226",
 "wd_birth": 1784,
 "wd_death": 1859
@@ -4851,6 +5457,7 @@
 "birth": 1870,
 "canonical": "Louis Vierne",
 "death": 1937,
+"gender": "male",
 "qid": "Q299669",
 "wd_birth": 1870,
 "wd_death": 1937
@@ -4859,6 +5466,7 @@
 "birth": 1768,
 "canonical": "Louis-Emmanuel Jadin",
 "death": 1853,
+"gender": "male",
 "qid": "Q1348195",
 "wd_birth": 1768,
 "wd_death": 1853
@@ -4867,6 +5475,7 @@
 "birth": 1839,
 "canonical": "Louise Haenel de Cronenthall",
 "death": 1896,
+"gender": "female",
 "qid": "Q6688769",
 "wd_birth": 1839,
 "wd_death": 1896
@@ -4875,6 +5484,7 @@
 "birth": 1906,
 "canonical": "Louise Talma",
 "death": 1996,
+"gender": "female",
 "qid": "Q6688971",
 "wd_birth": 1906,
 "wd_death": 1996
@@ -4883,6 +5493,7 @@
 "birth": 1961,
 "canonical": "Lowell Liebermann",
 "death": null,
+"gender": "male",
 "qid": "Q1366356",
 "wd_birth": 1961,
 "wd_death": null
@@ -4891,6 +5502,7 @@
 "birth": 1925,
 "canonical": "Luciano Berio",
 "death": 2003,
+"gender": "male",
 "qid": "Q221450",
 "wd_birth": 1925,
 "wd_death": 2003
@@ -4899,6 +5511,7 @@
 "birth": 1878,
 "canonical": "Lucien Durosoir",
 "death": 1955,
+"gender": "male",
 "qid": "Q3265485",
 "wd_birth": 1878,
 "wd_death": 1955
@@ -4907,6 +5520,7 @@
 "birth": 1923,
 "canonical": "Ludmila Ulehla",
 "death": 2009,
+"gender": "female",
 "qid": "Q1685546",
 "wd_birth": 1923,
 "wd_death": 2009
@@ -4915,6 +5529,7 @@
 "birth": 1962,
 "canonical": "Ludmila Yurina",
 "death": null,
+"gender": "female",
 "qid": "Q6698915",
 "wd_birth": 1962,
 "wd_death": null
@@ -4923,6 +5538,7 @@
 "birth": 1831,
 "canonical": "Ludvig Norman",
 "death": 1885,
+"gender": "male",
 "qid": "Q704992",
 "wd_birth": 1831,
 "wd_death": 1885
@@ -4931,6 +5547,7 @@
 "birth": 1770,
 "canonical": "Ludwig van Beethoven",
 "death": 1827,
+"gender": "male",
 "qid": "Q255",
 "wd_birth": 1770,
 "wd_death": 1827
@@ -4939,6 +5556,7 @@
 "birth": 1743,
 "canonical": "Luigi Boccherini",
 "death": 1805,
+"gender": "male",
 "qid": "Q189766",
 "wd_birth": 1743,
 "wd_death": 1805
@@ -4947,6 +5565,7 @@
 "birth": 1760,
 "canonical": "Luigi Cherubini",
 "death": 1842,
+"gender": "male",
 "qid": "Q20721",
 "wd_birth": 1760,
 "wd_death": 1842
@@ -4955,6 +5574,7 @@
 "birth": 1924,
 "canonical": "Luigi Nono",
 "death": 1990,
+"gender": "male",
 "qid": "Q160451",
 "wd_birth": 1924,
 "wd_death": 1990
@@ -4963,6 +5583,7 @@
 "birth": 1877,
 "canonical": "Mabel Daniels",
 "death": 1971,
+"gender": "female",
 "qid": "Q6721537",
 "wd_birth": 1877,
 "wd_death": 1971
@@ -4971,6 +5592,7 @@
 "birth": 1745,
 "canonical": "Maddalena Laura Sirmen",
 "death": 1818,
+"gender": "female",
 "qid": "Q454061",
 "wd_birth": 1745,
 "wd_death": 1818
@@ -4979,6 +5601,7 @@
 "birth": 1939,
 "canonical": "Maija Einfelde",
 "death": null,
+"gender": "female",
 "qid": "Q6735608",
 "wd_birth": 1939,
 "wd_death": null
@@ -4987,6 +5610,7 @@
 "birth": 1973,
 "canonical": "Maja S. K. Ratkje",
 "death": null,
+"gender": "female",
 "qid": "Q6737336",
 "wd_birth": 1973,
 "wd_death": null
@@ -4995,6 +5619,7 @@
 "birth": 1894,
 "canonical": "Marcelle Soulage",
 "death": 1970,
+"gender": "female",
 "qid": "Q17012522",
 "wd_birth": 1894,
 "wd_death": 1970
@@ -5003,6 +5628,7 @@
 "birth": 1884,
 "canonical": "Marguerite Béclard d'Harcourt",
 "death": 1964,
+"gender": "female",
 "qid": "Q3290688",
 "wd_birth": 1884,
 "wd_death": 1964
@@ -5011,6 +5637,7 @@
 "birth": 1896,
 "canonical": "Maria Bach",
 "death": 1978,
+"gender": "female",
 "qid": "Q4079751",
 "wd_birth": 1896,
 "wd_death": 1978
@@ -5019,6 +5646,7 @@
 "birth": 1940,
 "canonical": "Maria Teresa Luengo",
 "death": null,
+"gender": "female",
 "qid": "Q1700797",
 "wd_birth": 1940,
 "wd_death": null
@@ -5027,6 +5655,7 @@
 "birth": 1926,
 "canonical": "Maria de Lourdes Martins",
 "death": 2009,
+"gender": "female",
 "qid": "Q6761686",
 "wd_birth": 1926,
 "wd_death": 2009
@@ -5035,6 +5664,7 @@
 "birth": 1846,
 "canonical": "Marie Jaëll",
 "death": 1925,
+"gender": "female",
 "qid": "Q2706282",
 "wd_birth": 1846,
 "wd_death": 1925
@@ -5043,6 +5673,7 @@
 "birth": 1926,
 "canonical": "Marilyn J. Ziffrin",
 "death": 2018,
+"gender": "female",
 "qid": "Q1990117",
 "wd_birth": 1926,
 "wd_death": 2018
@@ -5051,6 +5682,7 @@
 "birth": 1882,
 "canonical": "Marion Bauer",
 "death": 1955,
+"gender": "female",
 "qid": "Q544344",
 "wd_birth": 1882,
 "wd_death": 1955
@@ -5059,6 +5691,7 @@
 "birth": 1948,
 "canonical": "Marjan Mozetich",
 "death": null,
+"gender": "male",
 "qid": "Q3293921",
 "wd_birth": 1948,
 "wd_death": null
@@ -5067,6 +5700,7 @@
 "birth": 1960,
 "canonical": "Mark-Anthony Turnage",
 "death": null,
+"gender": "male",
 "qid": "Q528639",
 "wd_birth": 1960,
 "wd_death": null
@@ -5075,6 +5709,7 @@
 "birth": 1932,
 "canonical": "Marta Jiráčková",
 "death": null,
+"gender": "female",
 "qid": "Q6774129",
 "wd_birth": 1932,
 "wd_death": null
@@ -5083,6 +5718,7 @@
 "birth": 1937,
 "canonical": "Marta Lambertini",
 "death": 2019,
+"gender": "female",
 "qid": "Q1595105",
 "wd_birth": 1937,
 "wd_death": 2019
@@ -5091,6 +5727,7 @@
 "birth": 1959,
 "canonical": "Marti Epstein",
 "death": null,
+"gender": "female",
 "qid": "Q1903127",
 "wd_birth": 1959,
 "wd_death": null
@@ -5099,6 +5736,7 @@
 "birth": 1873,
 "canonical": "Mary Carr Moore",
 "death": 1957,
+"gender": "female",
 "qid": "Q995851",
 "wd_birth": 1873,
 "wd_death": 1957
@@ -5107,6 +5745,7 @@
 "birth": 1882,
 "canonical": "Mary Howe",
 "death": 1964,
+"gender": "female",
 "qid": "Q6120843",
 "wd_birth": 1882,
 "wd_death": 1964
@@ -5115,6 +5754,7 @@
 "birth": 1882,
 "canonical": "Mary Lucas",
 "death": 1952,
+"gender": "female",
 "qid": "Q6780174",
 "wd_birth": 1882,
 "wd_death": 1952
@@ -5123,6 +5763,7 @@
 "birth": 1913,
 "canonical": "Matilde Capuis",
 "death": 2017,
+"gender": "female",
 "qid": "Q6787535",
 "wd_birth": 1913,
 "wd_death": 2017
@@ -5131,6 +5772,7 @@
 "birth": 1888,
 "canonical": "Matthijs Vermeulen",
 "death": 1967,
+"gender": "male",
 "qid": "Q1910505",
 "wd_birth": 1888,
 "wd_death": 1967
@@ -5139,6 +5781,7 @@
 "birth": 1875,
 "canonical": "Maurice Ravel",
 "death": 1937,
+"gender": "male",
 "qid": "Q1178",
 "wd_birth": 1875,
 "wd_death": 1937
@@ -5147,6 +5790,7 @@
 "birth": 1931,
 "canonical": "Mauricio Kagel",
 "death": 2008,
+"gender": "male",
 "qid": "Q178293",
 "wd_birth": 1931,
 "wd_death": 2008
@@ -5155,6 +5799,7 @@
 "birth": 1838,
 "canonical": "Max Bruch",
 "death": 1920,
+"gender": "male",
 "qid": "Q106434",
 "wd_birth": 1838,
 "wd_death": 1920
@@ -5163,6 +5808,7 @@
 "birth": 1873,
 "canonical": "Max Reger",
 "death": 1916,
+"gender": "male",
 "qid": "Q57139",
 "wd_birth": 1873,
 "wd_death": 1916
@@ -5171,6 +5817,7 @@
 "birth": 1868,
 "canonical": "Max von Schillings",
 "death": 1933,
+"gender": "male",
 "qid": "Q704926",
 "wd_birth": 1868,
 "wd_death": 1933
@@ -5179,6 +5826,7 @@
 "birth": 1923,
 "canonical": "Mel Powell",
 "death": 1998,
+"gender": "male",
 "qid": "Q743673",
 "wd_birth": 1923,
 "wd_death": 1998
@@ -5187,6 +5835,7 @@
 "birth": 1942,
 "canonical": "Meredith Monk",
 "death": null,
+"gender": "female",
 "qid": "Q267170",
 "wd_birth": 1942,
 "wd_death": null
@@ -5195,6 +5844,7 @@
 "birth": 1737,
 "canonical": "Michael Haydn",
 "death": 1806,
+"gender": "male",
 "qid": "Q490381",
 "wd_birth": 1737,
 "wd_death": 1806
@@ -5203,6 +5853,7 @@
 "birth": 1944,
 "canonical": "Michael Nyman",
 "death": null,
+"gender": "male",
 "qid": "Q313639",
 "wd_birth": 1944,
 "wd_death": null
@@ -5211,6 +5862,7 @@
 "birth": 1905,
 "canonical": "Michael Tippett",
 "death": 1998,
+"gender": "male",
 "qid": "Q356499",
 "wd_birth": 1905,
 "wd_death": 1998
@@ -5219,6 +5871,7 @@
 "birth": 1961,
 "canonical": "Michael Torke",
 "death": null,
+"gender": "male",
 "qid": "Q724998",
 "wd_birth": 1961,
 "wd_death": null
@@ -5227,6 +5880,7 @@
 "birth": 1943,
 "canonical": "Michèle Reverdy",
 "death": null,
+"gender": "female",
 "qid": "Q1106563",
 "wd_birth": 1943,
 "wd_death": null
@@ -5235,6 +5889,7 @@
 "birth": 1919,
 "canonical": "Mieczysław Weinberg",
 "death": 1996,
+"gender": "male",
 "qid": "Q919127",
 "wd_birth": 1919,
 "wd_death": 1996
@@ -5243,6 +5898,7 @@
 "birth": 1957,
 "canonical": "Miguel del Águila",
 "death": null,
+"gender": "male",
 "qid": "Q6844882",
 "wd_birth": 1957,
 "wd_death": null
@@ -5251,6 +5907,7 @@
 "birth": 1804,
 "canonical": "Mikhail Glinka",
 "death": 1857,
+"gender": "male",
 "qid": "Q181885",
 "wd_birth": 1804,
 "wd_death": 1857
@@ -5259,6 +5916,7 @@
 "birth": 1859,
 "canonical": "Mikhail Ippolitov-Ivanov",
 "death": 1935,
+"gender": "male",
 "qid": "Q346815",
 "wd_birth": 1859,
 "wd_death": 1935
@@ -5267,6 +5925,7 @@
 "birth": 1907,
 "canonical": "Miklós Rózsa",
 "death": 1995,
+"gender": "male",
 "qid": "Q319396",
 "wd_birth": 1907,
 "wd_death": 1995
@@ -5275,6 +5934,7 @@
 "birth": 1916,
 "canonical": "Milton Babbitt",
 "death": 2011,
+"gender": "male",
 "qid": "Q318518",
 "wd_birth": 1916,
 "wd_death": 2011
@@ -5283,6 +5943,7 @@
 "birth": 1909,
 "canonical": "Minna Keal",
 "death": 1999,
+"gender": "female",
 "qid": "Q15453290",
 "wd_birth": 1909,
 "wd_death": 1999
@@ -5291,6 +5952,7 @@
 "birth": 1980,
 "canonical": "Missy Mazzoli",
 "death": null,
+"gender": "female",
 "qid": "Q6879955",
 "wd_birth": 1980,
 "wd_death": null
@@ -5299,6 +5961,7 @@
 "birth": 1985,
 "canonical": "Mohammed Fairouz",
 "death": null,
+"gender": "male",
 "qid": "Q6893076",
 "wd_birth": 1985,
 "wd_death": null
@@ -5307,6 +5970,7 @@
 "birth": 1862,
 "canonical": "Mona McBurney",
 "death": 1932,
+"gender": "female",
 "qid": "Q15433239",
 "wd_birth": 1862,
 "wd_death": 1932
@@ -5315,6 +5979,7 @@
 "birth": 1926,
 "canonical": "Morton Feldman",
 "death": 1987,
+"gender": "male",
 "qid": "Q316427",
 "wd_birth": 1926,
 "wd_death": 1987
@@ -5323,6 +5988,7 @@
 "birth": 1941,
 "canonical": "Moya Henderson",
 "death": null,
+"gender": "female",
 "qid": "Q6927578",
 "wd_birth": 1941,
 "wd_death": null
@@ -5331,6 +5997,7 @@
 "birth": 1842,
 "canonical": "Mykola Lysenko",
 "death": 1912,
+"gender": "male",
 "qid": "Q172425",
 "wd_birth": 1842,
 "wd_death": 1912
@@ -5339,6 +6006,7 @@
 "birth": 1881,
 "canonical": "Nancy Dalberg",
 "death": 1949,
+"gender": "female",
 "qid": "Q531569",
 "wd_birth": 1881,
 "wd_death": 1949
@@ -5347,6 +6015,7 @@
 "birth": 1930,
 "canonical": "Nancy Van de Vate",
 "death": 2023,
+"gender": "female",
 "qid": "Q1964533",
 "wd_birth": 1930,
 "wd_death": 2023
@@ -5355,6 +6024,7 @@
 "birth": 1782,
 "canonical": "Niccolò Paganini",
 "death": 1840,
+"gender": "male",
 "qid": "Q66075",
 "wd_birth": 1782,
 "wd_death": 1840
@@ -5363,6 +6033,7 @@
 "birth": 1947,
 "canonical": "Nicola LeFanu",
 "death": null,
+"gender": "female",
 "qid": "Q441688",
 "wd_birth": 1947,
 "wd_death": null
@@ -5371,6 +6042,7 @@
 "birth": 1961,
 "canonical": "Nicolas Bacri",
 "death": null,
+"gender": "male",
 "qid": "Q454753",
 "wd_birth": 1961,
 "wd_death": null
@@ -5379,6 +6051,7 @@
 "birth": 1817,
 "canonical": "Niels Gade",
 "death": 1890,
+"gender": "male",
 "qid": "Q154632",
 "wd_birth": 1817,
 "wd_death": 1890
@@ -5387,6 +6060,7 @@
 "birth": 1955,
 "canonical": "Nigel Keay",
 "death": null,
+"gender": "male",
 "qid": "Q3341361",
 "wd_birth": 1955,
 "wd_death": null
@@ -5395,6 +6069,7 @@
 "birth": 1881,
 "canonical": "Nikolai Myaskovsky",
 "death": 1950,
+"gender": "male",
 "qid": "Q312778",
 "wd_birth": 1881,
 "wd_death": 1950
@@ -5403,6 +6078,7 @@
 "birth": 1844,
 "canonical": "Nikolai Rimsky-Korsakov",
 "death": 1908,
+"gender": "male",
 "qid": "Q93227",
 "wd_birth": 1844,
 "wd_death": 1908
@@ -5411,6 +6087,7 @@
 "birth": 1881,
 "canonical": "Nikolai Roslavets",
 "death": 1944,
+"gender": "male",
 "qid": "Q1594567",
 "wd_birth": 1881,
 "wd_death": 1944
@@ -5419,6 +6096,7 @@
 "birth": 1949,
 "canonical": "Nikolaus Brass",
 "death": null,
+"gender": "male",
 "qid": "Q175325",
 "wd_birth": 1949,
 "wd_death": null
@@ -5427,6 +6105,7 @@
 "birth": 1859,
 "canonical": "Nikolay Sokolov (composer)",
 "death": 1922,
+"gender": "male",
 "qid": "Q969905",
 "wd_birth": 1859,
 "wd_death": 1922
@@ -5435,6 +6114,7 @@
 "birth": 1904,
 "canonical": "Nikos Skalkottas",
 "death": 1949,
+"gender": "male",
 "qid": "Q452352",
 "wd_birth": 1904,
 "wd_death": 1949
@@ -5443,6 +6123,7 @@
 "birth": 1969,
 "canonical": "Nimrod Borenstein",
 "death": null,
+"gender": "male",
 "qid": "Q16199874",
 "wd_birth": 1969,
 "wd_death": null
@@ -5451,6 +6132,7 @@
 "birth": 1911,
 "canonical": "Nino Rota",
 "death": 1979,
+"gender": "male",
 "qid": "Q214665",
 "wd_birth": 1911,
 "wd_death": 1979
@@ -5459,6 +6141,7 @@
 "birth": 1810,
 "canonical": "Norbert Burgmüller",
 "death": 1836,
+"gender": "male",
 "qid": "Q683410",
 "wd_birth": 1810,
 "wd_death": 1836
@@ -5467,6 +6150,7 @@
 "birth": 1968,
 "canonical": "Olga Neuwirth",
 "death": null,
+"gender": "female",
 "qid": "Q273654",
 "wd_birth": 1968,
 "wd_death": null
@@ -5475,6 +6159,7 @@
 "birth": 1963,
 "canonical": "Osvaldo Coluccino",
 "death": null,
+"gender": "male",
 "qid": "Q15982025",
 "wd_birth": 1963,
 "wd_death": null
@@ -5483,6 +6168,7 @@
 "birth": 1886,
 "canonical": "Othmar Schoeck",
 "death": 1957,
+"gender": "male",
 "qid": "Q661927",
 "wd_birth": 1886,
 "wd_death": 1957
@@ -5491,6 +6177,7 @@
 "birth": 1900,
 "canonical": "Otto Luening",
 "death": 1996,
+"gender": "male",
 "qid": "Q2039834",
 "wd_birth": 1900,
 "wd_death": 1996
@@ -5499,6 +6186,7 @@
 "birth": 1879,
 "canonical": "Ottorino Respighi",
 "death": 1936,
+"gender": "male",
 "qid": "Q243837",
 "wd_birth": 1879,
 "wd_death": 1936
@@ -5507,6 +6195,7 @@
 "birth": 1938,
 "canonical": "Paavo Heininen",
 "death": 2022,
+"gender": "male",
 "qid": "Q774336",
 "wd_birth": 1938,
 "wd_death": 2022
@@ -5515,6 +6204,7 @@
 "birth": 1915,
 "canonical": "Pamela Harrison",
 "death": 1990,
+"gender": "female",
 "qid": "Q7129168",
 "wd_birth": null,
 "wd_death": null
@@ -5523,6 +6213,7 @@
 "birth": 1955,
 "canonical": "Pascal Dusapin",
 "death": null,
+"gender": "male",
 "qid": "Q516845",
 "wd_birth": 1955,
 "wd_death": null
@@ -5531,6 +6222,7 @@
 "birth": 1763,
 "canonical": "Paul Alday",
 "death": 1835,
+"gender": "male",
 "qid": "Q64946210",
 "wd_birth": 1763,
 "wd_death": 1835
@@ -5539,6 +6231,7 @@
 "birth": 1926,
 "canonical": "Paul Cooper (composer)",
 "death": 1996,
+"gender": "male",
 "qid": "Q22096025",
 "wd_birth": 1926,
 "wd_death": 1996
@@ -5547,6 +6240,7 @@
 "birth": 1894,
 "canonical": "Paul Dessau",
 "death": 1979,
+"gender": "male",
 "qid": "Q213613",
 "wd_birth": 1894,
 "wd_death": 1979
@@ -5555,6 +6249,7 @@
 "birth": 1895,
 "canonical": "Paul Hindemith",
 "death": 1963,
+"gender": "male",
 "qid": "Q57244",
 "wd_birth": 1895,
 "wd_death": 1963
@@ -5563,6 +6258,7 @@
 "birth": 1872,
 "canonical": "Paul Juon",
 "death": 1940,
+"gender": "male",
 "qid": "Q171509",
 "wd_birth": 1872,
 "wd_death": 1940
@@ -5571,6 +6267,7 @@
 "birth": 1944,
 "canonical": "Paul Lansky",
 "death": null,
+"gender": "male",
 "qid": "Q4357058",
 "wd_birth": 1944,
 "wd_death": null
@@ -5579,6 +6276,7 @@
 "birth": 1756,
 "canonical": "Paul Wranitzky",
 "death": 1808,
+"gender": "male",
 "qid": "Q78797",
 "wd_birth": 1756,
 "wd_death": 1808
@@ -5587,6 +6285,7 @@
 "birth": 1910,
 "canonical": "Paule Maurice",
 "death": 1967,
+"gender": "female",
 "qid": "Q456524",
 "wd_birth": 1910,
 "wd_death": 1967
@@ -5595,6 +6294,7 @@
 "birth": 1932,
 "canonical": "Pauline Oliveros",
 "death": 2016,
+"gender": "female",
 "qid": "Q444857",
 "wd_birth": 1932,
 "wd_death": 2016
@@ -5603,6 +6303,7 @@
 "birth": 1899,
 "canonical": "Pavel Haas",
 "death": 1944,
+"gender": "male",
 "qid": "Q449748",
 "wd_birth": 1899,
 "wd_death": 1944
@@ -5611,6 +6312,7 @@
 "birth": 1912,
 "canonical": "Peggy Glanville-Hicks",
 "death": 1990,
+"gender": "female",
 "qid": "Q273916",
 "wd_birth": 1912,
 "wd_death": 1990
@@ -5619,6 +6321,7 @@
 "birth": 1915,
 "canonical": "Peggy Hubicki",
 "death": 2006,
+"gender": "female",
 "qid": "Q31941838",
 "wd_birth": 1915,
 "wd_death": 2006
@@ -5627,6 +6330,7 @@
 "birth": 1932,
 "canonical": "Pelle Gudmundsen-Holmgreen",
 "death": 2016,
+"gender": "male",
 "qid": "Q1332714",
 "wd_birth": 1932,
 "wd_death": 2016
@@ -5635,6 +6339,7 @@
 "birth": 1932,
 "canonical": "Per Nørgård",
 "death": 2025,
+"gender": "male",
 "qid": "Q434392",
 "wd_birth": 1932,
 "wd_death": 2025
@@ -5643,6 +6348,7 @@
 "birth": 1830,
 "canonical": "Peter Arnold Heise",
 "death": 1879,
+"gender": "male",
 "qid": "Q2075603",
 "wd_birth": 1830,
 "wd_death": 1879
@@ -5651,6 +6357,7 @@
 "birth": 1969,
 "canonical": "Peter Fribbins",
 "death": null,
+"gender": "male",
 "qid": "Q7174093",
 "wd_birth": 1969,
 "wd_death": null
@@ -5659,6 +6366,7 @@
 "birth": 1770,
 "canonical": "Peter Hänsel",
 "death": 1831,
+"gender": "male",
 "qid": "Q350497",
 "wd_birth": 1770,
 "wd_death": 1831
@@ -5667,6 +6375,7 @@
 "birth": 1961,
 "canonical": "Peter Machajdík",
 "death": null,
+"gender": "male",
 "qid": "Q343116",
 "wd_birth": 1961,
 "wd_death": null
@@ -5675,6 +6384,7 @@
 "birth": 1934,
 "canonical": "Peter Maxwell Davies",
 "death": 2016,
+"gender": "male",
 "qid": "Q139223",
 "wd_birth": 1934,
 "wd_death": 2016
@@ -5683,6 +6393,7 @@
 "birth": 1923,
 "canonical": "Peter Mennin",
 "death": 1983,
+"gender": "male",
 "qid": "Q958720",
 "wd_birth": 1923,
 "wd_death": 1983
@@ -5691,6 +6402,7 @@
 "birth": 1920,
 "canonical": "Peter Racine Fricker",
 "death": 1990,
+"gender": "male",
 "qid": "Q353395",
 "wd_birth": 1920,
 "wd_death": 1990
@@ -5699,6 +6411,7 @@
 "birth": 1948,
 "canonical": "Peter Ruzicka",
 "death": null,
+"gender": "male",
 "qid": "Q457207",
 "wd_birth": 1948,
 "wd_death": null
@@ -5707,6 +6420,7 @@
 "birth": 1935,
 "canonical": "Peter Schickele",
 "death": 2024,
+"gender": "male",
 "qid": "Q1354646",
 "wd_birth": 1935,
 "wd_death": 2024
@@ -5715,6 +6429,7 @@
 "birth": 1929,
 "canonical": "Peter Sculthorpe",
 "death": 2014,
+"gender": "male",
 "qid": "Q924162",
 "wd_birth": 1929,
 "wd_death": 2014
@@ -5723,6 +6438,7 @@
 "birth": 1754,
 "canonical": "Peter Winter",
 "death": 1825,
+"gender": "male",
 "qid": "Q561047",
 "wd_birth": 1754,
 "wd_death": 1825
@@ -5731,6 +6447,7 @@
 "birth": 1937,
 "canonical": "Philip Glass",
 "death": null,
+"gender": "male",
 "qid": "Q189729",
 "wd_birth": 1937,
 "wd_death": null
@@ -5739,6 +6456,7 @@
 "birth": 1911,
 "canonical": "Phyllis Tate",
 "death": 1987,
+"gender": "female",
 "qid": "Q1916985",
 "wd_birth": 1911,
 "wd_death": 1987
@@ -5747,6 +6465,7 @@
 "birth": 1771,
 "canonical": "Pierre Baillot",
 "death": 1842,
+"gender": "male",
 "qid": "Q512197",
 "wd_birth": 1771,
 "wd_death": 1842
@@ -5755,6 +6474,7 @@
 "birth": 1925,
 "canonical": "Pierre Boulez",
 "death": 2016,
+"gender": "male",
 "qid": "Q156193",
 "wd_birth": 1925,
 "wd_death": 2016
@@ -5763,6 +6483,7 @@
 "birth": 1774,
 "canonical": "Pierre Rode",
 "death": 1830,
+"gender": "male",
 "qid": "Q713248",
 "wd_birth": 1774,
 "wd_death": 1830
@@ -5771,6 +6492,7 @@
 "birth": 1738,
 "canonical": "Pierre Vachon",
 "death": 1803,
+"gender": "male",
 "qid": "Q2093960",
 "wd_birth": 1738,
 "wd_death": 1803
@@ -5779,6 +6501,7 @@
 "birth": 1722,
 "canonical": "Pietro Nardini",
 "death": 1793,
+"gender": "male",
 "qid": "Q727374",
 "wd_birth": 1722,
 "wd_death": 1793
@@ -5787,6 +6510,7 @@
 "birth": 1985,
 "canonical": "Prach Boondiskulchok",
 "death": null,
+"gender": "male",
 "qid": "Q97353683",
 "wd_birth": 1985,
 "wd_death": null
@@ -5795,6 +6519,7 @@
 "birth": 1903,
 "canonical": "Priaulx Rainier",
 "death": 1986,
+"gender": "female",
 "qid": "Q7242524",
 "wd_birth": 1903,
 "wd_death": 1986
@@ -5803,6 +6528,7 @@
 "birth": 1840,
 "canonical": "Pyotr Ilyich Tchaikovsky",
 "death": 1893,
+"gender": "male",
 "qid": "Q7315",
 "wd_birth": 1840,
 "wd_death": 1893
@@ -5811,6 +6537,7 @@
 "birth": 1946,
 "canonical": "Pēteris Vasks",
 "death": null,
+"gender": "male",
 "qid": "Q368449",
 "wd_birth": 1946,
 "wd_death": null
@@ -5819,6 +6546,7 @@
 "birth": 1897,
 "canonical": "Quincy Porter",
 "death": 1966,
+"gender": "male",
 "qid": "Q2033174",
 "wd_birth": 1897,
 "wd_death": 1966
@@ -5827,6 +6555,7 @@
 "birth": 1975,
 "canonical": "R. Luke DuBois",
 "death": null,
+"gender": "male",
 "qid": "Q7273818",
 "wd_birth": 1975,
 "wd_death": null
@@ -5835,6 +6564,7 @@
 "birth": 1933,
 "canonical": "R. Murray Schafer",
 "death": 2021,
+"gender": "male",
 "qid": "Q1386495",
 "wd_birth": 1933,
 "wd_death": 2021
@@ -5843,6 +6573,7 @@
 "birth": 1951,
 "canonical": "Rafał Augustyn (composer)",
 "death": null,
+"gender": "male",
 "qid": "Q7282425",
 "wd_birth": 1951,
 "wd_death": null
@@ -5851,6 +6582,7 @@
 "birth": 1970,
 "canonical": "Ralph Farris",
 "death": null,
+"gender": "male",
 "qid": "Q7287481",
 "wd_birth": 1970,
 "wd_death": null
@@ -5859,6 +6591,7 @@
 "birth": 1872,
 "canonical": "Ralph Vaughan Williams",
 "death": 1958,
+"gender": "male",
 "qid": "Q207947",
 "wd_birth": 1872,
 "wd_death": 1958
@@ -5867,6 +6600,7 @@
 "birth": 1899,
 "canonical": "Randall Thompson",
 "death": 1984,
+"gender": "male",
 "qid": "Q1362347",
 "wd_birth": 1899,
 "wd_death": 1984
@@ -5875,6 +6609,7 @@
 "birth": 1886,
 "canonical": "Rebecca Clarke (composer)",
 "death": 1979,
+"gender": "female",
 "qid": "Q259670",
 "wd_birth": 1886,
 "wd_death": 1979
@@ -5883,6 +6618,7 @@
 "birth": 1967,
 "canonical": "Rebecca Saunders",
 "death": null,
+"gender": "female",
 "qid": "Q448111",
 "wd_birth": 1967,
 "wd_death": null
@@ -5891,6 +6627,7 @@
 "birth": 1881,
 "canonical": "Reine Colaço Osorio-Swaab",
 "death": 1971,
+"gender": "female",
 "qid": "Q7310287",
 "wd_birth": 1881,
 "wd_death": 1971
@@ -5899,6 +6636,7 @@
 "birth": 1952,
 "canonical": "Reinhard Febel",
 "death": null,
+"gender": "male",
 "qid": "Q1421667",
 "wd_birth": 1952,
 "wd_death": null
@@ -5907,6 +6645,7 @@
 "birth": 1874,
 "canonical": "Reinhold Glière",
 "death": 1956,
+"gender": "male",
 "qid": "Q316795",
 "wd_birth": 1874,
 "wd_death": 1956
@@ -5915,6 +6654,7 @@
 "birth": 1946,
 "canonical": "Renate Birnstein",
 "death": null,
+"gender": "female",
 "qid": "Q7312602",
 "wd_birth": 1946,
 "wd_death": null
@@ -5923,6 +6663,7 @@
 "birth": 1874,
 "canonical": "Reynaldo Hahn",
 "death": 1947,
+"gender": "male",
 "qid": "Q432938",
 "wd_birth": 1874,
 "wd_death": 1947
@@ -5931,6 +6672,7 @@
 "birth": 1958,
 "canonical": "Rhona Clarke",
 "death": null,
+"gender": "female",
 "qid": "Q18169350",
 "wd_birth": 1958,
 "wd_death": null
@@ -5939,6 +6681,7 @@
 "birth": 1971,
 "canonical": "Richard Carrick",
 "death": null,
+"gender": "male",
 "qid": "Q7324636",
 "wd_birth": 1971,
 "wd_death": null
@@ -5947,6 +6690,7 @@
 "birth": 1941,
 "canonical": "Richard Edward Wilson",
 "death": null,
+"gender": "male",
 "qid": "Q7325456",
 "wd_birth": 1941,
 "wd_death": null
@@ -5955,6 +6699,7 @@
 "birth": 1948,
 "canonical": "Richard Festinger",
 "death": null,
+"gender": "male",
 "qid": "Q7325660",
 "wd_birth": 1948,
 "wd_death": null
@@ -5963,6 +6708,7 @@
 "birth": 1864,
 "canonical": "Richard Strauss",
 "death": 1949,
+"gender": "male",
 "qid": "Q13894",
 "wd_birth": 1864,
 "wd_death": 1949
@@ -5971,6 +6717,7 @@
 "birth": 1875,
 "canonical": "Richard Wetz",
 "death": 1935,
+"gender": "male",
 "qid": "Q654967",
 "wd_birth": 1875,
 "wd_death": 1935
@@ -5979,6 +6726,7 @@
 "birth": 1981,
 "canonical": "Richard Zarou",
 "death": null,
+"gender": "male",
 "qid": "Q7330149",
 "wd_birth": 1981,
 "wd_death": null
@@ -5987,6 +6735,7 @@
 "birth": 1847,
 "canonical": "Robert Fuchs (composer)",
 "death": 1927,
+"gender": "male",
 "qid": "Q78606",
 "wd_birth": 1847,
 "wd_death": 1927
@@ -5995,6 +6744,7 @@
 "birth": 1954,
 "canonical": "Robert Greenberg",
 "death": null,
+"gender": "male",
 "qid": "Q4149584",
 "wd_birth": 1954,
 "wd_death": null
@@ -6003,6 +6753,7 @@
 "birth": 1865,
 "canonical": "Robert Kahn (composer)",
 "death": 1951,
+"gender": "male",
 "qid": "Q214129",
 "wd_birth": 1865,
 "wd_death": 1951
@@ -6011,6 +6762,7 @@
 "birth": 1810,
 "canonical": "Robert Schumann",
 "death": 1856,
+"gender": "male",
 "qid": "Q7351",
 "wd_birth": 1810,
 "wd_death": 1856
@@ -6019,6 +6771,7 @@
 "birth": 1959,
 "canonical": "Robert Scott Thompson",
 "death": null,
+"gender": "male",
 "qid": "Q7349664",
 "wd_birth": 1959,
 "wd_death": null
@@ -6027,6 +6780,7 @@
 "birth": 1921,
 "canonical": "Robert Simpson (composer)",
 "death": 1997,
+"gender": "male",
 "qid": "Q1936004",
 "wd_birth": 1921,
 "wd_death": 1997
@@ -6035,6 +6789,7 @@
 "birth": 1815,
 "canonical": "Robert Volkmann",
 "death": 1883,
+"gender": "male",
 "qid": "Q467848",
 "wd_birth": 1815,
 "wd_death": 1883
@@ -6043,6 +6798,7 @@
 "birth": 1896,
 "canonical": "Roberto Gerhard",
 "death": 1970,
+"gender": "male",
 "qid": "Q713949",
 "wd_birth": 1896,
 "wd_death": 1970
@@ -6051,6 +6807,7 @@
 "birth": 1932,
 "canonical": "Rodion Shchedrin",
 "death": 2025,
+"gender": "male",
 "qid": "Q165706",
 "wd_birth": 1932,
 "wd_death": 2025
@@ -6059,6 +6816,7 @@
 "birth": 1958,
 "canonical": "Rodney Waschka II",
 "death": null,
+"gender": "male",
 "qid": "Q7357106",
 "wd_birth": 1958,
 "wd_death": null
@@ -6067,6 +6825,7 @@
 "birth": 1766,
 "canonical": "Rodolphe Kreutzer",
 "death": 1831,
+"gender": "male",
 "qid": "Q336692",
 "wd_birth": 1766,
 "wd_death": 1831
@@ -6075,6 +6834,7 @@
 "birth": 1934,
 "canonical": "Roger Reynolds",
 "death": null,
+"gender": "male",
 "qid": "Q673278",
 "wd_birth": 1934,
 "wd_death": null
@@ -6083,6 +6843,7 @@
 "birth": 1896,
 "canonical": "Roger Sessions",
 "death": 1985,
+"gender": "male",
 "qid": "Q550632",
 "wd_birth": 1896,
 "wd_death": 1985
@@ -6091,6 +6852,7 @@
 "birth": 1962,
 "canonical": "Roland Dahinden",
 "death": null,
+"gender": "male",
 "qid": "Q1606450",
 "wd_birth": 1962,
 "wd_death": null
@@ -6099,6 +6861,7 @@
 "birth": 1742,
 "canonical": "Roman Hoffstetter",
 "death": 1815,
+"gender": "male",
 "qid": "Q661622",
 "wd_birth": 1742,
 "wd_death": 1815
@@ -6107,6 +6870,7 @@
 "birth": 1922,
 "canonical": "Rosalina Abejo",
 "death": 1991,
+"gender": "female",
 "qid": "Q3737905",
 "wd_birth": 1922,
 "wd_death": 1991
@@ -6115,6 +6879,7 @@
 "birth": 1857,
 "canonical": "Rosalind Ellicott",
 "death": 1924,
+"gender": "female",
 "qid": "Q7367224",
 "wd_birth": 1857,
 "wd_death": 1924
@@ -6123,6 +6888,7 @@
 "birth": 1919,
 "canonical": "Roslyn Brogue",
 "death": 1981,
+"gender": "female",
 "qid": "Q7369050",
 "wd_birth": 1919,
 "wd_death": 1981
@@ -6131,6 +6897,7 @@
 "birth": 1906,
 "canonical": "Ross Lee Finney",
 "death": 1997,
+"gender": "male",
 "qid": "Q323394",
 "wd_birth": 1906,
 "wd_death": 1997
@@ -6139,6 +6906,7 @@
 "birth": 1888,
 "canonical": "Rosy Wertheim",
 "death": 1949,
+"gender": "female",
 "qid": "Q7370152",
 "wd_birth": 1888,
 "wd_death": 1949
@@ -6147,6 +6915,7 @@
 "birth": 1893,
 "canonical": "Rued Langgaard",
 "death": 1952,
+"gender": "male",
 "qid": "Q149582",
 "wd_birth": 1893,
 "wd_death": 1952
@@ -6155,6 +6924,7 @@
 "birth": 1901,
 "canonical": "Ruth Crawford Seeger",
 "death": 1953,
+"gender": "female",
 "qid": "Q451393",
 "wd_birth": 1901,
 "wd_death": 1953
@@ -6163,6 +6933,7 @@
 "birth": 1921,
 "canonical": "Ruth Gipps",
 "death": 1999,
+"gender": "female",
 "qid": "Q4160337",
 "wd_birth": 1921,
 "wd_death": 1999
@@ -6171,6 +6942,7 @@
 "birth": 1930,
 "canonical": "Ruth Lomon",
 "death": 2017,
+"gender": "female",
 "qid": "Q2177688",
 "wd_birth": 1930,
 "wd_death": 2017
@@ -6179,6 +6951,7 @@
 "birth": 1924,
 "canonical": "Ruth Schönthal",
 "death": 2006,
+"gender": "female",
 "qid": "Q214710",
 "wd_birth": 1924,
 "wd_death": 2006
@@ -6187,6 +6960,7 @@
 "birth": 1956,
 "canonical": "Sally Beamish",
 "death": null,
+"gender": "female",
 "qid": "Q2680514",
 "wd_birth": 1956,
 "wd_death": null
@@ -6195,6 +6969,7 @@
 "birth": 1831,
 "canonical": "Salomon Jadassohn",
 "death": 1902,
+"gender": "male",
 "qid": "Q547227",
 "wd_birth": 1831,
 "wd_death": 1902
@@ -6203,6 +6978,7 @@
 "birth": 1817,
 "canonical": "Salvatore Pappalardo (composer)",
 "death": 1884,
+"gender": "male",
 "qid": "Q3946175",
 "wd_birth": 1817,
 "wd_death": 1884
@@ -6211,6 +6987,7 @@
 "birth": 1947,
 "canonical": "Salvatore Sciarrino",
 "death": null,
+"gender": "male",
 "qid": "Q439786",
 "wd_birth": 1947,
 "wd_death": null
@@ -6219,6 +6996,7 @@
 "birth": 1928,
 "canonical": "Samuel Adler (composer)",
 "death": null,
+"gender": "male",
 "qid": "Q2079069",
 "wd_birth": 1928,
 "wd_death": null
@@ -6227,6 +7005,7 @@
 "birth": 1910,
 "canonical": "Samuel Barber",
 "death": 1981,
+"gender": "male",
 "qid": "Q216870",
 "wd_birth": 1910,
 "wd_death": 1981
@@ -6235,6 +7014,7 @@
 "birth": 1875,
 "canonical": "Samuel Coleridge-Taylor",
 "death": 1912,
+"gender": "male",
 "qid": "Q739229",
 "wd_birth": 1875,
 "wd_death": 1912
@@ -6243,6 +7023,7 @@
 "birth": 1766,
 "canonical": "Samuel Wesley (composer, born 1766)",
 "death": 1837,
+"gender": "male",
 "qid": "Q1969627",
 "wd_birth": 1766,
 "wd_death": 1837
@@ -6251,6 +7032,7 @@
 "birth": 1977,
 "canonical": "Santa Ratniece",
 "death": null,
+"gender": "female",
 "qid": "Q16735022",
 "wd_birth": 1977,
 "wd_death": null
@@ -6259,6 +7041,7 @@
 "birth": 1973,
 "canonical": "Sarah Kirkland Snider",
 "death": null,
+"gender": "female",
 "qid": "Q7422490",
 "wd_birth": 1973,
 "wd_death": null
@@ -6267,6 +7050,7 @@
 "birth": 1891,
 "canonical": "Sergei Prokofiev",
 "death": 1953,
+"gender": "male",
 "qid": "Q49481",
 "wd_birth": 1891,
 "wd_death": 1953
@@ -6275,6 +7059,7 @@
 "birth": 1873,
 "canonical": "Sergei Rachmaninoff",
 "death": 1943,
+"gender": "male",
 "qid": "Q131861",
 "wd_birth": 1873,
 "wd_death": 1943
@@ -6283,6 +7068,7 @@
 "birth": 1856,
 "canonical": "Sergei Taneyev",
 "death": 1915,
+"gender": "male",
 "qid": "Q335006",
 "wd_birth": 1856,
 "wd_death": 1915
@@ -6291,6 +7077,7 @@
 "birth": 1933,
 "canonical": "Seóirse Bodley",
 "death": 2023,
+"gender": "male",
 "qid": "Q2132048",
 "wd_birth": 1933,
 "wd_death": 2023
@@ -6299,6 +7086,7 @@
 "birth": 1946,
 "canonical": "Sheila Silver",
 "death": null,
+"gender": "female",
 "qid": "Q2277801",
 "wd_birth": 1946,
 "wd_death": null
@@ -6307,6 +7095,7 @@
 "birth": 1959,
 "canonical": "Shigeru Kan-no",
 "death": null,
+"gender": "male",
 "qid": "Q934621",
 "wd_birth": 1959,
 "wd_death": null
@@ -6315,6 +7104,7 @@
 "birth": 1949,
 "canonical": "Shulamit Ran",
 "death": null,
+"gender": "female",
 "qid": "Q1889606",
 "wd_birth": 1949,
 "wd_death": null
@@ -6323,6 +7113,7 @@
 "birth": 1899,
 "canonical": "Silvestre Revueltas",
 "death": 1940,
+"gender": "male",
 "qid": "Q332421",
 "wd_birth": 1899,
 "wd_death": 1940
@@ -6331,6 +7122,7 @@
 "birth": 1952,
 "canonical": "Simon Bainbridge",
 "death": 2021,
+"gender": "male",
 "qid": "Q7518215",
 "wd_birth": 1952,
 "wd_death": 2021
@@ -6339,6 +7131,7 @@
 "birth": 1901,
 "canonical": "Simon Laks",
 "death": 1983,
+"gender": "male",
 "qid": "Q475920",
 "wd_birth": 1901,
 "wd_death": 1983
@@ -6347,6 +7140,7 @@
 "birth": 1954,
 "canonical": "Sinan Savaskan",
 "death": null,
+"gender": "male",
 "qid": "Q16186469",
 "wd_birth": 1954,
 "wd_death": null
@@ -6355,6 +7149,7 @@
 "birth": 1988,
 "canonical": "Sky Macklay",
 "death": null,
+"gender": "female",
 "qid": "Q23883406",
 "wd_birth": 1988,
 "wd_death": null
@@ -6363,6 +7158,7 @@
 "birth": 1931,
 "canonical": "Sofia Gubaidulina",
 "death": 2025,
+"gender": "female",
 "qid": "Q165668",
 "wd_birth": 1931,
 "wd_death": 2025
@@ -6371,6 +7167,7 @@
 "birth": 1963,
 "canonical": "Sophie Lacaze",
 "death": null,
+"gender": "female",
 "qid": "Q3490970",
 "wd_birth": 1963,
 "wd_death": null
@@ -6379,6 +7176,7 @@
 "birth": 1819,
 "canonical": "Stanisław Moniuszko",
 "death": 1872,
+"gender": "male",
 "qid": "Q217613",
 "wd_birth": 1819,
 "wd_death": 1872
@@ -6387,6 +7185,7 @@
 "birth": 1902,
 "canonical": "Stefan Wolpe",
 "death": 1972,
+"gender": "male",
 "qid": "Q213905",
 "wd_birth": 1902,
 "wd_death": 1972
@@ -6395,6 +7194,7 @@
 "birth": 1898,
 "canonical": "Stefania Turkewich",
 "death": 1977,
+"gender": "female",
 "qid": "Q12162960",
 "wd_birth": 1898,
 "wd_death": 1977
@@ -6403,6 +7203,7 @@
 "birth": 1922,
 "canonical": "Stefans Grové",
 "death": 2014,
+"gender": "male",
 "qid": "Q11240012",
 "wd_birth": 1922,
 "wd_death": 2014
@@ -6411,6 +7212,7 @@
 "birth": 1948,
 "canonical": "Stephen Brown (composer)",
 "death": null,
+"gender": "male",
 "qid": "Q7608789",
 "wd_birth": 1948,
 "wd_death": null
@@ -6419,6 +7221,7 @@
 "birth": 1936,
 "canonical": "Steve Reich",
 "death": null,
+"gender": "male",
 "qid": "Q262791",
 "wd_birth": 1936,
 "wd_death": null
@@ -6427,6 +7230,7 @@
 "birth": 1858,
 "canonical": "Susie Frances Harrison",
 "death": 1935,
+"gender": "female",
 "qid": "Q7649024",
 "wd_birth": 1858,
 "wd_death": 1935
@@ -6435,6 +7239,7 @@
 "birth": 1880,
 "canonical": "Susan Spain-Dunk",
 "death": 1962,
+"gender": "female",
 "qid": "Q28061390",
 "wd_birth": 1880,
 "wd_death": 1962
@@ -6443,6 +7248,7 @@
 "birth": 1919,
 "canonical": "Sven-Erik Bäck",
 "death": 1994,
+"gender": "male",
 "qid": "Q1347023",
 "wd_birth": 1919,
 "wd_death": 1994
@@ -6451,6 +7257,7 @@
 "birth": 1976,
 "canonical": "Svitlana Azarova",
 "death": null,
+"gender": "female",
 "qid": "Q455606",
 "wd_birth": 1976,
 "wd_death": null
@@ -6459,6 +7266,7 @@
 "birth": 1866,
 "canonical": "Swan Hennessy",
 "death": 1929,
+"gender": "male",
 "qid": "Q16030169",
 "wd_birth": 1866,
 "wd_death": 1929
@@ -6467,6 +7275,7 @@
 "birth": 1954,
 "canonical": "Sylvie Bodorová",
 "death": null,
+"gender": "female",
 "qid": "Q440505",
 "wd_birth": 1954,
 "wd_death": null
@@ -6475,6 +7284,7 @@
 "birth": 1857,
 "canonical": "Sylvio Lazzari",
 "death": 1944,
+"gender": "male",
 "qid": "Q3178395",
 "wd_birth": 1857,
 "wd_death": 1944
@@ -6483,6 +7293,7 @@
 "birth": 1943,
 "canonical": "Tania León",
 "death": null,
+"gender": "female",
 "qid": "Q463308",
 "wd_birth": 1943,
 "wd_death": null
@@ -6491,6 +7302,7 @@
 "birth": 1973,
 "canonical": "Tansy Davies",
 "death": null,
+"gender": "female",
 "qid": "Q7683779",
 "wd_birth": 1973,
 "wd_death": null
@@ -6499,6 +7311,7 @@
 "birth": 1924,
 "canonical": "Tatiana Nikolayeva",
 "death": 1993,
+"gender": "female",
 "qid": "Q260104",
 "wd_birth": 1924,
 "wd_death": 1993
@@ -6507,6 +7320,7 @@
 "birth": 1932,
 "canonical": "Tera de Marez Oyens",
 "death": 1996,
+"gender": "female",
 "qid": "Q2883654",
 "wd_birth": 1932,
 "wd_death": 1996
@@ -6515,6 +7329,7 @@
 "birth": 1853,
 "canonical": "Teresa Carreño",
 "death": 1917,
+"gender": "female",
 "qid": "Q241494",
 "wd_birth": 1853,
 "wd_death": 1917
@@ -6523,6 +7338,7 @@
 "birth": 1934,
 "canonical": "Teresa Procaccini",
 "death": null,
+"gender": "female",
 "qid": "Q3984310",
 "wd_birth": 1934,
 "wd_death": null
@@ -6531,6 +7347,7 @@
 "birth": 1935,
 "canonical": "Terry Riley",
 "death": null,
+"gender": "male",
 "qid": "Q365243",
 "wd_birth": 1935,
 "wd_death": null
@@ -6539,6 +7356,7 @@
 "birth": 1928,
 "canonical": "Thea Musgrave",
 "death": null,
+"gender": "female",
 "qid": "Q539794",
 "wd_birth": 1928,
 "wd_death": null
@@ -6547,6 +7365,7 @@
 "birth": 1971,
 "canonical": "Thomas Adès",
 "death": null,
+"gender": "male",
 "qid": "Q439572",
 "wd_birth": 1971,
 "wd_death": null
@@ -6555,6 +7374,7 @@
 "birth": 1927,
 "canonical": "Thomas Wilson (composer)",
 "death": 2001,
+"gender": "male",
 "qid": "Q2606422",
 "wd_birth": 1927,
 "wd_death": 2001
@@ -6563,6 +7383,7 @@
 "birth": 1939,
 "canonical": "Tigran Mansurian",
 "death": null,
+"gender": "male",
 "qid": "Q1970982",
 "wd_birth": 1939,
 "wd_death": null
@@ -6571,6 +7392,7 @@
 "birth": 1913,
 "canonical": "Tikhon Khrennikov",
 "death": 2007,
+"gender": "male",
 "qid": "Q367830",
 "wd_birth": 1913,
 "wd_death": 2007
@@ -6579,6 +7401,7 @@
 "birth": 1939,
 "canonical": "Tom Johnson (composer)",
 "death": 2024,
+"gender": "male",
 "qid": "Q1364087",
 "wd_birth": 1939,
 "wd_death": 2024
@@ -6587,6 +7410,7 @@
 "birth": 1850,
 "canonical": "Tomás Bretón",
 "death": 1923,
+"gender": "male",
 "qid": "Q722623",
 "wd_birth": 1850,
 "wd_death": 1923
@@ -6595,6 +7419,7 @@
 "birth": 1733,
 "canonical": "Tommaso Giordani",
 "death": 1806,
+"gender": "male",
 "qid": "Q718406",
 "wd_birth": 1733,
 "wd_death": 1806
@@ -6603,6 +7428,7 @@
 "birth": 1939,
 "canonical": "Tomáš Svoboda (composer)",
 "death": 2022,
+"gender": "male",
 "qid": "Q3195523",
 "wd_birth": 1939,
 "wd_death": 2022
@@ -6611,6 +7437,7 @@
 "birth": 1980,
 "canonical": "Tyshawn Sorey",
 "death": null,
+"gender": "male",
 "qid": "Q2463431",
 "wd_birth": 1980,
 "wd_death": null
@@ -6619,6 +7446,7 @@
 "birth": 1930,
 "canonical": "Tōru Takemitsu",
 "death": 1996,
+"gender": "male",
 "qid": "Q155467",
 "wd_birth": 1930,
 "wd_death": 1996
@@ -6627,6 +7455,7 @@
 "birth": 1961,
 "canonical": "Unsuk Chin",
 "death": null,
+"gender": "female",
 "qid": "Q272236",
 "wd_birth": 1961,
 "wd_death": null
@@ -6635,6 +7464,7 @@
 "birth": 1923,
 "canonical": "Ursula Mamlok",
 "death": 2016,
+"gender": "female",
 "qid": "Q2501752",
 "wd_birth": 1923,
 "wd_death": 2016
@@ -6643,6 +7473,7 @@
 "birth": 1912,
 "canonical": "Vadim Salmanov",
 "death": 1978,
+"gender": "male",
 "qid": "Q323479",
 "wd_birth": 1912,
 "wd_death": 1978
@@ -6651,6 +7482,7 @@
 "birth": 1909,
 "canonical": "Vagn Holmboe",
 "death": 1996,
+"gender": "male",
 "qid": "Q918832",
 "wd_birth": 1909,
 "wd_death": 1996
@@ -6659,6 +7491,7 @@
 "birth": 1860,
 "canonical": "Valborg Aulin",
 "death": 1928,
+"gender": "female",
 "qid": "Q451402",
 "wd_birth": 1860,
 "wd_death": 1928
@@ -6667,6 +7500,7 @@
 "birth": 1937,
 "canonical": "Valentyn Silvestrov",
 "death": null,
+"gender": "male",
 "qid": "Q706765",
 "wd_birth": 1937,
 "wd_death": null
@@ -6675,6 +7509,7 @@
 "birth": 1894,
 "canonical": "Vally Weigl",
 "death": 1982,
+"gender": "female",
 "qid": "Q2509422",
 "wd_birth": 1894,
 "wd_death": 1982
@@ -6683,6 +7518,7 @@
 "birth": 1968,
 "canonical": "Vanessa Lann",
 "death": null,
+"gender": "female",
 "qid": "Q2428897",
 "wd_birth": 1968,
 "wd_death": null
@@ -6691,6 +7527,7 @@
 "birth": 1925,
 "canonical": "Veniamin Basner",
 "death": 1996,
+"gender": "male",
 "qid": "Q652990",
 "wd_birth": 1925,
 "wd_death": 1996
@@ -6699,6 +7536,7 @@
 "birth": 1930,
 "canonical": "Vera Baeva",
 "death": 2017,
+"gender": "female",
 "qid": "Q7920737",
 "wd_birth": 1930,
 "wd_death": 2017
@@ -6707,6 +7545,7 @@
 "birth": 1905,
 "canonical": "Verdina Shlonsky",
 "death": 1990,
+"gender": "female",
 "qid": "Q2026038",
 "wd_birth": 1905,
 "wd_death": 1990
@@ -6715,6 +7554,7 @@
 "birth": 1945,
 "canonical": "Victoria Bond",
 "death": null,
+"gender": "female",
 "qid": "Q16106886",
 "wd_birth": 1945,
 "wd_death": null
@@ -6723,6 +7563,7 @@
 "birth": 1969,
 "canonical": "Victoria Borisova-Ollas",
 "death": null,
+"gender": "female",
 "qid": "Q4940135",
 "wd_birth": 1969,
 "wd_death": null
@@ -6731,6 +7572,7 @@
 "birth": 1962,
 "canonical": "Victoria Poleva",
 "death": null,
+"gender": "female",
 "qid": "Q4369600",
 "wd_birth": 1962,
 "wd_death": null
@@ -6739,6 +7581,7 @@
 "birth": 1898,
 "canonical": "Viktor Ullmann",
 "death": 1944,
+"gender": "male",
 "qid": "Q78530",
 "wd_birth": 1898,
 "wd_death": 1944
@@ -6747,6 +7590,7 @@
 "birth": 1875,
 "canonical": "Vilma von Webenau",
 "death": 1953,
+"gender": "female",
 "qid": "Q2526266",
 "wd_birth": 1875,
 "wd_death": 1953
@@ -6755,6 +7599,7 @@
 "birth": 1915,
 "canonical": "Vincent Persichetti",
 "death": 1987,
+"gender": "male",
 "qid": "Q1269450",
 "wd_birth": 1915,
 "wd_death": 1987
@@ -6763,6 +7608,7 @@
 "birth": 1851,
 "canonical": "Vincent d'Indy",
 "death": 1931,
+"gender": "male",
 "qid": "Q313584",
 "wd_birth": 1851,
 "wd_death": 1931
@@ -6771,6 +7617,7 @@
 "birth": 1859,
 "canonical": "Vincenza Garelli della Morea",
 "death": 1924,
+"gender": "female",
 "qid": "Q7932196",
 "wd_birth": 1859,
 "wd_death": 1924
@@ -6779,6 +7626,7 @@
 "birth": 1737,
 "canonical": "Vincenzo Manfredini",
 "death": 1799,
+"gender": "male",
 "qid": "Q928954",
 "wd_birth": 1737,
 "wd_death": 1799
@@ -6787,6 +7635,7 @@
 "birth": 1913,
 "canonical": "Violet Archer",
 "death": 2000,
+"gender": "female",
 "qid": "Q292581",
 "wd_birth": 1913,
 "wd_death": 2000
@@ -6795,6 +7644,7 @@
 "birth": 1953,
 "canonical": "Violeta Dinescu",
 "death": null,
+"gender": "female",
 "qid": "Q274781",
 "wd_birth": 1953,
 "wd_death": null
@@ -6803,6 +7653,7 @@
 "birth": 1896,
 "canonical": "Virgil Thomson",
 "death": 1989,
+"gender": "male",
 "qid": "Q544485",
 "wd_birth": 1896,
 "wd_death": 1989
@@ -6811,6 +7662,7 @@
 "birth": 1902,
 "canonical": "Vissarion Shebalin",
 "death": 1963,
+"gender": "male",
 "qid": "Q504286",
 "wd_birth": 1902,
 "wd_death": 1963
@@ -6819,6 +7671,7 @@
 "birth": 1913,
 "canonical": "Vivian Fine",
 "death": 2000,
+"gender": "female",
 "qid": "Q4993231",
 "wd_birth": 1913,
 "wd_death": 2000
@@ -6827,6 +7680,7 @@
 "birth": 1975,
 "canonical": "Vivian Fung",
 "death": null,
+"gender": "female",
 "qid": "Q16213042",
 "wd_birth": 1975,
 "wd_death": null
@@ -6835,6 +7689,7 @@
 "birth": 1925,
 "canonical": "Vladimir Shainsky",
 "death": 2017,
+"gender": "male",
 "qid": "Q674048",
 "wd_birth": 1925,
 "wd_death": 2017
@@ -6843,6 +7698,7 @@
 "birth": 1806,
 "canonical": "Václav Jindřich Veit",
 "death": 1864,
+"gender": "male",
 "qid": "Q872627",
 "wd_birth": 1806,
 "wd_death": 1864
@@ -6851,6 +7707,7 @@
 "birth": 1870,
 "canonical": "Vítězslav Novák",
 "death": 1949,
+"gender": "male",
 "qid": "Q347611",
 "wd_birth": 1870,
 "wd_death": 1949
@@ -6859,6 +7716,7 @@
 "birth": 1915,
 "canonical": "Vítězslava Kaprálová",
 "death": 1940,
+"gender": "female",
 "qid": "Q263208",
 "wd_birth": 1915,
 "wd_death": 1940
@@ -6867,6 +7725,7 @@
 "birth": 1894,
 "canonical": "Walter Piston",
 "death": 1976,
+"gender": "male",
 "qid": "Q711052",
 "wd_birth": 1894,
 "wd_death": 1976
@@ -6875,6 +7734,7 @@
 "birth": 1741,
 "canonical": "Václav Pichl",
 "death": 1805,
+"gender": "male",
 "qid": "Q1344731",
 "wd_birth": 1741,
 "wd_death": 1805
@@ -6883,6 +7743,7 @@
 "birth": 1848,
 "canonical": "Wilhelm Fitzenhagen",
 "death": 1890,
+"gender": "male",
 "qid": "Q4485111",
 "wd_birth": 1848,
 "wd_death": 1890
@@ -6891,6 +7752,7 @@
 "birth": 1871,
 "canonical": "Wilhelm Stenhammar",
 "death": 1927,
+"gender": "male",
 "qid": "Q435688",
 "wd_birth": 1871,
 "wd_death": 1927
@@ -6899,6 +7761,7 @@
 "birth": 1811,
 "canonical": "Wilhelm Taubert",
 "death": 1891,
+"gender": "male",
 "qid": "Q69912",
 "wd_birth": 1811,
 "wd_death": 1891
@@ -6907,6 +7770,7 @@
 "birth": 1894,
 "canonical": "Willem Pijper",
 "death": 1947,
+"gender": "male",
 "qid": "Q195114",
 "wd_birth": 1894,
 "wd_death": 1947
@@ -6915,6 +7779,7 @@
 "birth": 1905,
 "canonical": "William Alwyn",
 "death": 1985,
+"gender": "male",
 "qid": "Q541685",
 "wd_birth": 1905,
 "wd_death": 1985
@@ -6923,6 +7788,7 @@
 "birth": 1921,
 "canonical": "William Bergsma",
 "death": 1994,
+"gender": "male",
 "qid": "Q323568",
 "wd_birth": 1921,
 "wd_death": 1994
@@ -6931,6 +7797,7 @@
 "birth": 1895,
 "canonical": "William Grant Still",
 "death": 1978,
+"gender": "male",
 "qid": "Q1397729",
 "wd_birth": 1895,
 "wd_death": 1978
@@ -6939,6 +7806,7 @@
 "birth": 1910,
 "canonical": "William Schuman",
 "death": 1992,
+"gender": "male",
 "qid": "Q503225",
 "wd_birth": 1910,
 "wd_death": 1992
@@ -6947,6 +7815,7 @@
 "birth": 1960,
 "canonical": "William Susman",
 "death": null,
+"gender": "male",
 "qid": "Q26689608",
 "wd_birth": 1960,
 "wd_death": null
@@ -6955,6 +7824,7 @@
 "birth": 1902,
 "canonical": "William Walton",
 "death": 1983,
+"gender": "male",
 "qid": "Q310939",
 "wd_birth": 1902,
 "wd_death": 1983
@@ -6963,6 +7833,7 @@
 "birth": 1913,
 "canonical": "Witold Lutosławski",
 "death": 1994,
+"gender": "male",
 "qid": "Q156472",
 "wd_birth": 1913,
 "wd_death": 1994
@@ -6971,6 +7842,7 @@
 "birth": 1828,
 "canonical": "Woldemar Bargiel",
 "death": 1897,
+"gender": "male",
 "qid": "Q67025",
 "wd_birth": 1828,
 "wd_death": 1897
@@ -6979,6 +7851,7 @@
 "birth": 1756,
 "canonical": "Wolfgang Amadeus Mozart",
 "death": 1791,
+"gender": "male",
 "qid": "Q254",
 "wd_birth": 1756,
 "wd_death": 1791
@@ -6987,6 +7860,7 @@
 "birth": 1907,
 "canonical": "Wolfgang Fortner",
 "death": 1987,
+"gender": "male",
 "qid": "Q694204",
 "wd_birth": 1907,
 "wd_death": 1987
@@ -6995,6 +7869,7 @@
 "birth": 1952,
 "canonical": "Wolfgang Rihm",
 "death": 2024,
+"gender": "male",
 "qid": "Q77031",
 "wd_birth": 1952,
 "wd_death": 2024
@@ -7003,6 +7878,7 @@
 "birth": 1973,
 "canonical": "Yalil Guerra",
 "death": null,
+"gender": "male",
 "qid": "Q8047471",
 "wd_birth": 1973,
 "wd_death": null
@@ -7011,6 +7887,7 @@
 "birth": 1971,
 "canonical": "Yitzhak Yedid",
 "death": null,
+"gender": "male",
 "qid": "Q2006195",
 "wd_birth": 1971,
 "wd_death": null
@@ -7019,6 +7896,7 @@
 "birth": 1976,
 "canonical": "Yotam Haber",
 "death": null,
+"gender": "male",
 "qid": "Q8056411",
 "wd_birth": 1976,
 "wd_death": null
@@ -7027,6 +7905,7 @@
 "birth": 1937,
 "canonical": "Zbigniew Bargielski",
 "death": null,
+"gender": "male",
 "qid": "Q167978",
 "wd_birth": 1937,
 "wd_death": null
@@ -7035,6 +7914,7 @@
 "birth": 1850,
 "canonical": "Zdeněk Fibich",
 "death": 1900,
+"gender": "male",
 "qid": "Q117110",
 "wd_birth": 1850,
 "wd_death": 1900
@@ -7043,6 +7923,7 @@
 "birth": 1908,
 "canonical": "Zenobia Powell Perry",
 "death": 2004,
+"gender": "female",
 "qid": "Q2911264",
 "wd_birth": 1908,
 "wd_death": 2004
@@ -7051,6 +7932,7 @@
 "birth": 1928,
 "canonical": "Zlata Tkach",
 "death": 2006,
+"gender": "female",
 "qid": "Q4458917",
 "wd_birth": 1928,
 "wd_death": 2006
@@ -7059,6 +7941,7 @@
 "birth": 1882,
 "canonical": "Zoltán Kodály",
 "death": 1967,
+"gender": "male",
 "qid": "Q153008",
 "wd_birth": 1882,
 "wd_death": 1967
@@ -7067,6 +7950,7 @@
 "birth": 1973,
 "canonical": "Žibuoklė Martinaitytė",
 "death": null,
+"gender": "female",
 "qid": "Q97732934",
 "wd_birth": 1973,
 "wd_death": null

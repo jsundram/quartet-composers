@@ -114,7 +114,13 @@ body.fs #filters .tablehead{ display:none }
 
 /* --- readership filter (histogram + brush) ------------------------------------------------- */
 .filterbar{ display:flex; align-items:center; gap:12px; margin:2px 0 10px }
-.filterbar label{ font-size:12px; color:var(--muted); white-space:nowrap }
+.filterbar label, #gender-label{ font-size:12px; color:var(--muted); white-space:nowrap }
+/* The gender pills are the SAME control as the view switcher, one notch smaller: this row's own
+   Clear button is 28px, and a 36px segmented control beside it made the filter look like the
+   primary action on the page. Touch sizing is restored in the phone block below — .seg.sm outranks
+   the .seg button rule there on specificity, so it has to opt back in rather than inherit. */
+.seg.sm button{ min-height:30px; padding:0 11px; font-size:12px }
+#gender{ margin-left:auto }                    /* pinned right; the brush takes the slack */
 #hist{ flex:1 1 auto; min-width:0; margin-right:2px; touch-action:none }   /* touch-action:none so d3-brush owns the drag */
 #hist svg{ display:block; width:100%; height:auto; overflow:visible }
 #hist-read{ font:500 11px/1 ui-monospace, monospace; color:var(--accent); white-space:nowrap }
@@ -309,7 +315,7 @@ body.fs .grid{ display:block }
 /* Phone-specific sizing. Targets REAL touch devices, not just a narrow desktop window. */
 @media (hover:none) and (pointer:coarse) and (max-width:800px){
   .scroll{ max-height:56vh }
-  .seg button, .btn{ min-height:40px }         /* keep tap targets at the 44px-ish floor */
+  .seg button, .seg.sm button, .btn{ min-height:40px }   /* keep tap targets at the 44px-ish floor */
   #q{ min-height:42px }
 }
 
@@ -319,6 +325,13 @@ body.fs .grid{ display:block }
 @media (max-width:640px){
   .filterbar{ flex-wrap:wrap; gap:6px 10px }
   .filterbar #hist{ flex:1 0 100%; order:3 }
+  /* Three filters do not fit two lines here, and the brush is the one that needs the full width.
+     So the gender pills take a third line of their own, WITH their label — sharing line one with
+     the readership readout put "Women | Men" next to a views range, where the two read as one
+     control. margin-left is dropped with it: the row is theirs now, so there is no slack to push
+     against and `auto` would have shoved the label away from its own buttons. */
+  #gender-label{ order:4 }
+  #gender{ order:5; margin-left:0 }
   .wide-only{ display:none }
   tbody td{ padding:9px 8px }
   thead th button{ padding:10px 8px }

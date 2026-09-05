@@ -59,7 +59,9 @@ def main():
     for name, birth, life, q in old_rows:
         old[fold(name)] = {"name": name, "birth": birth, "quartets": q, "views": ov.get(fold(name))}
     new = {}
-    for name, birth, death, q, views, lo, hi in cur["rows"]:
+    # `*_` rather than naming every field: this tool compares four of them, and a schema addition
+    # (gender was the first) should not stop a review script from running.
+    for name, birth, death, q, views, *_ in cur["rows"]:
         new[fold(name)] = {"name": name, "birth": birth, "death": death,
                            "quartets": q, "views": views}
 
