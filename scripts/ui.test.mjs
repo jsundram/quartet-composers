@@ -386,7 +386,7 @@ await ev(`Theme.set('dark')`); await sleep(400);
 const darkFill = await ev(`document.querySelector('#plot svg circle.dot').getAttribute('fill')`);
 check("theme flip re-bakes the dot colors", lightFill !== darkFill, `${lightFill} -> ${darkFill}`);
 check("theme flip re-bakes the legend ramp",
-      (await ev(`document.querySelector('#legend .ramp').style.background`)).includes("239, 106, 88"),
+      (await ev(`document.querySelector('#legend .ramp').style.background`)).includes("220, 236, 138"),
       await ev(`document.querySelector('#legend .ramp').style.background`));
 await shot("dark");
 await ev(`Theme.set('auto')`);

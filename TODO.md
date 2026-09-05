@@ -100,17 +100,17 @@ drawn. `X_DOMAIN` is now derived in `setData()` from the PLOTTABLE birth years (
 snapped out to a 50-year grid — 1700–2000. Nothing was dropped and no axis was broken.
 `make-og-svg.py` derives the same domain; keep them in step.
 
-### Lifespan is still a DIVERGING ramp, which is the wrong colour job
-Half fixed. The ramp now reads hot→cold (died young is red, lived long is blue) with a neutral
-median, and every step clears 3:1 against the plot surface — the old midpoint sat at 1.61:1, so
-the single most COMMON lifespan was the least visible dot on the chart. Steps were chosen with the
-dataviz palette validator against `--plot` in both modes, not by eye; re-run it if they change.
+### ~~Lifespan is a diverging ramp, which is the wrong colour job~~ — done, 2026-09-05
+The ramp is YlGnBu now: died young is yellow, lived long is deep blue, hot to cold and
+SEQUENTIAL, which is the honest job for a magnitude. It fixes both halves at once. The old
+diverging ramp needed a baseline to diverge from and never had one — it pivoted on the median
+lifespan of whoever was in the dataset, so the pivot moved when the data did. And its neutral
+midpoint sat at 1.61:1 against `--plot`, which made the single most COMMON lifespan the least
+visible dot on the chart.
 
-What is NOT fixed: a diverging scale encodes POLARITY — distance either side of a meaningful
-baseline — and lifespan has none. The ramp pivots on the median lifespan of whoever is currently
-in the dataset, which moves when the data does. Sequential (one hue, light→dark) is the honest
-form. Deliberately left, so Timeline/Swarm/Lens keep an encoding while only Readers carries an
-argument; revisit if those views get an argument of their own.
+Stepped darker than canonical YlGnBu deliberately: `#edf8b1` is 1.08:1 on this surface, so the
+published ramp's pale end is invisible here. Everything clears 3:1 and stays monotone in lightness
+in both modes, checked with the dataviz palette validator rather than by eye.
 
 ### The Readers view drops birth year entirely
 Which is the thing the mocked-up "canon path" would have added: joining the seven in birth order
