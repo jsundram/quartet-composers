@@ -28,6 +28,14 @@ screen reader. Either state the count in the label or drop the claim.
 
 ## Data quality
 
+### Gender is not in the data — [#1](https://github.com/jsundram/quartet-composers/issues/1)
+`fetch_wikidata.py` already fetches each composer's full claim set and keeps only P569/P570, so
+P21 is one line away. Probed: 276 of 883 (31%) are women, 210 of them plottable, births
+1745–1989. Enough for a filter, and the Readers view already implies the finding — the most-read
+woman on the list is Florence Price at 8,001/mo against Mozart's 186,772. The issue carries the
+numbers, the pipeline steps and the two decisions to make first (where the control lives, and
+whether it is a filter or an encoding).
+
 ### Readership is displayed to two significant figures; the data has one meaningful one
 `twoSig()` in `app.js` quantizes the median to two figures and floors it, so Mozart reads "180k+"
 rather than "186,772". Two is a guess, not a derivation: the honest input is the 12-month spread,
