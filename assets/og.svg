@@ -25,9 +25,7 @@
   <line x1="520.0" y1="379.4" x2="1128.0" y2="186.6" stroke="#2b313a" stroke-width="1"/>
   <line x1="520.0" y1="298.1" x2="1128.0" y2="105.3" stroke="#2b313a" stroke-width="1"/>
   <line x1="520.0" y1="216.8" x2="900.8" y2="96.0" stroke="#2b313a" stroke-width="1"/>
-  <circle cx="658.6" cy="149.0" r="3.6" fill="#9aa3a8" opacity=".22"/>
   <circle cx="616.0" cy="160.8" r="3.6" fill="#9aa3a8" opacity=".22"/>
-  <circle cx="527.3" cy="166.8" r="3.6" fill="#9aa3a8" opacity=".22"/>
   <circle cx="527.6" cy="167.0" r="3.6" fill="#9aa3a8" opacity=".22"/>
   <circle cx="842.7" cy="167.4" r="3.6" fill="#9aa3a8" opacity=".22"/>
   <circle cx="655.7" cy="173.3" r="3.6" fill="#9aa3a8" opacity=".22"/>
@@ -39,7 +37,6 @@
   <circle cx="529.4" cy="179.2" r="3.6" fill="#9aa3a8" opacity=".22"/>
   <circle cx="545.2" cy="181.8" r="3.6" fill="#9aa3a8" opacity=".22"/>
   <circle cx="667.0" cy="181.9" r="3.6" fill="#9aa3a8" opacity=".22"/>
-  <circle cx="605.6" cy="182.2" r="3.6" fill="#9aa3a8" opacity=".22"/>
   <circle cx="530.7" cy="182.7" r="3.6" fill="#9aa3a8" opacity=".22"/>
   <circle cx="534.2" cy="185.6" r="3.6" fill="#9aa3a8" opacity=".22"/>
   <circle cx="544.5" cy="185.8" r="3.6" fill="#9aa3a8" opacity=".22"/>
@@ -813,7 +810,10 @@
   <circle cx="1033.9" cy="240.4" r="7.5" fill="#fb923c" stroke="#191c21" stroke-width="1.6"/>
   <circle cx="895.4" cy="107.7" r="7.5" fill="#fb923c" stroke="#191c21" stroke-width="1.6"/>
   <circle cx="839.0" cy="122.5" r="7.5" fill="#fb923c" stroke="#191c21" stroke-width="1.6"/>
+  <circle cx="658.6" cy="149.0" r="7.5" fill="#fb923c" stroke="#191c21" stroke-width="1.6"/>
+  <circle cx="527.3" cy="166.8" r="7.5" fill="#fb923c" stroke="#191c21" stroke-width="1.6"/>
   <circle cx="729.0" cy="193.6" r="7.5" fill="#fb923c" stroke="#191c21" stroke-width="1.6"/>
+  <circle cx="605.6" cy="182.2" r="7.5" fill="#fb923c" stroke="#191c21" stroke-width="1.6"/>
   <circle cx="829.1" cy="165.0" r="7.5" fill="#fb923c" stroke="#191c21" stroke-width="1.6"/>
   <text x="895.4" y="91.2" fill="#eceef0" font-family="system-ui,sans-serif" font-size="18" font-weight="600" text-anchor="middle" stroke="#14161a" stroke-width="4" paint-order="stroke" stroke-linejoin="round">Mozart</text>
   <text x="822.5" y="128.5" fill="#eceef0" font-family="system-ui,sans-serif" font-size="18" font-weight="600" text-anchor="end" stroke="#14161a" stroke-width="4" paint-order="stroke" stroke-linejoin="round">Beethoven</text>
@@ -827,7 +827,7 @@
   <text x="72" y="350" fill="#9aa3a8" font-family="system-ui,sans-serif" font-size="24">Quartets written × readers.</text>
   <text x="72" y="384" fill="#9aa3a8" font-family="system-ui,sans-serif" font-size="24">Diagonals = readers per quartet.</text>
   <circle cx="80" cy="424" r="7.5" fill="#fb923c"/>
-  <text x="98" y="430" fill="#9aa3a8" font-family="system-ui,sans-serif" font-size="17">the seven who carry the form</text>
+  <text x="98" y="430" fill="#9aa3a8" font-family="system-ui,sans-serif" font-size="17">the repertoire, in birth order</text>
   <circle cx="80" cy="456" r="7.5" fill="none" stroke="#7ec2f0" stroke-width="2.4"/>
   <text x="98" y="462" fill="#9aa3a8" font-family="system-ui,sans-serif" font-size="17">wrote the most, read the least</text>
   <text x="72" y="540" fill="#9aa3a8" font-family="system-ui,sans-serif" font-size="18">jsundram.github.io/quartet-composers</text>

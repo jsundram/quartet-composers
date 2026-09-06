@@ -40,7 +40,7 @@ against the field. What the filter did need was volume: at the resting 0.22 the 
 barely separable from the ghosts, so while ANY filter is on they come up to 0.55. That is the
 whole encoding, it costs no new channel, and the search box and the brush got it too.
 
-A permanent encoding was rejected on the issue's own grounds. Fame spends fill on the seven and
+A permanent encoding was rejected on the issue's own grounds. Fame spends fill on the repertoire and
 stroke on the outliers; the other three views spend fill on lifespan and stroke on living. The only
 unspent channel is shape, and shape does not read at a 2.5px radius among 790 marks.
 
@@ -130,7 +130,7 @@ untouched; below `MIN_FIELD` nothing is derived, because a ring needs a crowd to
 
 This settles half of [#7](https://github.com/jsundram/quartet-composers/issues/7): the OUTLIER ring
 is derived, because "wrote a lot and is read little" is a computable property of whatever group you
-are looking at. The seven filled in `--sel` are not, and the issue stays open for them — "who
+are looking at. The repertoire filled in `--sel` is not, and the issue stays open for it — "who
 carried the form" is an editorial claim about music history, and TODO records that no single
 ranking reproduces the curated set (the best recovers 8 of 13).
 
@@ -189,14 +189,25 @@ published ramp's pale end is invisible here. Everything clears 3:1 and stays mon
 in both modes, checked with the dataviz palette validator rather than by eye.
 
 ### The Fame view drops birth year entirely
-Which is the thing the mocked-up "canon path" would have added: joining the seven in birth order
+Which is the thing the mocked-up "canon path" would have added: joining the repertoire in birth order
 draws the chronological walk through output-and-attention space without spending an axis on it.
 It was proposed, not chosen — the direction picked was B as mocked. Cheap to add if wanted.
 
 ### The share card labels six of the thirteen named composers
-Richter, Shostakovich, Krommer and Ellerton have dots on `assets/og.png` but no names. At 1200×630
-that is a deliberate density call, not an oversight — but it means the card's "the seven who carry
-the form" key names a set the card only half-identifies.
+Richter, Shostakovich, Krommer, Ellerton, Tchaikovsky, Debussy and Prokofiev have dots on
+`assets/og.png` but no names. At 1200×630 that is a deliberate density call, not an oversight —
+but it means the card's "the repertoire, in birth order" key names a set the card only
+half-identifies. The four diagonal label spots that closed #10 on the page are NOT in
+`make-og-svg.py`, whose six labels are placed by hand rather than by a placer.
+
+### A phone seats about twelve chart labels, whatever is emphasised
+Measured across six different emphasis sets at 390×844: 10, 11, 11, 11, 12, 12 names placed. The
+budget is not the constraint — at rest `cap` is pinned to the seed count — the constraint is
+boxes that fit. So a thirteen-name set leaves one ring unnamed on a phone (currently Prokofiev,
+at 2 quartets in the densest part of the cloud) while the same set names all thirteen on a
+desktop. Options if it starts to matter: a larger `base` on narrow screens, dropping the ring for
+a dot the placer could not name, or letting a phone label overhang into the left margin. Not done
+because every one of them trades against something the resting view is currently getting right.
 
 ### The swarm hides the quartet count entirely
 Documented in the hint text, but a reader who lands on the swarm from a shared `#v=swarm` link has

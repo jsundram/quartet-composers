@@ -34,7 +34,8 @@ BG, PANEL, INK, MUTED, GRID = "#14161a", "#191c21", "#eceef0", "#9aa3a8", "#2b31
 SEL, ACCENT = "#fb923c", "#7ec2f0"                   # dark --sel / --accent, as the app bakes them
 RATIOS = (1, 10, 100, 1000, 10000)                   # readers-per-quartet diagonals
 CANON = ("Franz Xaver Richter", "Joseph Haydn", "Luigi Boccherini", "Wolfgang Amadeus Mozart",
-         "Ludwig van Beethoven", "Béla Bartók", "Dmitri Shostakovich")
+         "Ludwig van Beethoven", "Pyotr Ilyich Tchaikovsky", "Claude Debussy", "Béla Bartók",
+         "Sergei Prokofiev", "Dmitri Shostakovich")
 OUTLIERS = ("Giuseppe Cambini", "Franz Krommer", "John Lodge Ellerton")
 
 # Labelled by hand: the point of the card is that a reader recognizes a name in it, and "top 6 by
@@ -237,7 +238,7 @@ def main():
         f'Diagonals = readers per quartet.</text>',
         f'  <circle cx="80" cy="424" r="7.5" fill="{SEL}"/>',
         f'  <text x="98" y="430" fill="{MUTED}" font-family="system-ui,sans-serif" font-size="17">'
-        f'the seven who carry the form</text>',
+        f'the repertoire, in birth order</text>',
         f'  <circle cx="80" cy="456" r="7.5" fill="none" stroke="{ACCENT}" stroke-width="2.4"/>',
         f'  <text x="98" y="462" fill="{MUTED}" font-family="system-ui,sans-serif" font-size="17">'
         f'wrote the most, read the least</text>',

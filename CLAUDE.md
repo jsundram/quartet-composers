@@ -45,7 +45,8 @@ plain static assets. Read README.md first for what the app is.
    `year_of()` drops deprecated, prefers `preferred`, and ignores novalue/somevalue snaks.
 
 7. **The Fame view is the default, and the only place the app hardcodes composer NAMES.**
-   `CANON` and `OUTLIERS` in `chart.js` are thirteen canonical Wikipedia titles, which change
+   `CANON` (the REPERTOIRE — ten composers a quartet actually plays, in birth order) and
+   `OUTLIERS` (three) in `chart.js` are thirteen canonical Wikipedia titles, which change
    spelling when the pipeline runs (invariant 4). `Chart.missingNames()` reports any that stop
    resolving and the UI suite asserts it empty, so a rename fails loudly instead of dropping a
    composer out of the argument the view is making. `names.js`'s `SURNAME` override map carries
@@ -62,7 +63,7 @@ plain static assets. Read README.md first for what the app is.
    legend and the table (the row chips are painted from `Chart.colorOf`, which follows the view).
    The RING also changes meaning under a filter (see below), so `renderLegend()` branches on
    `Chart.derivedRings()` too and `applyFilters()` re-renders it on every settled change. A key
-   that still said "the outliers at either end" while ringing six women the curated set never
+   that still said "the outliers at either end" while ringing women the curated set never
    contained would be labelling the wrong channel.
 
 9. **Readership is a measure, not a tally — round it everywhere except the table.** It is the
@@ -99,7 +100,7 @@ plain static assets. Read README.md first for what the app is.
    jitter hash, same emphasis, the same two uniform radii — readership is the Y AXIS in this
    view, so the card has no radius scale either — and the same short-name rule from `names.js`.
    It renders the FAME view AT REST, because that is what a bare URL opens on — so the derived
-   rings never reach it and it needs only the curated six. Changing an encoding in `chart.js` means changing it there too, or
+   rings never reach it and it needs only the curated three. Changing an encoding in `chart.js` means changing it there too, or
    the share card stops matching the page. They are duplicated rather than shared because the app
    must not ship a build step and the card must not ship a JS runtime.
 
@@ -205,11 +206,11 @@ made on evidence.
   instead of 15, and because `pickLabels()` is first-come-first-served on space, halving every box
   is what lets the names behind it find room at all. The label text and the width estimate must
   come from the same string — `pickLabels()` computes it once and carries it on the placement.
-- **The ring follows the filter; the seven filled in `--sel` do not.** `refreshEmphasis()` in
-  `chart.js` keeps a ring budget of SIX — the size of `OUTLIERS` — filled first by the curated
+- **The ring follows the filter; the repertoire filled in `--sel` does not.** `refreshEmphasis()`
+  in `chart.js` keeps a ring budget of THREE — the size of `OUTLIERS` — filled first by the curated
   outliers the filter kept and then by `prom`, the same seed-then-rank shape the label budget has.
-  So the resting view and the share card are exactly what they were, "Men" (which keeps all six)
-  changes nothing, and "Women" derives all six. Below `MIN_FIELD` visible dots nothing is derived:
+  So the resting view and the share card are exactly what they were, "Men" (which keeps all three)
+  changes nothing, and "Women" derives all three. `RINGS` and `OUTLIERS` must stay the same size. Below `MIN_FIELD` visible dots nothing is derived:
   a ring means "stands out from the crowd it is drawn in", and two Haydns are not a crowd.
   Every channel that follows emphasis — fill, stroke, radius, opacity, label colour, the table
   chip — reads `named()`, which reads the DERIVED set (`emphSet`), not the curated `namedSet`; so
@@ -217,8 +218,8 @@ made on evidence.
   places that mean exactly those (the pool `refreshEmphasis` ranks over, `seedNames()`).
   Derived rings are seeds in `pickLabels()` too — a dot the view rings and then declines to name
   points at a composer it refuses to identify, which is the complaint the rings answer.
-  The seven are NOT derived: they are an editorial claim about who carried the form, which is not
-  a thing a ranking recomputes. That half is still open — see issue #7.
+  The repertoire is NOT derived: it is an editorial claim about which quartets are played, which
+  is not a thing a ranking recomputes — Prokofiev is on it for two quartets and Debussy for one. That half is still open — see issue #7.
 - **A filter fits the frame, and the fit is the RESTING view.** `computeResting()` in `chart.js`
   is the one answer to "where should this chart be sitting right now": identity with no filter,
   the box that contains the kept dots with one. `setFilter()` transitions there when the gesture

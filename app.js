@@ -217,10 +217,10 @@ function renderLegend() {
       `<span class="lab">Named on the chart</span>` +
       `<div class="swatches">` +
         `<span class="sw"><i style="background:${g("--sel")}"></i>` +
-        `the seven, in birth order</span>` +
+        `the repertoire, in birth order</span>` +
         `<span class="sw"><i style="box-shadow:inset 0 0 0 2px ${g("--accent")}"></i>` +
         // The ring follows the filter (chart.js's refreshEmphasis), so the key has to say which
-        // crowd it is talking about. Claiming "the outliers at either end" while ringing six
+        // crowd it is talking about. Claiming "the outliers at either end" while ringing
         // women the curated set never contained would be labelling the wrong channel.
         `${Chart.derivedRings() ? "the ones that stand out in this group"
                                 : "the outliers at either end"}</span>` +
