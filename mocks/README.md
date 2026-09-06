@@ -18,6 +18,11 @@ are the record of a decision, not a second copy of the app.
 | `OptionC.dc.html` | **C** · not a chart: three named groups and two columns | not chosen |
 | `Page.dc.html` | one filter row, pills below the plot, phone width | **chosen** |
 
+`issue-3/` is a different kind of record: three renders of the REAL chart on a phone, made to
+answer whether the quartet-chooser composers should replace the curated thirteen. See
+[`issue-3/README.md`](issue-3/README.md) — it is evidence for a decision rather than a sketch of
+one, which is why it is `chart.js` output and not `gen.py` output.
+
 ## Regenerating
 
 The charts are drawn from `composers.json`, not sketched — same domains, same 0.35 radius
