@@ -118,6 +118,12 @@ Four suites, all dependency-free:
 - `scripts/ui-test.sh` — 149 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
+- `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
+  `git diff --cached`); the meta-length and stated-count halves read the working tree and run in
+  CI. It holds the bands a scraper actually renders, so "og:description is too long" is caught
+  before a deploy rather than by pasting the live URL into a validator afterwards. The two
+  descriptions in `index.html` are deliberately different lengths — a SERP snippet wants 120-160,
+  a phone link preview truncates near 125 — and re-unifying them fails the lint.
 - `scripts/audit_counts.py` — not automated: it prints parsed quartet counts beside the sentence
   they came from so a human can grade them. Run it after touching `scrape_list.py`.
 

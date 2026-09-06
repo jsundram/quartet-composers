@@ -1,4 +1,4 @@
-# pwa-starter: checks.yml @ d2fad01  (unmodified)
+# pwa-starter: checks.yml @ d2fad01  (+ the og-lint step)
 name: checks
 
 # Guards for sw.js — the offline service worker. Its contract is subtle and easy to regress, so
@@ -11,8 +11,12 @@ name: checks
 #     only bites locally in the hook; CI enforces the other four (missing/renamed entries,
 #     cross-origin entries, V's numeric tail, VER_PREFIX agreement). Base-vs-head V comparison
 #     would be a separate enhancement.
-#   - scripts/og-lint.py is NOT here for the same reason it can't be: it only inspects the staged
-#     OG card (`git diff --cached`), so in CI it has nothing to check. It stays a hook-only guard.
+#   - scripts/og-lint.py : it used to be hook-only, because its card-size check reads
+#     `git diff --cached` and a CI checkout stages nothing. Its meta-length and stated-count
+#     checks read the working tree instead, so THOSE run here with a real exit code — which is
+#     the point of having them: a link preview that is too long is a thing you otherwise discover
+#     by pasting the deployed URL into a validator, i.e. after shipping it. The size check still
+#     only bites in the hook.
 
 on:
   push:
@@ -33,6 +37,8 @@ jobs:
         run: node scripts/sw.test.mjs
       - name: precache lint (scripts/sw-lint.py)
         run: python3 scripts/sw-lint.py
+      - name: share-card + link-preview lint (scripts/og-lint.py)
+        run: python3 scripts/og-lint.py
 
   data:
     runs-on: ubuntu-latest

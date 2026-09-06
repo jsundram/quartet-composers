@@ -22,15 +22,21 @@
 <link rel="icon" type="image/png" href="./assets/icon-192.png">
 <link rel="apple-touch-icon" href="./assets/icon-180.png">
 
-<title>String Quartet Composers</title>
-<meta name="description" content="Every composer on Wikipedia's list of string quartet composers, plotted by how much they wrote against how much they are read — with a searchable, sortable table.">
+<title>String Quartet Composers: who wrote them, who is read</title>
+<meta name="description" content="Every composer on Wikipedia's list of string quartet composers, plotted by how much they wrote against how much they are read. Sortable, searchable table.">
 
 <!-- Link previews. og:image is an ABSOLUTE https URL to a compressed 1200x630 PNG:
-     iMessage/WhatsApp/Slack reject relative paths and won't render SVG. -->
+     iMessage/WhatsApp/Slack reject relative paths and won't render SVG.
+
+     og:description is SHORTER than the meta description on purpose, and they must not be
+     re-unified: a search snippet has 120-160 characters to fill and a link preview truncates
+     near 125 on a phone, so one string doing both jobs is too long for one and too short for
+     the other. Likewise og:title stays the short brand while <title> fills the SERP line.
+     scripts/og-lint.py holds the numbers and fails when a string drifts out of its band. -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="String Quartet Composers">
 <meta property="og:title" content="String Quartet Composers">
-<meta property="og:description" content="Every composer on Wikipedia's list of string quartet composers, plotted by how much they wrote against how much they are read — with a searchable, sortable table.">
+<meta property="og:description" content="884 composers, by what they wrote against how much they are read. Cambini wrote 149 quartets and is read 200 times a month.">
 <meta property="og:url" content="https://jsundram.github.io/quartet-composers/">
 <meta property="og:image" content="https://jsundram.github.io/quartet-composers/assets/og.png">
 <meta property="og:image:width" content="1200">
@@ -38,7 +44,7 @@
 <meta property="og:image:alt" content="A log-log scatter of string quartet composers, quartets written against monthly English Wikipedia readers, with Mozart, Beethoven, Haydn, Boccherini and Bartók picked out above the readers-per-quartet diagonals and Cambini far below them.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="String Quartet Composers">
-<meta name="twitter:description" content="Every composer on Wikipedia's list of string quartet composers, plotted by how much they wrote against how much they are read — with a searchable, sortable table.">
+<meta name="twitter:description" content="884 composers, by what they wrote against how much they are read. Cambini wrote 149 quartets and is read 200 times a month.">
 <meta name="twitter:image" content="https://jsundram.github.io/quartet-composers/assets/og.png">
 <link rel="canonical" href="https://jsundram.github.io/quartet-composers/">
 
