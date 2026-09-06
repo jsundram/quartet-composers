@@ -35,6 +35,7 @@ import datetime as dt
 import json
 import os
 import re
+import statistics
 import subprocess
 import sys
 
@@ -164,7 +165,7 @@ QUALIFIER = re.compile(r"\s*\((?:composer|musician|conductor|violinist|pianist|[
 
 
 # --------------------------------------------------------------- cross-file
-def check_sources(rows, people, pv, listing):
+def check_sources(rows, meta, people, pv, listing):
     """The caches must agree with each other, and with what composers.json claims."""
     if not (people and pv and listing):
         warn("pipeline caches missing — skipping cross-file checks")
@@ -194,11 +195,24 @@ def check_sources(rows, people, pv, listing):
             err("%s: Wikidata death year %s is in the future" % (t, wd))
 
     months = pv.get("months") or []
-    if len(months) < 6:
-        warn("only %d months of page views cached; the median is meant to smooth a year" % len(months))
-    complete = sum(1 for t in canon if all(m in pv.get("series", {}).get(t, {}) for m in months))
+    stat = meta.get("views_months") or months[-12:]
+    if len(stat) < 6:
+        warn("the statistic is a median of only %d months; it is meant to smooth a year" % len(stat))
+    if stat and months and months[-len(stat):] != stat:
+        err("composers.json's statistic window ends %s, the cache ends %s — one of the two files "
+            "is from an older run" % (stat[-1], months[-1]))
+    # Completeness is measured over the STATISTIC's window, not the whole cache. The cache reaches
+    # back to 2015-07 now and an article created in 2019 legitimately has nothing before it, so
+    # judging that as a gap would fire this on a third of the roster forever. What has to be
+    # complete is the twelve months every dot's size is computed from.
+    complete = sum(1 for t in canon if all(m in pv.get("series", {}).get(t, {}) for m in stat))
     if canon and complete / len(canon) < 0.9:
-        warn("only %d of %d articles have the full window" % (complete, len(canon)))
+        warn("only %d of %d articles have the full %d-month statistic window"
+             % (complete, len(canon), len(stat)))
+    deep = sum(1 for t in canon if len(pv.get("series", {}).get(t, {})) >= 24)
+    if canon and deep / len(canon) < 0.7:
+        warn("only %d of %d articles have 2+ years of history; the sparkline has little to draw"
+             % (deep, len(canon)))
 
     # Coverage floors. Each of these dropping is a sign a parser or a fetch quietly broke, and the
     # symptom is a chart that looks fine with a third of its dots missing.
@@ -240,6 +254,67 @@ def check_sources(rows, people, pv, listing):
 
 
 # --------------------------------------------------------------- name sanity
+def check_history(rows, meta, hist, pv):
+    """readership.json — the sparkline's data — against composers.json and the cache behind both.
+
+    These are two files describing one measurement, which is exactly the arrangement that drifts:
+    rebuild one and not the other and every panel draws a decade of history that belongs to a
+    different fetch than the number printed above it. Nothing in the app can notice, because both
+    files are internally consistent. So the median, min and max of the LAST TWELVE points of each
+    sparkline are recomputed here and must equal the views/views_lo/views_hi the row ships.
+    """
+    if hist is None:
+        err("missing readership.json — scripts/build_data.py writes it alongside composers.json")
+        return
+    months = hist.get("months") or []
+    stat = meta.get("views_months") or []
+    if not months:
+        err("readership.json states no months")
+        return
+    if months != sorted(months):
+        err("readership.json's months are not in chronological order; the sparkline is drawn in "
+            "array order, so it would be plotting time out of sequence")
+    if stat and months[-len(stat):] != stat:
+        err("readership.json ends %s but composers.json's statistic window ends %s — the two were "
+            "built from different fetches" % (months[-1], stat[-1]))
+    if pv and pv.get("months") and pv["months"] != months:
+        err("readership.json covers %d months, data/pageviews.json caches %d — rebuild"
+            % (len(months), len(pv["months"])))
+
+    series = hist.get("series") or {}
+    names = {r[0]: r for r in rows}
+    stray = sorted(set(series) - set(names))
+    if stray:
+        err("%d readership series name nobody in composers.json (a rename that only landed in one "
+            "file): %s" % (len(stray), ", ".join(stray[:6])))
+    orphan = sorted(r[0] for r in rows if r[4] is not None and r[0] not in series)
+    if orphan:
+        err("%d composers ship a view count with no history behind it: %s"
+            % (len(orphan), ", ".join(orphan[:6])))
+    if len(rows) and len(series) / len(rows) < 0.95:
+        err("only %d/%d composers have a readership series (floor 95%%)" % (len(series), len(rows)))
+
+    k = len(stat) or 12
+    disagree = []
+    for name, vals in sorted(series.items()):
+        row = names.get(name)
+        if row is None:
+            continue
+        if not isinstance(vals, list) or len(vals) != len(months):
+            err("%s: %r readership points for %d months" % (name, len(vals or []), len(months)))
+            continue
+        if any(v is not None and (not isinstance(v, int) or v < 0) for v in vals):
+            err("%s: a readership value is not a view count" % name)
+            continue
+        tail = [v for v in vals[-k:] if v is not None]
+        got = (int(statistics.median(tail)), min(tail), max(tail)) if tail else (None, None, None)
+        if got != (row[4], row[5], row[6]):
+            disagree.append("%s: history says %s, the row says %s" % (name, got, tuple(row[4:7])))
+    if disagree:
+        err("%d composers' sparkline and printed readership come from different data: %s"
+            % (len(disagree), "; ".join(disagree[:3])))
+
+
 def check_names(rows, people):
     """Every displayed name must BE a canonical Wikipedia title, minus its disambiguator.
 
@@ -329,8 +404,10 @@ def main():
     rows = check_structure(cur)
     if rows:
         people = load("data/people.json", required=False)
-        check_sources(rows, people, load("data/pageviews.json", required=False),
-                      load("data/list.json", required=False))
+        meta = cur.get("meta") or {}
+        pv = load("data/pageviews.json", required=False)
+        check_sources(rows, meta, people, pv, load("data/list.json", required=False))
+        check_history(rows, meta, load("readership.json", required=False), pv)
         check_names(rows, people)
         if not args.no_drift:
             check_drift(rows, baseline_rows(args.baseline))

@@ -25,6 +25,7 @@ stable picture, hovering was the only way to learn anything, and a screenshot of
 | Colour = lifespan on RdYlBu-9 | Diverging ramp pivoting on the **median** lifespan, with living composers off the ramp entirely |
 | 477 composers, frozen 2014 scrape | **884**, re-scraped, with a repeatable pipeline (below) |
 | Dot size = one month of page views | **Median of 12 months** — a single month is 12% off typical, 29% at worst |
+| — | **A readership sparkline** in the detail panel — every month since 2015-07, so a spike (Saariaho's obituary, 18× her typical month) is visible as a spike |
 | — | **Readership histogram with a drag-to-filter brush**, to get the long tail out of the way |
 | — | **Gender filter** from Wikidata [P21](https://www.wikidata.org/wiki/Property:P21) — 276 of the 884 are women, and the Fame view shows the band they occupy |
 | — | Shareable URLs (`#v=swarm&c=Joseph+Haydn&r=1500-200000`), a share card generated from the real data, installable + offline |
@@ -37,11 +38,17 @@ offline and the exact bytes behind a deploy stay in git.
 ```sh
 python3 scripts/scrape_list.py      # the wiki page  -> data/list.json + data/list.wiki
 python3 scripts/fetch_wikidata.py   # canonical titles + P569/P570 + P21 -> data/people.json
-python3 scripts/fetch_views.py      # 12 monthly counts each -> data/pageviews.json
-python3 scripts/build_data.py       # combine the three -> composers.json
+python3 scripts/fetch_views.py      # every month since 2015-07 -> data/pageviews.json
+python3 scripts/build_data.py       # combine the three -> composers.json + readership.json
 ```
 
-Then run the data gate and **bump `V` in `sw.js`** — `composers.json` is precached, so without a bump the new numbers
+`build_data.py` writes **two** files, because they are wanted at different moments.
+`composers.json` (46 KB) is the roster and carries one view number per composer — the page cannot
+paint without it. `readership.json` (487 KB) is the monthly history behind the sparkline: nothing
+waits for it, so it is fetched after the first paint and the panel simply grows a line when it
+arrives. Both are precached; only the first is a boot dependency.
+
+Then run the data gate and **bump `V` in `sw.js`** — both files are precached, so without a bump the new numbers
 reach the repo and nobody's phone. `scripts/sw-lint.py` guards it; enable the hook with
 `git config core.hooksPath .githooks`.
 
@@ -80,6 +87,16 @@ traps, all of which this repo fell into first:
   own median. `monthly` granularity returns the whole range in **one request**, so twelve months
   costs exactly what one did. The stored series makes the statistic recomputable offline.
 
+The cache now holds **every month the API has** — 2015-07 onward, 134 months — for the same
+one-request reason, and the detail panel draws it as a sparkline. The headline number did **not**
+move with it: the median is still over the last **twelve** cached months, because "how much read
+is this composer" is a question about now. The rest is history, which is a different question, and
+`validate.py` recomputes one from the other so the two files cannot drift apart. What a decade
+buys is the thing twelve months structurally cannot show: Kaija Saariaho runs at ~2,000 readers a
+month for eight years and touches 42,195 in June 2023, the month she died. 61 of the 884 articles
+did not exist in 2015, and their sparklines start partway across the box and say so — a blank
+stretch under a line chart otherwise reads as "nobody read this" rather than "not written yet".
+
 **(e) Sex or gender** is **Wikidata [P21](https://www.wikidata.org/wiki/Property:P21)**, and it is the one element that is not a measurement but
 a statement about a person — so it is reported, never derived. Same rank discipline as the dates
 (the two share one `best_value()`), Wikidata's own labels kept as the values, and **no inference
@@ -116,8 +133,8 @@ matched to the same human.
 
 ```sh
 python3 scripts/validate.py       # THE DATA GATE — see below; run it after every rebuild
-python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (15 cases)
-scripts/ui-test.sh           # 149 behavioural checks in a real headless Chrome (lens, tap-to-pin,
+python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (18 cases)
+scripts/ui-test.sh           # 157 behavioural checks in a real headless Chrome (lens, tap-to-pin,
                              #   the three filters, theme repaint, 390px layout, offline, print) — no deps
 node scripts/sw.test.mjs     # 24 tests of the service worker's fetch handler
 python3 scripts/sw-lint.py   # precache contract: V bumped, SHELL paths exist, no cross-origin

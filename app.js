@@ -17,9 +17,16 @@
 
 const VER_PREFIX = "quartets-v";   // must match sw.js's V stem — the numeric tail is load-bearing
 const DATA_URL = "./composers.json";
+// The readership HISTORY, and the only file this app can finish without. composers.json is a boot
+// dependency — no chart, no table, no page — so the 884 monthly series that draw the sparkline are
+// not in it: they are ten times the roster's size for one panel decoration. This file is precached
+// like everything else (sw.js SHELL) but deliberately NOT a boot dep, is fetched AFTER the first
+// paint, and if it never arrives the panel is exactly what it was before.
+const HIST_URL = "./readership.json";
 const WIKI = name => "https://en.wikipedia.org/w/index.php?search=" + encodeURIComponent(name);
 
 let META = {}, ROWS = [], selected = null, hovered = null, visible = null;
+let HIST = null;                   // {months, series:{name:[views|null,…]}} once it lands, else null
 // "" = everyone. Otherwise a Wikidata P21 label, matched against the row verbatim — the control,
 // the data and the URL all carry the same word, so there is no third vocabulary to keep in step.
 let gender = "";
@@ -67,6 +74,123 @@ function twoSig(n, dir) {                       // dir: -1 rounds down, +1 round
 // views=999, lo=995 print "990+ (1k–2k)", a median below its own low bound.
 const atLeast = v => Histogram.fmt(twoSig(v, -1)) + "+";
 const spread = (lo, hi) => `${Histogram.fmt(twoSig(lo, -1))}–${Histogram.fmt(twoSig(hi, 1))}`;
+
+// ---- readership history ----------------------------------------------------
+// One line per composer, over every month the pageviews API has (2015-07 onward). The panel's
+// numbers answer "how much read, now"; this answers the question they cannot — steady, climbing,
+// or one obituary. Saariaho sits at ~2,000 a month for eight years and touches 42,195 in June
+// 2023, the month she died; Haydn slides from 32,000 to 20,000 across the decade.
+//
+// LINEAR y, zero-based, unlike the chart's log readership axis. The log scale is there because
+// the roster spans five orders of magnitude BETWEEN composers; within one composer the question
+// is proportion — "how much bigger was that month than a normal one" — and a log baseline would
+// flatten exactly the spike the line exists to show. Zero-based for the same reason: a min-max
+// sparkline turns a steady composer's 5% wobble into a mountain range.
+const SPARK_W = 240, SPARK_H = 34;      // viewBox units; the CSS stretches it to the panel width
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const monthName = m => MONTHS[+m.slice(5, 7) - 1] + " " + m.slice(0, 4);
+
+async function loadHistory() {
+  try {
+    const res = await fetch(HIST_URL, { cache: "no-cache" });
+    if (!res.ok) return false;
+    const j = await res.json();
+    if (!j || !j.series || !Array.isArray(j.months) || !j.months.length) return false;
+    HIST = j;
+    return true;
+  } catch (e) {
+    return false;                       // offline on a first run: no sparkline, nothing else lost
+  }
+}
+
+// Contiguous runs of real values, as [x, y] point lists. A null is a BREAK, not a zero: an
+// article that did not exist yet must not draw a line down to the floor and back (invariant 10).
+function sparkRuns(vals, max) {
+  const runs = [];
+  let run = null;
+  for (let i = 0; i < vals.length; i++) {
+    if (vals[i] == null) { run = null; continue; }
+    const x = (i / (vals.length - 1)) * SPARK_W;
+    // 1 unit of headroom at each end so the stroke is not clipped by the viewBox at the extremes.
+    const y = SPARK_H - 1 - (vals[i] / max) * (SPARK_H - 2);
+    if (!run) { run = []; runs.push(run); }
+    run.push([x, y]);
+  }
+  return runs;
+}
+
+const svgEl = (tag, attrs) => {
+  const n = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  return n;
+};
+
+// Returns a fragment, or null when there is no history for this composer — one roster entry has
+// no Wikidata item and so no page views at all, and a fresh clone has no readership.json yet.
+function sparkline(name) {
+  const vals = HIST && HIST.series[name];
+  if (!vals) return null;
+  const known = vals.filter(v => v != null);
+  if (known.length < 2) return null;
+  const max = Math.max(...known);
+  const typical = d3.median(known);
+  const peakAt = vals.indexOf(max);
+  const runs = sparkRuns(vals, max);
+
+  const frag = document.createDocumentFragment();
+  // preserveAspectRatio="none" lets one viewBox fit every panel width without measuring the DOM;
+  // non-scaling-stroke is what keeps the line 1px through that stretch. The peak marker is a
+  // VERTICAL hairline for the same reason — a circle would come out an ellipse.
+  const svg = svgEl("svg", {
+    class: "spark", viewBox: `0 0 ${SPARK_W} ${SPARK_H}`, preserveAspectRatio: "none",
+    "aria-hidden": "true",            // the caption below is the text alternative
+  });
+  const peakX = ((peakAt / (vals.length - 1)) * SPARK_W).toFixed(1);
+  svg.appendChild(svgEl("line", {
+    class: "spark-peak", x1: peakX, x2: peakX, y1: 0, y2: SPARK_H,
+  }));
+  for (const run of runs) {
+    const d = run.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join("");
+    svg.appendChild(svgEl("path", {
+      class: "spark-area",
+      d: `${d}L${run[run.length - 1][0].toFixed(1)},${SPARK_H}L${run[0][0].toFixed(1)},${SPARK_H}Z`,
+    }));
+    svg.appendChild(svgEl("path", { class: "spark-line", d, "vector-effect": "non-scaling-stroke" }));
+  }
+  frag.appendChild(svg);
+
+  // The span is stated as the RECORD's, not as the axis's. Every sparkline shares one month axis
+  // so two composers are comparable, which means an article created in 2025 draws a line over the
+  // last tenth of the box and leaves nine tenths blank — and blank under a line chart reads as
+  // ZERO. 61 composers here are in that position. Saying "from Sep 2025" is what makes the empty
+  // stretch mean "not written yet" instead of "nobody read it".
+  const ax = document.createElement("p");
+  ax.className = "spark-ax";
+  const label = document.createElement("span"), span = document.createElement("span");
+  label.textContent = "Monthly readers";
+  const firstAt = vals.findIndex(v => v != null);
+  span.textContent = firstAt === 0
+    ? `${HIST.months[0].slice(0, 4)}–${HIST.months[HIST.months.length - 1].slice(0, 4)}`
+    : `from ${monthName(HIST.months[firstAt])}`;
+  ax.appendChild(label); ax.appendChild(span);
+  frag.appendChild(ax);
+
+  const cap = document.createElement("p");
+  cap.className = "spark-cap";
+  // The multiple, not the two raw counts: it is the one number that answers "steady or spiking"
+  // at a glance, and 1.3x reads as steady without the caption having to pick a word for it.
+  // atLeast() because a view count is a measure, not a tally (invariant 9).
+  //
+  // Dropped rather than printed when the typical month is ZERO — five articles here already have
+  // a month at 0 views, and a new stub whose median lands there would otherwise be captioned
+  // "Infinity× typical". No ratio is the honest answer when there is nothing to compare against.
+  const mult = typical > 0 ? max / typical : null;
+  cap.textContent = `peak ${monthName(HIST.months[peakAt])} — ${atLeast(max)}`
+    + (mult ? `, ${mult >= 10 ? Math.round(mult) : mult.toFixed(1)}× typical` : "");
+  frag.appendChild(cap);
+  return frag;
+}
 
 // ---- detail panel ----------------------------------------------------------
 // Percentile among the rows that HAVE the value. Counting nulls as zero would tell a composer
@@ -141,6 +265,12 @@ function renderDetail(i, preview) {
   add("EN readers / mo", d.views == null ? "no data"
       : `${atLeast(d.views)}  (${spread(d.lo, d.hi)})`);
   el.appendChild(dl);
+
+  // Not in the full-screen strip: `lean` has already returned above. Its height is fixed because
+  // #plot is flex:1 there, so anything that grows on select re-lays out the chart under the
+  // finger that just tapped it.
+  const spark = sparkline(d.name);
+  if (spark) el.appendChild(spark);
 
   const rank = document.createElement("p");
   rank.className = "rank";
@@ -624,6 +754,13 @@ async function start() {
     + `Built ${META.generated}.`);
 
   wire();
+
+  // AFTER everything above has painted, and never awaited: the sparkline is the one thing on this
+  // page that nothing else waits for. When it lands, repaint whatever the panel is showing —
+  // hovering included, or a shared #c= link would sit there without one until the pointer moved.
+  loadHistory().then(ok => {
+    if (ok) renderDetail(hovered != null ? hovered : selected, hovered != null);
+  });
 }
 
 function wire() {

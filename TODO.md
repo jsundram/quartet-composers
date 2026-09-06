@@ -108,9 +108,13 @@ Arrangements, fragments, incomplete works, "for string quartet and X" — the pa
 and so, therefore, is this dataset. Worth deciding a policy and stating it in the UI, or accepting
 the inconsistency explicitly rather than by default.
 
-### One composer has no page-view data
-`Fernand de la Tombelle` has no Wikidata item; dates come from page prose only. Harmless, but it is
-the one row where the pipeline's guarantees don't hold.
+### One composer is sized by a single month of page views
+`Fernand de la Tombelle` has no Wikidata item — dates come from page prose only — and his article
+has exactly ONE month of view data (2026-08) out of the 134 the cache now holds. So his median,
+min and max are all that same number, and his dot is sized by precisely the weather invariant 9
+exists to smooth away. He is also the one composer with no sparkline: `sparkline()` needs two
+points to draw a line. Harmless at one row out of 884, but it is the row where the pipeline's
+guarantees don't hold, and worth deciding whether one month should count as a measurement at all.
 
 ### The 2014 archive is only half-used
 `compare_2014.py` reports 28 composers who dropped off the list. Most are deleted articles, but a
@@ -162,11 +166,31 @@ all disappear. All four are one tap away and back the moment you leave full scre
 is no longer load-bearing there — readership is now stated as "180k+" everywhere, so the strip no
 longer claims a precision it can't support. Left here as a record of what the strip is missing.
 
-### The detail panel wastes most of its column on desktop
-It is ~200px tall in a full-height sticky column. The 12-month view series is already fetched and
-cached and currently unused by the UI — a **sparkline** there would fill the space with the one
-thing the panel is missing: whether this composer's readership is steady or spiking. `views_lo` and
-`views_hi` already ship; the full series does not, so this needs a schema addition.
+### ~~The detail panel wastes most of its column on desktop~~ — done, 2026-09-06, [#13](https://github.com/jsundram/quartet-composers/issues/13)
+It was ~200px tall in a full-height sticky column and is ~306px now, and the extra 100px says the
+thing the panel could not: whether a composer's readership is steady or spiking. Saariaho runs flat
+for eight years and spikes 18× in June 2023, the month she died; Haydn has slid a third since 2015.
+
+The window went from 12 months to **everything the API has** — 2015-07 on, 134 months — which cost
+nothing at the network (`monthly` returns the whole range in one request, so it was the same ~880
+calls) and 1.9 MB in `data/`. The headline number did NOT move with it: `STAT_MONTHS = 12` in
+`build_data.py` keeps the median over the last twelve, so every dot on the chart is byte-identical
+to what it was. That was the point of separating them, and `validate.py` now recomputes one from
+the other so a half-rebuild cannot ship.
+
+The series ships as its own file rather than a ninth field. `composers.json` is a BOOT dep — the
+page paints nothing without it — and 884 monthly series are ten times the roster's size, so
+putting them there would have paid for a decoration on the critical path. `readership.json` is
+precached but not a boot dep, fetched after the first paint, and simply absent if it never comes.
+
+Two things it turned up. A null month has to BREAK the path: 61 articles did not exist in 2015 and
+drawing their blank years as zero claims nobody read a page that was not there — the label row says
+"from Jul 2025" instead of the axis span for those. And the compact panel's hover reservation
+(`min-height`) had to grow with it, which `ui.test.mjs` caught by measurement rather than by eye.
+
+Still open, and cheap now that the data ships: the sparkline is not interactive — there is no way
+to read the value of a particular month. The caption names the peak, which is the question worth
+answering in 34 pixels, but a brush or a hover readout is the obvious next thing.
 
 ### ~~1580–1700 is ~20% of the x-axis for three composers~~ — decided, 2026-09-05
 The premise was wrong, which is why it looked like a trade-off. Allegri (1582), Scarlatti (1660)
@@ -230,6 +254,21 @@ a table cell whose `title` still carries the full name.
 ### `fetch_views.py --force` refetches every article
 There is no way to refresh a single composer after fixing their title. Minor, but it makes fixing
 one bad row a two-minute job instead of a two-second one.
+
+### A top-up refetches the 62 articles that are younger than the window
+"Needs fetching" is `any(month not in cached)`, and an article created in 2019 will never have a
+2015 month, so it is missing something forever and is refetched on every run. 62 of 884 today, so
+~30 seconds — not worth code until it is. The honest fix is to record a month the API answered
+"nothing" for as a null in the cache, which distinguishes "not asked" from "asked, no data"; that
+is the same distinction invariant 10 makes everywhere else, so it would be consistent rather than
+clever.
+
+### `data/pageviews.json` is 1.9 MB and rewritten whole on every top-up
+`json.dump(..., indent=0)` puts every month of every composer on its own line, so the cache is
+118k lines and a one-month top-up rewrites all of them. It works and it diffs (884 added lines a
+month), but one line per composer would diff far better and halve the file. Not urgent — it is a
+cache, not a shipped asset.
+
 
 ### `validate.py` cannot re-check title resolution offline
 It asserts that every page-view series is keyed by a canonical title *according to the cached

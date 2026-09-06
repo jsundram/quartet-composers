@@ -155,6 +155,54 @@ check("the most-read composer is not said to out-read 100% of the list",
       await ev(`document.querySelector('#detail .rank').textContent`));
 check("document did NOT scroll on select", await ev(`window.scrollY === 0`), "scrollY=" + await ev("window.scrollY"));
 
+// --- 3b. the readership sparkline ---------------------------------------------
+// readership.json is fetched AFTER the first paint and is not a boot dep, so the panel is
+// correct before it lands and grows the line when it does. Everything here waits for that.
+await sleep(600);
+check("the panel draws a readership sparkline",
+      await ev(`document.querySelectorAll('#detail svg.spark path.spark-line').length >= 1`),
+      "spark paths=" + await ev(`document.querySelectorAll('#detail svg.spark path.spark-line').length`));
+check("the sparkline spans the whole cached history, not the statistic's twelve months",
+      await ev(`(()=>{const ax=[...document.querySelectorAll('#detail .spark-ax span')].map(s=>s.textContent);
+        const m = ax[1] && ax[1].match(/^(\\d{4})–(\\d{4})$/);
+        return ax.length===2 && !!m && +m[2] - +m[1] >= 5})()`),
+      await ev(`[...document.querySelectorAll('#detail .spark-ax span')].map(s=>s.textContent).join(" ")`));
+// The caption is the svg's text alternative (the svg itself is aria-hidden), and the one sentence
+// that answers "steady or spiking" without the reader having to interpret a 34px line.
+check("the caption names the peak month and how big it was",
+      /peak [A-Z][a-z]{2} \d{4} — .+× typical/.test(await ev(`document.querySelector('#detail .spark-cap').textContent`)),
+      await ev(`document.querySelector('#detail .spark-cap').textContent`));
+// A view count is a measure, not a tally: the peak rounds like every other number in the panel.
+check("the peak is rounded like the rest of the panel, not printed to the unit",
+      /\d(\.\d)?k?\+/.test(await ev(`document.querySelector('#detail .spark-cap').textContent`)));
+
+// An article that did not exist in 2015 has nulls, and a null is a BREAK, not a zero — drawing it
+// as zero would claim nobody read a page that was not there. John Verrall's article starts in 2025.
+await goto(BASE + "#c=" + encodeURIComponent("John Verrall"));
+await sleep(900);
+check("a composer whose article is younger than the axis starts partway across",
+      await ev(`(()=>{const p=document.querySelector('#detail path.spark-line');
+        return p && +p.getAttribute('d').slice(1).split(",")[0] > 100})()`),
+      "line starts at x=" + await ev(`(()=>{const p=document.querySelector('#detail path.spark-line');
+        return p ? p.getAttribute('d').slice(1).split(",")[0] : "no line"})()`));
+// …and SAYS so, because nine tenths of an empty line chart reads as "nobody read this" rather
+// than "the article did not exist yet".
+check("the blank stretch before a young article is named, not left to read as zero",
+      /^from [A-Z][a-z]{2} \d{4}$/.test(await ev(`[...document.querySelectorAll('#detail .spark-ax span')].pop().textContent`)),
+      await ev(`[...document.querySelectorAll('#detail .spark-ax span')].pop().textContent`));
+
+// The sparkline is the ONE drawn thing in this app whose colours are NOT baked into the SVG by
+// JS — it is plain inline SVG in the document, so a CSS variable reaches it and Theme.subscribe
+// has nothing to re-bake. That is a decision (see the note in styles.css), so it gets a check.
+const sparkLight = await ev(`getComputedStyle(document.querySelector('#detail path.spark-line')).stroke`);
+await ev(`Theme.set('dark')`); await sleep(300);
+const sparkDark = await ev(`getComputedStyle(document.querySelector('#detail path.spark-line')).stroke`);
+check("the sparkline follows the theme with no colour baked into the SVG",
+      sparkLight !== sparkDark
+      && !(await ev(`document.querySelector('#detail path.spark-line').hasAttribute('stroke')`)),
+      `${sparkLight} -> ${sparkDark}`);
+await ev(`Theme.set('auto')`); await sleep(200);
+
 // --- 4. search filters both views --------------------------------------------
 await ev(`(()=>{const q=document.getElementById('q'); q.value='haydn';
   q.dispatchEvent(new Event('input',{bubbles:true}));})()`);
@@ -906,6 +954,12 @@ check("the full-screen strip sits above the chart, covering nothing",
 // The anti-churn contract: #plot is flex:1 in full screen, so a strip that changed height would
 // re-lay out the chart — moving the dot out from under the finger that just tapped it.
 const plotH = await ev(`document.getElementById('plot').getBoundingClientRect().height`);
+// The strip's height is FIXED because #plot is flex:1 there — anything that grows on select
+// re-lays out the chart under the finger that just tapped it, which is why tight() returns before
+// the sparkline is ever built.
+check("the full-screen strip draws no sparkline",
+      await ev(`document.querySelectorAll('#detail .spark, #detail .spark-cap').length === 0`),
+      "spark nodes in strip=" + await ev(`document.querySelectorAll('#detail .spark, #detail .spark-cap').length`));
 await shot("mobile-fs");
 await ev(`[...document.querySelectorAll('#detail .detail-nav button')].find(b=>b.textContent==='Clear').click()`);
 await sleep(400);

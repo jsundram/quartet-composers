@@ -5,8 +5,8 @@
 # ///
 """Cache a monthly page-view SERIES per composer -> data/pageviews.json.
 
-    python3 scripts/fetch_views.py                # top up through the last complete month
-    python3 scripts/fetch_views.py --months 24    # widen the window
+    python3 scripts/fetch_views.py                # every month the API has, topped up
+    python3 scripts/fetch_views.py --months 24    # narrow the window to the last 24
     python3 scripts/fetch_views.py --force        # refetch even months already cached
     python3 scripts/fetch_views.py --dry-run      # fetch and report, write nothing
 
@@ -20,9 +20,20 @@ The fix costs nothing: `monthly` granularity returns EVERY month in the requeste
 request, so twelve months of data is the same ~880 calls that one month was. build_data.py takes
 the MEDIAN, which ignores a death-or-anniversary spike instead of baking it in permanently.
 
+WHY THE WHOLE HISTORY AND NOT TWELVE MONTHS. The window defaults to everything the API has —
+2015-07 to the last complete month, 134 months as of this writing — for the same one-request
+reason: the range is free, so the only cost is the file on disk. What it buys is the readership
+SPARKLINE in the app's detail panel, which is the one thing twelve months cannot show. Saariaho
+runs at ~2,000 a month for eight years and hits 42,195 in June 2023, the month she died; Haydn
+has slid from 32,000 to 20,000 across the decade. A twelve-month window sees the first as a flat
+line and the second as noise.
+
+It does NOT move the headline number: build_data.py still takes the median of the last TWELVE
+cached months, because "how much read is this composer" is a question about now. The rest of the
+series is history, and history is a different question.
+
 Storing the raw series rather than the computed statistic means the statistic can be changed
-without touching the network, a refresh only fetches months it does not already have, and the app
-can show a sparkline for free.
+without touching the network and a refresh only fetches months it does not already have.
 
 TITLES MUST BE CANONICAL. Views are counted per title and a redirect is its own title with its own
 tiny count: asking for "Bela Bartok" returns 41 instead of Béla Bartók's 14,330, with a 200 and no
@@ -67,13 +78,17 @@ FLOOR = "2015-07"
 
 
 def months_back(n, end=None):
-    """The n complete months ending with `end` (default: the last complete month), as YYYY-MM."""
+    """The n complete months ending with `end` (default: the last complete month), as YYYY-MM.
+
+    n=None means every month the API has: back to FLOOR."""
     if end is None:
         first_of_now = dt.date.today().replace(day=1)
         end = first_of_now - dt.timedelta(days=1)
     else:
         y, m = int(end[:4]), int(end[5:7])
         end = dt.date(y, m, calendar.monthrange(y, m)[1])
+    if n is None:
+        n = (end.year - int(FLOOR[:4])) * 12 + (end.month - int(FLOOR[5:7])) + 1
     out = []
     y, m = end.year, end.month
     for _ in range(n):
@@ -126,7 +141,8 @@ def fetch(title, months):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--months", type=int, default=12, help="window length (default 12)")
+    ap.add_argument("--months", type=int, default=None,
+                    help="window length (default: everything back to %s)" % FLOOR)
     ap.add_argument("--end", help="last month of the window, YYYY-MM (default: last complete)")
     ap.add_argument("--force", action="store_true", help="refetch months already cached")
     ap.add_argument("--dry-run", action="store_true", help="write nothing")
