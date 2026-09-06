@@ -126,6 +126,28 @@ const svgEl = (tag, attrs) => {
   return n;
 };
 
+// WHAT THE CAPTION NAMES: the spike if there is one, otherwise the trend. A fixed "peak N×
+// typical" was the wrong sentence for most of the roster — the median composer's biggest month is
+// 3.1× their typical one, because a composer read thirty times a month hits ninety by chance, so
+// naming a peak said "spike!" about noise on half the list. And it buried the real story for the
+// steady ones: Haydn's peak is 1.7× and meaningless, while his line has slid a third since 2015.
+//
+// The test is the peak against the 95th PERCENTILE of the composer's own months — how far the
+// biggest month towers over even a busy one — which is scale-free and self-calibrating, so a
+// small noisy article is judged against its own noise. At 3× it fires on 18% of the roster, and
+// what it selects is almost entirely obituaries: Payne, Coates, Schnebel, Erőd, Van de Vate,
+// Charrière, all of whom died inside the window.
+const SPIKE = 3;
+
+// Percent change between the first and last twelve months of the record. Needs two full years to
+// mean anything; below that there is a peak to name and no trend.
+function trendOf(known) {
+  if (known.length < 24) return null;
+  const early = d3.median(known.slice(0, 12)), late = d3.median(known.slice(-12));
+  if (!early) return null;
+  return late / early - 1;
+}
+
 // Returns a fragment, or null when there is no history for this composer — one roster entry has
 // no Wikidata item and so no page views at all, and a fresh clone has no readership.json yet.
 function sparkline(name) {
@@ -135,21 +157,30 @@ function sparkline(name) {
   if (known.length < 2) return null;
   const max = Math.max(...known);
   const typical = d3.median(known);
+  const p95 = d3.quantile(known.slice().sort(d3.ascending), 0.95);
   const peakAt = vals.indexOf(max);
+  const spike = p95 > 0 && max / p95 >= SPIKE;
+  const trend = spike ? null : trendOf(known);
   const runs = sparkRuns(vals, max);
 
   const frag = document.createDocumentFragment();
   // preserveAspectRatio="none" lets one viewBox fit every panel width without measuring the DOM;
-  // non-scaling-stroke is what keeps the line 1px through that stretch. The peak marker is a
-  // VERTICAL hairline for the same reason — a circle would come out an ellipse.
+  // non-scaling-stroke is what keeps the line 1px through that stretch. The markers are VERTICAL
+  // hairlines for the same reason — a circle would come out an ellipse.
   const svg = svgEl("svg", {
     class: "spark", viewBox: `0 0 ${SPARK_W} ${SPARK_H}`, preserveAspectRatio: "none",
-    "aria-hidden": "true",            // the caption below is the text alternative
+    role: "img", tabindex: "0", "data-keys": "own",   // see the document keydown handler
+    // Describes the CONTROL, not the data: the caption below states the findings, and labelling
+    // both would read them twice.
+    "aria-label": "Monthly readership over time. Use the arrow keys to read a month.",
   });
-  const peakX = ((peakAt / (vals.length - 1)) * SPARK_W).toFixed(1);
-  svg.appendChild(svgEl("line", {
-    class: "spark-peak", x1: peakX, x2: peakX, y1: 0, y2: SPARK_H,
-  }));
+  // The peak marker is drawn ONLY when the caption names the peak. A hairline pointing at a month
+  // nothing mentions is an annotation with no referent — and on a steady line it points at what is
+  // simply the tallest bit of noise.
+  if (spike) {
+    const peakX = ((peakAt / (vals.length - 1)) * SPARK_W).toFixed(1);
+    svg.appendChild(svgEl("line", { class: "spark-peak", x1: peakX, x2: peakX, y1: 0, y2: SPARK_H }));
+  }
   for (const run of runs) {
     const d = run.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join("");
     svg.appendChild(svgEl("path", {
@@ -158,12 +189,14 @@ function sparkline(name) {
     }));
     svg.appendChild(svgEl("path", { class: "spark-line", d, "vector-effect": "non-scaling-stroke" }));
   }
+  const cursor = svgEl("line", { class: "spark-cursor", x1: 0, x2: 0, y1: 0, y2: SPARK_H });
+  svg.appendChild(cursor);
   frag.appendChild(svg);
 
   // The span is stated as the RECORD's, not as the axis's. Every sparkline shares one month axis
   // so two composers are comparable, which means an article created in 2025 draws a line over the
   // last tenth of the box and leaves nine tenths blank — and blank under a line chart reads as
-  // ZERO. 61 composers here are in that position. Saying "from Sep 2025" is what makes the empty
+  // ZERO. 61 composers here are in that position. Saying "from Jul 2025" is what makes the empty
   // stretch mean "not written yet" instead of "nobody read it".
   const ax = document.createElement("p");
   ax.className = "spark-ax";
@@ -176,19 +209,64 @@ function sparkline(name) {
   ax.appendChild(label); ax.appendChild(span);
   frag.appendChild(ax);
 
+  // EXACT counts here, and rounded ones in the <dl> above. Not an inconsistency: that number is
+  // the MEDIAN, a smoothed estimate whose last four figures are noise, so it prints "2.7k+"
+  // (invariant 9). A month on this line is a raw tally of one month — the same kind of number the
+  // table carries exactly because it sorts on it — and rounding the thing you hovered to read
+  // defeats the hovering.
+  const summary = spike
+    ? `peak ${monthName(HIST.months[peakAt])} — ${max.toLocaleString()}, `
+      + `${max / typical >= 10 ? Math.round(max / typical) : (max / typical).toFixed(1)}× typical`
+    : trend == null
+      ? `peak ${monthName(HIST.months[peakAt])} — ${max.toLocaleString()}`
+      : Math.abs(trend) < 0.1
+        ? `steady since ${HIST.months[firstAt].slice(0, 4)}`
+        : `${trend < 0 ? "down" : "up"} ${Math.round(Math.abs(trend) * 100)}% `
+          + `since ${HIST.months[firstAt].slice(0, 4)}`;
   const cap = document.createElement("p");
   cap.className = "spark-cap";
-  // The multiple, not the two raw counts: it is the one number that answers "steady or spiking"
-  // at a glance, and 1.3x reads as steady without the caption having to pick a word for it.
-  // atLeast() because a view count is a measure, not a tally (invariant 9).
-  //
-  // Dropped rather than printed when the typical month is ZERO — five articles here already have
-  // a month at 0 views, and a new stub whose median lands there would otherwise be captioned
-  // "Infinity× typical". No ratio is the honest answer when there is nothing to compare against.
-  const mult = typical > 0 ? max / typical : null;
-  cap.textContent = `peak ${monthName(HIST.months[peakAt])} — ${atLeast(max)}`
-    + (mult ? `, ${mult >= 10 ? Math.round(mult) : mult.toFixed(1)}× typical` : "");
+  cap.textContent = summary;
   frag.appendChild(cap);
+
+  // ---- reading a single month -----------------------------------------------------------
+  // The readout REPLACES the caption rather than adding a line: the compact panel reserves a
+  // fixed height for a hover preview (styles.css), so a box that grew under the pointer would
+  // pump the legend below it — the same constraint the full-screen strip is built around.
+  let at = -1;
+  const show_ = i => {
+    if (i === at) return;
+    at = i;
+    cursor.setAttribute("x1", ((i / (vals.length - 1)) * SPARK_W).toFixed(1));
+    cursor.setAttribute("x2", ((i / (vals.length - 1)) * SPARK_W).toFixed(1));
+    cursor.classList.add("on");
+    cap.textContent = `${monthName(HIST.months[i])} · `
+      + (vals[i] == null ? "no data" : vals[i].toLocaleString());
+  };
+  const clear_ = () => { at = -1; cursor.classList.remove("on"); cap.textContent = summary; };
+  const fromX = e => {
+    const r = svg.getBoundingClientRect();
+    if (!r.width) return;
+    const i = Math.round(((e.clientX - r.left) / r.width) * (vals.length - 1));
+    show_(Math.max(0, Math.min(vals.length - 1, i)));
+  };
+  svg.addEventListener("pointermove", fromX);
+  // A tap is a read too. On touch it STAYS up — pointerleave fires the moment the finger lifts, so
+  // restoring there would make a tap flash the answer and take it away.
+  svg.addEventListener("pointerdown", fromX);
+  svg.addEventListener("pointerleave", e => { if ((e.pointerType || "mouse") === "mouse") clear_(); });
+  // The keyboard path is the same readout, not a second mechanism. It is a READ-ONLY value
+  // stepper, which is why arrow keys are right here and wrong for the readership brush (TODO):
+  // there is no form control this reinvents.
+  svg.addEventListener("focus", () => show_(peakAt));
+  svg.addEventListener("blur", clear_);
+  svg.addEventListener("keydown", e => {
+    const step = { ArrowLeft: -1, ArrowRight: 1, Home: -Infinity, End: Infinity }[e.key];
+    if (step === undefined) return;
+    e.preventDefault();                  // ArrowLeft/Right would scroll the panel's box sideways
+    const base = at < 0 ? peakAt : at;
+    show_(Math.max(0, Math.min(vals.length - 1, step === -Infinity ? 0
+      : step === Infinity ? vals.length - 1 : base + step)));
+  });
   return frag;
 }
 
@@ -787,8 +865,18 @@ function wire() {
     if (!document.fullscreenElement && document.body.classList.contains("fs")) setFull(false);
   });
   document.addEventListener("keydown", ev => {
-    if (ev.target.matches("input, textarea")) return;
-    if (ev.key === "Escape") { if (document.body.classList.contains("fs")) setFull(false); else show(null, false); }
+    // Escape first, and unconditionally: it means "back out of this" wherever the focus is.
+    if (ev.key === "Escape") {
+      if (document.body.classList.contains("fs")) setFull(false); else show(null, false);
+      return;
+    }
+    // The arrows step the SELECTION, but only when nothing focused is using them itself. The test
+    // used to be `matches("input, textarea")`, which quietly stole the keys from the first
+    // focusable thing that was neither: arrowing along the sparkline changed the composer instead
+    // of the month, so the readout answered about someone else. [data-keys] is the contract —
+    // anything that handles its own arrows marks itself, and the next one (the readership brush
+    // still owes a keyboard path) needs no edit here.
+    if (ev.target.closest("input, textarea, [data-keys]")) return;
     if (ev.key === "ArrowRight") { ev.preventDefault(); step_(1); }
     if (ev.key === "ArrowLeft") { ev.preventDefault(); step_(-1); }
   });

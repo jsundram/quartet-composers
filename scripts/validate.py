@@ -201,15 +201,26 @@ def check_sources(rows, meta, people, pv, listing):
     if stat and months and months[-len(stat):] != stat:
         err("composers.json's statistic window ends %s, the cache ends %s — one of the two files "
             "is from an older run" % (stat[-1], months[-1]))
+    # Each cached series is a flat array aligned to `months`, null where the API had nothing.
+    cache = pv.get("series") or {}
+    ragged = [t for t, a in cache.items() if not isinstance(a, list) or len(a) != len(months)]
+    if ragged:
+        err("%d cached series are not aligned to data/pageviews.json's %d months (%s) — every "
+            "composer's numbers would be read off someone else's axis" % (
+                len(ragged), len(months), ", ".join(ragged[:3])))
+        return
     # Completeness is measured over the STATISTIC's window, not the whole cache. The cache reaches
     # back to 2015-07 now and an article created in 2019 legitimately has nothing before it, so
     # judging that as a gap would fire this on a third of the roster forever. What has to be
-    # complete is the twelve months every dot's size is computed from.
-    complete = sum(1 for t in canon if all(m in pv.get("series", {}).get(t, {}) for m in stat))
+    # complete is the twelve months every dot's size is computed from — and "complete" means a
+    # value, not a slot: a null is a recorded absence, which is exactly what it must not be here.
+    complete = sum(1 for t in canon
+                   if all(v is not None for v in (cache.get(t) or [])[-len(stat):])
+                   and len(cache.get(t) or []) >= len(stat))
     if canon and complete / len(canon) < 0.9:
-        warn("only %d of %d articles have the full %d-month statistic window"
+        warn("only %d of %d articles have data for the full %d-month statistic window"
              % (complete, len(canon), len(stat)))
-    deep = sum(1 for t in canon if len(pv.get("series", {}).get(t, {})) >= 24)
+    deep = sum(1 for t in canon if sum(v is not None for v in (cache.get(t) or [])) >= 24)
     if canon and deep / len(canon) < 0.7:
         warn("only %d of %d articles have 2+ years of history; the sparkline has little to draw"
              % (deep, len(canon)))

@@ -188,9 +188,23 @@ drawing their blank years as zero claims nobody read a page that was not there �
 "from Jul 2025" instead of the axis span for those. And the compact panel's hover reservation
 (`min-height`) had to grow with it, which `ui.test.mjs` caught by measurement rather than by eye.
 
-Still open, and cheap now that the data ships: the sparkline is not interactive — there is no way
-to read the value of a particular month. The caption names the peak, which is the question worth
-answering in 34 pixels, but a brush or a hover readout is the obvious next thing.
+**The caption names the spike if there is one, the trend otherwise.** Naming the peak
+unconditionally was wrong for most of the roster: the median composer's biggest month is 3.1× their
+typical one — a composer read thirty times a month hits ninety by chance — so it cried spike about
+noise on half the list, and buried the real story for the steady ones (Haydn's 1.7× peak against a
+line that has slid 42%). The test is the peak against the 95th percentile of that composer's OWN
+months, which is scale-free; at 3× it fires on 18% of the roster and what it picks out is almost
+entirely obituaries — Payne, Coates, Schnebel, Erőd, Van de Vate, Charrière.
+
+**Any month can be read.** Hover, tap or arrow-key the line and the caption becomes
+`Jun 2023 · 42,195` with a cursor on that month; it replaces the summary rather than adding a line,
+because the compact panel reserves a fixed height. That exposed a bug one layer out: the document
+keydown listener stole the arrows from the focused sparkline and stepped the COMPOSER, so the
+readout answered about someone else. Self-handling elements now mark themselves `[data-keys]`.
+
+Still open: the counts printed here are exact where the panel above rounds. That is deliberate —
+a month is a tally, the median is a smoothed estimate — but it is a split worth re-reading if the
+rounding rule is ever revisited.
 
 ### ~~1580–1700 is ~20% of the x-axis for three composers~~ — decided, 2026-09-05
 The premise was wrong, which is why it looked like a trade-off. Allegri (1582), Scarlatti (1660)
@@ -255,19 +269,22 @@ a table cell whose `title` still carries the full name.
 There is no way to refresh a single composer after fixing their title. Minor, but it makes fixing
 one bad row a two-minute job instead of a two-second one.
 
-### A top-up refetches the 62 articles that are younger than the window
-"Needs fetching" is `any(month not in cached)`, and an article created in 2019 will never have a
-2015 month, so it is missing something forever and is refetched on every run. 62 of 884 today, so
-~30 seconds — not worth code until it is. The honest fix is to record a month the API answered
-"nothing" for as a null in the cache, which distinguishes "not asked" from "asked, no data"; that
-is the same distinction invariant 10 makes everywhere else, so it would be consistent rather than
-clever.
+### ~~A top-up refetched the 62 articles younger than the window~~ — done, 2026-09-06
+"Needs fetching" was `any(month not in cached)`, and an article created in 2019 never has a 2015
+month, so it was missing something forever. A month the API answered "nothing" for is now recorded
+as a **null** — asked, and there was nothing there — which is the same distinction invariant 10
+makes everywhere else, and a MISSING month still means "never asked". A second run is now a true
+no-op at the network: `0 need fetching, 884 already complete`. A 404 is deliberately NOT cached
+that way: it means the canonical title in `people.json` is wrong, and caching it would silence the
+report that says so on every run after the first.
 
-### `data/pageviews.json` is 1.9 MB and rewritten whole on every top-up
-`json.dump(..., indent=0)` puts every month of every composer on its own line, so the cache is
-118k lines and a one-month top-up rewrites all of them. It works and it diffs (884 added lines a
-month), but one line per composer would diff far better and halve the file. Not urgent — it is a
-cache, not a shipped asset.
+### ~~`data/pageviews.json` was 1.9 MB and rewritten whole on every top-up~~ — done, 2026-09-06
+Each series is a flat array aligned to the shared `months` axis now, one line per composer:
+**1.88 MB → 502 KB**, and a monthly top-up changes 884 lines instead of 118k. The `{month: count}`
+form was repeating the month key 884 times per month for nothing. The price is that alignment is
+load-bearing — an array one element short shifts every month by one and the numbers stay entirely
+plausible — so `build_data.py` and `validate.py` both refuse a ragged cache, and
+`validate.test.py` proves it.
 
 
 ### `validate.py` cannot re-check title resolution offline

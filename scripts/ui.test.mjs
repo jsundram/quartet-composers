@@ -84,6 +84,15 @@ async function mouse(type, x, y) {
   await send("Input.dispatchMouseEvent", { type, x, y, button: type === "mouseMoved" ? "none" : "left",
     buttons: 0, clickCount: type === "mouseMoved" ? 0 : 1, pointerType: "mouse" });
 }
+// Real key events, not element.dispatchEvent: the app's arrow handling is a DOCUMENT listener,
+// and a synthetic event on one node does not prove the one that actually fires reaches it.
+const VK = { ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40, Home: 36, End: 35 };
+async function key(k) {
+  for (const type of ["keyDown", "keyUp"]) {
+    await send("Input.dispatchKeyEvent", { type, key: k, code: k, windowsVirtualKeyCode: VK[k] || 0,
+      nativeVirtualKeyCode: VK[k] || 0 });
+  }
+}
 async function viewport(w, h, mobile = false) {
   await send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 2, mobile });
 }
@@ -167,14 +176,71 @@ check("the sparkline spans the whole cached history, not the statistic's twelve 
         const m = ax[1] && ax[1].match(/^(\\d{4})–(\\d{4})$/);
         return ax.length===2 && !!m && +m[2] - +m[1] >= 5})()`),
       await ev(`[...document.querySelectorAll('#detail .spark-ax span')].map(s=>s.textContent).join(" ")`));
-// The caption is the svg's text alternative (the svg itself is aria-hidden), and the one sentence
-// that answers "steady or spiking" without the reader having to interpret a 34px line.
-check("the caption names the peak month and how big it was",
-      /peak [A-Z][a-z]{2} \d{4} — .+× typical/.test(await ev(`document.querySelector('#detail .spark-cap').textContent`)),
-      await ev(`document.querySelector('#detail .spark-cap').textContent`));
-// A view count is a measure, not a tally: the peak rounds like every other number in the panel.
-check("the peak is rounded like the rest of the panel, not printed to the unit",
-      /\d(\.\d)?k?\+/.test(await ev(`document.querySelector('#detail .spark-cap').textContent`)));
+// The caption names the SPIKE when there is one and the TREND otherwise — a fixed "peak N×
+// typical" called noise a spike on half the roster (the median composer's biggest month is 3.1x
+// their typical one) and buried the real story for the steady ones. Mozart's line has no spike by
+// the peak/p95 >= 3 test, so his caption is a trend.
+const capOf = () => ev(`document.querySelector('#detail .spark-cap').textContent`);
+check("a composer with no spike is captioned by trend, not by a meaningless peak",
+      /^(up|down) \d+% since \d{4}$|^steady since \d{4}$/.test(await capOf()), await capOf());
+// …and the peak hairline is drawn ONLY when the caption names the peak. An annotation pointing at
+// a month nothing mentions has no referent.
+check("no peak marker on a line whose caption does not name one",
+      await ev(`document.querySelectorAll('#detail .spark-peak').length === 0`));
+
+// Saariaho died in June 2023 and her article went from ~2,000 readers a month to 42,195. That is
+// what the spike branch is for, and it is the case a 12-month window structurally cannot show.
+await goto(BASE + "#c=" + encodeURIComponent("Kaija Saariaho"));
+await sleep(900);
+check("a real spike is captioned by its peak month and how far above typical it stood",
+      /^peak [A-Z][a-z]{2} \d{4} — [\d,]+, [\d.]+× typical$/.test(await capOf()), await capOf());
+check("a captioned peak gets a marker on the line",
+      await ev(`document.querySelectorAll('#detail .spark-peak').length === 1`));
+// EXACT here, ROUNDED in the <dl> above, and that is the point: the dl carries the MEDIAN, a
+// smoothed estimate whose last four figures are noise ("2.7k+"), while a month on this line is a
+// raw tally of one month. Rounding the number you hovered to read defeats the hovering.
+check("the sparkline prints raw monthly tallies where the measure above it rounds",
+      (await capOf()).includes("42,195")
+      && /\dk\+/.test(await ev(`[...document.querySelectorAll('#detail dd')].pop().textContent`)),
+      await capOf() + "  |  " + await ev(`[...document.querySelectorAll('#detail dd')].pop().textContent`));
+
+// --- 3c. reading one month off the sparkline ----------------------------------
+// The readout REPLACES the caption instead of adding a line, because the compact panel reserves a
+// fixed height for a hover preview — a box that grew under the pointer would pump the legend.
+const sbox = await ev(`(()=>{const r=document.querySelector('#detail svg.spark').getBoundingClientRect();
+  return {x:r.x,y:r.y,w:r.width,h:r.height}})()`);
+const capH = await ev(`document.querySelector('#detail .spark-cap').getBoundingClientRect().height`);
+await mouse("mouseMoved", sbox.x + sbox.w * 0.72, sbox.y + sbox.h / 2);
+await sleep(150);
+check("hovering the sparkline reads out that month and its count",
+      /^[A-Z][a-z]{2} \d{4} · [\d,]+$/.test(await capOf()), await capOf());
+check("the hovered month is marked on the line",
+      await ev(`document.querySelector('#detail .spark-cursor').classList.contains('on')`));
+check("the readout does not change the panel's height",
+      Math.abs(await ev(`document.querySelector('#detail .spark-cap').getBoundingClientRect().height`) - capH) < 1);
+await mouse("mouseMoved", sbox.x - 40, sbox.y - 40);
+await sleep(150);
+check("leaving the sparkline puts the summary back",
+      (await capOf()).startsWith("peak"), await capOf());
+
+// The keyboard gets the same readout, not a second mechanism. This is a READ-ONLY value stepper,
+// which is why arrow keys are right here and wrong for the readership brush (see TODO).
+await ev(`document.querySelector('#detail svg.spark').focus()`);
+await sleep(150);
+check("focusing the sparkline starts the readout at the peak",
+      (await capOf()).startsWith("Jun 2023"), await capOf());
+const whoBefore = await ev(`document.querySelector('#detail h2').textContent`);
+await key("ArrowLeft"); await key("ArrowLeft"); await key("ArrowLeft");
+await sleep(150);
+check("arrow keys step a month, not a composer",
+      /^[A-Z][a-z]{2} \d{4} · [\d,]+$/.test(await capOf())
+      && await ev(`document.querySelector('#detail h2').textContent`) === whoBefore,
+      await capOf() + " | still " + await ev(`document.querySelector('#detail h2').textContent`));
+await key("Home");
+await sleep(150);
+check("Home reads the first month on the axis", (await capOf()).startsWith("Jul 2015"), await capOf());
+await ev(`document.querySelector('#detail svg.spark').blur()`);
+await sleep(150);
 
 // An article that did not exist in 2015 has nulls, and a null is a BREAK, not a zero — drawing it
 // as zero would claim nobody read a page that was not there. John Verrall's article starts in 2025.
@@ -204,6 +270,8 @@ check("the sparkline follows the theme with no colour baked into the SVG",
 await ev(`Theme.set('auto')`); await sleep(200);
 
 // --- 4. search filters both views --------------------------------------------
+await goto(BASE);
+await sleep(400);
 await ev(`(()=>{const q=document.getElementById('q'); q.value='haydn';
   q.dispatchEvent(new Event('input',{bubbles:true}));})()`);
 await sleep(300);
@@ -1016,6 +1084,18 @@ const pinnedTop = await ev(`document.querySelector('#viz .legend').getBoundingCl
 check("pinning does not shove it either", Math.abs(pinnedTop - beforeTop) < 2,
       `legend top ${beforeTop.toFixed(0)} -> ${pinnedTop.toFixed(0)}`
       + " (panel " + await ev(`document.getElementById('detail').getBoundingClientRect().height.toFixed(0)`) + "px)");
+// The dot above is whichever is largest, and its caption is a short trend line. The WORST case for
+// the reservation is a spike caption — "peak Jun 2023 — 42,195, 18× typical" is half again as long
+// and is what would wrap first — so the box has to cover that one too.
+await goto(BASE + "#c=" + encodeURIComponent("Kaija Saariaho"));
+await sleep(900);
+const spikeTop = await ev(`document.querySelector('#viz .legend').getBoundingClientRect().top`);
+await goto(BASE);
+await sleep(600);
+check("the reservation covers the LONGEST caption, not just the first one tested",
+      Math.abs(spikeTop - (await ev(`document.querySelector('#viz .legend').getBoundingClientRect().top`))) < 2,
+      `legend top with a spike caption ${spikeTop.toFixed(0)} vs empty `
+      + (await ev(`document.querySelector('#viz .legend').getBoundingClientRect().top`)).toFixed(0));
 
 // --- 7f. landscape full screen: the strip must not eat the chart ------------------------------
 // A phone on its side is 390px TALL. The strip takes its height out of #plot rather than floating

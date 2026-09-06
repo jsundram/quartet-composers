@@ -35,6 +35,18 @@ series is history, and history is a different question.
 Storing the raw series rather than the computed statistic means the statistic can be changed
 without touching the network and a refresh only fetches months it does not already have.
 
+ON DISK: `months` is the axis and each series is a FLAT ARRAY aligned to it, null where the API
+had no datum. The obvious alternative — a {month: count} object per composer — repeats the month
+key 884 times per month and cost 1.9 MB against 0.5 MB for the same numbers, which then has to be
+rewritten whole on every monthly top-up. The dict form is still READ, once, so an older cache
+migrates itself the first time this runs.
+
+A null is "asked, and the API had nothing" — an article that did not exist yet. It is not the same
+as a MISSING month, which is "never asked", and recording it is what keeps a top-up cheap: without
+it an article created in 2019 is forever missing its 2015 months, so it looks incomplete and is
+refetched in full on every single run (62 of 884 titles). Same distinction the app makes
+everywhere else; see invariant 10 in CLAUDE.md.
+
 TITLES MUST BE CANONICAL. Views are counted per title and a redirect is its own title with its own
 tiny count: asking for "Bela Bartok" returns 41 instead of Béla Bartók's 14,330, with a 200 and no
 error. Canonical titles come from data/people.json (scripts/fetch_wikidata.py). Run that first.
@@ -161,7 +173,12 @@ def main():
     if os.path.exists(OUT):
         with open(OUT, encoding="utf-8") as f:
             cached = json.load(f)
-    series = cached.get("series", {})
+    # Read either on-disk form into one working shape: {title: {month: views|None}}. A list is the
+    # current flat encoding, aligned to the cached axis; a dict is the older sparse one, which is
+    # read here and written back flat.
+    axis = cached.get("months") or []
+    series = {t: (dict(zip(axis, v)) if isinstance(v, list) else dict(v))
+              for t, v in (cached.get("series") or {}).items()}
 
     print("window %s .. %s (%d months), %d articles" % (want[0], want[-1], len(want), len(titles)))
     todo = []
@@ -181,9 +198,13 @@ def main():
             failed.append("%s (%s)" % (t, e))
             got = None
         if got is None:
+            # NOT cached as nulls: a 404 means the title does not resolve, which is a bad
+            # canonical in data/people.json, and caching it would silence the report that says so
+            # on every run after this one. A young article (200, fewer months) is the case the
+            # nulls below are for.
             missing.append(t)
         else:
-            series.setdefault(t, {}).update(got)
+            series.setdefault(t, {}).update({m: got.get(m) for m in want})
         if i % 25 == 0 or i == len(todo):
             print("  %d/%d" % (i, len(todo)), end="\r", flush=True)
         time.sleep(PAUSE)
@@ -199,22 +220,41 @@ def main():
         for t in failed:
             print("   " + t)
 
-    covered = sum(1 for t in titles if all(m in series.get(t, {}) for m in want))
-    print("\n%d/%d articles have the full %d-month window" % (covered, len(titles), len(want)))
+    covered = sum(1 for t in titles
+                  if all(series.get(t, {}).get(m) is not None for m in want))
+    print("\n%d/%d articles have data for the whole %d-month window" % (covered, len(titles), len(want)))
 
     if args.dry_run:
         print("dry run - data/pageviews.json unchanged")
         return 0
 
+    # The axis is everything STORED, not just this run's window: `--months 24` must not throw away
+    # the decade already cached, and with flat arrays an axis narrower than the data would silently
+    # truncate it.
+    out_axis = sorted({m for v in series.values() for m in v} | set(want))
     out = {
         "fetched": dt.date.today().isoformat(),
-        "months": want,
-        "note": "monthly English Wikipedia page views (agent=user), by canonical article title",
-        "series": {k: dict(sorted(v.items())) for k, v in sorted(series.items())},
+        "months": out_axis,
+        "note": "monthly English Wikipedia page views (agent=user), by canonical article title; "
+                "each series is aligned to `months`, null where the API had no datum",
+        "series": {k: [v.get(m) for m in out_axis] for k, v in sorted(series.items())},
     }
     with open(OUT, "w", encoding="utf-8") as f:
-        json.dump(out, f, ensure_ascii=False, indent=0)
-    print("wrote data/pageviews.json (%d articles, %d bytes)" % (len(series), os.path.getsize(OUT)))
+        # One line per composer: 884 changed lines on a monthly top-up instead of 118k, and a
+        # quarter of the bytes of the indented object form.
+        f.write("{\n")
+        f.write('"fetched": %s,\n' % json.dumps(out["fetched"]))
+        f.write('"months": %s,\n' % json.dumps(out["months"]))
+        f.write('"note": %s,\n' % json.dumps(out["note"]))
+        f.write('"series": {\n')
+        items = list(out["series"].items())
+        for i, (k, v) in enumerate(items):
+            f.write("%s: %s%s\n" % (json.dumps(k, ensure_ascii=False),
+                                    json.dumps(v, separators=(",", ":")),
+                                    "," if i < len(items) - 1 else ""))
+        f.write("}\n}\n")
+    print("wrote data/pageviews.json (%d articles x %d months, %d bytes)"
+          % (len(series), len(out_axis), os.path.getsize(OUT)))
     return 0
 
 

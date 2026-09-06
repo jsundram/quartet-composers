@@ -80,6 +80,16 @@ def main():
     history, series = pv["months"], pv["series"]
     # The statistic's window: the last twelve cached months. Not the whole cache — see the header.
     months = history[-STAT_MONTHS:]
+    # Every series is a flat array aligned to `history` (fetch_views.py). Checked rather than
+    # assumed: a mis-aligned array silently reads one composer's months as another's, and the
+    # numbers that come out are plausible — which is the failure mode this whole pipeline is
+    # arranged against.
+    bad = [t for t, a in series.items() if not isinstance(a, list) or len(a) != len(history)]
+    if bad:
+        print("data/pageviews.json: %d series are not aligned to its %d months (%s). Rerun "
+              "scripts/fetch_views.py, which rewrites the cache in the current form."
+              % (len(bad), len(history), ", ".join(bad[:3])), file=sys.stderr)
+        return 1
 
     # canon_of survives the sort below; `seen` maps a canonical title to a row INDEX, and those
     # indices are meaningless the moment rows.sort() runs. Keying the history by NAME instead
@@ -99,8 +109,8 @@ def main():
             dropped.append((title, "death %s before birth %s" % (death, birth)))
             continue
 
-        vals = [series.get(canon, {}).get(m) for m in months]
-        vals = [v for v in vals if v is not None]
+        # The stat window is the TAIL of the axis, so it is the tail of every aligned array.
+        vals = [v for v in (series.get(canon) or [])[-STAT_MONTHS:] if v is not None]
         if vals:
             views = int(statistics.median(vals))
             lo, hi = min(vals), max(vals)
@@ -157,12 +167,9 @@ def main():
     # zero would draw the second as a crash to the floor.
     hist = {}
     for r in rows:
-        got = series.get(canon_of[r[0]])
-        if not got:
-            continue
-        vals = [got.get(m) for m in history]
-        if any(v is not None for v in vals):
-            hist[r[0]] = vals
+        vals = series.get(canon_of[r[0]])
+        if vals and any(v is not None for v in vals):
+            hist[r[0]] = list(vals)
     hout = {
         "meta": {
             "generated": dt.date.today().isoformat(),

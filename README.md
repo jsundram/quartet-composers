@@ -25,7 +25,7 @@ stable picture, hovering was the only way to learn anything, and a screenshot of
 | Colour = lifespan on RdYlBu-9 | Diverging ramp pivoting on the **median** lifespan, with living composers off the ramp entirely |
 | 477 composers, frozen 2014 scrape | **884**, re-scraped, with a repeatable pipeline (below) |
 | Dot size = one month of page views | **Median of 12 months** — a single month is 12% off typical, 29% at worst |
-| — | **A readership sparkline** in the detail panel — every month since 2015-07, so a spike (Saariaho's obituary, 18× her typical month) is visible as a spike |
+| — | **A readership sparkline** in the detail panel — every month since 2015-07, hover or arrow-key any month to read it, and a caption that names the spike (Saariaho's obituary, 18× typical) or the trend (Haydn, down 42% since 2015) |
 | — | **Readership histogram with a drag-to-filter brush**, to get the long tail out of the way |
 | — | **Gender filter** from Wikidata [P21](https://www.wikidata.org/wiki/Property:P21) — 276 of the 884 are women, and the Fame view shows the band they occupy |
 | — | Shareable URLs (`#v=swarm&c=Joseph+Haydn&r=1500-200000`), a share card generated from the real data, installable + offline |
@@ -51,6 +51,27 @@ arrives. Both are precached; only the first is a boot dependency.
 Then run the data gate and **bump `V` in `sw.js`** — both files are precached, so without a bump the new numbers
 reach the repo and nobody's phone. `scripts/sw-lint.py` guards it; enable the hook with
 `git config core.hooksPath .githooks`.
+
+### Keeping it current
+
+Readership is the one input that goes stale purely because time passed, so it is the one on a
+schedule:
+
+```sh
+python3 scripts/refresh.py            # top up if a month has completed since the last build
+python3 scripts/refresh.py --check    # is one due? exit 1 if so, touch nothing
+```
+
+It is a **no-op unless a month has completed** — the test is whether `composers.json` already
+covers the last complete month, not a timestamp — and when one has, it runs the three stages,
+fails the run if the data gate fails, and bumps `V` only after it passes.
+`.github/workflows/refresh.yml` runs it on the 3rd of each month (the API needs a day or two to
+settle a finished month) and opens a PR. A PR rather than a push because every dataset bug this
+repo has had looked entirely plausible in the file and needed a human to read a two-line diff.
+
+The roster and the Wikidata reads are deliberately **not** on the schedule: those change for
+editorial reasons, and a roster that grows by three composers overnight with nobody looking is how
+a bad parse ships.
 
 Two review tools that are not part of the build:
 
@@ -88,7 +109,13 @@ traps, all of which this repo fell into first:
   costs exactly what one did. The stored series makes the statistic recomputable offline.
 
 The cache now holds **every month the API has** — 2015-07 onward, 134 months — for the same
-one-request reason, and the detail panel draws it as a sparkline. The headline number did **not**
+one-request reason, and the detail panel draws it as a sparkline.
+Each series is stored as a **flat array aligned to a shared `months` axis**, null where the API had
+nothing: the obvious `{month: count}` object repeats the key 884 times per month and cost 1.9 MB
+against 0.5 MB for the same numbers, and had to be rewritten whole every month. A null is *asked,
+and there was nothing there* — distinct from a **missing** month, which is *never asked*, and
+recording it is what makes a top-up cheap: without it the 62 articles created after 2015 look
+permanently incomplete and are refetched in full on every run. The headline number did **not**
 move with it: the median is still over the last **twelve** cached months, because "how much read
 is this composer" is a question about now. The rest is history, which is a different question, and
 `validate.py` recomputes one from the other so the two files cannot drift apart. What a decade
@@ -133,8 +160,8 @@ matched to the same human.
 
 ```sh
 python3 scripts/validate.py       # THE DATA GATE — see below; run it after every rebuild
-python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (18 cases)
-scripts/ui-test.sh           # 157 behavioural checks in a real headless Chrome (lens, tap-to-pin,
+python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (19 cases)
+scripts/ui-test.sh           # 168 behavioural checks in a real headless Chrome (lens, tap-to-pin,
                              #   the three filters, theme repaint, 390px layout, offline, print) — no deps
 node scripts/sw.test.mjs     # 24 tests of the service worker's fetch handler
 python3 scripts/sw-lint.py   # precache contract: V bumped, SHELL paths exist, no cross-origin

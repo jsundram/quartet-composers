@@ -148,6 +148,17 @@ def history_short(d):
         d["history"]["series"][k] = d["history"]["series"][k][:-1]
 
 
+@case("a cached series that fell out of step with its own month axis", "not aligned")
+def ragged_cache(d):
+    # data/pageviews.json stores each series as a FLAT ARRAY aligned to `months`, which is a
+    # quarter of the bytes of the old {month: count} form and diffs one line per composer. The
+    # price is that alignment is now load-bearing: an array one short shifts every month by one
+    # and the numbers that come out are entirely plausible.
+    pv = d["pageviews"]
+    victim = next(iter(pv["series"]))
+    pv["series"][victim] = pv["series"][victim][:-1]
+
+
 @case("a rename that only landed in one file", "name nobody in composers.json")
 def history_rename(d):
     ser = d["history"]["series"]
