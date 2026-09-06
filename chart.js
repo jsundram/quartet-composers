@@ -50,15 +50,19 @@ window.Chart = (function () {
   const VY_TICKS = [1, 10, 100, 1000, 10000, 100000];
   const RATIOS = [1, 10, 100, 1000, 10000];   // the readers-per-quartet diagonals
 
-  // The editorial spine, and the only hardcoded composer NAMES in the app. They are canonical
+  // THE REPERTOIRE: the composers a quartet actually plays, in birth order, and the only
+  // hardcoded composer NAMES in the app. Deliberately NOT a count -- it was "the seven" until
+  // Tchaikovsky, Debussy and Prokofiev joined it, and every place that printed the number went
+  // stale in the same commit. Prokofiev is here on two quartets and Debussy on one: the claim is
+  // that the quartets are played, not that the composer wrote many. They are canonical
   // Wikipedia titles, which change spelling when the pipeline runs (see invariant 4), so a name
   // that stops resolving is reported by missingNames() and asserted empty in the UI suite rather
   // than quietly dropping a composer out of the argument.
   const CANON = ["Franz Xaver Richter", "Joseph Haydn", "Luigi Boccherini",
-                 "Wolfgang Amadeus Mozart", "Ludwig van Beethoven", "Béla Bartók",
-                 "Dmitri Shostakovich"];
-  const OUTLIERS = ["Giuseppe Cambini", "Franz Krommer", "John Lodge Ellerton",
-                    "Claude Debussy", "George Gershwin", "Maurice Ravel"];
+                 "Wolfgang Amadeus Mozart", "Ludwig van Beethoven",
+                 "Pyotr Ilyich Tchaikovsky", "Claude Debussy", "Béla Bartók",
+                 "Sergei Prokofiev", "Dmitri Shostakovich"];
+  const OUTLIERS = ["Giuseppe Cambini", "Franz Krommer", "John Lodge Ellerton"];
   // Sets, not arrays: isCanon/named are called per DOT per FRAME from layout() and from all four
   // paint functions -- about 4,000 calls a frame in the Fame view, and an Array.includes scan
   // in each of them is work a phone does not need to do while a pinch is in flight.
@@ -155,8 +159,8 @@ window.Chart = (function () {
   // colouring a 40-year-old as "died young" states something untrue. They get an open circle: a
   // SHAPE difference, which also satisfies "never encode meaning in color alone" and survives
   // both color-blindness and a black-and-white print.
-  // The Fame view spends colour on the ARGUMENT rather than on lifespan: the seven filled in
-  // the selection orange, the outliers ringed in the accent, and the other 780 in one recessive
+  // The Fame view spends colour on the ARGUMENT rather than on lifespan: the repertoire filled
+  // in the selection orange, the outliers ringed in the accent, and the rest in one recessive
   // grey. Emphasis, not eight hues — the point of the view is a handful of names against a field.
   function fillOf(d) {
     if (mode !== "fame") return d.living ? C.plot : colorScale(d.lifespan);
@@ -182,8 +186,8 @@ window.Chart = (function () {
     if (named(d.i)) return 1;
     return visible ? 0.55 : 0.22;
   }
-  // Both branches are Fame-only: --sel is the PINNED colour, so tinting the seven with it in
-  // Timeline/Swarm/Lens made seven composers look pinned with nothing pinned, and made the real
+  // Both branches are Fame-only: --sel is the PINNED colour, so tinting the repertoire with it in
+  // Timeline/Swarm/Lens made ten composers look pinned with nothing pinned, and made the real
   // pin unidentifiable once there was one.
   function labelColorOf(d) {
     if (mode !== "fame") return C.ink;
@@ -238,19 +242,21 @@ window.Chart = (function () {
   }
 
   // THE RING FOLLOWS THE FILTER. Every one of the curated thirteen is a man, so "Women" used to
-  // ring nobody: it dimmed the six accented dots to 0.07 and offered the group no emphasis of its
+  // ring nobody: it dimmed every accented dot to 0.07 and offered the group no emphasis of its
   // own, in the one view whose whole job is picking a few names out of a field. The ring now says
   // the same thing about whatever group is on screen — "these are the ones standing out from the
   // crowd they are drawn in" — which is what it always meant; it was just frozen to one crowd.
   //
-  // Same seed-then-rank shape as the label budget, and deliberately the same size: SIX rings,
-  // filled first by the curated outliers the filter kept and then by prominence. So filtering to
-  // the men (who include all six) changes nothing, and filtering to the women derives all six.
-  // Only the ring is derived — the seven filled in --sel are an editorial claim about who carried
-  // the form, which is not a thing a ranking can recompute (see issue #7).
-  const RINGS = 6;
+  // Same seed-then-rank shape as the label budget, and deliberately the same size as OUTLIERS:
+  // THREE rings, filled first by the curated outliers the filter kept and then by prominence. So
+  // filtering to the men (who include all three) changes nothing, and filtering to the women
+  // derives all three. It was six until Debussy, Gershwin and Ravel left this set for the
+  // repertoire; keep the two in step, or "Women" gets more emphasis than the resting view has.
+  // Only the ring is derived — the repertoire filled in --sel is an editorial claim about which
+  // quartets are played, which is not a thing a ranking can recompute (see issue #7).
+  const RINGS = 3;
   // A ring means "stands out from the crowd", so it needs a crowd. Below this the filtered group
-  // IS the picture — every dot is already legible and separately labelled — and ringing six of
+  // IS the picture — every dot is already legible and separately labelled — and ringing three of
   // eight would be pointing at almost everything.
   const MIN_FIELD = 20;
   function refreshEmphasis() {
@@ -456,6 +462,13 @@ window.Chart = (function () {
     if (selected != null && rows[selected] && isVisible(rows[selected])) {
       const at = cands.indexOf(rows[selected]);
       if (at >= 0) cands.splice(at, 1);
+      // A PIN IS A GUEST, not a replacement. In the resting view the budget is exactly the seed
+      // count, so unshifting a composer who is NOT a seed spends a slot the seeds were promised
+      // and the last one placed loses its name. That was invisible while two seeds failed to fit
+      // anyway — the left-edge dots left slack in the budget — and became a real defect the
+      // moment the diagonal spots let all thirteen place: pinning any ordinary dot un-named
+      // Ellerton.
+      else if (first) cap += 1;
       cands.unshift(rows[selected]);
     }
     const placed = [], boxes = [];
@@ -476,14 +489,26 @@ window.Chart = (function () {
       if (!inFrame(q)) continue;
       const text = Names.short(d.name);
       const tw = text.length * 5.5 + 6, th = 12;
-      // Above, then below, then beside. "Above" alone silently dropped exactly the composers the
-      // chart is about: Mozart sits 2.6% from the top of the Fame view, Cambini hard against
-      // the right edge, Debussy and Gershwin against the left — every one of them had a dot and
-      // no room over it, so the name went missing from the argument it was making.
+      // Above, then below, then beside, then the four diagonals. "Above" alone silently dropped
+      // exactly the composers the chart is about: Mozart sits 2.6% from the top of the Fame view,
+      // Cambini hard against the right edge, Debussy against the left — every one of them had a
+      // dot and no room over it, so the name went missing from the argument it was making.
+      //
+      // The diagonals answer the LEFT EDGE (issue #10). A dot at x = 1 quartet sits ~9px from the
+      // plot's left side, so a centred box (above, below) starts at a negative x and the
+      // left-hand spot is worse: only "beside, right" is on the plot at all, one slot for a
+      // column that holds Debussy, Gershwin and Ravel. Whoever came first took it and the rest
+      // were ringed with no name — the exact thing the rings exist to avoid. Four corners cost
+      // nothing (the loop breaks on the first fit) and take the resting desktop view from 11
+      // names of 13 to 13 of 13.
       const spots = [[q.x - tw / 2, q.y - q.r - 4 - th],
                      [q.x - tw / 2, q.y + q.r + 4],
                      [q.x + q.r + 5, q.y - th / 2],
-                     [q.x - q.r - 5 - tw, q.y - th / 2]];
+                     [q.x - q.r - 5 - tw, q.y - th / 2],
+                     [q.x + q.r + 3, q.y - q.r - 3 - th],
+                     [q.x + q.r + 3, q.y + q.r + 3],
+                     [q.x - q.r - 3 - tw, q.y - q.r - 3 - th],
+                     [q.x - q.r - 3 - tw, q.y + q.r + 3]];
       let put = null;
       for (const [bx, by] of spots) {
         if (bx < 0 || bx + tw > w || by < 0 || by + th > h) continue;
@@ -907,7 +932,7 @@ window.Chart = (function () {
         + "one is the whole point: Mozart and Beethoven are read about ten thousand times a "
         + "month per quartet they wrote, Cambini about once. Drag to pan, scroll or pinch to "
         + "zoom, tap a dot for the rest. Filter, and the frame closes in on what you kept and "
-        + "the ring moves to the six that stand out in THAT group.",
+        + "the ring moves to the three that stand out in THAT group.",
     scatter: "Fixed axes. Drag to pan, scroll or pinch to zoom, tap or click a dot to pin it. Ties are nudged by up to half a year so overlapping composers stay separately clickable.",
     swarm: "Composers pushed apart until nothing overlaps. Vertical position means nothing here — the quartet count is dropped, and size (views) and color (lifespan) are unchanged. Read it as a timeline of how crowded each generation was. Drag or pinch to spread it further.",
     lens: "A circular magnifier over a fixed chart: the axes never move. Move the pointer (or drag on a touch screen) to aim it; tap to pin a composer.",
@@ -933,7 +958,7 @@ window.Chart = (function () {
            // 13 and subtract it from plotted(), which is a different denominator.
            namedCount: () => emphSet.size,
            // How many of the rings the current filter derived, so the legend can say what the
-           // ring MEANS right now instead of always claiming the curated six.
+           // ring MEANS right now instead of always claiming the curated three.
            derivedRings: () => ringIdx.length,
            famePlotted: () => rows.filter(d => d.quartets != null && d.views != null).length,
            // What the chart can actually place — the table shows more (see isVisible). The birth

@@ -369,21 +369,32 @@ check("the diagonals are trimmed to the plot, not drawn past it",
 const radii = await ev(`[...new Set([...document.querySelectorAll('#plot svg circle.dot')]
   .map(c => c.getAttribute('r')))].length`);
 check("size is not double-encoded in the Fame view", radii <= 2, radii + " distinct radii");
+// The control row is READ OFF seedNames() rather than named here: this check used to compare
+// Mozart against Tchaikovsky, and when Tchaikovsky joined the repertoire both chips went --sel
+// and the check failed for a change that was correct. A hardcoded "ordinary composer" is a
+// second copy of the vocabulary, and it went stale the first time the vocabulary moved.
 check("the table chip follows the view's encoding",
-      await ev(`(()=>{const rows=[...document.querySelectorAll('tbody tr')];
-        const moz=rows.find(r=>r.textContent.includes('Mozart'));
-        const tch=rows.find(r=>r.textContent.includes('Tchaikovsky'));
-        return moz && tch && moz.querySelector('.chip').style.background
-             !== tch.querySelector('.chip').style.background})()`));
+      await ev(`(()=>{const seeds=new Set(Chart.seedNames());
+        const rows=[...document.querySelectorAll('tbody tr')];
+        const named=rows.find(r=>r.querySelector('td').title==='Wolfgang Amadeus Mozart');
+        const plain=rows.find(r=>!seeds.has(r.querySelector('td').title));
+        return named && plain && named.querySelector('.chip').style.background
+             !== plain.querySelector('.chip').style.background})()`));
 
 // Pinning a composer puts it FIRST in the label list so it cannot lose its label to a rival --
 // but in this view the list is only the 13 named, so a pin that is not one of them was hitting
 // indexOf === -1, and splice(-1, 1) deletes the LAST entry: Ravel lost his label every time you
 // clicked an unnamed dot.
+//
+// The pinned composer must therefore be one the view does NOT emphasise, or the check exercises
+// the wrong branch entirely. It used to name Tchaikovsky, who has since joined the repertoire --
+// so it is now picked from the table as the first row seedNames() does not contain.
 const labelsBefore = await ev(`[...document.querySelectorAll('#plot svg text')]
   .filter(t => t.getAttribute('font-size') === '10.5').map(t => t.textContent)`);
-await ev(`(()=>{const r=[...document.querySelectorAll('tbody tr')]
-  .find(r=>r.querySelector('td').title === 'Pyotr Ilyich Tchaikovsky'); r.click()})()`);
+const pinned = await ev(`(()=>{const seeds=new Set(Chart.seedNames());
+  const r=[...document.querySelectorAll('tbody tr')]
+    .find(r=>!seeds.has(r.querySelector('td').title));
+  r.click(); return r.querySelector('td').title})()`);
 await sleep(400);
 const labelsAfter = await ev(`[...document.querySelectorAll('#plot svg text')]
   .filter(t => t.getAttribute('font-size') === '10.5').map(t => t.textContent)`);
@@ -391,9 +402,9 @@ check("pinning an unnamed composer does not delete someone else's label",
       labelsBefore.every(n => labelsAfter.includes(n)),
       "lost: " + JSON.stringify(labelsBefore.filter(n => !labelsAfter.includes(n))));
 check("the pinned composer gets a label of its own",
-      // Two Tchaikovskys in the data, so the short form carries an initial to tell them apart.
-      labelsAfter.includes("P. Tchaikovsky"), JSON.stringify(labelsAfter));
-// --sel is the PINNED colour; tinting the canon with it elsewhere made seven composers look
+      labelsAfter.includes(await ev(`Names.short(${JSON.stringify(pinned)})`)),
+      `pinned ${pinned}; labels ` + JSON.stringify(labelsAfter));
+// --sel is the PINNED colour; tinting the repertoire with it elsewhere made ten composers look
 // pinned with nothing pinned.
 await goto(BASE + "#v=scatter");
 check("the canon is not painted as pinned in the timeline view",
@@ -735,7 +746,7 @@ check("a filtered timeline fits its own box, not the Fame view's",
       scatterK > 1 && Math.abs(scatterK - fitK) > 0.05, `scatter k=${scatterK}, readers k=${fitK}`);
 
 // --- 4k. the ring follows the filter -----------------------------------------------------------
-// Every one of the curated thirteen is a man, so "Women" dimmed all six accented dots to 0.07 and
+// Every one of the curated thirteen is a man, so "Women" dimmed every accented dot to 0.07 and
 // left the group with no emphasis of its own — in the one view whose whole job is picking a few
 // names out of a field. The ring now says the same thing about whatever group is on screen.
 await goto(BASE);
@@ -748,17 +759,17 @@ const ringsOf = `(()=>{const acc=getComputedStyle(document.documentElement)
             .filter(t=>t.getAttribute('font-size')==='10.5' && t.getAttribute('fill')===acc)
             .map(t=>t.textContent)}})()`;
 const restRings = await ev(ringsOf);
-check("the resting view rings the curated six and nothing else",
-      await ev(`Chart.derivedRings()`) === 0 && restRings.dots === 6,
+check("the resting view rings the curated three and nothing else",
+      await ev(`Chart.derivedRings()`) === 0 && restRings.dots === 3,
       `${restRings.dots} rings, ${await ev(`Chart.derivedRings()`)} derived`);
 await ev(`document.querySelector('#gender button[data-g="female"]').click()`);
 await sleep(700);
 const womenRings = await ev(ringsOf);
-check("filtering to the women rings six of THEM", await ev(`Chart.derivedRings()`) === 6,
+check("filtering to the women rings three of THEM", await ev(`Chart.derivedRings()`) === 3,
       "derived=" + await ev(`Chart.derivedRings()`));
 // A ring with no name points at a composer the view refuses to identify — the exact complaint the
 // rings were added to answer. They are seeds in pickLabels for that reason.
-check("every derived ring is also named", womenRings.dots === 6 && womenRings.labels.length === 6,
+check("every derived ring is also named", womenRings.dots === 3 && womenRings.labels.length === 3,
       `${womenRings.dots} rings, ${womenRings.labels.length} accent labels: ${womenRings.labels.join(", ")}`);
 check("and it rings composers the curated set never held",
       womenRings.labels.every(n => !restRings.labels.includes(n)),
@@ -779,12 +790,13 @@ check("the table chip follows the derived ring",
         const el=document.createElement('i'); el.style.color=acc; document.body.appendChild(el);
         const rgb=getComputedStyle(el).color; el.remove();
         return paint.includes(rgb)})()`));
-// Filtering to the men keeps all six curated outliers, so there is nothing to derive — the ring
-// budget is SIX, not six-plus-six, or a filter that changes almost nothing would double the ink.
+// Filtering to the men keeps all three curated outliers, so there is nothing to derive — the
+// ring budget is THREE, not three-plus-three, or a filter that changes almost nothing would
+// double the ink.
 await goto(BASE + "#g=male");
 await sleep(700);
-check("a filter that keeps the curated six derives none",
-      await ev(`Chart.derivedRings()`) === 0 && (await ev(ringsOf)).dots === 6,
+check("a filter that keeps the curated three derives none",
+      await ev(`Chart.derivedRings()`) === 0 && (await ev(ringsOf)).dots === 3,
       "derived=" + await ev(`Chart.derivedRings()`));
 // A ring means "stands out from the crowd it is drawn in", so it needs a crowd. Two Haydns are
 // already the whole picture; ringing them would be pointing at everything.
