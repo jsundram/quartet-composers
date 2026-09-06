@@ -40,7 +40,7 @@ window.Chart = (function () {
   // does" problem the diverging ramp had, surviving the switch to a sequential one.
   const LIFE_DOMAIN = [20, 62, 104];
 
-  // ---- the readers view ----------------------------------------------------
+  // ---- the Fame view -------------------------------------------------------
   // Output ACROSS, attention UP, so readers-per-quartet is a diagonal and the distance a composer
   // sits above one is the argument: Mozart near 10,000 readers a quartet, Cambini on 1. The other
   // views ask "when, and how much"; this one asks "and did it land".
@@ -60,7 +60,7 @@ window.Chart = (function () {
   const OUTLIERS = ["Giuseppe Cambini", "Franz Krommer", "John Lodge Ellerton",
                     "Claude Debussy", "George Gershwin", "Maurice Ravel"];
   // Sets, not arrays: isCanon/named are called per DOT per FRAME from layout() and from all four
-  // paint functions -- about 4,000 calls a frame in the readers view, and an Array.includes scan
+  // paint functions -- about 4,000 calls a frame in the Fame view, and an Array.includes scan
   // in each of them is work a phone does not need to do while a pinch is in flight.
   let canonIdx = [], outlierIdx = [], canonSet = new Set(), namedSet = new Set(), missing = [];
   // What the view is RINGING right now. Unfiltered that is exactly `namedSet`, the curated
@@ -71,9 +71,9 @@ window.Chart = (function () {
   let ringIdx = [], emphOrder = [], emphSet = new Set();
 
   let el, flagEl, cbHover, cbSelect, cbZoom;
-  // The readers view is the DEFAULT: it is the one that makes the page's claim. The timeline is
+  // The Fame view is the DEFAULT: it is the one that makes the page's claim. The timeline is
   // one tap away and still the honest overview of when the form was written.
-  const DEFAULT_MODE = "readers";
+  const DEFAULT_MODE = "fame";
   let rows = [], mode = DEFAULT_MODE, visible = null, selected = null, hovered = null;
   let svg, gPlot, gDots, gLabels, gAxX, gAxY, gGrid, gLens, gSel;
   let w = 0, h = 0, m = { top: 22, right: 14, bottom: 32, left: 46 };
@@ -110,7 +110,7 @@ window.Chart = (function () {
         lifespan: r[2] == null ? null : r[2] - r[1],
         jx: j * 0.5,                                        // years
         jy: Math.pow(10, hash(r[0] + "y") * 0.04),          // multiplicative, log-uniform
-        // Quartet counts are integers, so on the readers view's log x they land in hard vertical
+        // Quartet counts are integers, so on the Fame view's log x they land in hard vertical
         // stripes — 313 of the 790 sit on "1". Same idea as jx, in log space so the nudge is a
         // constant PROPORTION of the axis rather than a constant number of quartets.
         jq: Math.pow(10, hash(r[0] + "q") * 0.045),
@@ -155,46 +155,46 @@ window.Chart = (function () {
   // colouring a 40-year-old as "died young" states something untrue. They get an open circle: a
   // SHAPE difference, which also satisfies "never encode meaning in color alone" and survives
   // both color-blindness and a black-and-white print.
-  // The readers view spends colour on the ARGUMENT rather than on lifespan: the seven filled in
+  // The Fame view spends colour on the ARGUMENT rather than on lifespan: the seven filled in
   // the selection orange, the outliers ringed in the accent, and the other 780 in one recessive
   // grey. Emphasis, not eight hues — the point of the view is a handful of names against a field.
   function fillOf(d) {
-    if (mode !== "readers") return d.living ? C.plot : colorScale(d.lifespan);
+    if (mode !== "fame") return d.living ? C.plot : colorScale(d.lifespan);
     return isCanon(d.i) ? C.sel : named(d.i) ? "none" : C.muted;
   }
   function strokeOf(d) {
-    if (mode !== "readers") return d.living ? C.living : C.line;
+    if (mode !== "fame") return d.living ? C.living : C.line;
     return isCanon(d.i) ? C.plot : named(d.i) ? C.accent : "none";
   }
   function widthOf(d) {
-    if (mode !== "readers") return d.living ? 1.4 : 1;
+    if (mode !== "fame") return d.living ? 1.4 : 1;
     return isCanon(d.i) ? 1.6 : named(d.i) ? 2 : 0;
   }
   // A FILTER HERE IS A HIGHLIGHT, not a subtraction: nothing is removed, the rest drops to 0.07.
-  // So in the readers view the filtered-IN dots have to carry the answer, and at the resting 0.22
+  // So in the Fame view the filtered-IN dots have to carry the answer, and at the resting 0.22
   // they could not — 219 women at 0.22 against 571 ghosts at 0.07 is a difference you have to
   // hunt for, in the one view whose whole point is where a group sits against the field. While a
   // filter is on they come up to 0.55; with no filter, 0.22 is right, because then the recessive
   // mass IS the field the thirteen named composers are being read against.
   function opacityOf(d) {
     if (visible && !visible.has(d.i)) return 0.07;
-    if (mode !== "readers") return 0.92;
+    if (mode !== "fame") return 0.92;
     if (named(d.i)) return 1;
     return visible ? 0.55 : 0.22;
   }
-  // Both branches are readers-only: --sel is the PINNED colour, so tinting the seven with it in
+  // Both branches are Fame-only: --sel is the PINNED colour, so tinting the seven with it in
   // Timeline/Swarm/Lens made seven composers look pinned with nothing pinned, and made the real
   // pin unidentifiable once there was one.
   function labelColorOf(d) {
-    if (mode !== "readers") return C.ink;
+    if (mode !== "fame") return C.ink;
     return isCanon(d.i) ? C.sel : named(d.i) ? C.accent : C.ink;
   }
   // table.js paints its row chip with this, on the promise that a row and its dot are
   // recognisably the same thing. So it follows the CURRENT view's encoding, not lifespan always —
-  // in the readers view that means the thirteen named composers are findable in the table by
+  // in the Fame view that means the thirteen named composers are findable in the table by
   // colour, and everyone else is the same recessive grey they are on the chart.
   function colorOf(d) {
-    if (mode === "readers") return isCanon(d.i) ? C.sel : named(d.i) ? C.accent : C.muted;
+    if (mode === "fame") return isCanon(d.i) ? C.sel : named(d.i) ? C.accent : C.muted;
     return d.living ? C.living : colorScale(d.lifespan);
   }
 
@@ -279,10 +279,10 @@ window.Chart = (function () {
     // A portrait phone gets a TALLER scatter (0.8): the same 0.6 that reads well on a laptop
     // squeezes 466 dots into ~200px there and the log bands merge into stripes.
     const narrow = cw < 560;
-    // The readers view is a square-ish cloud over five decades of y and two of x, so it wants a
+    // The Fame view is a square-ish cloud over five decades of y and two of x, so it wants a
     // taller box than the timeline, which is naturally wide.
     const aspect = mode === "swarm" ? (narrow ? 0.58 : 0.44)
-                 : mode === "readers" ? (narrow ? 0.98 : 0.62)
+                 : mode === "fame" ? (narrow ? 0.98 : 0.62)
                  : (narrow ? 0.82 : 0.6);
     // The full-screen floor is 120, not the 240 the windowed branch can afford. In full screen the
     // SVG is height:100% of its box, so a viewBox TALLER than the box does not scroll or crop — it
@@ -365,7 +365,7 @@ window.Chart = (function () {
   function layout() {
     const tx = transform.rescaleX(x0);
     const out = new Array(rows.length);
-    if (mode === "readers") {
+    if (mode === "fame") {
       // Size is FREE here: readership is the y axis, so a radius that repeated it would double-
       // encode one variable and spend the only channel left. Emphasis carries the argument
       // instead. A composer with no page-view figure has no y at all, so park them off-frame and
@@ -429,7 +429,7 @@ window.Chart = (function () {
     // about five times the names, not twenty-four times, and the greedy placer still has to find
     // room for each one.
     let cap = Math.round(base * (1 + Math.log2(Math.max(1, transform.k))));
-    // AT FIRST SIGHT the readers view says exactly what it is about: the thirteen curated names,
+    // AT FIRST SIGHT the Fame view says exactly what it is about: the thirteen curated names,
     // and nothing else. That set is a judgment no single ranking reproduces — the best one
     // recovers eight of them — so it stays as the SEED rather than being derived away, and this
     // one case pins the budget to it so the resting picture is what it always was.
@@ -442,15 +442,15 @@ window.Chart = (function () {
     // name is pointing at a composer it refuses to identify, which is the exact complaint that
     // put the rings on the filtered view in the first place.
     const seeds = emphOrder.map(i => rows[i]).filter(isVisible);
-    const first = mode === "readers" && !visible && transform.k === 1;
+    const first = mode === "fame" && !visible && transform.k === 1;
     if (first) cap = seeds.length;
-    const cands = mode === "readers"
+    const cands = mode === "fame"
       ? seeds.concat(first ? []
           : rows.filter(d => isVisible(d) && !named(d.i) && prom.has(d.i))
                 .sort((a, b) => prom.get(b.i) - prom.get(a.i)))
       : rows.filter(isVisible).sort((a, b) => b.views - a.views);
     // The selected composer is placed FIRST so it never loses its label to a rival -- but it is
-    // only in `cands` if it was a candidate. In the readers view the list is the 13 named, so
+    // only in `cands` if it was a candidate. In the Fame view the list is the 13 named, so
     // pinning any of the other 777 gave indexOf === -1, and splice(-1, 1) deletes the LAST
     // element: Ravel silently lost his label every time you clicked an unnamed dot.
     if (selected != null && rows[selected] && isVisible(rows[selected])) {
@@ -477,7 +477,7 @@ window.Chart = (function () {
       const text = Names.short(d.name);
       const tw = text.length * 5.5 + 6, th = 12;
       // Above, then below, then beside. "Above" alone silently dropped exactly the composers the
-      // chart is about: Mozart sits 2.6% from the top of the readers view, Cambini hard against
+      // chart is about: Mozart sits 2.6% from the top of the Fame view, Cambini hard against
       // the right edge, Debussy and Gershwin against the left — every one of them had a dot and
       // no room over it, so the name went missing from the argument it was making.
       const spots = [[q.x - tw / 2, q.y - q.r - 4 - th],
@@ -537,7 +537,7 @@ window.Chart = (function () {
     for (const d of rows) {
       if (!isVisible(d)) continue;
       const q = p[d.i];
-      // r === 0 is layout()'s park for a dot it cannot place at all (the readers view has no y
+      // r === 0 is layout()'s park for a dot it cannot place at all (the Fame view has no y
       // for a composer with no view count), and it parks them at -9e9 — one of those in the box
       // would fit the frame to a point nine billion pixels off screen.
       if (!(q.r > 0) || !Number.isFinite(q.x) || !Number.isFinite(q.y)) continue;
@@ -631,15 +631,15 @@ window.Chart = (function () {
        .attr("x", -over).attr("y", -over).attr("width", w + over * 2).attr("height", h + over * 2);
 
     // axes ---------------------------------------------------------------
-    const readers = mode === "readers";
-    const tx = readers ? transform.rescaleX(qx) : transform.rescaleX(x0);
-    const ty = readers ? transform.rescaleY(vy)
+    const fame = mode === "fame";
+    const tx = fame ? transform.rescaleX(qx) : transform.rescaleX(x0);
+    const ty = fame ? transform.rescaleY(vy)
              : mode === "scatter" ? transform.rescaleY(y0) : y0;
     const inDom = (sc, v) => v >= sc.domain()[0] && v <= sc.domain()[1];
-    const xTicks = readers ? QX_TICKS.filter(v => inDom(tx, v))
-                           : tx.ticks(Math.max(3, Math.round(w / 90)));
-    const yTicks = readers ? VY_TICKS.filter(v => inDom(ty, v))
-                           : Y_TICKS.filter(v => inDom(ty, v));
+    const xTicks = fame ? QX_TICKS.filter(v => inDom(tx, v))
+                        : tx.ticks(Math.max(3, Math.round(w / 90)));
+    const yTicks = fame ? VY_TICKS.filter(v => inDom(ty, v))
+                        : Y_TICKS.filter(v => inDom(ty, v));
 
     const gx = gGrid.selectAll("line.gx").data(xTicks, String);
     gx.exit().remove();
@@ -657,7 +657,7 @@ window.Chart = (function () {
     // box, so each is trimmed to the plot rather than drawn and clipped: gGrid is not clipped,
     // and the label has to sit where the line actually ENTERS the picture.
     const diag = [];
-    if (readers) {
+    if (fame) {
       for (const k of RATIOS) {
         const [q1, q2] = tx.domain();
         const seg = trim({ x: tx(q1), y: ty(k * q1) }, { x: tx(q2), y: ty(k * q2) });
@@ -684,20 +684,20 @@ window.Chart = (function () {
     lx.exit().remove();
     lx.enter().append("text").attr("text-anchor", "middle").attr("font-size", 11).merge(lx)
       .attr("x", tx).attr("y", h + 15).attr("fill", C.axis)
-      .text(readers ? String : d3.format("d"));
+      .text(fame ? String : d3.format("d"));
     // The title sits on its own line BELOW the ticks. Sharing their baseline put it on top of the
     // rightmost tick label at almost every width — the axis ends where the plot ends, so there is
     // never spare room out there.
     gAxX.selectAll("text.ttl").remove();
     gAxX.append("text").attr("class", "ttl").attr("x", w).attr("y", h + 33)
       .attr("text-anchor", "end").attr("font-size", 11).attr("font-weight", 600)
-      .attr("fill", C.muted).text(readers ? "quartets written →" : "birth year →");
+      .attr("fill", C.muted).text(fame ? "quartets written →" : "birth year →");
 
     const ly = gAxY.selectAll("text").data(mode === "swarm" ? [] : yTicks, String);
     ly.exit().remove();
     ly.enter().append("text").attr("text-anchor", "end").attr("font-size", 11).merge(ly)
       .attr("x", -7).attr("y", d => ty(d) + 4).attr("fill", C.axis)
-      .text(readers ? vfmt : String);
+      .text(fame ? vfmt : String);
     // Horizontal, ABOVE the plot rather than rotated beside it. Rotated it has to live inside
     // m.left, which on a phone is only wide enough for the tick labels — the two overlapped and
     // "100" rendered as "00". Above the plot it also just reads better at any width.
@@ -706,8 +706,8 @@ window.Chart = (function () {
       gAxY.append("text").attr("class", "ttl")
         .attr("x", -m.left + 4).attr("y", -8).attr("text-anchor", "start")
         .attr("font-size", 11).attr("font-weight", 600).attr("fill", C.muted)
-        .text(readers ? "↑ English Wikipedia readers / month"
-                      : "↑ quartets written (log scale)");
+        .text(fame ? "↑ English Wikipedia readers / month"
+                   : "↑ quartets written (log scale)");
     }
 
     // dots ---------------------------------------------------------------
@@ -766,7 +766,7 @@ window.Chart = (function () {
 
   function ariaLabel() {
     const n = (visible ? visible.size : rows.length);
-    const axes = mode === "readers"
+    const axes = mode === "fame"
       ? "by number of quartets written and monthly English Wikipedia readers"
       : mode === "swarm" ? "by birth year, spread apart so none overlap"
       : "by birth year and number of quartets written";
@@ -902,12 +902,12 @@ window.Chart = (function () {
   function getMode() { return mode; }
 
   const HINTS = {
-    readers: "Across is how many quartets a composer wrote; up is how much their English Wikipedia "
-           + "article is read. The diagonals are readers per quartet, so how far a dot sits ABOVE "
-           + "one is the whole point: Mozart and Beethoven are read about ten thousand times a "
-           + "month per quartet they wrote, Cambini about once. Drag to pan, scroll or pinch to "
-           + "zoom, tap a dot for the rest. Filter, and the frame closes in on what you kept and "
-           + "the ring moves to the six that stand out in THAT group.",
+    fame: "Across is how many quartets a composer wrote; up is how much their English Wikipedia "
+        + "article is read. The diagonals are readers per quartet, so how far a dot sits ABOVE "
+        + "one is the whole point: Mozart and Beethoven are read about ten thousand times a "
+        + "month per quartet they wrote, Cambini about once. Drag to pan, scroll or pinch to "
+        + "zoom, tap a dot for the rest. Filter, and the frame closes in on what you kept and "
+        + "the ring moves to the six that stand out in THAT group.",
     scatter: "Fixed axes. Drag to pan, scroll or pinch to zoom, tap or click a dot to pin it. Ties are nudged by up to half a year so overlapping composers stay separately clickable.",
     swarm: "Composers pushed apart until nothing overlaps. Vertical position means nothing here — the quartet count is dropped, and size (views) and color (lifespan) are unchanged. Read it as a timeline of how crowded each generation was. Drag or pinch to spread it further.",
     lens: "A circular magnifier over a fixed chart: the axes never move. Move the pointer (or drag on a touch screen) to aim it; tap to pin a composer.",
@@ -916,10 +916,10 @@ window.Chart = (function () {
 
   return { init, setData, setMode, getMode, setFilter, setSelected, resize, rerender,
            defaultMode: () => DEFAULT_MODE,
-           // Empty unless a pipeline run renamed one of the composers the readers view argues
+           // Empty unless a pipeline run renamed one of the composers the Fame view argues
            // about; the UI suite asserts it, so a rename fails loudly instead of dropping a dot.
            missingNames: () => missing.slice(),
-           // The curated thirteen, for the suite: the resting readers view must show these and
+           // The curated thirteen, for the suite: the resting Fame view must show these and
            // only these, and a zoom must show something else.
            seedNames: () => CANON.concat(OUTLIERS),
            resetZoom, zoomed, colorOf, hint,
@@ -928,14 +928,14 @@ window.Chart = (function () {
            // rendering of it.
            zoomK: () => transform.k,
            lifeDomain: () => LIFE_DOMAIN.slice(),
-           // How many dots the readers view actually emphasises, and how many it can place at
+           // How many dots the Fame view actually emphasises, and how many it can place at
            // all (it needs a view count as well as a quartet count). The legend used to hardcode
            // 13 and subtract it from plotted(), which is a different denominator.
            namedCount: () => emphSet.size,
            // How many of the rings the current filter derived, so the legend can say what the
            // ring MEANS right now instead of always claiming the curated six.
            derivedRings: () => ringIdx.length,
-           readersPlotted: () => rows.filter(d => d.quartets != null && d.views != null).length,
+           famePlotted: () => rows.filter(d => d.quartets != null && d.views != null).length,
            // What the chart can actually place — the table shows more (see isVisible). The birth
            // extent is the PLOTTABLE one and the living count is of those same rows, because the
            // empty detail panel describes the dots: it read "884 composers, born 1582-1989" over

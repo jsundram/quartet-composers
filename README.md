@@ -26,7 +26,7 @@ stable picture, hovering was the only way to learn anything, and a screenshot of
 | 477 composers, frozen 2014 scrape | **884**, re-scraped, with a repeatable pipeline (below) |
 | Dot size = one month of page views | **Median of 12 months** — a single month is 12% off typical, 29% at worst |
 | — | **Readership histogram with a drag-to-filter brush**, to get the long tail out of the way |
-| — | **Gender filter** from Wikidata [P21](https://www.wikidata.org/wiki/Property:P21) — 276 of the 884 are women, and the readers view shows the band they occupy |
+| — | **Gender filter** from Wikidata [P21](https://www.wikidata.org/wiki/Property:P21) — 276 of the 884 are women, and the Fame view shows the band they occupy |
 | — | Shareable URLs (`#v=swarm&c=Joseph+Haydn&r=1500-200000`), a share card generated from the real data, installable + offline |
 
 ## The pipeline
@@ -117,7 +117,7 @@ matched to the same human.
 ```sh
 python3 scripts/validate.py       # THE DATA GATE — see below; run it after every rebuild
 python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (15 cases)
-scripts/ui-test.sh           # 126 behavioural checks in a real headless Chrome (lens, tap-to-pin,
+scripts/ui-test.sh           # 149 behavioural checks in a real headless Chrome (lens, tap-to-pin,
                              #   the three filters, theme repaint, 390px layout, offline, print) — no deps
 node scripts/sw.test.mjs     # 24 tests of the service worker's fetch handler
 python3 scripts/sw-lint.py   # precache contract: V bumped, SHELL paths exist, no cross-origin
