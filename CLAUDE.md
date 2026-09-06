@@ -42,10 +42,24 @@ plain static assets. Read README.md first for what the app is.
    so `build_data.py` and `validate.py` both refuse a ragged one rather than reading it. A null
    there means "asked, nothing was there"; a MISSING month means "never asked", and that
    distinction is what keeps a top-up from refetching the 62 articles younger than the window on
-   every single run.
+   every single run. **Which is why every title is fetched over the whole AXIS, never over
+   `--months`**: a flat array has no third value between a count and a null, so the file can hold
+   exactly one asked window. Fetch a title over a narrower one and its un-asked months are written
+   as nulls, and it then reads as complete forever — `--months 24` on a composer added since the
+   last run would bury nine years of their history permanently. `--months` narrows what counts as
+   STALE and never what gets asked for. And a month IN PROGRESS is not a month: the API does not
+   withhold the current one, it returns the days so far aggregated exactly like a finished month
+   with nothing to say so, so `months_back()` ends at the last COMPLETE month and `--end` is
+   refused past it.
    The last stage writes BOTH shipped files from one set of caches, and they must
    stay in lockstep: `validate.py`'s `check_history()` recomputes each row's median, min and max
    from the last twelve points of that composer's own sparkline and fails when they disagree.
+   `build_data.py` carries the canonical title in a list PARALLEL to the rows and reorders both
+   together, rather than in a {display name: canonical} map: `QUALIFIER` strips the disambiguator,
+   so "John Adams (composer)" and a bare "John Adams" — invariant 5's own pair — collapse to one
+   key and the second silently wins, handing one composer the other's decade of history. It also
+   refuses to write either file when two rows print the same name, because readership.json is
+   keyed by that name and cannot tell them apart.
    Two internally-consistent files built from different fetches is a drift nothing in the app can
    see — the panel would print one readership and draw another.
    Composer NAMES are canonical Wikipedia titles and change spelling when the pipeline runs, so
@@ -139,7 +153,7 @@ Four suites, all dependency-free:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 168 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 170 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads

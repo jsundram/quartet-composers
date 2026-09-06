@@ -115,7 +115,12 @@ nothing: the obvious `{month: count}` object repeats the key 884 times per month
 against 0.5 MB for the same numbers, and had to be rewritten whole every month. A null is *asked,
 and there was nothing there* — distinct from a **missing** month, which is *never asked*, and
 recording it is what makes a top-up cheap: without it the 62 articles created after 2015 look
-permanently incomplete and are refetched in full on every run. The headline number did **not**
+permanently incomplete and are refetched in full on every run. The corollary is that a title that
+needs fetching is fetched over the **whole axis**, never over `--months`: a flat array has no third
+value between a count and a null, so the file holds exactly one asked window, and writing a
+narrower fetch onto the wider axis would record un-asked months as nulls that then read as
+complete forever. A month **in progress** is refused outright — the API does not withhold the
+current month, it returns the days so far as though they were the month. The headline number did **not**
 move with it: the median is still over the last **twelve** cached months, because "how much read
 is this composer" is a question about now. The rest is history, which is a different question, and
 `validate.py` recomputes one from the other so the two files cannot drift apart. What a decade
@@ -160,8 +165,8 @@ matched to the same human.
 
 ```sh
 python3 scripts/validate.py       # THE DATA GATE — see below; run it after every rebuild
-python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (19 cases)
-scripts/ui-test.sh           # 168 behavioural checks in a real headless Chrome (lens, tap-to-pin,
+python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (20 cases)
+scripts/ui-test.sh           # 170 behavioural checks in a real headless Chrome (lens, tap-to-pin,
                              #   the three filters, theme repaint, 390px layout, offline, print) — no deps
 node scripts/sw.test.mjs     # 24 tests of the service worker's fetch handler
 python3 scripts/sw-lint.py   # precache contract: V bumped, SHELL paths exist, no cross-origin

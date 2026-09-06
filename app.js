@@ -156,10 +156,20 @@ function sparkline(name) {
   const known = vals.filter(v => v != null);
   if (known.length < 2) return null;
   const max = Math.max(...known);
+  // An all-zero series has no line to draw: every y is 0/0, so the path is "MNaN,NaN…" and renders
+  // as nothing at all under a caption reading "peak Mar 2019 — 0". Not reachable in today's data
+  // (five series contain a zero month; none is all zeros), but the roster is rebuilt from a scrape
+  // every month and the obscure tail is where this would first appear.
+  if (max === 0) return null;
   const typical = d3.median(known);
   const p95 = d3.quantile(known.slice().sort(d3.ascending), 0.95);
   const peakAt = vals.indexOf(max);
-  const spike = p95 > 0 && max / p95 >= SPIKE;
+  // typical > 0 as well as p95 > 0: the multiple below divides by the MEDIAN, so an article with
+  // more than half its months at zero and one busy month printed "Infinity× typical" — the
+  // Infinity sails through the `>= 10` branch and Math.round leaves it intact. Failing the spike
+  // test drops it to the trend branch, which states the peak with no ratio, which is the honest
+  // answer when there is no typical month to compare against.
+  const spike = p95 > 0 && typical > 0 && max / p95 >= SPIKE;
   const trend = spike ? null : trendOf(known);
   const runs = sparkRuns(vals, max);
 

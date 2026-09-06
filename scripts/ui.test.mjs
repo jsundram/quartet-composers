@@ -242,6 +242,41 @@ check("Home reads the first month on the axis", (await capOf()).startsWith("Jul 
 await ev(`document.querySelector('#detail svg.spark').blur()`);
 await sleep(150);
 
+// --- 3d. the arithmetic edges, forced ------------------------------------------
+// Not reachable in today's readership.json — five series contain a zero month, none has a zero
+// median — but the roster is rebuilt from a scrape every month and the obscure tail is where a
+// zero median would first appear. Both of these rendered visible garbage before they were guarded.
+// The shape has to clear p95 > 0 as well as put the MEDIAN at zero, or the spike test
+// short-circuits on p95 and the Infinity is never reached: a majority of dead months, a tail of
+// live ones, and one big one. (A series with a single non-zero month has p95 == 0 and was always
+// safe — which is why the fixture is built deliberately rather than by intuition.)
+const zeroMedianCap = await ev(`(()=>{
+  const name = document.querySelector('#detail h2').textContent;
+  window.__realSeries = HIST.series[name];
+  const n = window.__realSeries.length;
+  const z = Array.from({length: n}, (_, i) => i < n * 0.55 ? 0 : 10);
+  z[n - 1] = 500;
+  HIST.series[name] = z;
+  renderDetail(selected, false);
+  const c = document.querySelector('#detail .spark-cap');
+  return c ? c.textContent : "(no sparkline)";
+})()`);
+check("a composer whose typical month is zero does not print an infinite multiple",
+      !/Infinity|NaN/.test(zeroMedianCap), zeroMedianCap);
+const allZero = await ev(`(()=>{
+  const name = document.querySelector('#detail h2').textContent;
+  HIST.series[name] = window.__realSeries.map(() => 0);
+  renderDetail(selected, false);
+  return document.querySelectorAll('#detail .spark, #detail .spark-cap').length;
+})()`);
+// An all-zero series has no line to draw: every y is 0/0, so the path came out "MNaN,NaN…" and
+// rendered as nothing at all under a caption reading "peak Mar 2019 — 0".
+check("an all-zero series draws no sparkline rather than an invisible one", allZero === 0,
+      "spark nodes = " + allZero);
+await ev(`(()=>{ const name = document.querySelector('#detail h2').textContent;
+  HIST.series[name] = window.__realSeries; renderDetail(selected, false); return true })()`);
+await sleep(150);
+
 // An article that did not exist in 2015 has nulls, and a null is a BREAK, not a zero — drawing it
 // as zero would claim nobody read a page that was not there. John Verrall's article starts in 2025.
 await goto(BASE + "#c=" + encodeURIComponent("John Verrall"));

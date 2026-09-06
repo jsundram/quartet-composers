@@ -159,6 +159,17 @@ def ragged_cache(d):
     pv["series"][victim] = pv["series"][victim][:-1]
 
 
+@case("a month the API had not published cached as though nobody read anything",
+      "newest cached month")
+def unsettled_month(d):
+    # The pageviews API does not withhold a month in progress — it returns the days so far — so
+    # fetch_views.py guards this on the CLOCK. This is the net for a cache that got one anyway:
+    # left in, it is the newest month on the axis, so every median is computed over eleven values
+    # and composers.json's window ends there, which tells refresh.py it is done for the month.
+    for k, v in d["pageviews"]["series"].items():
+        v[-1] = None
+
+
 @case("a rename that only landed in one file", "name nobody in composers.json")
 def history_rename(d):
     ser = d["history"]["series"]

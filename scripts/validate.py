@@ -220,6 +220,15 @@ def check_sources(rows, meta, people, pv, listing):
     if canon and complete / len(canon) < 0.9:
         warn("only %d of %d articles have data for the full %d-month statistic window"
              % (complete, len(canon), len(stat)))
+    # A month EVERY article is null for is not a month nobody read anything, it is a month the
+    # pageviews API had not published when the cache was written. Left in, it is the newest month
+    # on the axis, so the median is computed over eleven values and composers.json's window ends
+    # there — which tells scripts/refresh.py it is done for the month. fetch_views.py probes for
+    # this before it can happen; this is the check that the probe worked.
+    if months and cache and all((cache.get(t) or [None])[-1] is None for t in cache):
+        err("no article has any data for %s, the newest cached month — the API had not published "
+            "it yet. Drop it and rerun scripts/fetch_views.py, or every median is short a month "
+            "and refresh.py thinks the window has moved." % months[-1])
     deep = sum(1 for t in canon if sum(v is not None for v in (cache.get(t) or [])) >= 24)
     if canon and deep / len(canon) < 0.7:
         warn("only %d of %d articles have 2+ years of history; the sparkline has little to draw"

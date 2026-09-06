@@ -31,7 +31,7 @@
 // one that never updates. The seven review rounds behind this design: #7.
 
 // pwa-starter: sw.js @ d2fad01  (Google Fonts branch removed — this app ships system fonts only.)
-const V = "quartets-v25";   // <-- BUMP ON EVERY SHELL CHANGE (rename the stem freely; keep the digits)
+const V = "quartets-v26";   // <-- BUMP ON EVERY SHELL CHANGE (rename the stem freely; keep the digits)
 
 // "quartets-v" — the stem shared by every cache generation. app.js's VER_PREFIX must match it, and the
 // NUMERIC TAIL is load-bearing: it orders generations for the collect below and for checkVer()'s

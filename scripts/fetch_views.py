@@ -47,6 +47,14 @@ it an article created in 2019 is forever missing its 2015 months, so it looks in
 refetched in full on every single run (62 of 884 titles). Same distinction the app makes
 everywhere else; see invariant 10 in CLAUDE.md.
 
+WHICH MEANS EVERY TITLE IS FETCHED OVER THE WHOLE AXIS, not over `--months`. A flat array cannot
+say "never asked" — there is no third value between a count and a null — so the only way the two
+states stay distinct on disk is for the file to hold exactly one asked window, the axis itself.
+Fetching a title over a narrower window and writing it onto the wider axis would record its
+un-asked months as nulls, and it would then read as complete FOREVER: `--months 24` on a composer
+added since the last run buried nine years of their history permanently. The range is free (one
+request either way), so `--months` narrows what counts as STALE and never what gets asked for.
+
 TITLES MUST BE CANONICAL. Views are counted per title and a redirect is its own title with its own
 tiny count: asking for "Bela Bartok" returns 41 instead of Béla Bartók's 14,330, with a 200 and no
 error. Canonical titles come from data/people.json (scripts/fetch_wikidata.py). Run that first.
@@ -154,7 +162,9 @@ def fetch(title, months):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--months", type=int, default=None,
-                    help="window length (default: everything back to %s)" % FLOOR)
+                    help="how far back to consider stale (default: everything back to %s). NOT "
+                         "how much is fetched: a title that needs fetching is always fetched over "
+                         "the whole axis — see the header." % FLOOR)
     ap.add_argument("--end", help="last month of the window, YYYY-MM (default: last complete)")
     ap.add_argument("--force", action="store_true", help="refetch months already cached")
     ap.add_argument("--dry-run", action="store_true", help="write nothing")
@@ -163,6 +173,17 @@ def main():
     want = months_back(args.months, args.end)
     if not want:
         print("no months in range (the API has nothing before %s)" % FLOOR, file=sys.stderr)
+        return 2
+    # A MONTH IN PROGRESS IS NOT A MONTH. The API does not withhold the current month — asked on
+    # the 6th it returns the first six days aggregated exactly like a finished month, with no flag
+    # to say so — so nothing downstream can tell a six-day count from a thirty-day one, and it
+    # would sit in the cache as a permanent trough. months_back() already ends at the last
+    # COMPLETE month, so the clock is the guard and this is the one way past it.
+    complete = months_back(1)[0]
+    if args.end and args.end > complete:
+        print("--end %s is not a complete month; the newest complete month is %s. The API would "
+              "answer with the days so far as though they were the month." % (args.end, complete),
+              file=sys.stderr)
         return 2
 
     with open(PEOPLE, encoding="utf-8") as f:
@@ -181,17 +202,18 @@ def main():
               for t, v in (cached.get("series") or {}).items()}
 
     print("window %s .. %s (%d months), %d articles" % (want[0], want[-1], len(want), len(titles)))
-    todo = []
-    for t in titles:
-        have = series.get(t, {})
-        if args.force or any(m not in have for m in want):
-            todo.append(t)
+    # The axis this run will WRITE, and therefore the window every fetch below asks for: everything
+    # already cached plus everything wanted. Asking over anything narrower is what would write a
+    # null for a month nobody asked about (see the header).
+    axis_out = sorted(set(axis) | set(want))
+    todo = [t for t in titles
+            if args.force or any(m not in series.get(t, {}) for m in axis_out)]
     print("  %d need fetching, %d already complete" % (len(todo), len(titles) - len(todo)))
 
     missing, failed = [], []
     for i, t in enumerate(todo, 1):
         try:
-            got = fetch(t, want)
+            got = fetch(t, axis_out)
         except Exception as e:                        # noqa: BLE001 - any transport failure
             # NEVER let one title abort the run: a 429 at title 300 used to raise out of main()
             # and discard 300 good fetches.
@@ -204,7 +226,7 @@ def main():
             # nulls below are for.
             missing.append(t)
         else:
-            series.setdefault(t, {}).update({m: got.get(m) for m in want})
+            series.setdefault(t, {}).update({m: got.get(m) for m in axis_out})
         if i % 25 == 0 or i == len(todo):
             print("  %d/%d" % (i, len(todo)), end="\r", flush=True)
         time.sleep(PAUSE)
@@ -221,17 +243,25 @@ def main():
             print("   " + t)
 
     covered = sum(1 for t in titles
-                  if all(series.get(t, {}).get(m) is not None for m in want))
-    print("\n%d/%d articles have data for the whole %d-month window" % (covered, len(titles), len(want)))
+                  if all(series.get(t, {}).get(m) is not None for m in axis_out))
+    print("\n%d/%d articles have data for all %d months" % (covered, len(titles), len(axis_out)))
 
     if args.dry_run:
         print("dry run - data/pageviews.json unchanged")
         return 0
 
-    # The axis is everything STORED, not just this run's window: `--months 24` must not throw away
-    # the decade already cached, and with flat arrays an axis narrower than the data would silently
-    # truncate it.
-    out_axis = sorted({m for v in series.values() for m in v} | set(want))
+    # Every series is written over axis_out, and every series was ASKED over axis_out, so a null in
+    # the file means exactly one thing. A title that has dropped off people.json is not asked for
+    # any more, so it cannot keep that promise — and validate.py's stray-title check already fails
+    # on a cached series with no canonical title behind it, so keeping one is not an option either.
+    # Dropped rather than null-padded, and it comes back in full if the roster picks it up again.
+    orphans = sorted(set(series) - set(titles))
+    for t in orphans:
+        del series[t]
+    if orphans:
+        print("dropped %d cached series no longer in data/people.json: %s"
+              % (len(orphans), ", ".join(orphans[:4])))
+    out_axis = axis_out
     out = {
         "fetched": dt.date.today().isoformat(),
         "months": out_axis,

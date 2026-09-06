@@ -91,11 +91,13 @@ def main():
               % (len(bad), len(history), ", ".join(bad[:3])), file=sys.stderr)
         return 1
 
-    # canon_of survives the sort below; `seen` maps a canonical title to a row INDEX, and those
-    # indices are meaningless the moment rows.sort() runs. Keying the history by NAME instead
-    # (the sort is stable on nothing that changes it) is what keeps each series on its own
-    # composer — validate.py's check_history caught this exact mix-up.
-    rows, seen, dropped, canon_of = [], {}, [], {}
+    # canons runs parallel to rows and is REORDERED WITH IT below. `seen` maps a canonical title to
+    # a row INDEX, and those indices are meaningless the moment the rows are sorted — that mix-up
+    # handed 673 composers someone else's history and validate.py's check_history caught it. The
+    # obvious repair, a {display name: canonical title} map, has the same bug one step further out:
+    # QUALIFIER strips the disambiguator, so "John Adams (composer)" and a bare "John Adams" — the
+    # exact pair invariant 5 is about — collapse to one key and the second silently wins.
+    rows, seen, dropped, canons = [], {}, [], []
     for e in listing["entries"]:
         title = e["title"]
         p = people.get(title, {})
@@ -129,10 +131,23 @@ def main():
             dropped.append((title, "duplicate of %s" % canon))
             continue
         seen[canon] = len(rows)
-        canon_of[name] = canon
+        canons.append(canon)
         rows.append(row)
 
-    rows.sort(key=lambda r: (r[1], r[0]))
+    order = sorted(range(len(rows)), key=lambda i: (rows[i][1], rows[i][0]))
+    rows = [rows[i] for i in order]
+    canons = [canons[i] for i in order]
+
+    # Two rows that print the same name cannot both be in readership.json, which is keyed by the
+    # name the app has in hand when it draws the panel — one would silently overwrite the other's
+    # decade of history. validate.py errors on it too (a shared link would be ambiguous), but the
+    # build has to stop HERE or it writes the bad file first and the diagnostic points downstream.
+    dupes = sorted({r[0] for r in rows if [x[0] for x in rows].count(r[0]) > 1})
+    if dupes:
+        print("%d display names are shared by more than one row (%s) — QUALIFIER collapsed two "
+              "canonical titles into one name; the history file cannot key them apart."
+              % (len(dupes), ", ".join(dupes[:3])), file=sys.stderr)
+        return 1
 
     living = sum(1 for r in rows if r[2] is None)
     no_count = sum(1 for r in rows if r[3] is None)
@@ -166,8 +181,8 @@ def main():
     # "nobody read this" and "the article did not exist" are different facts (invariant 10), and
     # zero would draw the second as a crash to the floor.
     hist = {}
-    for r in rows:
-        vals = series.get(canon_of[r[0]])
+    for r, canon in zip(rows, canons):
+        vals = series.get(canon)
         if vals and any(v is not None for v in vals):
             hist[r[0]] = list(vals)
     hout = {
