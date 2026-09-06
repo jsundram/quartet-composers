@@ -208,10 +208,10 @@ function renderLegend() {
   const el = $("legend");
   el.innerHTML = "";
 
-  // The views do not encode the same things, so they cannot share a key. In the readers view
+  // The views do not encode the same things, so they cannot share a key. In the Fame view
   // size means nothing (readership is the y axis) and hue is emphasis, not lifespan — showing
   // the lifespan ramp and a size key there would label channels that are not carrying anything.
-  if (Chart.getMode() === "readers") {
+  if (Chart.getMode() === "fame") {
     const who = document.createElement("div");
     who.innerHTML =
       `<span class="lab">Named on the chart</span>` +
@@ -225,7 +225,7 @@ function renderLegend() {
         `${Chart.derivedRings() ? "the ones that stand out in this group"
                                 : "the outliers at either end"}</span>` +
         `<span class="sw"><i style="background:${g("--muted")};opacity:.3"></i>` +
-        `the other ${Chart.readersPlotted() - Chart.namedCount()} composers</span>` +
+        `the other ${Chart.famePlotted() - Chart.namedCount()} composers</span>` +
       `</div>`;
     el.appendChild(who);
 
@@ -580,7 +580,12 @@ async function start() {
   // Restore whatever the link asked for BEFORE the first paint, so a shared URL never shows the
   // default view for a frame and then jump-cuts to the real one.
   const link = readHash();
-  if (link.v && ["readers", "scatter", "swarm", "lens"].includes(link.v)) setMode(link.v);
+  // "readers" was this view's name until it became "fame". writeHash() omits v for the
+  // DEFAULT mode, which this is, so nothing the app ever produced carries it — but a link
+  // shared back when the timeline was the default does, and dropping it would open that
+  // link on the wrong chart rather than fail visibly.
+  const v = link.v === "readers" ? "fame" : link.v;
+  if (v && ["fame", "scatter", "swarm", "lens"].includes(v)) setMode(v);
   if (link.q) $("q").value = link.q;
   if (link.r) Histogram.setRange(link.r);
   if (link.g) setGender(link.g);

@@ -4,9 +4,11 @@ Design artifacts — the artboards behind a decision, kept so the reasoning surv
 
 ## What is here
 
-`Quartet Chart Directions` (published 2026-09-05) is the canvas that chose the **Readers** view:
-three directions for re-encoding the chart around "why are the greats great", plus a page-structure
-board. It is what `chart.js`'s readers mode and the `#filters` row were picked from.
+`Quartet Chart Directions` (published 2026-09-05) is the canvas that chose the view now called
+**Fame** (it was **Readers** when these were drawn): three directions for re-encoding the chart
+around "why are the greats great", plus a page-structure board. It is what `chart.js`'s `fame`
+mode and the `#filters` row were picked from. The artboards keep the old name on purpose — they
+are the record of a decision, not a second copy of the app.
 
 | artboard | direction | outcome |
 |---|---|---|

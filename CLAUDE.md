@@ -44,7 +44,7 @@ plain static assets. Read README.md first for what the app is.
    deleted, so reading `claims[0]` reported Tania León — alive, Pulitzer 2021 — as dead since 1996.
    `year_of()` drops deprecated, prefers `preferred`, and ignores novalue/somevalue snaks.
 
-7. **The Readers view is the default, and the only place the app hardcodes composer NAMES.**
+7. **The Fame view is the default, and the only place the app hardcodes composer NAMES.**
    `CANON` and `OUTLIERS` in `chart.js` are thirteen canonical Wikipedia titles, which change
    spelling when the pipeline runs (invariant 4). `Chart.missingNames()` reports any that stop
    resolving and the UI suite asserts it empty, so a rename fails loudly instead of dropping a
@@ -56,7 +56,7 @@ plain static assets. Read README.md first for what the app is.
    `unfilterableGenders()` — that composer is in NEITHER filter while the footnote counts only the
    ones with no claim at all.
 
-8. **Each view encodes different things, so each needs its own key.** In Readers, size is the y
+8. **Each view encodes different things, so each needs its own key.** In Fame, size is the y
    AXIS and hue is emphasis; the lifespan ramp and the size key would be labelling channels that
    carry nothing, so `renderLegend()` branches on the mode and `setMode()` re-renders both the
    legend and the table (the row chips are painted from `Chart.colorOf`, which follows the view).
@@ -98,7 +98,7 @@ plain static assets. Read README.md first for what the app is.
 14. **`scripts/make-og-svg.py` duplicates chart.js's scales on purpose.** Same log domains, same
    jitter hash, same emphasis, the same two uniform radii — readership is the Y AXIS in this
    view, so the card has no radius scale either — and the same short-name rule from `names.js`.
-   It renders the READERS view AT REST, because that is what a bare URL opens on — so the derived
+   It renders the FAME view AT REST, because that is what a bare URL opens on — so the derived
    rings never reach it and it needs only the curated six. Changing an encoding in `chart.js` means changing it there too, or
    the share card stops matching the page. They are duplicated rather than shared because the app
    must not ship a build step and the card must not ship a JS runtime.
@@ -114,7 +114,7 @@ Four suites, all dependency-free:
   compares composers.json against its schema, the other caches, and the previous commit. Run it
   after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 148 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 149 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `scripts/audit_counts.py` — not automated: it prints parsed quartet counts beside the sentence
@@ -126,7 +126,7 @@ The first two run in CI. `ui-test.sh` does not (it needs a browser) — run it b
 ## Design artifacts
 
 `mocks/` holds the artboards a design decision was made from — currently the canvas that chose the
-Readers view over two alternatives. They are drawn from `composers.json` by `mocks/gen.py`, which
+Fame view over two alternatives. They are drawn from `composers.json` by `mocks/gen.py`, which
 duplicates chart.js's scales for the same reason `make-og-svg.py` does. Nothing there ships, and
 nothing there follows a change to `chart.js`: they are a record of a decision, not a second
 implementation of it. See `mocks/README.md`.
@@ -232,10 +232,10 @@ made on evidence.
   600 dots are still drawn at 0.07, so closing in shows the group against the ghost of its field.
 - **Labels are a function of zoom, not a list.** `pickLabels()` in `chart.js` spends a budget that
   grows with the zoom (`base × (1 + log₂ k)`) on candidates that are frame-culled, so pinching in
-  names what is in the frame. In the Readers view the curated thirteen are the SEED and fill the
+  names what is in the frame. In the Fame view the curated thirteen are the SEED and fill the
   budget first; beyond them the ranking is `prom`, z-scored distance from the centre of the visible
   cloud, recomputed in `setFilter()`/`setData()` because a filter must rank its own group. The one
-  special case is the resting unfiltered Readers view, where the budget is pinned to the seed so
+  special case is the resting unfiltered Fame view, where the budget is pinned to the seed so
   the view says exactly what it is about — that is also the state `make-og-svg.py` draws, which is
   why the share card needs the seed and no ranking (invariant 14).
 - **Anything the zoom moves must be clipped.** `chart.js` clips the dots, labels, selection ring

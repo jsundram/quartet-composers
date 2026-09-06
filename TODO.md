@@ -35,26 +35,26 @@ Tombelle, who has no Wikidata item either).
 
 Both open questions were answered **filter**, not encoding, and for the same reason: a filter here
 is ALREADY a highlight. Nothing is removed — `opacityOf()` drops the rest to 0.07 — so "show me
-the women" and "where are they" are the same gesture, and the Readers view keeps the band visible
+the women" and "where are they" are the same gesture, and the Fame view keeps the band visible
 against the field. What the filter did need was volume: at the resting 0.22 the kept dots were
 barely separable from the ghosts, so while ANY filter is on they come up to 0.55. That is the
 whole encoding, it costs no new channel, and the search box and the brush got it too.
 
-A permanent encoding was rejected on the issue's own grounds. Readers spends fill on the seven and
+A permanent encoding was rejected on the issue's own grounds. Fame spends fill on the seven and
 stroke on the outliers; the other three views spend fill on lifespan and stroke on living. The only
 unspent channel is shape, and shape does not read at a 2.5px radius among 790 marks.
 
 The pills live on the readership row, so they survive full screen where `.tablehead` does not. On a
 phone they take a third line rather than crowding the brush.
 
-One thing the filter exposed: all thirteen composers the Readers view labels are men, so "Women"
+One thing the filter exposed: all thirteen composers the Fame view labels are men, so "Women"
 drew 219 emphasised dots with no name on any of them — it answered "where are they" and refused to
 answer "who". Fixing it properly meant fixing the labels generally, which is the entry below — and
 then the RING, which had the same defect one channel over and is now derived per filter too (the
 Interface section).
 
 ### ~~Labels were a fixed set, not a function of zoom~~ — done, 2026-09-05
-The Readers view labelled thirteen hardcoded names and nothing else, at every zoom level, which
+The Fame view labelled thirteen hardcoded names and nothing else, at every zoom level, which
 made the zoom decorative: pinching in promised detail and delivered scale. It now works the way a
 map does — a budget that grows with the zoom (`base × (1 + log₂ k)`), filled from the seed and then
 by PROMINENCE, and frame-culled, so zooming into a region names what is in that region. At rest,
@@ -188,7 +188,7 @@ Stepped darker than canonical YlGnBu deliberately: `#edf8b1` is 1.08:1 on this s
 published ramp's pale end is invisible here. Everything clears 3:1 and stays monotone in lightness
 in both modes, checked with the dataviz palette validator rather than by eye.
 
-### The Readers view drops birth year entirely
+### The Fame view drops birth year entirely
 Which is the thing the mocked-up "canon path" would have added: joining the seven in birth order
 draws the chronological walk through output-and-attention space without spending an axis on it.
 It was proposed, not chosen — the direction picked was B as mocked. Cheap to add if wanted.

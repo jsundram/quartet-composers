@@ -65,7 +65,7 @@ async function goto(url) {
   // Forcing it with a follow-up Page.reload fixed that and introduced a RACE. The app rewrites its
   // own URL on boot (writeHash -> replaceState) and drops anything it did not accept — an invalid
   // "#g=chicken" becomes a bare path. When that rewrite landed between the navigate and the
-  // reload, the reload re-read the CLEANED url, the page came up in the DEFAULT readers view, and
+  // reload, the reload re-read the CLEANED url, the page came up in the DEFAULT Fame view, and
   // a later section asking for #legend .ramp dereferenced null and killed the whole run: every
   // check after it silently never ran. It failed intermittently, which is worse than always.
   //
@@ -232,7 +232,7 @@ check("clearing drops the range from the URL", !(await ev(`location.hash`)).incl
 
 // --- 4c. the frame holds: nothing escapes the plot rectangle under a zoom ----------------------
 // Pinned to the timeline view: it is the one with the birth-year domain and the size legend these
-// checks are about. The default view is now Readers (section 4e).
+// checks are about. The default view is now Fame (section 4e).
 await goto(BASE + "#v=scatter");
 const frame = await ev(`(()=>{const s=document.querySelector('#plot svg');
   const b=s.querySelector('rect.bg').getBoundingClientRect(); const r=s.getBoundingClientRect();
@@ -322,10 +322,18 @@ check("size-legend labels sit under their circles",
           e.getBoundingClientRect().x+e.getBoundingClientRect().width/2 -
           (t[i].getBoundingClientRect().x+t[i].getBoundingClientRect().width/2)) < 1.5)})()`));
 
-// --- 4e. the readers view: the one that makes the page's argument ------------------------------
+// --- 4e. the Fame view: the one that makes the page's argument ------------------------------
 await goto(BASE);
-check("the readers view is what a bare URL opens on",
-      await ev(`Chart.getMode() === 'readers'`), await ev(`Chart.getMode()`));
+check("the Fame view is what a bare URL opens on",
+      await ev(`Chart.getMode() === 'fame'`), await ev(`Chart.getMode()`));
+// This view's mode key was "readers" until it was renamed. writeHash() omits v for the default
+// mode, so nothing the app produced ever carried it -- but a link shared while the timeline was
+// the default did, and an unmapped value is DROPPED rather than rejected, which would open an old
+// link on the wrong chart with nothing to see. The alias is one line and this is what pins it.
+await goto(BASE + "#v=readers");
+check("an old #v=readers link still opens the Fame view",
+      await ev(`Chart.getMode() === 'fame'`), await ev(`Chart.getMode()`));
+await goto(BASE);
 // The thirteen names are the ONLY hardcoded composer strings in the app, and they are canonical
 // Wikipedia titles — which change spelling when the pipeline runs (invariant 4). A rename has to
 // fail here rather than quietly drop a composer out of the argument the view is making.
@@ -341,7 +349,7 @@ const named = await ev(`[...document.querySelectorAll('#plot svg text')]
 // hardcoding "Mozart", which would go stale in exactly the way a second Mozart would cause.
 for (const who of ["Wolfgang Amadeus Mozart", "Giuseppe Cambini", "Joseph Haydn"]) {
   const label = await ev(`Names.short(${JSON.stringify(who)})`);
-  check(`${who} is labelled in the readers view`, named.includes(label),
+  check(`${who} is labelled in the Fame view`, named.includes(label),
         `looking for ${JSON.stringify(label)} among ${named.length} labels placed`);
 }
 check("the labels are shortened, not the full Wikipedia titles",
@@ -360,7 +368,7 @@ check("the diagonals are trimmed to the plot, not drawn past it",
 // view is about. Every unnamed dot is the same size.
 const radii = await ev(`[...new Set([...document.querySelectorAll('#plot svg circle.dot')]
   .map(c => c.getAttribute('r')))].length`);
-check("size is not double-encoded in the readers view", radii <= 2, radii + " distinct radii");
+check("size is not double-encoded in the Fame view", radii <= 2, radii + " distinct radii");
 check("the table chip follows the view's encoding",
       await ev(`(()=>{const rows=[...document.querySelectorAll('tbody tr')];
         const moz=rows.find(r=>r.textContent.includes('Mozart'));
@@ -398,13 +406,13 @@ check("the chart tells a screen reader which axes it is showing",
       (await ev(`document.querySelector('#plot svg').getAttribute('aria-label')`)).includes("birth year"),
       await ev(`document.querySelector('#plot svg').getAttribute('aria-label')`));
 await goto(BASE);
-check("and says something different in the readers view",
+check("and says something different in the Fame view",
       (await ev(`document.querySelector('#plot svg').getAttribute('aria-label')`)).includes("readers"),
       await ev(`document.querySelector('#plot svg').getAttribute('aria-label')`));
 
 // Labels are a function of ZOOM, like a map. A fixed set answers a pinch with the same names
 // larger, which makes the interaction decorative: it promises detail and delivers scale. At rest
-// the readers view still says exactly what it is about -- the thirteen -- and nothing else.
+// the Fame view still says exactly what it is about -- the thirteen -- and nothing else.
 await goto(BASE);
 const restLabels = await ev(`[...document.querySelectorAll('#plot svg text')]
   .filter(t=>new Set(ROWS.map(d=>Names.short(d.name))).has(t.textContent)).length`);
@@ -418,7 +426,7 @@ for (let i = 0; i < 6; i++) {
 await sleep(400);
 const zoomLabels = await ev(`[...document.querySelectorAll('#plot svg text')]
   .filter(t=>new Set(ROWS.map(d=>Names.short(d.name))).has(t.textContent)).length`);
-check("zooming the readers view reveals more names", zoomLabels > restLabels,
+check("zooming the Fame view reveals more names", zoomLabels > restLabels,
       `${restLabels} at rest -> ${zoomLabels} zoomed in`);
 check("the names it reveals are ones the seed never had",
       await ev(`(()=>{const seed=new Set(Chart.seedNames().map(Names.short));
@@ -563,11 +571,11 @@ check("the kept dots are emphasised, not merely less dim",
         .filter(c=>+c.getAttribute('opacity')>0.5).length > 150`),
       "opacities: " + await ev(`[...new Set([...document.querySelectorAll('#plot svg circle.dot')]
         .map(c=>c.getAttribute('opacity')))].sort().join(' ')`));
-// Every one of the thirteen names the readers view argues about is a man, so a women filter used
+// Every one of the thirteen names the Fame view argues about is a man, so a women filter used
 // to leave the view with 219 emphasised dots and no labels at all: it showed where they are and
 // refused to say who they are. A filtered field names its own most-read survivors.
 const wlabels = await ev(`[...document.querySelectorAll('#plot svg text')].map(t=>t.textContent)`);
-check("a filtered readers view still names somebody",
+check("a filtered Fame view still names somebody",
       wlabels.includes("Price") && wlabels.length > 3,
       wlabels.filter(t => !/quartet|readers|written|month/.test(t)).join(" | "));
 // Prominence, not readership: filtered to the women, readership names whoever has the biggest
@@ -611,7 +619,7 @@ check("the filter is in the URL", (await ev(`location.hash`)).includes("g=female
 // switcher over the filter, so a pill press called setMode(undefined) — the chart left every
 // named mode, the legend emptied and the URL grew "#v=undefined". Two groups, one class.
 check("filtering does not touch the chart view",
-      await ev(`Chart.getMode() === 'readers'`), await ev(`String(Chart.getMode())`));
+      await ev(`Chart.getMode() === 'fame'`), await ev(`String(Chart.getMode())`));
 
 // fetch_wikidata.py can label eight P21 values and there are two pills, so the vocabularies can
 // drift. A stated gender no pill reaches is a composer in neither filter, while the footnote still
@@ -723,7 +731,7 @@ await sleep(700);
 const scatterK = await ev(`Chart.zoomK()`);
 // A modest fit, and that is the point: the women span nearly the whole birth-year range, so the
 // timeline has little to close in on where the readership cloud had a great deal.
-check("a filtered timeline fits its own box, not the readers view's",
+check("a filtered timeline fits its own box, not the Fame view's",
       scatterK > 1 && Math.abs(scatterK - fitK) > 0.05, `scatter k=${scatterK}, readers k=${fitK}`);
 
 // --- 4k. the ring follows the filter -----------------------------------------------------------
