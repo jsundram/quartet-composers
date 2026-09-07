@@ -85,20 +85,34 @@ def surname_of(name):
     return parts[end] + suffix
 
 
-def short_names(names):
-    """canonical title -> the label the page's chart would print."""
+# names.js's DOMINANT_VIEWS: the one member a shared surname already means on its own keeps it
+# bare ("Haydn" is Joseph), and the initial stays on the others. Joseph Haydn is one of the six
+# labels on this card, so a card that did not follow the page would print "J. Haydn" beside a plot
+# that says "Haydn".
+DOMINANT_VIEWS = 10000
+
+
+def short_names(rows):
+    """canonical title -> the label the page's chart would print. Needs readership, not just the
+    names: which composer a bare surname already means is a fact about the whole roster."""
+    views = {r[0]: r[4] or 0 for r in rows}
     groups = {}
-    for n in names:
-        groups.setdefault(surname_of(n), []).append(n)
+    for r in rows:
+        groups.setdefault(surname_of(r[0]), []).append(r[0])
     out = {}
     for sur, members in groups.items():
         fores = {n: bare(n).replace(sur, "").strip() for n in members}
         initials = {}
         for f in fores.values():
             initials[f[:1]] = initials.get(f[:1], 0) + 1
+        rank = sorted(members, key=lambda n: -views[n])
+        dominant = rank[0] if len(members) > 1 and views[rank[0]] >= DOMINANT_VIEWS \
+            and views[rank[0]] > views[rank[1]] else None
         for n in members:
             f = fores[n]
             if len(members) < 2 or not f:
+                out[n] = sur
+            elif n == dominant:                    # the surname already names this one
                 out[n] = sur
             elif bare(n).startswith(sur):          # family-name-first title; leave the order alone
                 out[n] = bare(n)
@@ -212,7 +226,7 @@ def main():
               % ", ".join(absent), file=sys.stderr)
         return 1
 
-    short = short_names([r[0] for r in rows])
+    short = short_names(rows)
     for name, anchor, dx, where in LABELS:
         r = by_name[name]
         cx, cy, rad = sx(r[3] * jitter(r[0] + "q")), sy(r[4]), R_NAMED

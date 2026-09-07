@@ -504,8 +504,26 @@ for (const who of ["Wolfgang Amadeus Mozart", "Giuseppe Cambini", "Joseph Haydn"
         `looking for ${JSON.stringify(label)} among ${named.length} labels placed`);
 }
 check("the labels are shortened, not the full Wikipedia titles",
-      named.every(t => t.length < 20) && named.includes("J. Haydn"),
+      named.every(t => t.length < 20) && named.includes("Haydn"),
       JSON.stringify(named));
+// The bare surname is not the shortening rule, it is the DOMINANCE rule on top of it: a surname
+// only one composer is read for prints bare, and the initial stays on everyone else it would
+// otherwise be ambiguous between. Asserted as a pair, because dropping the initial from BOTH
+// Haydns is the failure mode -- two dots labelled the same thing -- and only checking the famous
+// one would not see it. Michael is not labelled at rest, so this asks names.js directly.
+check("a surname one composer owns prints bare; the others keep the initial",
+      await ev(`Names.short("Joseph Haydn") === "Haydn"
+             && Names.short("Michael Haydn") === "M. Haydn"
+             && Names.short("Pyotr Ilyich Tchaikovsky") === "Tchaikovsky"
+             && Names.short("Boris Tchaikovsky") === "B. Tchaikovsky"`),
+      await ev(`[Names.short("Joseph Haydn"), Names.short("Michael Haydn"),
+                 Names.short("Pyotr Ilyich Tchaikovsky"), Names.short("Boris Tchaikovsky")].join(" / ")`));
+// No two composers may be handed the same chart label -- the whole point of the initial.
+check("every short name is unique across the roster",
+      await ev(`(()=>{const s = ROWS.map(d => Names.short(d.name));
+        return new Set(s).size === s.length})()`),
+      await ev(`(()=>{const s = ROWS.map(d => Names.short(d.name));
+        return JSON.stringify(s.filter((x,i) => s.indexOf(x) !== i))})()`));
 check("only the named composers are labelled", named.length <= 13, named.length + " labels");
 check("the readers-per-quartet diagonals are drawn",
       await ev(`document.querySelectorAll('#plot svg line.dg').length >= 4`),

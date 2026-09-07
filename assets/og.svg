@@ -817,7 +817,7 @@
   <circle cx="829.1" cy="165.0" r="7.5" fill="#fb923c" stroke="#191c21" stroke-width="1.6"/>
   <text x="895.4" y="91.2" fill="#eceef0" font-family="system-ui,sans-serif" font-size="18" font-weight="600" text-anchor="middle" stroke="#14161a" stroke-width="4" paint-order="stroke" stroke-linejoin="round">Mozart</text>
   <text x="822.5" y="128.5" fill="#eceef0" font-family="system-ui,sans-serif" font-size="18" font-weight="600" text-anchor="end" stroke="#14161a" stroke-width="4" paint-order="stroke" stroke-linejoin="round">Beethoven</text>
-  <text x="1001.5" y="157.0" fill="#eceef0" font-family="system-ui,sans-serif" font-size="18" font-weight="600" text-anchor="middle" stroke="#14161a" stroke-width="4" paint-order="stroke" stroke-linejoin="round">J. Haydn</text>
+  <text x="1001.5" y="157.0" fill="#eceef0" font-family="system-ui,sans-serif" font-size="18" font-weight="600" text-anchor="middle" stroke="#14161a" stroke-width="4" paint-order="stroke" stroke-linejoin="round">Haydn</text>
   <text x="1033.9" y="268.9" fill="#eceef0" font-family="system-ui,sans-serif" font-size="18" font-weight="600" text-anchor="middle" stroke="#14161a" stroke-width="4" paint-order="stroke" stroke-linejoin="round">Boccherini</text>
   <text x="729.0" y="177.1" fill="#eceef0" font-family="system-ui,sans-serif" font-size="18" font-weight="600" text-anchor="middle" stroke="#14161a" stroke-width="4" paint-order="stroke" stroke-linejoin="round">Bartók</text>
   <text x="1085.7" y="352.5" fill="#eceef0" font-family="system-ui,sans-serif" font-size="18" font-weight="600" text-anchor="end" stroke="#14161a" stroke-width="4" paint-order="stroke" stroke-linejoin="round">Cambini</text>

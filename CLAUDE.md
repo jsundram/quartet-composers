@@ -213,11 +213,21 @@ made on evidence.
   `names.js` is the only place that takes a canonical Wikipedia name apart, and it is a heuristic
   — see `SURNAME` there. It derives BOTH forms from one shared-surname map, so the two can never
   disagree about who needs more than a surname: `filed()` gives the table "Haydn, Joseph" (a
-  column that sorts on the string it prints), `short()` gives the chart "J. Haydn" (a label that
+  column that sorts on the string it prints), `short()` gives the chart "M. Haydn" (a label that
   has to fit beside its dot), and a surname shared by two people whose initials also match falls
   through to the full name — Ferdinand and Félicien David. The detail panel, the hover flag and
   the row's `title` attribute all keep the canonical title, where recognising the person is the
   job. `make-og-svg.py` duplicates `short()` for the same reason it duplicates the scales.
+  **The chart form has one exception on top of that rule: a surname only one composer is READ for
+  prints bare.** "Haydn" is Joseph and "Tchaikovsky" is Pyotr Ilyich on any programme; the initial
+  is what Michael and Boris need. `DOMINANT_VIEWS` (10,000) in `names.js` is the test, and it has
+  to stay decisive — the most-read member takes it only if nobody in the group ties them, or two
+  dots get the same label. Two groups of the 884 qualify. It is `short()` ONLY: the table sorts on
+  what it prints, and a bare "Haydn" filed beside "Haydn, Michael" makes that column inconsistent
+  about who gets a forename to save width a table has anyway. This is why `Names.setData()` takes
+  readership alongside the names — as a PARALLEL array, for the reason `build_data.py` carries
+  canonical titles in one (invariant 4) — and why `make-og-svg.py`'s `short_names()` now takes
+  rows rather than names: Joseph Haydn is one of the card's six labels.
 - **A number printed beside the chart counts the PLOTTABLE rows.** The empty detail panel said
   "884 composers, born 1582–1989" next to an x axis starting at 1709 — the 94 rows with no stated
   quartet count are in the table only, and three of them are the roster's earliest births.

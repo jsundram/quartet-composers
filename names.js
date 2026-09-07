@@ -44,8 +44,21 @@ window.Names = (function () {
     "Chen Yi": "Chen",
   };
 
+  // A surname a reader already attaches to ONE composer does not need the initial that separates
+  // them from the rest of it. "Haydn" is Joseph and "Tchaikovsky" is Pyotr Ilyich on any concert
+  // programme; the initial is what Michael and Boris need. The test is READERSHIP, because that is
+  // the only measure this dataset has of who a name lands on, and it has to be decisive: the
+  // group's most-read member takes the bare surname if they clear DOMINANT_VIEWS and nobody in the
+  // group ties them, so two composers can never be handed the same label. Two groups of the 884
+  // qualify today (Haydn 28,938 against 2,268; Tchaikovsky 58,023 against 418).
+  //
+  // CHART ONLY -- short(), not filed(). The table column sorts on the string it prints, and a bare
+  // "Haydn" filed beside "Haydn, Michael" makes it inconsistent about who gets a forename in order
+  // to save width a table has anyway. The plot is where the pixels are scarce.
+  const DOMINANT_VIEWS = 10000;
+
   let names = [];
-  const filedOf = new Map(), shortOf = new Map(), surOf = new Map();
+  const filedOf = new Map(), shortOf = new Map(), surOf = new Map(), viewsOf = new Map();
 
   // "Samuel Wesley (composer, born 1766)" -- a Wikipedia disambiguator, not part of the name.
   const bare = n => n.replace(/\s*\([^)]*\)\s*$/, "");
@@ -66,9 +79,14 @@ window.Names = (function () {
   // "Chen" -- exactly the kind of thing a re-scrape changes.
   const forenameOf = (name, sur) => bare(name).replace(sur, "").replace(/\s+/g, " ").trim();
 
-  function setData(list) {
+  // `views` is a PARALLEL array of readership medians, not a {name: views} map, for the reason
+  // build_data.py carries canonical titles in one: a map keyed by a display name collapses two
+  // rows the moment the roster gains a name that folds onto another, and hands one composer the
+  // other's number. Only setData() reads it, and only to answer "is this surname one person's".
+  function setData(list, views) {
     names = list.slice();
-    filedOf.clear(); shortOf.clear(); surOf.clear();
+    filedOf.clear(); shortOf.clear(); surOf.clear(); viewsOf.clear();
+    names.forEach((n, i) => viewsOf.set(n, (views && views[i]) || 0));
     const group = new Map();
     for (const n of names) {
       const s = surnameOf(n);
@@ -96,6 +114,10 @@ window.Names = (function () {
         const k = f ? f[0] : "";
         initial.set(k, (initial.get(k) || 0) + 1);
       }
+      // The one member the bare surname already means, if the group has one (DOMINANT_VIEWS).
+      const rank = members.slice().sort((a, b) => viewsOf.get(b) - viewsOf.get(a));
+      const dominant = viewsOf.get(rank[0]) >= DOMINANT_VIEWS
+                    && viewsOf.get(rank[0]) > viewsOf.get(rank[1]) ? rank[0] : null;
       for (const n of members) {
         const f = forenameOf(n, sur);
         filedOf.set(n, f ? `${sur}, ${f}` : sur);
@@ -104,6 +126,7 @@ window.Names = (function () {
         // the full title instead.
         const lead = bare(n).startsWith(sur);
         shortOf.set(n, !f ? sur
+                   : n === dominant ? sur
                    : lead ? bare(n)
                    : initial.get(f[0]) === 1 ? `${f[0]}. ${sur}`
                    : bare(n));

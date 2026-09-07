@@ -757,7 +757,9 @@ async function start() {
   // FIRST: both the chart's labels and the table's name column are shortened by names.js, and it
   // needs the whole roster to know which surnames are shared. Neither module can display a name
   // before this runs.
-  Names.setData(data.rows.map(r => r[0]));
+  // Readership comes with the names: a surname only one composer is read for is printed bare on
+  // the chart (DOMINANT_VIEWS there), which is a fact about the roster, not about one row.
+  Names.setData(data.rows.map(r => r[0]), data.rows.map(r => r[4]));
 
   Chart.setData(data.rows);
   Chart.init({
