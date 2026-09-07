@@ -134,9 +134,9 @@ untouched; below `MIN_FIELD` nothing is derived, because a ring needs a crowd to
 
 This settles half of [#7](https://github.com/jsundram/quartet-composers/issues/7): the OUTLIER ring
 is derived, because "wrote a lot and is read little" is a computable property of whatever group you
-are looking at. The repertoire filled in `--sel` is not, and the issue stays open for it — "who
-carried the form" is an editorial claim about music history, and TODO records that no single
-ranking reproduces the curated set (the best recovers 8 of 13).
+are looking at. The repertoire filled in `--sel` is not — "who carried the form" is an editorial
+claim about music history, and TODO records that no single ranking reproduces the curated set (the
+best recovers 8 of 13). The other half is below.
 
 ### ~~A filter left the frame on the whole field~~ — done, 2026-09-05, [#6](https://github.com/jsundram/quartet-composers/issues/6)
 Filtering to the 276 women gave the same picture with 600 dots dimmed and the survivors still in
@@ -225,6 +225,34 @@ visible dot on the chart.
 Stepped darker than canonical YlGnBu deliberately: `#edf8b1` is 1.08:1 on this surface, so the
 published ramp's pale end is invisible here. Everything clears 3:1 and stays monotone in lightness
 in both modes, checked with the dataviz palette validator rather than by eye.
+
+### ~~A filter left the FILL with nothing to say~~ — done, 2026-09-07, [#7](https://github.com/jsundram/quartet-composers/issues/7)
+The ring was derived per filter in September; the fill was not, and every name in `CANON` is a man,
+so "Women" drew 219 dots with three earned rings and **nothing filled at all** — the channel that
+carries the view's actual claim went silent for a third of the roster.
+
+Deriving it was rejected on the same grounds as before: a canon is a claim about what gets played,
+and no ranking reproduces one. So the answer is a SECOND hand-written list — `WOMEN_CANON`, nine in
+birth order, 1805 to 1962 — swapped in by `Chart.setRepertoire()` when the pill changes.
+
+**Gated to the filter, and that is the design, not a caveat.** Not one of the nine clears 10,000
+readers a month (Price tops them at 8,001; `CANON`'s median is Tchaikovsky at 58,023), so at rest
+they would be nine filled dots low in the densest part of a 790-dot cloud under a key reading "the
+repertoire" — captioned as the set that holds Mozart. It is a different claim, and it is legible
+exactly when the women are the picture. The resting view, "Men" and the share card are
+byte-identical: `make-og-svg.py` regenerated to no diff at all, because it draws the view at rest.
+
+Two things fell out of it. The legend had to rename the FILL as well as the ring, so the phrase
+moved into `REPERTOIRES` beside the list it names — one editorial claim, one place. And curating a
+composer REMOVES her from the ring pool (`refreshEmphasis` ranks over dots not in `namedSet`), so
+filling Kats-Chernin and Price handed their ring slots to Vrebalov (18 quartets, 152 readers — the
+women's Cambini), Lutyens and Monk. The two ends of that group are now named by two different
+mechanisms and they agree.
+
+The one thing the set cannot include: **Caroline Shaw and Jessie Montgomery**, two of the most
+programmed living quartet composers, have `quartets: null` and so cannot be plotted at all. Same
+for Tania León, Joan Tower and Chen Yi. That is the 94-row gap in the section above, showing up
+somewhere it costs something.
 
 ### The Fame view drops birth year entirely
 Which is the thing the mocked-up "canon path" would have added: joining the repertoire in birth order

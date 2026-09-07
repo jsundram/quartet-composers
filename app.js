@@ -435,7 +435,10 @@ function renderLegend() {
       `<span class="lab">Named on the chart</span>` +
       `<div class="swatches">` +
         `<span class="sw"><i style="background:${g("--sel")}"></i>` +
-        `the repertoire, in birth order</span>` +
+        // The FILL follows the filter now too, so the key that names it has to come from the same
+        // place as the list -- see chart.js's REPERTOIRES. Hardcoding "the repertoire" here would
+        // caption nine women as the set that contains Mozart.
+        `${Chart.repertoireLabel()}</span>` +
         `<span class="sw"><i style="box-shadow:inset 0 0 0 2px ${g("--accent")}"></i>` +
         // The ring follows the filter (chart.js's refreshEmphasis), so the key has to say which
         // crowd it is talking about. Claiming "the outliers at either end" while ringing
@@ -629,6 +632,15 @@ function unfilterableGenders() {
   return [...new Set(ROWS.filter(d => d.gender != null && !reach.has(d.gender)).map(d => d.gender))];
 }
 
+// The same assertion one vocabulary over. chart.js keys its curated repertoires by gender pill
+// VALUE, so a key no pill can reach is a list that can never be shown — silent in exactly the way
+// an unreachable P21 value is, and worse, because the list looks maintained. The UI suite asserts
+// this empty alongside Chart.missingNames() and Names.staleOverrides().
+function unreachableRepertoires() {
+  const reach = new Set(pillValues());
+  return Chart.repertoireKeys().filter(k => !reach.has(k));
+}
+
 // The third filter. It is the only one with no module of its own, because it has nothing to
 // render and no data to hold — three buttons and a string. It still returns the same "a Set of
 // indices, or null for everything" the other two do, so intersect() never learns it exists.
@@ -646,6 +658,12 @@ function setGender(g) {
   gender = g;
   document.querySelectorAll("#gender button").forEach(b =>
     b.setAttribute("aria-pressed", String(b.dataset.g === g)));
+  // The Fame view fills a CURATED set, and which one it should be filling is a function of who is
+  // on screen: every name in the default repertoire is a man, so "Women" filled nothing until
+  // chart.js gained a second list. Handing over the pill's raw value keeps the mapping in one
+  // place -- chart.js falls back to the default for any value it has no list for, which is what
+  // makes the women's set appear under that filter and nowhere else.
+  Chart.setRepertoire(g);
   applyFilters(true);
 }
 
@@ -784,6 +802,8 @@ async function start() {
   // P21 value the pills cannot reach cannot ship quietly. See unfilterableGenders().
   const unreachable = unfilterableGenders();
   if (unreachable.length) console.error("app: genders no pill can filter:", unreachable);
+  const orphanSets = unreachableRepertoires();
+  if (orphanSets.length) console.error("app: curated sets no pill can reach:", orphanSets);
 
   // Written from the data: a hardcoded "884" sits inches from #count, which prints the real
   // number, so the next scrape would have them disagreeing in the same row.

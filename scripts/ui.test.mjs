@@ -1001,17 +1001,29 @@ check("the legend says the ring changed crowds",
       /stand out in this group/.test(await ev(`document.getElementById('legend').textContent`)),
       await ev(`document.getElementById('legend').textContent.slice(0, 120)`));
 // The promise the chip makes is that a row and its dot are the same thing, so it moves too.
+// The subject is READ OFF the chart rather than named here. It used to be Elena Kats-Chernin,
+// who was the top prominence pick until she joined the women's curated set -- at which point her
+// chip correctly turned --sel and this check failed for the one reason it should not, that the
+// composer it happened to name changed role. Whoever the view rings is who it tests.
+const ringSubject = await ev(`(()=>{const acc=getComputedStyle(document.documentElement)
+    .getPropertyValue('--accent').trim();
+  const labels=[...document.querySelectorAll('#plot svg text')]
+    .filter(t=>t.getAttribute('font-size')==='10.5' && t.getAttribute('fill')===acc)
+    .map(t=>t.textContent);
+  const r=ROWS.find(d=>labels.includes(Names.short(d.name)));
+  return r ? r.name : null})()`);
 check("the table chip follows the derived ring",
-      await ev(`(()=>{const acc=getComputedStyle(document.documentElement)
+      ringSubject != null && await ev(`(()=>{const acc=getComputedStyle(document.documentElement)
           .getPropertyValue('--accent').trim();
         const r=[...document.querySelectorAll('tbody tr')]
-          .find(r=>r.querySelector('td').title==='Elena Kats-Chernin');
+          .find(r=>r.querySelector('td').title===${JSON.stringify(ringSubject)});
         if(!r) return false;
         const c=r.querySelector('.chip');
         const paint=c.style.background==='transparent' ? c.style.boxShadow : c.style.background;
         const el=document.createElement('i'); el.style.color=acc; document.body.appendChild(el);
         const rgb=getComputedStyle(el).color; el.remove();
-        return paint.includes(rgb)})()`));
+        return paint.includes(rgb)})()`),
+      "ringed composer tested: " + ringSubject);
 // Filtering to the men keeps all three curated outliers, so there is nothing to derive — the
 // ring budget is THREE, not three-plus-three, or a filter that changes almost nothing would
 // double the ink.
@@ -1026,6 +1038,60 @@ await goto(BASE + "#q=haydn");
 await sleep(700);
 check("too small a group to have a crowd derives no rings",
       await ev(`Chart.derivedRings()`) === 0, "derived=" + await ev(`Chart.derivedRings()`));
+
+// --- 4l. the FILL follows the filter too, but by taste, not by ranking -------------------------
+// #7 asked whether the curated set should be computed. The ring: yes, it is a property of the
+// crowd on screen. The fill: no, a canon is a claim about what gets played. So the women's group
+// got a SECOND hand-written list rather than a derived one, and the two answers sit side by side
+// here — three rings earned by prominence, nine dots filled by taste.
+const filledOf = `(()=>{const sel=getComputedStyle(document.documentElement)
+    .getPropertyValue('--sel').trim();
+  const el=document.createElement('i'); el.style.color=sel; document.body.appendChild(el);
+  const rgb=getComputedStyle(el).color; el.remove();
+  const shown=c=>c.getAttribute('display')!=='none' && +c.getAttribute('opacity')>0.5;
+  const hit=[...document.querySelectorAll('#plot svg circle.dot')].filter(c=>{
+    const f=c.getAttribute('fill'); return (f===sel||f===rgb) && shown(c)});
+  return hit.length})()`;
+await goto(BASE);
+await sleep(700);
+const restFill = await ev(filledOf);
+check("the resting view fills the default repertoire", restFill === 10, "filled=" + restFill);
+// The gate is the whole design: not one of the nine clears 10,000 readers a month, so at rest
+// they would be nine filled dots low in the densest part of the cloud under a key that says "the
+// repertoire" — claiming to be the same set as Mozart. They are a different claim.
+check("and none of the women's set is filled at rest",
+      await ev(`Chart.seedNames().some(n => n === "Florence Price")`) === false,
+      await ev(`JSON.stringify(Chart.seedNames())`));
+await goto(BASE + "#g=female");
+await sleep(700);
+const womenFill = await ev(filledOf);
+check("the Women filter swaps in a curated set of its own", womenFill === 9, "filled=" + womenFill);
+check("and it is the hand-written one, not a ranking",
+      await ev(`(()=>{const s=new Set(Chart.seedNames());
+        return ["Fanny Hensel","Amy Beach","Rebecca Clarke","Florence Price","Elizabeth Maconchy",
+                "Grażyna Bacewicz","Sofia Gubaidulina","Elena Kats-Chernin","Jennifer Higdon"]
+          .every(n => s.has(n))})()`),
+      await ev(`JSON.stringify(Chart.seedNames())`));
+// A key naming the wrong set is the failure invariant 8 exists to prevent: "the repertoire" over
+// nine women the repertoire never contained would caption them as the set that holds Mozart.
+check("the legend renames the fill, not just the ring",
+      /women's repertoire/.test(await ev(`document.getElementById('legend').textContent`)),
+      await ev(`document.getElementById('legend').textContent.slice(0, 140)`));
+// "Men" keeps every name in the default list, so nothing about that view may move.
+await goto(BASE + "#g=male");
+await sleep(700);
+check("filtering to the men changes neither the fill nor the key",
+      await ev(filledOf) === 10
+      && /the repertoire, in birth order/.test(await ev(`document.getElementById('legend').textContent`)),
+      "filled=" + await ev(filledOf));
+// Same staleness contract as the composer names and the P21 values: a curated set keyed to a pill
+// that does not exist can never be shown, and looks maintained while doing nothing.
+await goto(BASE);
+await sleep(500);
+check("every curated set is reachable by a pill",
+      await ev(`Chart.repertoireKeys().every(k =>
+        [...document.querySelectorAll('#gender button')].some(b => b.dataset.g === k))`),
+      await ev(`JSON.stringify(Chart.repertoireKeys())`));
 
 // --- 5. sorting ---------------------------------------------------------------
 await goto(BASE);

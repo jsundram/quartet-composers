@@ -81,17 +81,23 @@ plain static assets. Read README.md first for what the app is.
    `year_of()` drops deprecated, prefers `preferred`, and ignores novalue/somevalue snaks.
 
 7. **The Fame view is the default, and the only place the app hardcodes composer NAMES.**
-   `CANON` (the REPERTOIRE — ten composers a quartet actually plays, in birth order) and
-   `OUTLIERS` (three) in `chart.js` are thirteen canonical Wikipedia titles, which change
+   `CANON` (the REPERTOIRE — ten composers a quartet actually plays, in birth order),
+   `OUTLIERS` (three) and `WOMEN_CANON` (nine, shown only under the Women filter) in `chart.js`
+   are twenty-two canonical Wikipedia titles, which change
    spelling when the pipeline runs (invariant 4). `Chart.missingNames()` reports any that stop
    resolving and the UI suite asserts it empty, so a rename fails loudly instead of dropping a
-   composer out of the argument the view is making. `names.js`'s `SURNAME` override map carries
+   composer out of the argument the view is making — and it checks EVERY list, not just the
+   active one, or a rename inside `WOMEN_CANON` would sit unreported until somebody pressed
+   the pill. `names.js`'s `SURNAME` override map carries
    the same contract via `Names.staleOverrides()`. Adding a name to either means adding it to the
    list, not to a comment. The gender pills are a third such vocabulary: `index.html` names the
    values the UI can filter, `app.js` reads its URL whitelist off the pills rather than repeating
    them, and a stated P21 label no pill reaches fails both `validate.py` and
    `unfilterableGenders()` — that composer is in NEITHER filter while the footnote counts only the
-   ones with no claim at all.
+   ones with no claim at all. `REPERTOIRES` is keyed by those same pill values, so the two
+   vocabularies are one: a curated list keyed to a pill that does not exist can never be shown
+   while looking maintained, which `unreachableRepertoires()` in `app.js` fails on and the UI
+   suite asserts empty.
 
 8. **Each view encodes different things, so each needs its own key.** In Fame, size is the y
    AXIS and hue is emphasis; the lifespan ramp and the size key would be labelling channels that
@@ -158,7 +164,7 @@ Four suites, all dependency-free:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 178 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 185 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
@@ -326,7 +332,8 @@ made on evidence.
   instead of 15, and because `pickLabels()` is first-come-first-served on space, halving every box
   is what lets the names behind it find room at all. The label text and the width estimate must
   come from the same string — `pickLabels()` computes it once and carries it on the placement.
-- **The ring follows the filter; the repertoire filled in `--sel` does not.** `refreshEmphasis()`
+- **The ring follows the filter by RANKING; the fill follows it by TASTE.** That is the answer
+  issue #7 came to, and the two halves are deliberately different mechanisms. `refreshEmphasis()`
   in `chart.js` keeps a ring budget of THREE — the size of `OUTLIERS` — filled first by the curated
   outliers the filter kept and then by `prom`, the same seed-then-rank shape the label budget has.
   So the resting view and the share card are exactly what they were, "Men" (which keeps all three)
@@ -338,8 +345,22 @@ made on evidence.
   places that mean exactly those (the pool `refreshEmphasis` ranks over, `seedNames()`).
   Derived rings are seeds in `pickLabels()` too — a dot the view rings and then declines to name
   points at a composer it refuses to identify, which is the complaint the rings answer.
-  The repertoire is NOT derived: it is an editorial claim about which quartets are played, which
-  is not a thing a ranking recomputes — Prokofiev is on it for two quartets and Debussy for one. That half is still open — see issue #7.
+  The FILL is never derived: it is an editorial claim about which quartets are played, which no
+  ranking recomputes — Prokofiev is on it for two quartets and Debussy for one, and TODO records
+  that the best single scalar reproduces 8 of the 13. So the women's group got a SECOND
+  hand-written list (`WOMEN_CANON`, nine) rather than a computed one, swapped in by
+  `Chart.setRepertoire()` when the pill changes and reachable no other way. Two consequences worth
+  knowing. The `--sel` fill and the sentence naming it are ONE claim, so `REPERTOIRES` carries both
+  and `renderLegend()` prints `Chart.repertoireLabel()` — "the repertoire" over nine women the
+  repertoire never held is the wrong-channel failure of invariant 8, one channel over from the
+  ring's. And the gate is the point: not one of the nine clears 10,000 readers a month (Price tops
+  them at 8,001 against `CANON`'s median of 58,023), so at rest they would be nine filled dots low
+  in the densest part of a 790-dot cloud, captioned as the set that holds Mozart. The resting view,
+  "Men", and the share card are therefore byte-identical to what they were — `make-og-svg.py` draws
+  the view AT REST (invariant 14), so no second list ever reaches it.
+  Filling a curated set also FEEDS the ring, because `refreshEmphasis` ranks over a pool that
+  excludes `namedSet`: curating Kats-Chernin and Price is what moves their ring slots to Vrebalov
+  (18 quartets, 152 readers — the women's Cambini), Lutyens and Monk.
 - **A filter fits the frame, and the fit is the RESTING view.** `computeResting()` in `chart.js`
   is the one answer to "where should this chart be sitting right now": identity with no filter,
   the box that contains the kept dots with one. `setFilter()` transitions there when the gesture

@@ -63,6 +63,40 @@ window.Chart = (function () {
                  "Pyotr Ilyich Tchaikovsky", "Claude Debussy", "Béla Bartók",
                  "Sergei Prokofiev", "Dmitri Shostakovich"];
   const OUTLIERS = ["Giuseppe Cambini", "Franz Krommer", "John Lodge Ellerton"];
+
+  // A SECOND repertoire, shown only while the Women filter is on (issue #7).
+  //
+  // #7 asked two questions and they got different answers. Should the curated set be computed?
+  // No -- a canon is a claim about what gets played, which is taste, and TODO records that no
+  // single ranking reproduces one (the best recovers 8 of 13). Should the RING be computed? Yes --
+  // "wrote a lot and is read little" is a property of whatever crowd is on screen, and it has been
+  // derived per filter since 2026-09-05. So the fill stays hand-written and the ring stays earned.
+  //
+  // That left the women's group filled with nothing, because every name in CANON is a man. The
+  // answer is not to derive one: it is to write a second list, by the same taste, about the group
+  // the filter is showing. Nine, in birth order, spanning 1805 to 1962.
+  //
+  // GATED TO THE FILTER, and that is the whole design. Not one of the nine clears 10,000 readers a
+  // month -- Price tops them at 8,001, where CANON's median is Tchaikovsky at 58,023 -- so at rest
+  // they would be nine filled dots low in the densest part of a 790-dot cloud, under a key reading
+  // "the repertoire", claiming to be the same set as Mozart and Beethoven. They are not the same
+  // claim. They are a claim about the women, and it is legible exactly when the women are the
+  // picture. So the resting view and the share card are untouched (invariant 14 draws the view AT
+  // REST, so this never reaches the card), "Men" is untouched, and "Women" swaps the claim rather
+  // than diluting it.
+  //
+  // Keyed by the gender pill VALUE, so this table and index.html's pills are one vocabulary --
+  // a key no pill can reach is dead code, which app.js asserts against exactly as it does for
+  // an unfilterable P21 value (invariant 7).
+  const WOMEN_CANON = ["Fanny Hensel", "Amy Beach", "Rebecca Clarke", "Florence Price",
+                       "Elizabeth Maconchy", "Grażyna Bacewicz", "Sofia Gubaidulina",
+                       "Elena Kats-Chernin", "Jennifer Higdon"];
+  // The list and the sentence that names it are ONE editorial claim, so they live together: a key
+  // that still said "the repertoire" while filling nine women the repertoire never contained would
+  // be labelling the wrong channel, which is the failure invariant 8 exists to prevent.
+  const REPERTOIRES = { female: { names: WOMEN_CANON, label: "the women's repertoire, in birth order" } };
+  const DEFAULT_REPERTOIRE = { names: CANON, label: "the repertoire, in birth order" };
+  let repertoire = DEFAULT_REPERTOIRE;
   // Sets, not arrays: isCanon/named are called per DOT per FRAME from layout() and from all four
   // paint functions -- about 4,000 calls a frame in the Fame view, and an Array.includes scan
   // in each of them is work a phone does not need to do while a pinch is in flight.
@@ -73,6 +107,9 @@ window.Chart = (function () {
   // that follows the emphasis — fill, stroke, radius, opacity, label colour, the table chip —
   // follows the filter with no further wiring.
   let ringIdx = [], emphOrder = [], emphSet = new Set();
+  // name -> row index, kept from setData so a repertoire swap does not need the raw rows again.
+  let at = new Map();
+  const resolve = list => list.filter(n => at.has(n)).map(n => at.get(n));
 
   let el, flagEl, cbHover, cbSelect, cbZoom;
   // The Fame view is the DEFAULT: it is the one that makes the page's claim. The timeline is
@@ -120,15 +157,13 @@ window.Chart = (function () {
         jq: Math.pow(10, hash(r[0] + "q") * 0.045),
       };
     });
-    const at = new Map(rows.map(d => [d.name, d.i]));
-    const resolve = list => list.filter(n => at.has(n)).map(n => at.get(n));
-    canonIdx = resolve(CANON);
+    at = new Map(rows.map(d => [d.name, d.i]));
     outlierIdx = resolve(OUTLIERS);
-    canonSet = new Set(canonIdx);
-    namedSet = new Set(canonIdx.concat(outlierIdx));
-    emphOrder = canonIdx.concat(outlierIdx);
-    emphSet = new Set(emphOrder);
-    missing = CANON.concat(OUTLIERS).filter(n => !at.has(n));
+    applyRepertoire();
+    // EVERY curated list, not just the active one: a rename inside WOMEN_CANON would otherwise go
+    // unreported until somebody pressed the pill, which is the silent drop invariant 7 exists to
+    // catch. Same reason missingNames() is asserted empty by the UI suite.
+    missing = CANON.concat(OUTLIERS, WOMEN_CANON).filter(n => !at.has(n));
     if (missing.length) console.error("Chart: named composers missing from the data:", missing);
 
     const yrs = rows.filter(plottable).map(d => d.birth);
@@ -254,6 +289,19 @@ window.Chart = (function () {
   // repertoire; keep the two in step, or "Women" gets more emphasis than the resting view has.
   // Only the ring is derived — the repertoire filled in --sel is an editorial claim about which
   // quartets are played, which is not a thing a ranking can recompute (see issue #7).
+  // The one place the curated fill is built. setData() calls it for the opening view and
+  // setRepertoire() calls it when the filter swaps the claim; both then go through
+  // refreshEmphasis(), so the ring budget is re-derived against whatever is now curated -- which
+  // is why filling Kats-Chernin and Price hands their ring slots to Vrebalov and Monk instead of
+  // ringing a dot that is already filled.
+  function applyRepertoire() {
+    canonIdx = resolve(repertoire.names);
+    canonSet = new Set(canonIdx);
+    namedSet = new Set(canonIdx.concat(outlierIdx));
+    emphOrder = canonIdx.concat(outlierIdx);
+    emphSet = new Set(emphOrder);
+  }
+
   const RINGS = 3;
   // A ring means "stands out from the crowd", so it needs a crowd. Below this the filtered group
   // IS the picture — every dot is already legible and separately labelled — and ringing three of
@@ -933,6 +981,19 @@ window.Chart = (function () {
     // hash is read before the first paint.
     if (settled !== false) { goTo(restingTransform(), fitted); fitted = true; }
   }
+  // Which curated fill the view is making its claim with. app.js hands over the gender pill's
+  // value on every change, so this is the only place that decides -- and an unknown value (no
+  // filter, "male", anything a future pill adds without a list) falls back to the repertoire,
+  // which is what "only under the Women filter" means in code.
+  function setRepertoire(key) {
+    const next = REPERTOIRES[key] || DEFAULT_REPERTOIRE;
+    if (next === repertoire) return;
+    repertoire = next;
+    if (!rows.length) return;        // setData() will apply it when the data lands
+    applyRepertoire();
+    refreshEmphasis();
+    draw();
+  }
   function setSelected(i) { selected = i; draw(); }
   // "Reset" means back to where this filter opens, not back to the whole field: the fitted box IS
   // the resting view while a filter is on, and dropping the reader out to the full extent would
@@ -964,7 +1025,14 @@ window.Chart = (function () {
            missingNames: () => missing.slice(),
            // The curated thirteen, for the suite: the resting Fame view must show these and
            // only these, and a zoom must show something else.
-           seedNames: () => CANON.concat(OUTLIERS),
+           setRepertoire,
+           // The ACTIVE list, not CANON: the seed is what the view is currently asserting, and
+           // the UI suite reads its label and pin checks off this rather than naming composers.
+           seedNames: () => repertoire.names.concat(OUTLIERS),
+           // The sentence for the fill swatch, kept beside the list it names (invariant 8).
+           repertoireLabel: () => repertoire.label,
+           // Every gender pill value that swaps the claim, so app.js can assert they are reachable.
+           repertoireKeys: () => Object.keys(REPERTOIRES),
            resetZoom, zoomed, colorOf, hint,
            // The current zoom scale, for the suite: "the frame closed in on the filter" is a
            // claim about this number, and reading it off the axis ticks would be reading a
