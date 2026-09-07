@@ -542,6 +542,9 @@ window.Chart = (function () {
     return p;
   }
 
+  // Fewer kept dots than this and the frame does not move at all — see computeResting().
+  const MIN_FIT = 4;
+
   // Where the chart RESTS for the current filter: identity with no filter, the fitted box with
   // one. resetZoom() returns here and zoomed() is measured against it, so a filter that fits at
   // 4x does not light up the reset button as though the reader had pinched.
@@ -558,7 +561,7 @@ window.Chart = (function () {
   function computeResting() {
     if (mode === "lens" || !visible || !rows.length) return d3.zoomIdentity;
     const p = baseLayout();
-    let x1 = Infinity, x2 = -Infinity, y1 = Infinity, y2 = -Infinity, rMaxSeen = 0;
+    let x1 = Infinity, x2 = -Infinity, y1 = Infinity, y2 = -Infinity, rMaxSeen = 0, n = 0;
     for (const d of rows) {
       if (!isVisible(d)) continue;
       const q = p[d.i];
@@ -569,8 +572,17 @@ window.Chart = (function () {
       x1 = Math.min(x1, q.x); x2 = Math.max(x2, q.x);
       y1 = Math.min(y1, q.y); y2 = Math.max(y2, q.y);
       rMaxSeen = Math.max(rMaxSeen, q.r);
+      n++;
     }
     if (x1 > x2) return d3.zoomIdentity;      // the filter kept nothing this chart can place
+    // A handful of dots is not a box worth fitting. One match has a zero-width box, so fit()
+    // returns Infinity on both axes and k lands on the 24x clamp — searching a composer threw the
+    // reader to maximum magnification, where the surrounding cloud they are being compared
+    // AGAINST is off screen. Below MIN_FIT the frame stays put and the filter does its other job:
+    // the match comes up to 0.55 while the field it belongs to stays drawn at 0.07 behind it.
+    // Counted from the dots this chart can actually PLACE, not from visible.size — a filter can
+    // keep rows the Fame view has no y for.
+    if (n < MIN_FIT) return d3.zoomIdentity;
     // Pad by the largest dot so the discs at the edge are whole, plus a little air for a label.
     const pad = rMaxSeen + 10;
     const fit = (span, px) => (span > 0 ? (px - pad * 2) / span : Infinity);

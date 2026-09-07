@@ -904,6 +904,38 @@ await ev(`document.querySelector('#gender button[data-g=""]').click()`);
 await sleep(700);
 check("clearing the filter opens the frame back out", await ev(`Chart.zoomK()`) === 1,
       "k=" + await ev(`Chart.zoomK()`));
+
+// --- 4j. a handful of dots is not a box worth fitting ------------------------------------------
+// A search that keeps ONE composer gave computeResting() a zero-width, zero-height box, so fit()
+// returned Infinity on both axes and k landed on the 24x clamp: looking someone up threw the
+// reader to maximum magnification, where the cloud the dot is being compared AGAINST is off
+// screen entirely. Below MIN_FIT the frame does not move and the filter does its other job — the
+// match comes up while the field stays drawn at 0.07 behind it.
+const searchFor = q => ev(`(()=>{const el=document.getElementById('q'); el.value=${JSON.stringify(q)};
+  el.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+await searchFor("mozart");
+await sleep(700);
+check("searching one composer does not zoom the chart", await ev(`Chart.zoomK()`) === 1,
+      "k=" + await ev(`Chart.zoomK()`));
+check("and the one match is still emphasised against the field",
+      await ev(`[...document.querySelectorAll('#plot svg circle.dot')]
+        .filter(c=>+c.getAttribute('opacity')>0.5 && c.getAttribute('display')!=='none').length`) === 1,
+      "emphasised dots");
+// Two dots have a real box and still are not a picture; three Haydns would not be either.
+await searchFor("haydn");
+await sleep(700);
+check("nor does a two-composer search", await ev(`Chart.zoomK()`) === 1,
+      "k=" + await ev(`Chart.zoomK()`));
+// The threshold is a floor on a degenerate box, NOT a retreat from fitting filters: a search with
+// a group behind it still gets the frame closed in on it.
+await searchFor("anton");
+await sleep(700);
+check("a search that keeps a group still fits the frame", await ev(`Chart.zoomK()`) > 1.2,
+      "k=" + await ev(`Chart.zoomK()`));
+await searchFor("");
+await sleep(700);
+check("clearing the search opens the frame back out", await ev(`Chart.zoomK()`) === 1,
+      "k=" + await ev(`Chart.zoomK()`));
 // Each view fits its own filter: the same composers occupy a different box in a timeline than in
 // a log-log readership cloud, so a view switch recomputes the frame instead of carrying it over.
 await goto(BASE + "#g=female&v=scatter");

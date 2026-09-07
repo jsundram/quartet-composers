@@ -341,6 +341,13 @@ made on evidence.
   encoding cannot forget to update it — and the swarm fits x ONLY, because its y is solved once at
   k=1 and is not under the zoom at all. This works because a filter here is a HIGHLIGHT: the other
   600 dots are still drawn at 0.07, so closing in shows the group against the ghost of its field.
+  **Below `MIN_FIT` placeable dots it does not fit at all.** One match is a zero-width box, so
+  `fit()` returns Infinity on both axes and `k` lands on the 24x clamp — searching a composer threw
+  the reader to maximum magnification, where the cloud that dot is being compared AGAINST is off
+  screen. The count is of the dots the chart can PLACE, not `visible.size`: a filter can keep rows
+  the Fame view has no y for. Four or more dots that happen to sit on top of each other still fit
+  tightly; that is left alone deliberately, because capping `k` would change filters that read
+  correctly today.
 - **Labels are a function of zoom, not a list.** `pickLabels()` in `chart.js` spends a budget that
   grows with the zoom (`base × (1 + log₂ k)`) on candidates that are frame-culled, so pinching in
   names what is in the frame. In the Fame view the curated thirteen are the SEED and fill the
