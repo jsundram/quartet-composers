@@ -25,9 +25,10 @@ The two descriptions are deliberately DIFFERENT lengths and must not be re-unifi
 has 120-160 characters to fill, and a link preview truncates near 125 on a phone. One string
 cannot do both jobs.
 
-Last: any "NNN composers" the page or the manifest states is checked against composers.json. The
-roster changes when the pipeline runs, and a hardcoded count in a share preview is exactly the
-kind of number nobody thinks to re-read.
+Last: any "NNN composers" the page or the manifest states is checked against composers.json — both
+of the counts that are live there, the roster and the smaller set the chart can plot. Either
+changes when the pipeline runs, and a hardcoded count in a share preview is exactly the kind of
+number nobody thinks to re-read.
 
 The pre-commit hook runs it warn-only; run it in CI with a real exit code. By hand:
     python3 scripts/og-lint.py
@@ -84,16 +85,38 @@ def check_meta():
 
 
 def check_counts():
-    """A stated roster size must match the data, or the preview ships a number that went stale."""
+    """A stated composer count must match the data, or the preview ships a number that went stale.
+
+    TWO counts are live and both get hardcoded into prose: the ROSTER (884 rows) and what the chart
+    can PLACE (790 — chart.js's `plottable`, i.e. a stated quartet count). They differ by the 94
+    rows the table carries and the plot cannot, which is a distinction this page is careful about
+    everywhere else. A lint that knew only the roster left the other number free to go stale, and
+    the two move independently: a rerun can add a composer with no stated count, which changes 884
+    and not 790.
+
+    It does NOT try to work out which one a sentence means. "884 quartet composers" and "790
+    quartet composers" are both grammatical and only one is true, and no regex can tell them apart
+    — a discriminator built on the word "quartet" would fail on the roster sentence that already
+    calls them quartet composers. So the rule is that any count stated on the page must be one the
+    data currently supports. That catches the failure this exists to catch (a total moves and a
+    hardcoded string does not follow) without inventing an error out of a phrasing nobody
+    anticipated.
+    """
     rows = json.loads((ROOT / "composers.json").read_text())["rows"]
+    live = {len(rows): "the roster",
+            sum(1 for r in rows if r[3] is not None): "the composers the chart can plot"}
     bad = []
     for f in ("index.html", "manifest.json"):
-        for stated in set(re.findall(r"\b(\d{3,5}) composers\b", (ROOT / f).read_text())):
-            if int(stated) != len(rows):
-                bad.append(f"           {f}: says {stated} composers, composers.json has {len(rows)}")
+        # "884 composers", "790 quartet composers", "790 string quartet composers" — a qualifier or
+        # two, because that is how these sentences actually read.
+        for stated in set(re.findall(r"\b(\d{3,5})(?:\s+\w+){0,2}\s+composers\b",
+                                     (ROOT / f).read_text())):
+            if int(stated) not in live:
+                bad.append(f"           {f}: says {stated} composers, and the data has neither")
     if bad:
-        print("  A stated composer count no longer matches the data:")
+        print("  A stated composer count matches nothing in composers.json:")
         print("\n".join(bad))
+        print("  Live counts: " + ", ".join(f"{n} ({what})" for n, what in sorted(live.items())))
     return 1 if bad else 0
 
 

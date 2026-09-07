@@ -158,12 +158,14 @@ Four suites, all dependency-free:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 170 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 177 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
   `git diff --cached`); the meta-length and stated-count halves read the working tree and run in
-  CI. It holds the bands a scraper actually renders, so "og:description is too long" is caught
+  CI. `check_counts()` knows BOTH live totals — the roster (884) and what the chart can plot
+  (790) — and requires a stated count to be one of them rather than guessing which one a sentence
+  means, because "884 quartet composers" and "790 quartet composers" are both grammatical. It holds the bands a scraper actually renders, so "og:description is too long" is caught
   before a deploy rather than by pasting the live URL into a validator afterwards. The two
   descriptions in `index.html` are deliberately different lengths — a SERP snippet wants 120-160,
   a phone link preview truncates near 125 — and re-unifying them fails the lint.
