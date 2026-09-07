@@ -94,29 +94,35 @@ def check_counts():
     the two move independently: a rerun can add a composer with no stated count, which changes 884
     and not 790.
 
-    It does NOT try to work out which one a sentence means. "884 quartet composers" and "790
-    quartet composers" are both grammatical and only one is true, and no regex can tell them apart
-    — a discriminator built on the word "quartet" would fail on the roster sentence that already
-    calls them quartet composers. So the rule is that any count stated on the page must be one the
-    data currently supports. That catches the failure this exists to catch (a total moves and a
-    hardcoded string does not follow) without inventing an error out of a phrasing nobody
-    anticipated.
+    Within index.html it does NOT try to work out which one a sentence means. "884 quartet
+    composers" and "790 quartet composers" are both grammatical and only one is true, and no regex
+    can tell them apart — a discriminator built on the word "quartet" would fail on the roster
+    sentence that already calls them quartet composers. So the rule there is that a stated count
+    must be one the data currently supports, which catches the failure this exists to catch (a
+    total moves and a hardcoded string does not follow) without inventing an error out of a
+    phrasing nobody anticipated.
+
+    manifest.json is pinned to the roster, because the SENTENCE cannot be told apart but the FILE
+    can: it holds one description of the whole app and has never had reason to state the plotted
+    subset. Leaving it as permissive as index.html would let the two numbers swap places — the
+    manifest claiming 790 for the roster — and pass clean, which is half of what the old check
+    already enforced and worth keeping.
     """
     rows = json.loads((ROOT / "composers.json").read_text())["rows"]
     live = {len(rows): "the roster",
             sum(1 for r in rows if r[3] is not None): "the composers the chart can plot"}
+    # "884 composers", "790 quartet composers", "790 string quartet composers" — a qualifier or
+    # two, because that is how these sentences actually read.
+    pat = r"\b(\d{3,5})(?:\s+\w+){0,2}\s+composers\b"
     bad = []
-    for f in ("index.html", "manifest.json"):
-        # "884 composers", "790 quartet composers", "790 string quartet composers" — a qualifier or
-        # two, because that is how these sentences actually read.
-        for stated in set(re.findall(r"\b(\d{3,5})(?:\s+\w+){0,2}\s+composers\b",
-                                     (ROOT / f).read_text())):
-            if int(stated) not in live:
-                bad.append(f"           {f}: says {stated} composers, and the data has neither")
+    for f, allowed in (("index.html", live), ("manifest.json", {len(rows): "the roster"})):
+        for stated in set(re.findall(pat, (ROOT / f).read_text())):
+            if int(stated) not in allowed:
+                want = ", ".join(f"{n} ({what})" for n, what in sorted(allowed.items()))
+                bad.append(f"           {f}: says {stated} composers; it may state {want}")
     if bad:
-        print("  A stated composer count matches nothing in composers.json:")
+        print("  A stated composer count is not one this file may state:")
         print("\n".join(bad))
-        print("  Live counts: " + ", ".join(f"{n} ({what})" for n, what in sorted(live.items())))
     return 1 if bad else 0
 
 

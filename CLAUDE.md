@@ -158,7 +158,7 @@ Four suites, all dependency-free:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 177 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 178 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
@@ -347,9 +347,12 @@ made on evidence.
   `fit()` returns Infinity on both axes and `k` lands on the 24x clamp — searching a composer threw
   the reader to maximum magnification, where the cloud that dot is being compared AGAINST is off
   screen. The count is of the dots the chart can PLACE, not `visible.size`: a filter can keep rows
-  the Fame view has no y for. Four or more dots that happen to sit on top of each other still fit
-  tightly; that is left alone deliberately, because capping `k` would change filters that read
-  correctly today.
+  the Fame view has no y for. Skipping the fit means the FULL EXTENT, not the reader's current
+  transform — a reader pinched to 6x who searches a name is zoomed back out, the same as clearing
+  a filter — because `restingTransform()` has to stay a pure function of the filter, the mode and
+  the box or its memo is meaningless and `resetZoom()` has nothing to return to. Four or more dots
+  that happen to sit on top of each other still fit tightly; that is left alone deliberately,
+  because capping `k` would change filters that read correctly today.
 - **Labels are a function of zoom, not a list.** `pickLabels()` in `chart.js` spends a budget that
   grows with the zoom (`base × (1 + log₂ k)`) on candidates that are frame-culled, so pinching in
   names what is in the frame. In the Fame view the curated thirteen are the SEED and fill the

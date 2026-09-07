@@ -49,13 +49,21 @@ window.Names = (function () {
   // programme; the initial is what Michael and Boris need. The test is READERSHIP, because that is
   // the only measure this dataset has of who a name lands on, and it has to be decisive: the
   // group's most-read member takes the bare surname if they clear DOMINANT_VIEWS and nobody in the
-  // group ties them, so two composers can never be handed the same label. Two groups of the 884
-  // qualify today (Haydn 28,938 against 2,268; Tchaikovsky 58,023 against 418).
+  // group comes close, so two composers can never be handed a label the reader cannot resolve
+  // between them. Two groups of the 884 qualify today (Haydn 28,938 against 2,268; Tchaikovsky
+  // 58,023 against 418).
+  //
+  // The MARGIN is the half that has to be there. A floor alone would hand the bare surname to
+  // whoever led by a single view once both members cleared it, which is a label that identifies
+  // nobody -- and readership is refetched every month, so that is a matter of drift, not of
+  // hypothesis. The nearest group today is Adams (8,252 against 1,341), one 21% month away from
+  // crossing the floor. Every group that clears it now leads by 12x or more, so the margin costs
+  // nothing today and is what keeps the rule honest when the numbers move.
   //
   // CHART ONLY -- short(), not filed(). The table column sorts on the string it prints, and a bare
   // "Haydn" filed beside "Haydn, Michael" makes it inconsistent about who gets a forename in order
   // to save width a table has anyway. The plot is where the pixels are scarce.
-  const DOMINANT_VIEWS = 10000;
+  const DOMINANT_VIEWS = 10000, DOMINANT_MARGIN = 3;
 
   let names = [];
   const filedOf = new Map(), shortOf = new Map(), surOf = new Map(), viewsOf = new Map();
@@ -79,10 +87,11 @@ window.Names = (function () {
   // "Chen" -- exactly the kind of thing a re-scrape changes.
   const forenameOf = (name, sur) => bare(name).replace(sur, "").replace(/\s+/g, " ").trim();
 
-  // `views` is a PARALLEL array of readership medians, not a {name: views} map, for the reason
-  // build_data.py carries canonical titles in one: a map keyed by a display name collapses two
-  // rows the moment the roster gains a name that folds onto another, and hands one composer the
-  // other's number. Only setData() reads it, and only to answer "is this surname one person's".
+  // `views` is a PARALLEL array of readership medians because that is the shape the caller has --
+  // a row array per composer -- not because it protects against anything the rest of this module
+  // does not. Every lookup here is keyed by the canonical name (filedOf, shortOf and surOf all
+  // are), which is safe for exactly one reason: build_data.py refuses to write two rows that print
+  // the same name. If that guarantee ever goes, this module breaks in four places, not one.
   function setData(list, views) {
     names = list.slice();
     filedOf.clear(); shortOf.clear(); surOf.clear(); viewsOf.clear();
@@ -117,7 +126,8 @@ window.Names = (function () {
       // The one member the bare surname already means, if the group has one (DOMINANT_VIEWS).
       const rank = members.slice().sort((a, b) => viewsOf.get(b) - viewsOf.get(a));
       const dominant = viewsOf.get(rank[0]) >= DOMINANT_VIEWS
-                    && viewsOf.get(rank[0]) > viewsOf.get(rank[1]) ? rank[0] : null;
+                    && viewsOf.get(rank[0]) >= DOMINANT_MARGIN * viewsOf.get(rank[1])
+                     ? rank[0] : null;
       for (const n of members) {
         const f = forenameOf(n, sur);
         filedOf.set(n, f ? `${sur}, ${f}` : sur);

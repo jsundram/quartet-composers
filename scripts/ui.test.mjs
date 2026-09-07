@@ -917,10 +917,10 @@ await searchFor("mozart");
 await sleep(700);
 check("searching one composer does not zoom the chart", await ev(`Chart.zoomK()`) === 1,
       "k=" + await ev(`Chart.zoomK()`));
+const upDots = `[...document.querySelectorAll('#plot svg circle.dot')]
+  .filter(c=>+c.getAttribute('opacity')>0.5 && c.getAttribute('display')!=='none').length`;
 check("and the one match is still emphasised against the field",
-      await ev(`[...document.querySelectorAll('#plot svg circle.dot')]
-        .filter(c=>+c.getAttribute('opacity')>0.5 && c.getAttribute('display')!=='none').length`) === 1,
-      "emphasised dots");
+      await ev(upDots) === 1, "emphasised dots=" + await ev(upDots));
 // Two dots have a real box and still are not a picture; three Haydns would not be either.
 await searchFor("haydn");
 await sleep(700);
@@ -936,6 +936,27 @@ await searchFor("");
 await sleep(700);
 check("clearing the search opens the frame back out", await ev(`Chart.zoomK()`) === 1,
       "k=" + await ev(`Chart.zoomK()`));
+// Skipping the fit means the FULL EXTENT, not wherever the reader had pinched to. It is the one
+// consequence of this guard a reader can feel, so it is pinned rather than left to be rediscovered
+// as a surprise: restingTransform() must stay a pure function of the filter, the mode and the box
+// (its memo and resetZoom() both depend on that), and this is also exactly what clearing a filter
+// does. Zoom in first, then search.
+const zbox = await ev(`(()=>{const b=document.querySelector('#plot svg rect.bg').getBoundingClientRect();
+  return {x:b.x,y:b.y,w:b.width,h:b.height}})()`);
+for (let i = 0; i < 8; i++) {
+  await send("Input.dispatchMouseEvent", { type: "mouseWheel", x: zbox.x + zbox.w / 2,
+    y: zbox.y + zbox.h / 2, deltaX: 0, deltaY: -300, pointerType: "mouse" });
+  await sleep(120);
+}
+await sleep(400);
+const pinched = await ev(`Chart.zoomK()`);
+await searchFor("mozart");
+await sleep(700);
+check("a search from a pinched view returns to the full field, not to the pinch",
+      pinched > 2 && await ev(`Chart.zoomK()`) === 1,
+      `pinched to k=${pinched}, then k=${await ev(`Chart.zoomK()`)}`);
+await searchFor("");
+await sleep(700);
 // Each view fits its own filter: the same composers occupy a different box in a timeline than in
 // a log-log readership cloud, so a view switch recomputes the frame instead of carrying it over.
 await goto(BASE + "#g=female&v=scatter");

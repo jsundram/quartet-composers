@@ -578,10 +578,16 @@ window.Chart = (function () {
     // A handful of dots is not a box worth fitting. One match has a zero-width box, so fit()
     // returns Infinity on both axes and k lands on the 24x clamp — searching a composer threw the
     // reader to maximum magnification, where the surrounding cloud they are being compared
-    // AGAINST is off screen. Below MIN_FIT the frame stays put and the filter does its other job:
+    // AGAINST is off screen. Below MIN_FIT the fit is skipped and the filter does its other job:
     // the match comes up to 0.55 while the field it belongs to stays drawn at 0.07 behind it.
     // Counted from the dots this chart can actually PLACE, not from visible.size — a filter can
     // keep rows the Fame view has no y for.
+    //
+    // Skipping the fit means the FULL EXTENT, not the reader's current transform: a reader
+    // pinched to 6x who then searches a name is zoomed back out to see where that dot sits in the
+    // field. That is deliberate and not a detail of this guard — restingTransform() has to be a
+    // pure function of the filter, the mode and the box or the memo above is meaningless and
+    // "reset" has nothing to return to. It is also the same thing clearing a filter does.
     if (n < MIN_FIT) return d3.zoomIdentity;
     // Pad by the largest dot so the discs at the edge are whole, plus a little air for a label.
     const pad = rMaxSeen + 10;

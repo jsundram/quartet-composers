@@ -85,11 +85,12 @@ def surname_of(name):
     return parts[end] + suffix
 
 
-# names.js's DOMINANT_VIEWS: the one member a shared surname already means on its own keeps it
-# bare ("Haydn" is Joseph), and the initial stays on the others. Joseph Haydn is one of the six
-# labels on this card, so a card that did not follow the page would print "J. Haydn" beside a plot
-# that says "Haydn".
-DOMINANT_VIEWS = 10000
+# names.js's DOMINANT_VIEWS/DOMINANT_MARGIN: the one member a shared surname already means on its
+# own keeps it bare ("Haydn" is Joseph), and the initial stays on the others. The margin is what
+# stops a group whose top two both clear the floor from handing the leader a label that identifies
+# neither. Joseph Haydn is one of the six labels on this card, so a card that did not follow the
+# page would print "J. Haydn" beside a plot that says "Haydn".
+DOMINANT_VIEWS, DOMINANT_MARGIN = 10000, 3
 
 
 def short_names(rows):
@@ -107,7 +108,7 @@ def short_names(rows):
             initials[f[:1]] = initials.get(f[:1], 0) + 1
         rank = sorted(members, key=lambda n: -views[n])
         dominant = rank[0] if len(members) > 1 and views[rank[0]] >= DOMINANT_VIEWS \
-            and views[rank[0]] > views[rank[1]] else None
+            and views[rank[0]] >= DOMINANT_MARGIN * views[rank[1]] else None
         for n in members:
             f = fores[n]
             if len(members) < 2 or not f:
