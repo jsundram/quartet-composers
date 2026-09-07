@@ -713,13 +713,20 @@ function setLede() {
   const st = Chart.emphasisStats();
   const el = $("lede-picked");
   if (!st) { el.textContent = ""; return; }
-  if (st.only) { el.textContent = `The one name picked out is ${st.only}.`; return; }
-  const span = `The names picked out are ${st.noun}, ${st.from} to ${st.to}`;
+  // "The one name picked out is X" was a fill-shaped claim about BOTH channels, and it was false
+  // wherever a ring survived alongside it — at #r=751-4501 it named Boccherini while three derived
+  // rings were on screen and the key was describing both. Naming the SET it is the last member of
+  // says the true thing and leaves the ring to the clause after the semicolon, which is the same
+  // division of labour the full sentence already had: the span describes the fill, the example is
+  // a ringed composer offered as an aside.
+  const subject = st.only
+    ? `Only ${st.only} is left from ${st.noun}`
+    : `The names picked out are ${st.noun}, ${st.from} to ${st.to}`;
   const ex = st.example;
   el.textContent = ex
-    ? `${span}; ${ex.name} wrote ${ex.quartets} quartet${ex.quartets === 1 ? "" : "s"} and is read `
-      + `about ${Histogram.fmt(twoSig(ex.views, -1))} times a month.`
-    : `${span}.`;
+    ? `${subject}; ${ex.name} wrote ${ex.quartets} quartet${ex.quartets === 1 ? "" : "s"} and is `
+      + `read about ${Histogram.fmt(twoSig(ex.views, -1))} times a month.`
+    : `${subject}.`;
 }
 
 // ---- provenance ------------------------------------------------------------

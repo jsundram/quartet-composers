@@ -251,7 +251,9 @@ That exposed a defect the ring had all along: prominence is distance from the CE
 so a corner full of composers all scores high and nothing visual broke the tie. The ring landed on
 Meredith Monk, whose disc came within 4px of Amy Beach's — one filled, one ringed, reading as a
 single smudge. A derived ring now has to clear every emphasised dot by `MIN_SEP` (3% of the plot
-diagonal), measured in screen space because "on top of" is a claim about pixels. What it finds
+diagonal, floored at four dot radii), measured in screen space because "on top of" is a claim
+about pixels — which also means re-deriving in `setMode()` and `resize()`, since a rule about the
+picture is wrong the moment the picture changes shape. What it finds
 instead is Vrebalov (18 quartets, 152 readers — the women's Cambini), Auerbach and Firsova: all
 three "wrote a lot, read little", which is exactly what the curated outliers say at rest. The
 read-a-lot end of that group is not lost, it is carried by the fill, where Price and Beach are.

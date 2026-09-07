@@ -1004,7 +1004,8 @@ check("and it rings composers the curated set never held",
 // MEASURED, because the whole claim is about pixels. The bar is a whole dot's DIAMETER of clear
 // space between the closest ring and the closest fill — "not touching" is too weak to catch what
 // this fixes, since the old pick cleared touching by 4px and still read as one smudge.
-const closest = await ev(`(()=>{const cs=getComputedStyle(document.documentElement);
+// The measurement itself, reusable: the closest ring/fill pair, in the geometry on screen.
+const closestOf = `(()=>{const cs=getComputedStyle(document.documentElement);
   const paint=v=>{const el=document.createElement('i'); el.style.color=cs.getPropertyValue(v).trim();
     document.body.appendChild(el); const c=getComputedStyle(el).color; el.remove(); return c};
   const acc=cs.getPropertyValue('--accent').trim(), sel=cs.getPropertyValue('--sel').trim();
@@ -1020,7 +1021,8 @@ const closest = await ev(`(()=>{const cs=getComputedStyle(document.documentEleme
     if(d<best){best=d; slack=d-(a.r+b.r);}}
   const r=rings.length&&fills.length?rings[0].r:0;
   return {rings:rings.length, fills:fills.length, r:+r.toFixed(2),
-          gap:+best.toFixed(1), slack:+slack.toFixed(1)}})()`);
+          gap:+best.toFixed(1), slack:+slack.toFixed(1)}})()`;
+const closest = await ev(closestOf);
 check("no derived ring is drawn on top of a filled composer",
       closest.rings === 3 && closest.fills === 9 && closest.slack > 2 * closest.r,
       `${closest.rings} rings vs ${closest.fills} fills; closest pair ${closest.gap}px apart, `
@@ -1113,6 +1115,35 @@ check("filtering to the men changes neither the fill nor the key",
       await ev(filledOf) === 10
       && /the repertoire, in birth order/.test(await ev(`document.getElementById('legend').textContent`)),
       "filled=" + await ev(filledOf));
+// The separation is measured against the PICTURE, and every mode draws a different one in a
+// differently shaped box — while fill, stroke, width, opacity and label colour are all Fame-only,
+// so a filter applied in the timeline chose its rings from a geometry where none of them existed.
+// Those picks were then drawn unchanged in Fame: this exact route put a ring 3.1px from a filled
+// dot. Reachable from a shared link, which is why it is checked as one.
+await goto(BASE + "#v=scatter&g=female");
+await sleep(800);
+await ev(`[...document.querySelectorAll('.controls .seg button')].find(b=>b.dataset.mode==='fame').click()`);
+await sleep(900);
+const afterSwitch = await ev(closestOf);
+check("arriving in Fame from another view re-derives the rings for THIS geometry",
+      afterSwitch.rings === 3 && afterSwitch.slack > 2 * afterSwitch.r,
+      `closest pair ${afterSwitch.gap}px apart, ${afterSwitch.slack}px clear, `
+      + `needs ${(2 * afterSwitch.r).toFixed(1)}`);
+// The other half of the same bug, and the one that was actually caught in the wild: a ROTATION or
+// a window drag changes the box without changing the filter, so resize() has to re-derive too.
+// Shrunk AFTER loading on purpose — loading fresh at this size derives correctly and proves
+// nothing. Pre-fix this measured 5.7px of clearance against a 10.6px bar.
+await goto(BASE + "#g=female");
+await sleep(800);
+await viewport(360, 780, true);
+await sleep(900);
+const onPhone = await ev(closestOf);
+check("and resizing to a phone re-derives them for the smaller box",
+      onPhone.rings >= 1 && onPhone.fills > 0 && onPhone.slack > 2 * onPhone.r,
+      `${onPhone.rings} rings, r=${onPhone.r}; closest pair ${onPhone.gap}px apart, `
+      + `${onPhone.slack}px clear, needs ${(2 * onPhone.r).toFixed(1)}`);
+await viewport(1100, 1500);
+await sleep(300);
 // Same staleness contract as the composer names and the P21 values: a curated set keyed to a pill
 // that does not exist can never be shown, and looks maintained while doing nothing.
 await goto(BASE);
@@ -1160,7 +1191,17 @@ check("a filter renames the set and re-spans it",
 await goto(BASE + "#q=haydn");
 await sleep(700);
 check("one survivor is named, not given a zero-width span",
-      (await lede()) === "The one name picked out is Joseph Haydn.", await lede());
+      (await lede()) === "Only Joseph Haydn is left from the repertoire.", await lede());
+// ...and the sentence is about the FILL only. It used to read "The one name picked out is X",
+// which is false wherever a ring survives beside it — a claim about both channels made from a
+// count of one. This brush keeps Boccherini as the only curated composer AND derives three rings.
+await goto(BASE + "#r=751-4501");
+await sleep(900);
+const withRings = { text: await lede(), rings: await ev(`Chart.derivedRings()`) };
+check("a lone curated survivor does not claim the rings beside it",
+      withRings.rings > 0 && !/one name picked out/.test(withRings.text)
+      && /^Only .+ is left from the repertoire;/.test(withRings.text),
+      `${withRings.rings} derived rings — ${withRings.text}`);
 // Nothing curated survives, so there is no sentence to write rather than a sentence about nobody.
 await goto(BASE + "#q=cambini");
 await sleep(700);

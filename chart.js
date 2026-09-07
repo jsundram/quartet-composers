@@ -328,6 +328,24 @@ window.Chart = (function () {
   // The other end of that group is not lost, it is carried by the other channel — Price and Beach
   // are filled.
   const MIN_SEP = 0.03;
+  // ...and a fraction of the diagonal alone does not mean the same thing at every size, because
+  // the fame dot radius is FLOORED at 3.2: as the plot shrinks the dots stop shrinking with it, so
+  // the same fraction buys steadily less daylight relative to the things it is separating. At
+  // 320px the fraction works out at ~11.8px against a bar of 10.6 — a margin of about one pixel.
+  //
+  // This is a GUARD, not a fix for anything observed: probed across eight viewports from 320px to
+  // 1100px, the fraction alone still clears the bar by 20px or more on today's data. What was
+  // actually producing a 5.7px violation on a phone was the STALE GEOMETRY above — rings chosen
+  // for one box and drawn in another — and that is fixed where it was caused, in setMode/resize.
+  // The floor stays because a threshold that sits a pixel above the bar it has to satisfy is not
+  // a threshold. Stated in DOTS to say so: centres at least 4 named radii apart, i.e. a whole
+  // dot's width of daylight between the edges, which is the bar ui.test.mjs measures. On a
+  // desktop the fraction is the larger of the two and nothing changes.
+  const GAP_DOTS = 4;
+  // ONE definition, shared with layout(): the separation floor is expressed in the radius of the
+  // dot it is separating, so the two cannot drift.
+  const NAMED_R = 1.65;
+  const dotRadius = () => Math.max(3.2, Math.min(5, w / 190));
   function refreshEmphasis() {
     const kept = outlierIdx.filter(i => isVisible(rows[i]));
     const derived = [];
@@ -342,7 +360,7 @@ window.Chart = (function () {
       if (ready) {
         const p = baseLayout();
         const near = i => !(p[i].r > 0) || !Number.isFinite(p[i].x);
-        const gap = MIN_SEP * Math.hypot(w, h);
+        const gap = Math.max(MIN_SEP * Math.hypot(w, h), GAP_DOTS * dotRadius() * NAMED_R);
         const apart = (i, others) => others.every(j =>
           Math.hypot(p[i].x - p[j].x, p[i].y - p[j].y) >= gap);
         // Everything the reader can already see picked out, so a ring never lands on one.
@@ -465,12 +483,12 @@ window.Chart = (function () {
       // instead. A composer with no page-view figure has no y at all, so park them off-frame and
       // let inFrame() drop them from the paint, the hit test and the labels.
       const rx = transform.rescaleX(qx), ry = transform.rescaleY(vy);
-      const base = Math.max(3.2, Math.min(5, w / 190));
+      const base = dotRadius();
       for (const d of rows) {
         out[d.i] = (d.quartets == null || d.views == null)
           ? { x: -9e9, y: -9e9, r: 0 }
           : { x: rx(d.quartets * d.jq), y: ry(Math.max(1, d.views)),
-              r: named(d.i) ? base * 1.65 : base };
+              r: named(d.i) ? base * NAMED_R : base };
       }
     } else if (mode === "swarm") {
       ensureSwarm();
@@ -984,6 +1002,10 @@ window.Chart = (function () {
     if (w === pw && h === ph) return;
     swarmY = null;
     restingT = null;
+    // Same reason as setMode: the box changed, so the separation the rings were chosen for is not
+    // the separation they are drawn with. A rotation is the case that matters — the fame plot goes
+    // from wide to tall and the dots close up.
+    refreshEmphasis();
     if (resting) transform = restingTransform();
     applyZoomBehavior();
     draw();
@@ -1001,6 +1023,14 @@ window.Chart = (function () {
     mode = mNew; lens = null; transform = d3.zoomIdentity;
     measure();
     restingT = null;
+    // The ring is derived against the PICTURE — MIN_SEP is a distance in the layout that is
+    // actually on screen — and every mode lays the same dots out differently, in a differently
+    // shaped box. refreshEmphasis() was reached only from setFilter(), so a filter applied in the
+    // timeline picked its three rings from a geometry where nothing is ringed at all (fill,
+    // stroke, width, opacity and the label colour are all Fame-only), and those picks were then
+    // drawn unchanged in Fame. `#v=scatter&g=female` then Fame put a ring 3.1px from a filled dot,
+    // against a bar of 13.5 — the exact defect MIN_SEP exists to remove, reachable from a link.
+    refreshEmphasis();
     // Each view fits its own filter: the same 219 composers occupy a different box in a timeline
     // than in a log-log readership cloud, so the frame is recomputed rather than carried over.
     transform = restingTransform();
@@ -1063,11 +1093,11 @@ window.Chart = (function () {
            // Empty unless a pipeline run renamed one of the composers the Fame view argues
            // about; the UI suite asserts it, so a rename fails loudly instead of dropping a dot.
            missingNames: () => missing.slice(),
-           // The curated thirteen, for the suite: the resting Fame view must show these and
-           // only these, and a zoom must show something else.
            setRepertoire,
-           // The ACTIVE list, not CANON: the seed is what the view is currently asserting, and
-           // the UI suite reads its label and pin checks off this rather than naming composers.
+           // The ACTIVE curated list plus the outliers, for the suite: the resting Fame view must
+           // show these and only these, and a zoom must show something else. The ACTIVE one, not
+           // CANON — the seed is whatever the view is currently asserting — so the checks read it
+           // rather than naming composers.
            seedNames: () => repertoire.names.concat(OUTLIERS),
            // The sentence for the fill swatch, kept beside the list it names (invariant 8).
            repertoireLabel: () => repertoire.noun + ", in birth order",
@@ -1084,7 +1114,9 @@ window.Chart = (function () {
              return { noun: repertoire.noun, n: filled.length,
                       // One survivor has no SPAN — "1732 to 1732" is not a range — so the lede
                       // names them instead. Common enough to matter: any search that keeps a
-                      // single curated composer lands here.
+                      // single curated composer lands here. It is only ever a claim about the
+                      // FILL: rings can still be drawn beside it, so the sentence must not say
+                      // that this is the only name picked out (it did, at #r=751-4501).
                       only: filled.length === 1 ? filled[0].name : null,
                       from: d3.min(filled, d => d.birth), to: d3.max(filled, d => d.birth),
                       example: ex && ex.quartets != null && ex.views != null

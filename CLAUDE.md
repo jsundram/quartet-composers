@@ -164,7 +164,7 @@ Four suites, all dependency-free:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 192 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 195 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
@@ -378,8 +378,15 @@ made on evidence.
   ringed. Measured in SCREEN space from `baseLayout()`, because "on top of" is a claim about
   pixels and the three modes lay the same dots out three ways — and only x and y are read, never
   the radius, which `layout()` derives from `named()` and this function is in the middle of
-  changing. As a fraction of the plot so it means the same on a phone; the number is not delicate,
-  2.5%–5% picks the same three. Deriving FEWER than the budget is the honest outcome when nothing
+  changing. **Measuring against the picture means re-deriving whenever the picture changes shape**,
+  so `setMode()` and `resize()` call `refreshEmphasis()` too. Reached only from `setFilter()`, it
+  chose rings in a geometry where nothing is ringed — every emphasis channel is Fame-only — and
+  those picks were drawn unchanged in Fame: `#v=scatter&g=female` then Fame put a ring 3.1px from
+  a filled dot, and a rotation did the same. The threshold is a fraction of the plot AND a floor of
+  `GAP_DOTS` named radii, because the dot radius is clamped at 3.2 while the diagonal keeps
+  shrinking, which at 320px leaves the fraction about a pixel above the bar the suite asserts. The
+  fraction is not delicate — 2.5%–5% picks the same three — and the floor is a guard, not a fix:
+  probed at eight viewports, the fraction alone clears by 20px+ once the geometry is current. Deriving FEWER than the budget is the honest outcome when nothing
   stands clear. The result reads better too: the three it now finds under "Women" (Vrebalov,
   Auerbach, Firsova) are all "wrote a lot, read little", which is what the curated outliers mean
   at rest — the other end of that group is carried by the fill, where Price and Beach are.
