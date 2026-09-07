@@ -46,6 +46,7 @@ silently mixes a pre-2015 measurement system into a 2026 dataset, and renders as
 either way. For gender the alternative would be worse still: the only way to fill that null is to
 guess from a name, which is a guess about a person and is what invariant 10 exists to forbid.
 """
+import collections
 import datetime as dt
 import json
 import os
@@ -142,7 +143,7 @@ def main():
     # name the app has in hand when it draws the panel — one would silently overwrite the other's
     # decade of history. validate.py errors on it too (a shared link would be ambiguous), but the
     # build has to stop HERE or it writes the bad file first and the diagnostic points downstream.
-    dupes = sorted({r[0] for r in rows if [x[0] for x in rows].count(r[0]) > 1})
+    dupes = sorted(n for n, c in collections.Counter(r[0] for r in rows).items() if c > 1)
     if dupes:
         print("%d display names are shared by more than one row (%s) — QUALIFIER collapsed two "
               "canonical titles into one name; the history file cannot key them apart."

@@ -120,7 +120,11 @@ needs fetching is fetched over the **whole axis**, never over `--months`: a flat
 value between a count and a null, so the file holds exactly one asked window, and writing a
 narrower fetch onto the wider axis would record un-asked months as nulls that then read as
 complete forever. A month **in progress** is refused outright — the API does not withhold the
-current month, it returns the days so far as though they were the month. The headline number did **not**
+current month, it returns the days so far as though they were the month. And a title that does not
+**answer** — a 404, or five exhausted retries — is dropped from the cache rather than written,
+because the flatten would otherwise null-pad it into looking complete forever; dropping it makes
+the next run ask again in full, which is what "rerun to pick them up" promises.
+`scripts/fetch_views.test.py` holds all of that as six stubbed, offline cases. The headline number did **not**
 move with it: the median is still over the last **twelve** cached months, because "how much read
 is this composer" is a question about now. The rest is history, which is a different question, and
 `validate.py` recomputes one from the other so the two files cannot drift apart. What a decade
@@ -166,6 +170,7 @@ matched to the same human.
 ```sh
 python3 scripts/validate.py       # THE DATA GATE — see below; run it after every rebuild
 python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (20 cases)
+python3 scripts/fetch_views.test.py  # the page-view cache's invariants, network stubbed (6 cases)
 scripts/ui-test.sh           # 170 behavioural checks in a real headless Chrome (lens, tap-to-pin,
                              #   the three filters, theme repaint, 390px layout, offline, print) — no deps
 node scripts/sw.test.mjs     # 24 tests of the service worker's fetch handler
@@ -173,7 +178,7 @@ python3 scripts/sw-lint.py   # precache contract: V bumped, SHELL paths exist, n
 python3 scripts/og-lint.py   # share card size (a card over ~250 KB previews as a grey box)
 ```
 
-`validate.py`, `validate.test.py`, `sw.test.mjs` and `sw-lint.py` all run in CI; `ui-test.sh` needs
+`validate.py`, `validate.test.py`, `fetch_views.test.py`, `sw.test.mjs` and `sw-lint.py` all run in CI; `ui-test.sh` needs
 a browser, so it's a local check and skips with exit 0 rather than failing if there isn't one.
 
 ### Why there's a data gate

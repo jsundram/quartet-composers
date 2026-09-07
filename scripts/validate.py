@@ -400,6 +400,15 @@ def check_drift(rows, prev):
         if len(o) > 7 and len(n) > 7 and o[7] != n[7]:
             warn("%s: gender %r -> %r — a Wikidata correction, or the row joined to a different "
                  "person" % (name, o[7], n[7]))
+        # A composer who HAD readership and now has none. Either their article was deleted, or a
+        # fetch did not answer and fetch_views.py dropped the series so the next run asks again —
+        # which is the honest behaviour but costs that composer their sparkline for one cycle. It
+        # is a warning rather than an error because both causes are legitimate; the point is that
+        # it cannot happen quietly, since the alternative is a row that silently stops being
+        # plotted at all.
+        if o[4] is not None and n[4] is None:
+            warn("%s: had %s readers/mo, now has none — a deleted article, or a fetch that did "
+                 "not answer and was dropped for the next run to retry" % (name, o[4]))
         if o[4] and n[4] and (n[4] / o[4] > 20 or o[4] / n[4] > 20):
             err("%s: page views %s -> %s (>20x). A jump this size is a wrong article, not a change "
                 "in readership — check the resolved title." % (name, o[4], n[4]))

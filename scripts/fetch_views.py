@@ -212,19 +212,18 @@ def main():
 
     missing, failed = [], []
     for i, t in enumerate(todo, 1):
+        why = None
         try:
             got = fetch(t, axis_out)
         except Exception as e:                        # noqa: BLE001 - any transport failure
             # NEVER let one title abort the run: a 429 at title 300 used to raise out of main()
-            # and discard 300 good fetches.
-            failed.append("%s (%s)" % (t, e))
-            got = None
-        if got is None:
-            # NOT cached as nulls: a 404 means the title does not resolve, which is a bad
-            # canonical in data/people.json, and caching it would silence the report that says so
-            # on every run after this one. A young article (200, fewer months) is the case the
-            # nulls below are for.
-            missing.append(t)
+            # and discard 300 good fetches. (Which is also why a failure does not fail the whole
+            # run below — the cache stays honest by dropping the ONE title, not the other 883.)
+            why, got = e, None
+        if why is not None:
+            failed.append(t)
+        elif got is None:
+            missing.append(t)                         # 404: the title does not resolve at all
         else:
             series.setdefault(t, {}).update({m: got.get(m) for m in axis_out})
         if i % 25 == 0 or i == len(todo):
@@ -233,8 +232,28 @@ def main():
     if todo:
         print()
 
+    # A TITLE THAT DID NOT ANSWER MUST NOT BE WRITTEN AT ALL. The flatten at the end fills every
+    # month on the axis with v.get(m), so a title that was already cached and failed THIS run gets
+    # a null for the months it was asked about and never answered for — which reads back as
+    # "asked, nothing there", so `todo` skips it forever and the "rerun to pick them up" advice
+    # below is a lie. It also silenced the 404 report this file exists to keep printing: a bad
+    # canonical in people.json was named exactly once and never again.
+    #
+    # Dropping the title instead makes it stale IN FULL next run, which is one request, and the
+    # cost is visible rather than silent: that composer has no readership for one cycle instead of
+    # a plausible-looking median short a month. Not `return 1` on any failure — that would discard
+    # the other 883 good fetches, which is the thing the except above exists to prevent.
+    stalled = failed + missing
+    forgotten = sorted(t for t in stalled if t in series)
+    for t in stalled:
+        series.pop(t, None)
+    if forgotten:
+        print("dropped %d cached series whose refetch did not answer, so the next run asks again "
+              "in full: %s" % (len(forgotten), ", ".join(forgotten[:4])))
+
     if missing:
-        print("%d articles returned no data (no series stored):" % len(missing))
+        print("%d articles returned no data - check the canonical title in data/people.json:"
+              % len(missing))
         for t in missing:
             print("   " + t)
     if failed:
