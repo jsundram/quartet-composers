@@ -996,6 +996,35 @@ check("every derived ring is also named", womenRings.dots === 3 && womenRings.la
 check("and it rings composers the curated set never held",
       womenRings.labels.every(n => !restRings.labels.includes(n)),
       "overlap: " + womenRings.labels.filter(n => restRings.labels.includes(n)).join(", "));
+// An outlier drawn on top of something already emphasised is not an outlier, it is clutter: the
+// ring used to land on Meredith Monk, whose disc came within 4px of Amy Beach's — two 6.75px dots
+// with a hairline between them. Prominence is distance from the CENTRE of the cloud, so a corner
+// full of composers all scores high and the tie was broken by nothing visual at all.
+//
+// MEASURED, because the whole claim is about pixels. The bar is a whole dot's DIAMETER of clear
+// space between the closest ring and the closest fill — "not touching" is too weak to catch what
+// this fixes, since the old pick cleared touching by 4px and still read as one smudge.
+const closest = await ev(`(()=>{const cs=getComputedStyle(document.documentElement);
+  const paint=v=>{const el=document.createElement('i'); el.style.color=cs.getPropertyValue(v).trim();
+    document.body.appendChild(el); const c=getComputedStyle(el).color; el.remove(); return c};
+  const acc=cs.getPropertyValue('--accent').trim(), sel=cs.getPropertyValue('--sel').trim();
+  const accRgb=paint('--accent'), selRgb=paint('--sel');
+  const shown=c=>c.getAttribute('display')!=='none' && +c.getAttribute('opacity')>0.5;
+  const all=[...document.querySelectorAll('#plot svg circle.dot')].filter(shown);
+  const at=c=>({x:+c.getAttribute('cx'), y:+c.getAttribute('cy'), r:+c.getAttribute('r')});
+  const rings=all.filter(c=>[acc,accRgb].includes(c.getAttribute('stroke'))).map(at);
+  const fills=all.filter(c=>[sel,selRgb].includes(c.getAttribute('fill'))).map(at);
+  let best=Infinity, slack=Infinity;
+  for(const a of rings) for(const b of fills){
+    const d=Math.hypot(a.x-b.x,a.y-b.y);
+    if(d<best){best=d; slack=d-(a.r+b.r);}}
+  const r=rings.length&&fills.length?rings[0].r:0;
+  return {rings:rings.length, fills:fills.length, r:+r.toFixed(2),
+          gap:+best.toFixed(1), slack:+slack.toFixed(1)}})()`);
+check("no derived ring is drawn on top of a filled composer",
+      closest.rings === 3 && closest.fills === 9 && closest.slack > 2 * closest.r,
+      `${closest.rings} rings vs ${closest.fills} fills; closest pair ${closest.gap}px apart, `
+      + `${closest.slack}px clear of touching, needs ${(2 * closest.r).toFixed(1)}`);
 // The key has to say which crowd it is talking about, or it labels the wrong channel.
 check("the legend says the ring changed crowds",
       /stand out in this group/.test(await ev(`document.getElementById('legend').textContent`)),

@@ -164,7 +164,7 @@ Four suites, all dependency-free:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 185 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 186 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
@@ -359,8 +359,19 @@ made on evidence.
   "Men", and the share card are therefore byte-identical to what they were — `make-og-svg.py` draws
   the view AT REST (invariant 14), so no second list ever reaches it.
   Filling a curated set also FEEDS the ring, because `refreshEmphasis` ranks over a pool that
-  excludes `namedSet`: curating Kats-Chernin and Price is what moves their ring slots to Vrebalov
-  (18 quartets, 152 readers — the women's Cambini), Lutyens and Monk.
+  excludes `namedSet`: curating Kats-Chernin and Price is what frees their ring slots.
+  **A derived ring must also stand APART — `MIN_SEP`, 3% of the plot diagonal, from every dot
+  already emphasised and every ring derived before it.** Prominence is distance from the CENTRE of
+  the cloud, so a corner full of composers all scores high and the tie was broken by nothing
+  visual: the ring landed on Monk, whose disc came within 4px of Beach's, one filled and one
+  ringed. Measured in SCREEN space from `baseLayout()`, because "on top of" is a claim about
+  pixels and the three modes lay the same dots out three ways — and only x and y are read, never
+  the radius, which `layout()` derives from `named()` and this function is in the middle of
+  changing. As a fraction of the plot so it means the same on a phone; the number is not delicate,
+  2.5%–5% picks the same three. Deriving FEWER than the budget is the honest outcome when nothing
+  stands clear. The result reads better too: the three it now finds under "Women" (Vrebalov,
+  Auerbach, Firsova) are all "wrote a lot, read little", which is what the curated outliers mean
+  at rest — the other end of that group is carried by the fill, where Price and Beach are.
 - **A filter fits the frame, and the fit is the RESTING view.** `computeResting()` in `chart.js`
   is the one answer to "where should this chart be sitting right now": identity with no filter,
   the box that contains the kept dots with one. `setFilter()` transitions there when the gesture

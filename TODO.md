@@ -245,9 +245,16 @@ byte-identical: `make-og-svg.py` regenerated to no diff at all, because it draws
 Two things fell out of it. The legend had to rename the FILL as well as the ring, so the phrase
 moved into `REPERTOIRES` beside the list it names — one editorial claim, one place. And curating a
 composer REMOVES her from the ring pool (`refreshEmphasis` ranks over dots not in `namedSet`), so
-filling Kats-Chernin and Price handed their ring slots to Vrebalov (18 quartets, 152 readers — the
-women's Cambini), Lutyens and Monk. The two ends of that group are now named by two different
-mechanisms and they agree.
+filling Kats-Chernin and Price freed their ring slots.
+
+That exposed a defect the ring had all along: prominence is distance from the CENTRE of the cloud,
+so a corner full of composers all scores high and nothing visual broke the tie. The ring landed on
+Meredith Monk, whose disc came within 4px of Amy Beach's — one filled, one ringed, reading as a
+single smudge. A derived ring now has to clear every emphasised dot by `MIN_SEP` (3% of the plot
+diagonal), measured in screen space because "on top of" is a claim about pixels. What it finds
+instead is Vrebalov (18 quartets, 152 readers — the women's Cambini), Auerbach and Firsova: all
+three "wrote a lot, read little", which is exactly what the curated outliers say at rest. The
+read-a-lot end of that group is not lost, it is carried by the fill, where Price and Beach are.
 
 The one thing the set cannot include: **Caroline Shaw and Jessie Montgomery**, two of the most
 programmed living quartet composers, have `quartets: null` and so cannot be plotted at all. Same

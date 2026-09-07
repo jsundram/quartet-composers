@@ -307,15 +307,52 @@ window.Chart = (function () {
   // IS the picture — every dot is already legible and separately labelled — and ringing three of
   // eight would be pointing at almost everything.
   const MIN_FIELD = 20;
+  // ...and it has to stand APART. Prominence is distance from the CENTRE of the visible cloud, so
+  // a corner full of composers all scores high and the tie was broken by nothing visual at all:
+  // under "Women" the ring landed on Meredith Monk, whose disc came within 4px of Amy Beach's —
+  // two 6.75px dots with a hairline between them, one filled and one ringed. A ring that close to
+  // a dot the view has already picked out says nothing the picture was not already saying, and
+  // reads as clutter rather than as emphasis. The closest ring/fill pair is 30px clear now.
+  //
+  // So a derived ring must clear every dot already emphasised, and every ring derived before it,
+  // by 3% of the plot's diagonal. Measured in SCREEN space because "on top of" is a claim about
+  // pixels, not about data — and as a FRACTION of the plot so it means the same thing on a phone
+  // and in full screen. The exact number is not delicate: anything from about 2.5% to 5% picks the
+  // same three on a desktop.
+  //
+  // It changes what the ring finds, and for the better: the three it now derives under "Women" are
+  // all "wrote a lot, read little", which is exactly what the CURATED outliers mean at rest.
+  // The other end of that group is not lost, it is carried by the other channel — Price and Beach
+  // are filled.
+  const MIN_SEP = 0.03;
   function refreshEmphasis() {
     const kept = outlierIdx.filter(i => isVisible(rows[i]));
-    let derived = [];
+    const derived = [];
     if (visible && kept.length < RINGS) {
       const pool = rows.filter(d => isVisible(d) && !namedSet.has(d.i) && prom.has(d.i));
-      if (pool.length >= MIN_FIELD) {
-        derived = pool.sort((a, b) => prom.get(b.i) - prom.get(a.i))
-                      .slice(0, RINGS - kept.length).map(d => d.i);
+      // Positions, not the scales: three modes lay the same dots out three ways, and "too close"
+      // is a question about the picture that is actually drawn. layout() reads named() for the
+      // fame RADIUS, which this function is in the middle of changing — only x and y are used
+      // here, and those depend on nothing but the data and the mode, so the answer does not
+      // depend on what happened to be ringed a moment ago.
+      const ready = pool.length >= MIN_FIELD && w > 0 && h > 0 && !!qx && !!x0;
+      if (ready) {
+        const p = baseLayout();
+        const near = i => !(p[i].r > 0) || !Number.isFinite(p[i].x);
+        const gap = MIN_SEP * Math.hypot(w, h);
+        const apart = (i, others) => others.every(j =>
+          Math.hypot(p[i].x - p[j].x, p[i].y - p[j].y) >= gap);
+        // Everything the reader can already see picked out, so a ring never lands on one.
+        // Only the VISIBLE ones: a dimmed dot at 0.07 is not something a ring collides with.
+        const taken = canonIdx.concat(kept).filter(i => isVisible(rows[i]) && !near(i));
+        for (const d of pool.sort((a, b) => prom.get(b.i) - prom.get(a.i))) {
+          if (derived.length >= RINGS - kept.length) break;
+          if (near(d.i) || !apart(d.i, taken)) continue;
+          derived.push(d.i); taken.push(d.i);
+        }
       }
+      // Fewer than the budget is the honest outcome when nothing else stands clear — a ring means
+      // "stands out", and inventing a third by dropping the rule would be pointing at a crowd.
     }
     ringIdx = derived;
     // Curated first so the label placer still spends its budget on them before the derived ones.
