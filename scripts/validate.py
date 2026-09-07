@@ -311,6 +311,12 @@ def check_history(rows, meta, hist, pv):
     if orphan:
         err("%d composers ship a view count with no history behind it: %s"
             % (len(orphan), ", ".join(orphan[:6])))
+    # THIS FLOOR IS LOAD-BEARING FOR MORE THAN COVERAGE, and must stay an error. fetch_views.py
+    # drops a title that does not answer so the next run refetches it, which is right for an
+    # isolated failure — but if the network dies part-way through a run, every remaining title
+    # fails and every one of them is dropped. This is the only thing that bounds how much of the
+    # cache one bad night can delete: the gate fails, refresh.py never opens its PR, and a rerun
+    # restores everything because the cache is a cache. Relaxing it to a warning removes that bound.
     if len(rows) and len(series) / len(rows) < 0.95:
         err("only %d/%d composers have a readership series (floor 95%%)" % (len(series), len(rows)))
 

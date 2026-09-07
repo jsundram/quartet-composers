@@ -221,7 +221,11 @@ def main():
             # run below — the cache stays honest by dropping the ONE title, not the other 883.)
             why, got = e, None
         if why is not None:
-            failed.append(t)
+            # The title AND the reason. The reason is what decides the operator's next move — a 429
+            # means rerun in an hour, a timeout means check the network, a 500 that survived five
+            # retries means something else — and since the run has just deleted those series,
+            # "rerun" IS the recovery path.
+            failed.append((t, why))
         elif got is None:
             missing.append(t)                         # 404: the title does not resolve at all
         else:
@@ -243,7 +247,7 @@ def main():
     # cost is visible rather than silent: that composer has no readership for one cycle instead of
     # a plausible-looking median short a month. Not `return 1` on any failure — that would discard
     # the other 883 good fetches, which is the thing the except above exists to prevent.
-    stalled = failed + missing
+    stalled = [t for t, _ in failed] + missing
     forgotten = sorted(t for t in stalled if t in series)
     for t in stalled:
         series.pop(t, None)
@@ -258,8 +262,8 @@ def main():
             print("   " + t)
     if failed:
         print("%d failed after %d retries - rerun to pick them up:" % (len(failed), TRIES))
-        for t in failed:
-            print("   " + t)
+        for t, e in failed:
+            print("   %s (%s)" % (t, e))
 
     covered = sum(1 for t in titles
                   if all(series.get(t, {}).get(m) is not None for m in axis_out))

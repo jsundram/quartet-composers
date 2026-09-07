@@ -119,6 +119,20 @@ def rerun_picks_it_up(fv):
             out["series"].get("B"),))
 
 
+@case("the failure report says WHY, not just which title")
+def failure_report_names_the_reason(fv):
+    # The run has just deleted those series, so "rerun to pick them up" is the recovery path and
+    # the reason decides when to rerun: an hour for a 429, sooner for a timeout. Checked here
+    # because it is report text — nothing else in the pipeline reads it, so it can rot in silence.
+    def stub(title, months):
+        if title == "B":
+            raise OSError("simulated 429: Too Many Requests")
+        return {m: ANSWER[m] for m in months}
+    fv.fetch = stub
+    _rc, _out, log = run(fv, WINDOW)
+    assert "429" in log, "the failure report dropped the reason:\n%s" % log
+
+
 @case("a 404 keeps being reported, rather than exactly once")
 def four_oh_four_keeps_reporting(fv):
     fv.fetch = lambda title, months: None if title == "B" else {m: ANSWER[m] for m in months}
