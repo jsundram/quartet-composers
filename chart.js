@@ -94,8 +94,11 @@ window.Chart = (function () {
   // The list and the sentence that names it are ONE editorial claim, so they live together: a key
   // that still said "the repertoire" while filling nine women the repertoire never contained would
   // be labelling the wrong channel, which is the failure invariant 8 exists to prevent.
-  const REPERTOIRES = { female: { names: WOMEN_CANON, label: "the women's repertoire, in birth order" } };
-  const DEFAULT_REPERTOIRE = { names: CANON, label: "the repertoire, in birth order" };
+  // `noun` is separate from the legend's phrasing because two sentences need it in two shapes —
+  // the key says "<noun>, in birth order", the lede says "<noun>, 1709 to 1906". One noun, so
+  // they cannot come to disagree about what the filled dots ARE.
+  const REPERTOIRES = { female: { names: WOMEN_CANON, noun: "the women's repertoire" } };
+  const DEFAULT_REPERTOIRE = { names: CANON, noun: "the repertoire" };
   let repertoire = DEFAULT_REPERTOIRE;
   // Sets, not arrays: isCanon/named are called per DOT per FRAME from layout() and from all four
   // paint functions -- about 4,000 calls a frame in the Fame view, and an Array.includes scan
@@ -1067,7 +1070,26 @@ window.Chart = (function () {
            // the UI suite reads its label and pin checks off this rather than naming composers.
            seedNames: () => repertoire.names.concat(OUTLIERS),
            // The sentence for the fill swatch, kept beside the list it names (invariant 8).
-           repertoireLabel: () => repertoire.label,
+           repertoireLabel: () => repertoire.noun + ", in birth order",
+           // What the lede needs to describe the picked-out dots WITHOUT hardcoding any of it:
+           // the noun, the birth span of the filled set that is actually visible, and one worked
+           // example. The example is the first RINGED composer — the curated outliers while the
+           // filter keeps them, the derived ones otherwise — because the ring is the extreme the
+           // sentence exists to make concrete: Cambini at rest, Vrebalov under "Women".
+           emphasisStats: () => {
+             const filled = canonIdx.map(i => rows[i]).filter(isVisible);
+             if (!filled.length) return null;
+             const ringed = outlierIdx.filter(i => isVisible(rows[i])).concat(ringIdx);
+             const ex = ringed.length ? rows[ringed[0]] : null;
+             return { noun: repertoire.noun, n: filled.length,
+                      // One survivor has no SPAN — "1732 to 1732" is not a range — so the lede
+                      // names them instead. Common enough to matter: any search that keeps a
+                      // single curated composer lands here.
+                      only: filled.length === 1 ? filled[0].name : null,
+                      from: d3.min(filled, d => d.birth), to: d3.max(filled, d => d.birth),
+                      example: ex && ex.quartets != null && ex.views != null
+                        ? { name: ex.name, quartets: ex.quartets, views: ex.views } : null };
+           },
            // Every gender pill value that swaps the claim, so app.js can assert they are reachable.
            repertoireKeys: () => Object.keys(REPERTOIRES),
            resetZoom, zoomed, colorOf, hint,

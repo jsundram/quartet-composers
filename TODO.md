@@ -261,6 +261,26 @@ programmed living quartet composers, have `quartets: null` and so cannot be plot
 for Tania León, Joan Tower and Chen Yi. That is the 94-row gap in the section above, showing up
 somewhere it costs something.
 
+### ~~The lede hardcoded three claims about the data~~ — done, 2026-09-07
+"The names picked out are the repertoire, 1709 to 1906; Giuseppe Cambini wrote 149 quartets and is
+read about 200 times a month" was typed into `index.html`, and nothing checked any of it. Cambini's
+median is 216, so the rounded figure was already wrong; and the first two clauses went false the
+moment the Women filter picked out nine composers born 1805 to 1962 while the sentence above them
+still said 1709 to 1906.
+
+`setLede()` builds it from `Chart.emphasisStats()` now — the same rule `#count`, the search
+placeholder and `setProv()` already followed. The rounding follows invariant 9 ("about 210", not
+216), using "about" rather than `atLeast()`'s "+" because this is a sentence and both say the same
+thing. Two edges: one surviving curated composer is named ("The one name picked out is Joseph
+Haydn"), because "1732 to 1732" is not a range, and none leaves the sentence empty rather than
+written about nobody.
+
+Still typed, and correctly so: the clauses saying what the axes MEAN. Those are not facts about
+the data. **One that is still wrong, though, and out of scope here**: "Across is how many quartets
+they wrote, up is how much their article is read" describes the FAME view, and the lede does not
+change when you switch to Timeline or Swarm, where across is birth year. The per-mode hint under
+the chart says the right thing; the lede above it does not.
+
 ### The Fame view drops birth year entirely
 Which is the thing the mocked-up "canon path" would have added: joining the repertoire in birth order
 draws the chronological walk through output-and-attention space without spending an axis on it.

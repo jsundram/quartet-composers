@@ -164,7 +164,7 @@ Four suites, all dependency-free:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 186 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 192 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
@@ -250,6 +250,17 @@ made on evidence.
   provenance line count the 884 rows the table actually holds. They are not inconsistent — they
   are answering different questions, and the provenance line is where the difference is named.
   README's 884s describe the dataset and the pipeline, not the plot, and stay.
+- **Prose that states a number or a range is BUILT; prose that makes a qualitative claim is
+  typed.** The lede used to hardcode "the repertoire, 1709 to 1906" and "Cambini wrote 149
+  quartets and is read about 200 times a month" — three claims about the dataset that nothing
+  checked. The median was 216, so the rounded figure was already wrong, and the first two went
+  false the moment a filter changed which names are picked out (nine women born 1805–1962, still
+  captioned 1709 to 1906). `setLede()` in `app.js` writes that sentence from
+  `Chart.emphasisStats()`, beside `#count`, the search placeholder and `setProv()`, which already
+  worked this way. A generated sentence cannot drift at all, which beats catching drift with a
+  lint. The clauses that describe what the axes MEAN stay typed — they are not facts about the
+  data. Two edges the sentence has to handle: one surviving curated composer is NAMED, because
+  "1732 to 1732" is not a range, and none leaves the claim unmade rather than made about nobody.
 - **The provenance line is built, not assigned.** `setProv()` in `app.js` linkifies every Wikidata
   property id it prints (`P569` -> its definition page), because an id is jargon a reader cannot
   check from the page. It links the TEXT rather than storing anchors in `composers.json`: that file

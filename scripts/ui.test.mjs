@@ -1122,6 +1122,51 @@ check("every curated set is reachable by a pill",
         [...document.querySelectorAll('#gender button')].some(b => b.dataset.g === k))`),
       await ev(`JSON.stringify(Chart.repertoireKeys())`));
 
+// --- 4m. the lede is written from the chart, not typed into index.html -------------------------
+// It used to hardcode three claims about the data — "the repertoire", "1709 to 1906", and
+// "Cambini wrote 149 quartets and is read about 200 times a month". Nothing checked any of them:
+// the median was actually 216, so the rounded figure was already wrong, and the first two became
+// false the moment a filter changed which names are picked out. Asserted against the DATA rather
+// than against a string, so a re-scrape that moves a birth year cannot pass this while the page
+// says something else.
+const lede = () => ev(`document.getElementById('lede-picked').textContent`);
+await goto(BASE);
+await sleep(600);
+const st = await ev(`(()=>{const s=Chart.emphasisStats();
+  return {from:s.from, to:s.to, noun:s.noun, ex:s.example.name, q:s.example.quartets,
+          views:s.example.views, rounded:Histogram.fmt(twoSig(s.example.views,-1))}})()`);
+check("the lede states the curated set's real birth span",
+      (await lede()).includes(`${st.from} to ${st.to}`), await lede());
+check("and its example is the chart's own, with the real quartet count",
+      (await lede()).includes(`${st.ex} wrote ${st.q} quartets`), await lede());
+// Invariant 9: a median is a smoothed estimate and any one month runs ~12% off it, so the lede
+// rounds like everywhere else. Printing the exact integer here would claim a precision the
+// number does not have — and 216 is what the old hand-written "about 200" was rounding wrong.
+check("and the readership is rounded, not the raw median",
+      (await lede()).includes(`about ${st.rounded} times a month`)
+      && !(await lede()).includes(String(st.views)),
+      `median ${st.views} -> "${st.rounded}"; ${await lede()}`);
+// The filter changes which names are picked out, so a sentence introducing them has to move too —
+// this is the state where the hardcoded version was simply false.
+await goto(BASE + "#g=female");
+await sleep(700);
+const wst = await ev(`(()=>{const s=Chart.emphasisStats(); return {from:s.from,to:s.to}})()`);
+check("a filter renames the set and re-spans it",
+      /women's repertoire/.test(await lede())
+      && (await lede()).includes(`${wst.from} to ${wst.to}`)
+      && wst.from !== st.from,
+      await lede());
+// "1732 to 1732" is not a range. Any search that keeps a single curated composer lands here.
+await goto(BASE + "#q=haydn");
+await sleep(700);
+check("one survivor is named, not given a zero-width span",
+      (await lede()) === "The one name picked out is Joseph Haydn.", await lede());
+// Nothing curated survives, so there is no sentence to write rather than a sentence about nobody.
+await goto(BASE + "#q=cambini");
+await sleep(700);
+check("and no curated survivor leaves the claim unmade", (await lede()) === "",
+      JSON.stringify(await lede()));
+
 // --- 5. sorting ---------------------------------------------------------------
 await goto(BASE);
 await ev(`[...document.querySelectorAll('thead th button')].find(b=>b.textContent==='Quartets').click()`);

@@ -685,7 +685,10 @@ function applyFilters(settled) {
   if (settled !== false) {
     // The ring is derived from the filtered group, so the key that explains it and the row chips
     // that repeat it both move when the filter does. Table.render() repaints the chips anyway.
+    // The lede names the same two things the key does, so it moves with them or it contradicts
+    // the picture it is introducing.
     renderLegend();
+    setLede();
     Table.render(visible);
     // A pinned composer that a filter just excluded would leave a detail panel describing someone
     // invisible in both views. Drop the pin rather than the coherence.
@@ -693,6 +696,30 @@ function applyFilters(settled) {
     else Table.select(selected, false);
     writeHash();
   }
+}
+
+// The lede's one sentence about WHICH dots are picked out, written from the chart rather than
+// typed into index.html. Three claims used to be hardcoded there — the name of the curated set,
+// its birth span, and a worked example — and all three are things the data decides: a re-scrape
+// moves the span, and a filter changes the set entirely, which is how the page came to say "the
+// repertoire, 1709 to 1906" over nine women born 1805 to 1962.
+//
+// The view count is rounded like every other MEDIAN on the page (invariant 9): the figure is a
+// smoothed estimate and any one month runs ~12% off it, so printing 216 would claim a precision
+// the number does not have. It uses "about" instead of atLeast()'s "+" because this is a sentence
+// — "read about 210+ times a month" is not English — and the two say the same thing, since twoSig
+// floors either way.
+function setLede() {
+  const st = Chart.emphasisStats();
+  const el = $("lede-picked");
+  if (!st) { el.textContent = ""; return; }
+  if (st.only) { el.textContent = `The one name picked out is ${st.only}.`; return; }
+  const span = `The names picked out are ${st.noun}, ${st.from} to ${st.to}`;
+  const ex = st.example;
+  el.textContent = ex
+    ? `${span}; ${ex.name} wrote ${ex.quartets} quartet${ex.quartets === 1 ? "" : "s"} and is read `
+      + `about ${Histogram.fmt(twoSig(ex.views, -1))} times a month.`
+    : `${span}.`;
 }
 
 // ---- provenance ------------------------------------------------------------

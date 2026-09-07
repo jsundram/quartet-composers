@@ -70,9 +70,13 @@
     Everyone on Wikipedia's
     <a href="https://en.wikipedia.org/wiki/List_of_string_quartet_composers">List of String Quartet
     Composers</a>. Across is <strong>how many quartets they wrote</strong>, up is
-    <strong>how much their English Wikipedia article is read</strong>. The names picked out are
-    the repertoire, 1709 to 1906; Giuseppe Cambini wrote 149 quartets and is read about 200 times
-    a month.
+    <strong>how much their English Wikipedia article is read</strong>.
+    <!-- BUILT FROM THE DATA, never typed here. This sentence used to hardcode "the repertoire,
+         1709 to 1906" and "149 quartets ... about 200 times a month": three claims about the
+         dataset, none of them checked by anything, one of them already rounded wrong (Cambini's
+         median is 216) and one of them false the moment a filter changed which names are picked
+         out. Same rule as the search placeholder and #count -- see setLede() in app.js. -->
+    <span id="lede-picked"></span>
     Readership is familiarity to English speakers, not importance — tap any dot or row for the
     numbers.
   </p>
