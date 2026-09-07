@@ -102,11 +102,15 @@ def check_counts():
     total moves and a hardcoded string does not follow) without inventing an error out of a
     phrasing nobody anticipated.
 
-    manifest.json is pinned to the roster, because the SENTENCE cannot be told apart but the FILE
-    can: it holds one description of the whole app and has never had reason to state the plotted
-    subset. Leaving it as permissive as index.html would let the two numbers swap places — the
-    manifest claiming 790 for the roster — and pass clean, which is half of what the old check
-    already enforced and worth keeping.
+    manifest.json is pinned, because the SENTENCE cannot be told apart but the FILE can: it holds
+    exactly one description of the app, so what it may state is a settled question rather than a
+    guess. It is pinned to the PLOTTED count — the manifest describes what the app draws, and the
+    884-row roster is the table's number, stated in full on the provenance line where the
+    difference is explained. Leaving it as permissive as index.html would let the two numbers swap
+    places and pass clean, which is half of what the old check enforced and worth keeping.
+
+    If the manifest is ever reworded to describe the roster instead, this pin moves with it — that
+    is the point of pinning per FILE rather than per number.
     """
     rows = json.loads((ROOT / "composers.json").read_text())["rows"]
     live = {len(rows): "the roster",
@@ -115,7 +119,9 @@ def check_counts():
     # two, because that is how these sentences actually read.
     pat = r"\b(\d{3,5})(?:\s+\w+){0,2}\s+composers\b"
     bad = []
-    for f, allowed in (("index.html", live), ("manifest.json", {len(rows): "the roster"})):
+    plotted = sum(1 for r in rows if r[3] is not None)
+    for f, allowed in (("index.html", live),
+                       ("manifest.json", {plotted: "the composers the chart can plot"})):
         for stated in set(re.findall(pat, (ROOT / f).read_text())):
             if int(stated) not in allowed:
                 want = ", ".join(f"{n} ({what})" for n, what in sorted(allowed.items()))

@@ -165,7 +165,10 @@ Four suites, all dependency-free:
   `git diff --cached`); the meta-length and stated-count halves read the working tree and run in
   CI. `check_counts()` knows BOTH live totals — the roster (884) and what the chart can plot
   (790) — and requires a stated count to be one of them rather than guessing which one a sentence
-  means, because "884 quartet composers" and "790 quartet composers" are both grammatical. It holds the bands a scraper actually renders, so "og:description is too long" is caught
+  means, because "884 quartet composers" and "790 quartet composers" are both grammatical. It
+  pins per FILE where the file settles the question: `manifest.json` holds exactly one description
+  of the app and describes what the app DRAWS, so it may state only 790, and the two numbers
+  cannot swap places unnoticed. It holds the bands a scraper actually renders, so "og:description is too long" is caught
   before a deploy rather than by pasting the live URL into a validator afterwards. The two
   descriptions in `index.html` are deliberately different lengths — a SERP snippet wants 120-160,
   a phone link preview truncates near 125 — and re-unifying them fails the lint.
@@ -236,6 +239,11 @@ made on evidence.
   `Chart.plottedStats()` is the one place that answers "what can the chart place", so the count,
   the birth span and the living count can't disagree with each other or with `plottable()`. The
   roster's own total belongs to the table and the provenance line, which state the difference.
+  The same split governs the app's stated CLAIMS: `manifest.json` and the link preview describe
+  what the page draws and say 790, while the `#count` readout, the search placeholder and the
+  provenance line count the 884 rows the table actually holds. They are not inconsistent — they
+  are answering different questions, and the provenance line is where the difference is named.
+  README's 884s describe the dataset and the pipeline, not the plot, and stay.
 - **The provenance line is built, not assigned.** `setProv()` in `app.js` linkifies every Wikidata
   property id it prints (`P569` -> its definition page), because an id is jargon a reader cannot
   check from the page. It links the TEXT rather than storing anchors in `composers.json`: that file
