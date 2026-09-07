@@ -35,6 +35,7 @@ import datetime as dt
 import json
 import os
 import re
+import statistics
 import subprocess
 import sys
 
@@ -164,7 +165,7 @@ QUALIFIER = re.compile(r"\s*\((?:composer|musician|conductor|violinist|pianist|[
 
 
 # --------------------------------------------------------------- cross-file
-def check_sources(rows, people, pv, listing):
+def check_sources(rows, meta, people, pv, listing):
     """The caches must agree with each other, and with what composers.json claims."""
     if not (people and pv and listing):
         warn("pipeline caches missing — skipping cross-file checks")
@@ -194,11 +195,44 @@ def check_sources(rows, people, pv, listing):
             err("%s: Wikidata death year %s is in the future" % (t, wd))
 
     months = pv.get("months") or []
-    if len(months) < 6:
-        warn("only %d months of page views cached; the median is meant to smooth a year" % len(months))
-    complete = sum(1 for t in canon if all(m in pv.get("series", {}).get(t, {}) for m in months))
+    stat = meta.get("views_months") or months[-12:]
+    if len(stat) < 6:
+        warn("the statistic is a median of only %d months; it is meant to smooth a year" % len(stat))
+    if stat and months and months[-len(stat):] != stat:
+        err("composers.json's statistic window ends %s, the cache ends %s — one of the two files "
+            "is from an older run" % (stat[-1], months[-1]))
+    # Each cached series is a flat array aligned to `months`, null where the API had nothing.
+    cache = pv.get("series") or {}
+    ragged = [t for t, a in cache.items() if not isinstance(a, list) or len(a) != len(months)]
+    if ragged:
+        err("%d cached series are not aligned to data/pageviews.json's %d months (%s) — every "
+            "composer's numbers would be read off someone else's axis" % (
+                len(ragged), len(months), ", ".join(ragged[:3])))
+        return
+    # Completeness is measured over the STATISTIC's window, not the whole cache. The cache reaches
+    # back to 2015-07 now and an article created in 2019 legitimately has nothing before it, so
+    # judging that as a gap would fire this on a third of the roster forever. What has to be
+    # complete is the twelve months every dot's size is computed from — and "complete" means a
+    # value, not a slot: a null is a recorded absence, which is exactly what it must not be here.
+    complete = sum(1 for t in canon
+                   if all(v is not None for v in (cache.get(t) or [])[-len(stat):])
+                   and len(cache.get(t) or []) >= len(stat))
     if canon and complete / len(canon) < 0.9:
-        warn("only %d of %d articles have the full window" % (complete, len(canon)))
+        warn("only %d of %d articles have data for the full %d-month statistic window"
+             % (complete, len(canon), len(stat)))
+    # A month EVERY article is null for is not a month nobody read anything, it is a month the
+    # pageviews API had not published when the cache was written. Left in, it is the newest month
+    # on the axis, so the median is computed over eleven values and composers.json's window ends
+    # there — which tells scripts/refresh.py it is done for the month. fetch_views.py probes for
+    # this before it can happen; this is the check that the probe worked.
+    if months and cache and all((cache.get(t) or [None])[-1] is None for t in cache):
+        err("no article has any data for %s, the newest cached month — the API had not published "
+            "it yet. Drop it and rerun scripts/fetch_views.py, or every median is short a month "
+            "and refresh.py thinks the window has moved." % months[-1])
+    deep = sum(1 for t in canon if sum(v is not None for v in (cache.get(t) or [])) >= 24)
+    if canon and deep / len(canon) < 0.7:
+        warn("only %d of %d articles have 2+ years of history; the sparkline has little to draw"
+             % (deep, len(canon)))
 
     # Coverage floors. Each of these dropping is a sign a parser or a fetch quietly broke, and the
     # symptom is a chart that looks fine with a third of its dots missing.
@@ -240,6 +274,73 @@ def check_sources(rows, people, pv, listing):
 
 
 # --------------------------------------------------------------- name sanity
+def check_history(rows, meta, hist, pv):
+    """readership.json — the sparkline's data — against composers.json and the cache behind both.
+
+    These are two files describing one measurement, which is exactly the arrangement that drifts:
+    rebuild one and not the other and every panel draws a decade of history that belongs to a
+    different fetch than the number printed above it. Nothing in the app can notice, because both
+    files are internally consistent. So the median, min and max of the LAST TWELVE points of each
+    sparkline are recomputed here and must equal the views/views_lo/views_hi the row ships.
+    """
+    if hist is None:
+        err("missing readership.json — scripts/build_data.py writes it alongside composers.json")
+        return
+    months = hist.get("months") or []
+    stat = meta.get("views_months") or []
+    if not months:
+        err("readership.json states no months")
+        return
+    if months != sorted(months):
+        err("readership.json's months are not in chronological order; the sparkline is drawn in "
+            "array order, so it would be plotting time out of sequence")
+    if stat and months[-len(stat):] != stat:
+        err("readership.json ends %s but composers.json's statistic window ends %s — the two were "
+            "built from different fetches" % (months[-1], stat[-1]))
+    if pv and pv.get("months") and pv["months"] != months:
+        err("readership.json covers %d months, data/pageviews.json caches %d — rebuild"
+            % (len(months), len(pv["months"])))
+
+    series = hist.get("series") or {}
+    names = {r[0]: r for r in rows}
+    stray = sorted(set(series) - set(names))
+    if stray:
+        err("%d readership series name nobody in composers.json (a rename that only landed in one "
+            "file): %s" % (len(stray), ", ".join(stray[:6])))
+    orphan = sorted(r[0] for r in rows if r[4] is not None and r[0] not in series)
+    if orphan:
+        err("%d composers ship a view count with no history behind it: %s"
+            % (len(orphan), ", ".join(orphan[:6])))
+    # THIS FLOOR IS LOAD-BEARING FOR MORE THAN COVERAGE, and must stay an error. fetch_views.py
+    # drops a title that does not answer so the next run refetches it, which is right for an
+    # isolated failure — but if the network dies part-way through a run, every remaining title
+    # fails and every one of them is dropped. This is the only thing that bounds how much of the
+    # cache one bad night can delete: the gate fails, refresh.py never opens its PR, and a rerun
+    # restores everything because the cache is a cache. Relaxing it to a warning removes that bound.
+    if len(rows) and len(series) / len(rows) < 0.95:
+        err("only %d/%d composers have a readership series (floor 95%%)" % (len(series), len(rows)))
+
+    k = len(stat) or 12
+    disagree = []
+    for name, vals in sorted(series.items()):
+        row = names.get(name)
+        if row is None:
+            continue
+        if not isinstance(vals, list) or len(vals) != len(months):
+            err("%s: %r readership points for %d months" % (name, len(vals or []), len(months)))
+            continue
+        if any(v is not None and (not isinstance(v, int) or v < 0) for v in vals):
+            err("%s: a readership value is not a view count" % name)
+            continue
+        tail = [v for v in vals[-k:] if v is not None]
+        got = (int(statistics.median(tail)), min(tail), max(tail)) if tail else (None, None, None)
+        if got != (row[4], row[5], row[6]):
+            disagree.append("%s: history says %s, the row says %s" % (name, got, tuple(row[4:7])))
+    if disagree:
+        err("%d composers' sparkline and printed readership come from different data: %s"
+            % (len(disagree), "; ".join(disagree[:3])))
+
+
 def check_names(rows, people):
     """Every displayed name must BE a canonical Wikipedia title, minus its disambiguator.
 
@@ -305,6 +406,15 @@ def check_drift(rows, prev):
         if len(o) > 7 and len(n) > 7 and o[7] != n[7]:
             warn("%s: gender %r -> %r — a Wikidata correction, or the row joined to a different "
                  "person" % (name, o[7], n[7]))
+        # A composer who HAD readership and now has none. Either their article was deleted, or a
+        # fetch did not answer and fetch_views.py dropped the series so the next run asks again —
+        # which is the honest behaviour but costs that composer their sparkline for one cycle. It
+        # is a warning rather than an error because both causes are legitimate; the point is that
+        # it cannot happen quietly, since the alternative is a row that silently stops being
+        # plotted at all.
+        if o[4] is not None and n[4] is None:
+            warn("%s: had %s readers/mo, now has none — a deleted article, or a fetch that did "
+                 "not answer and was dropped for the next run to retry" % (name, o[4]))
         if o[4] and n[4] and (n[4] / o[4] > 20 or o[4] / n[4] > 20):
             err("%s: page views %s -> %s (>20x). A jump this size is a wrong article, not a change "
                 "in readership — check the resolved title." % (name, o[4], n[4]))
@@ -329,8 +439,10 @@ def main():
     rows = check_structure(cur)
     if rows:
         people = load("data/people.json", required=False)
-        check_sources(rows, people, load("data/pageviews.json", required=False),
-                      load("data/list.json", required=False))
+        meta = cur.get("meta") or {}
+        pv = load("data/pageviews.json", required=False)
+        check_sources(rows, meta, people, pv, load("data/list.json", required=False))
+        check_history(rows, meta, load("readership.json", required=False), pv)
         check_names(rows, people)
         if not args.no_drift:
             check_drift(rows, baseline_rows(args.baseline))

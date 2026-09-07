@@ -52,3 +52,7 @@ jobs:
         run: python3 scripts/validate.py
       - name: the gate's own tests (scripts/validate.test.py)
         run: python3 scripts/validate.test.py
+      # No network: fetch() is stubbed and the cache is a temp file. It guards the one thing about
+      # data/pageviews.json that cannot be seen after the fact — a null that no request justified.
+      - name: page-view cache invariants (scripts/fetch_views.test.py)
+        run: python3 scripts/fetch_views.test.py

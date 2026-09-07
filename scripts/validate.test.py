@@ -130,6 +130,53 @@ def unfilterable_gender(d):
             p_["gender"] = "non-binary"
 
 
+# ---------------------------------------------------------------- two files, one measurement
+@case("the sparkline and the number beside it were built from different fetches", "different data")
+def history_drift(d):
+    # What rebuilding composers.json without rebuilding readership.json looks like: both files are
+    # internally consistent, the panel prints one readership and draws another, and no code path
+    # anywhere can notice. The only thing that can is recomputing one from the other.
+    name = d["composers"]["rows"][0][0]
+    d["history"]["series"][name] = [None if v is None else v * 3
+                                    for v in d["history"]["series"][name]]
+
+
+@case("a month cached in one file and not the other", "different fetches")
+def history_short(d):
+    d["history"]["months"] = d["history"]["months"][:-1]
+    for k in d["history"]["series"]:
+        d["history"]["series"][k] = d["history"]["series"][k][:-1]
+
+
+@case("a cached series that fell out of step with its own month axis", "not aligned")
+def ragged_cache(d):
+    # data/pageviews.json stores each series as a FLAT ARRAY aligned to `months`, which is a
+    # quarter of the bytes of the old {month: count} form and diffs one line per composer. The
+    # price is that alignment is now load-bearing: an array one short shifts every month by one
+    # and the numbers that come out are entirely plausible.
+    pv = d["pageviews"]
+    victim = next(iter(pv["series"]))
+    pv["series"][victim] = pv["series"][victim][:-1]
+
+
+@case("a month the API had not published cached as though nobody read anything",
+      "newest cached month")
+def unsettled_month(d):
+    # The pageviews API does not withhold a month in progress — it returns the days so far — so
+    # fetch_views.py guards this on the CLOCK. This is the net for a cache that got one anyway:
+    # left in, it is the newest month on the axis, so every median is computed over eleven values
+    # and composers.json's window ends there, which tells refresh.py it is done for the month.
+    for k, v in d["pageviews"]["series"].items():
+        v[-1] = None
+
+
+@case("a rename that only landed in one file", "name nobody in composers.json")
+def history_rename(d):
+    ser = d["history"]["series"]
+    victim = d["composers"]["rows"][0][0]
+    ser["Fanny Mendelssohn"] = ser.pop(victim)
+
+
 @case("a gender the cache never stated", "does not state")
 def invented_gender(d):
     for r in d["composers"]["rows"]:
@@ -141,7 +188,8 @@ def invented_gender(d):
 def run_case(name, expect, mutate):
     with tempfile.TemporaryDirectory() as tmp:
         os.makedirs(os.path.join(tmp, "data"))
-        for rel in ["composers.json", "data/people.json", "data/pageviews.json", "data/list.json"]:
+        for rel in ["composers.json", "readership.json",
+                    "data/people.json", "data/pageviews.json", "data/list.json"]:
             shutil.copy(os.path.join(ROOT, rel), os.path.join(tmp, rel))
         base = os.path.join(tmp, "baseline.json")
         shutil.copy(os.path.join(ROOT, "composers.json"), base)
@@ -150,11 +198,13 @@ def run_case(name, expect, mutate):
             "composers": json.load(open(os.path.join(tmp, "composers.json"), encoding="utf-8")),
             "people": json.load(open(os.path.join(tmp, "data/people.json"), encoding="utf-8")),
             "pageviews": json.load(open(os.path.join(tmp, "data/pageviews.json"), encoding="utf-8")),
+            "history": json.load(open(os.path.join(tmp, "readership.json"), encoding="utf-8")),
         }
         mutate(d)
         json.dump(d["composers"], open(os.path.join(tmp, "composers.json"), "w", encoding="utf-8"))
         json.dump(d["people"], open(os.path.join(tmp, "data/people.json"), "w", encoding="utf-8"))
         json.dump(d["pageviews"], open(os.path.join(tmp, "data/pageviews.json"), "w", encoding="utf-8"))
+        json.dump(d["history"], open(os.path.join(tmp, "readership.json"), "w", encoding="utf-8"))
 
         out = subprocess.run([sys.executable, VALIDATE, "--root", tmp, "--baseline", base],
                              capture_output=True, text=True)

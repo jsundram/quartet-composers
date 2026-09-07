@@ -84,6 +84,15 @@ async function mouse(type, x, y) {
   await send("Input.dispatchMouseEvent", { type, x, y, button: type === "mouseMoved" ? "none" : "left",
     buttons: 0, clickCount: type === "mouseMoved" ? 0 : 1, pointerType: "mouse" });
 }
+// Real key events, not element.dispatchEvent: the app's arrow handling is a DOCUMENT listener,
+// and a synthetic event on one node does not prove the one that actually fires reaches it.
+const VK = { ArrowLeft: 37, ArrowUp: 38, ArrowRight: 39, ArrowDown: 40, Home: 36, End: 35 };
+async function key(k) {
+  for (const type of ["keyDown", "keyUp"]) {
+    await send("Input.dispatchKeyEvent", { type, key: k, code: k, windowsVirtualKeyCode: VK[k] || 0,
+      nativeVirtualKeyCode: VK[k] || 0 });
+  }
+}
 async function viewport(w, h, mobile = false) {
   await send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 2, mobile });
 }
@@ -155,7 +164,149 @@ check("the most-read composer is not said to out-read 100% of the list",
       await ev(`document.querySelector('#detail .rank').textContent`));
 check("document did NOT scroll on select", await ev(`window.scrollY === 0`), "scrollY=" + await ev("window.scrollY"));
 
+// --- 3b. the readership sparkline ---------------------------------------------
+// readership.json is fetched AFTER the first paint and is not a boot dep, so the panel is
+// correct before it lands and grows the line when it does. Everything here waits for that.
+await sleep(600);
+check("the panel draws a readership sparkline",
+      await ev(`document.querySelectorAll('#detail svg.spark path.spark-line').length >= 1`),
+      "spark paths=" + await ev(`document.querySelectorAll('#detail svg.spark path.spark-line').length`));
+check("the sparkline spans the whole cached history, not the statistic's twelve months",
+      await ev(`(()=>{const ax=[...document.querySelectorAll('#detail .spark-ax span')].map(s=>s.textContent);
+        const m = ax[1] && ax[1].match(/^(\\d{4})–(\\d{4})$/);
+        return ax.length===2 && !!m && +m[2] - +m[1] >= 5})()`),
+      await ev(`[...document.querySelectorAll('#detail .spark-ax span')].map(s=>s.textContent).join(" ")`));
+// The caption names the SPIKE when there is one and the TREND otherwise — a fixed "peak N×
+// typical" called noise a spike on half the roster (the median composer's biggest month is 3.1x
+// their typical one) and buried the real story for the steady ones. Mozart's line has no spike by
+// the peak/p95 >= 3 test, so his caption is a trend.
+const capOf = () => ev(`document.querySelector('#detail .spark-cap').textContent`);
+check("a composer with no spike is captioned by trend, not by a meaningless peak",
+      /^(up|down) \d+% since \d{4}$|^steady since \d{4}$/.test(await capOf()), await capOf());
+// …and the peak hairline is drawn ONLY when the caption names the peak. An annotation pointing at
+// a month nothing mentions has no referent.
+check("no peak marker on a line whose caption does not name one",
+      await ev(`document.querySelectorAll('#detail .spark-peak').length === 0`));
+
+// Saariaho died in June 2023 and her article went from ~2,000 readers a month to 42,195. That is
+// what the spike branch is for, and it is the case a 12-month window structurally cannot show.
+await goto(BASE + "#c=" + encodeURIComponent("Kaija Saariaho"));
+await sleep(900);
+check("a real spike is captioned by its peak month and how far above typical it stood",
+      /^peak [A-Z][a-z]{2} \d{4} — [\d,]+, [\d.]+× typical$/.test(await capOf()), await capOf());
+check("a captioned peak gets a marker on the line",
+      await ev(`document.querySelectorAll('#detail .spark-peak').length === 1`));
+// EXACT here, ROUNDED in the <dl> above, and that is the point: the dl carries the MEDIAN, a
+// smoothed estimate whose last four figures are noise ("2.7k+"), while a month on this line is a
+// raw tally of one month. Rounding the number you hovered to read defeats the hovering.
+check("the sparkline prints raw monthly tallies where the measure above it rounds",
+      (await capOf()).includes("42,195")
+      && /\dk\+/.test(await ev(`[...document.querySelectorAll('#detail dd')].pop().textContent`)),
+      await capOf() + "  |  " + await ev(`[...document.querySelectorAll('#detail dd')].pop().textContent`));
+
+// --- 3c. reading one month off the sparkline ----------------------------------
+// The readout REPLACES the caption instead of adding a line, because the compact panel reserves a
+// fixed height for a hover preview — a box that grew under the pointer would pump the legend.
+const sbox = await ev(`(()=>{const r=document.querySelector('#detail svg.spark').getBoundingClientRect();
+  return {x:r.x,y:r.y,w:r.width,h:r.height}})()`);
+const capH = await ev(`document.querySelector('#detail .spark-cap').getBoundingClientRect().height`);
+await mouse("mouseMoved", sbox.x + sbox.w * 0.72, sbox.y + sbox.h / 2);
+await sleep(150);
+check("hovering the sparkline reads out that month and its count",
+      /^[A-Z][a-z]{2} \d{4} · [\d,]+$/.test(await capOf()), await capOf());
+check("the hovered month is marked on the line",
+      await ev(`document.querySelector('#detail .spark-cursor').classList.contains('on')`));
+check("the readout does not change the panel's height",
+      Math.abs(await ev(`document.querySelector('#detail .spark-cap').getBoundingClientRect().height`) - capH) < 1);
+await mouse("mouseMoved", sbox.x - 40, sbox.y - 40);
+await sleep(150);
+check("leaving the sparkline puts the summary back",
+      (await capOf()).startsWith("peak"), await capOf());
+
+// The keyboard gets the same readout, not a second mechanism. This is a READ-ONLY value stepper,
+// which is why arrow keys are right here and wrong for the readership brush (see TODO).
+await ev(`document.querySelector('#detail svg.spark').focus()`);
+await sleep(150);
+check("focusing the sparkline starts the readout at the peak",
+      (await capOf()).startsWith("Jun 2023"), await capOf());
+const whoBefore = await ev(`document.querySelector('#detail h2').textContent`);
+await key("ArrowLeft"); await key("ArrowLeft"); await key("ArrowLeft");
+await sleep(150);
+check("arrow keys step a month, not a composer",
+      /^[A-Z][a-z]{2} \d{4} · [\d,]+$/.test(await capOf())
+      && await ev(`document.querySelector('#detail h2').textContent`) === whoBefore,
+      await capOf() + " | still " + await ev(`document.querySelector('#detail h2').textContent`));
+await key("Home");
+await sleep(150);
+check("Home reads the first month on the axis", (await capOf()).startsWith("Jul 2015"), await capOf());
+await ev(`document.querySelector('#detail svg.spark').blur()`);
+await sleep(150);
+
+// --- 3d. the arithmetic edges, forced ------------------------------------------
+// Not reachable in today's readership.json — five series contain a zero month, none has a zero
+// median — but the roster is rebuilt from a scrape every month and the obscure tail is where a
+// zero median would first appear. Both of these rendered visible garbage before they were guarded.
+// The shape has to clear p95 > 0 as well as put the MEDIAN at zero, or the spike test
+// short-circuits on p95 and the Infinity is never reached: a majority of dead months, a tail of
+// live ones, and one big one. (A series with a single non-zero month has p95 == 0 and was always
+// safe — which is why the fixture is built deliberately rather than by intuition.)
+const zeroMedianCap = await ev(`(()=>{
+  const name = document.querySelector('#detail h2').textContent;
+  window.__realSeries = HIST.series[name];
+  const n = window.__realSeries.length;
+  const z = Array.from({length: n}, (_, i) => i < n * 0.55 ? 0 : 10);
+  z[n - 1] = 500;
+  HIST.series[name] = z;
+  renderDetail(selected, false);
+  const c = document.querySelector('#detail .spark-cap');
+  return c ? c.textContent : "(no sparkline)";
+})()`);
+check("a composer whose typical month is zero does not print an infinite multiple",
+      !/Infinity|NaN/.test(zeroMedianCap), zeroMedianCap);
+const allZero = await ev(`(()=>{
+  const name = document.querySelector('#detail h2').textContent;
+  HIST.series[name] = window.__realSeries.map(() => 0);
+  renderDetail(selected, false);
+  return document.querySelectorAll('#detail .spark, #detail .spark-cap').length;
+})()`);
+// An all-zero series has no line to draw: every y is 0/0, so the path came out "MNaN,NaN…" and
+// rendered as nothing at all under a caption reading "peak Mar 2019 — 0".
+check("an all-zero series draws no sparkline rather than an invisible one", allZero === 0,
+      "spark nodes = " + allZero);
+await ev(`(()=>{ const name = document.querySelector('#detail h2').textContent;
+  HIST.series[name] = window.__realSeries; renderDetail(selected, false); return true })()`);
+await sleep(150);
+
+// An article that did not exist in 2015 has nulls, and a null is a BREAK, not a zero — drawing it
+// as zero would claim nobody read a page that was not there. John Verrall's article starts in 2025.
+await goto(BASE + "#c=" + encodeURIComponent("John Verrall"));
+await sleep(900);
+check("a composer whose article is younger than the axis starts partway across",
+      await ev(`(()=>{const p=document.querySelector('#detail path.spark-line');
+        return p && +p.getAttribute('d').slice(1).split(",")[0] > 100})()`),
+      "line starts at x=" + await ev(`(()=>{const p=document.querySelector('#detail path.spark-line');
+        return p ? p.getAttribute('d').slice(1).split(",")[0] : "no line"})()`));
+// …and SAYS so, because nine tenths of an empty line chart reads as "nobody read this" rather
+// than "the article did not exist yet".
+check("the blank stretch before a young article is named, not left to read as zero",
+      /^from [A-Z][a-z]{2} \d{4}$/.test(await ev(`[...document.querySelectorAll('#detail .spark-ax span')].pop().textContent`)),
+      await ev(`[...document.querySelectorAll('#detail .spark-ax span')].pop().textContent`));
+
+// The sparkline is the ONE drawn thing in this app whose colours are NOT baked into the SVG by
+// JS — it is plain inline SVG in the document, so a CSS variable reaches it and Theme.subscribe
+// has nothing to re-bake. That is a decision (see the note in styles.css), so it gets a check.
+const sparkLight = await ev(`getComputedStyle(document.querySelector('#detail path.spark-line')).stroke`);
+await ev(`Theme.set('dark')`); await sleep(300);
+const sparkDark = await ev(`getComputedStyle(document.querySelector('#detail path.spark-line')).stroke`);
+check("the sparkline follows the theme with no colour baked into the SVG",
+      sparkLight !== sparkDark
+      && !(await ev(`document.querySelector('#detail path.spark-line').hasAttribute('stroke')`)),
+      `${sparkLight} -> ${sparkDark}`);
+await ev(`Theme.set('auto')`); await sleep(200);
+
 // --- 4. search filters both views --------------------------------------------
+await goto(BASE);
+await sleep(400);
 await ev(`(()=>{const q=document.getElementById('q'); q.value='haydn';
   q.dispatchEvent(new Event('input',{bubbles:true}));})()`);
 await sleep(300);
@@ -906,6 +1057,12 @@ check("the full-screen strip sits above the chart, covering nothing",
 // The anti-churn contract: #plot is flex:1 in full screen, so a strip that changed height would
 // re-lay out the chart — moving the dot out from under the finger that just tapped it.
 const plotH = await ev(`document.getElementById('plot').getBoundingClientRect().height`);
+// The strip's height is FIXED because #plot is flex:1 there — anything that grows on select
+// re-lays out the chart under the finger that just tapped it, which is why tight() returns before
+// the sparkline is ever built.
+check("the full-screen strip draws no sparkline",
+      await ev(`document.querySelectorAll('#detail .spark, #detail .spark-cap').length === 0`),
+      "spark nodes in strip=" + await ev(`document.querySelectorAll('#detail .spark, #detail .spark-cap').length`));
 await shot("mobile-fs");
 await ev(`[...document.querySelectorAll('#detail .detail-nav button')].find(b=>b.textContent==='Clear').click()`);
 await sleep(400);
@@ -962,6 +1119,18 @@ const pinnedTop = await ev(`document.querySelector('#viz .legend').getBoundingCl
 check("pinning does not shove it either", Math.abs(pinnedTop - beforeTop) < 2,
       `legend top ${beforeTop.toFixed(0)} -> ${pinnedTop.toFixed(0)}`
       + " (panel " + await ev(`document.getElementById('detail').getBoundingClientRect().height.toFixed(0)`) + "px)");
+// The dot above is whichever is largest, and its caption is a short trend line. The WORST case for
+// the reservation is a spike caption — "peak Jun 2023 — 42,195, 18× typical" is half again as long
+// and is what would wrap first — so the box has to cover that one too.
+await goto(BASE + "#c=" + encodeURIComponent("Kaija Saariaho"));
+await sleep(900);
+const spikeTop = await ev(`document.querySelector('#viz .legend').getBoundingClientRect().top`);
+await goto(BASE);
+await sleep(600);
+check("the reservation covers the LONGEST caption, not just the first one tested",
+      Math.abs(spikeTop - (await ev(`document.querySelector('#viz .legend').getBoundingClientRect().top`))) < 2,
+      `legend top with a spike caption ${spikeTop.toFixed(0)} vs empty `
+      + (await ev(`document.querySelector('#viz .legend').getBoundingClientRect().top`)).toFixed(0));
 
 // --- 7f. landscape full screen: the strip must not eat the chart ------------------------------
 // A phone on its side is 390px TALL. The strip takes its height out of #plot rather than floating

@@ -1,0 +1,97 @@
+# Monthly readership top-up. Runs scripts/refresh.py and opens a PR when it changes something.
+#
+# WHY A SCHEDULE AT ALL. The page-view numbers go stale silently: nothing looks wrong when the
+# medians are eight months old, the chart just quietly stops being about now. Everything else in
+# this dataset changes for editorial reasons and should be looked at by a human; readership is the
+# one input that is stale purely because time passed, which is exactly what a cron is for.
+#
+# WHY THE 3rd. The pageviews API needs a day or two to settle the month that just ended, and
+# refresh.py's whole job is the month that just ended. On the 1st it would find nothing new and
+# no-op, which is harmless but pointless.
+#
+# WHY A PR AND NOT A PUSH. scripts/validate.py has caught four dataset bugs that looked entirely
+# plausible in the file, and every one of them needed a human to read a two-line diff. A robot
+# pushing straight to main is how the fifth one ships. The PR is also where the "did anything
+# move?" question gets answered — 884 changed numbers with one composer up 30x is the shape of a
+# wrong-article join, and it is legible in a diff and invisible in a chart.
+#
+# NB a PR opened with the built-in GITHUB_TOKEN does NOT trigger other workflows, so checks.yml
+# will not run on it. That is why refresh.py runs validate.py itself and this job fails if the
+# gate does — the gate must not be skippable just because the robot opened the PR.
+name: refresh data
+
+on:
+  schedule:
+    - cron: "0 6 3 * *"
+  workflow_dispatch: {}       # "run it now" — the same job, on demand
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# One at a time. Two overlapping runs would race on the same branch and the loser would force-push
+# the winner's data away.
+concurrency:
+  group: refresh-data
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      # fetch-depth 2 so validate.py can diff composers.json against the previous commit — the
+      # drift checks are the only thing that can see a wrong-article join.
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 2 }
+
+      - name: is a refresh due?
+        id: due
+        run: |
+          if python3 scripts/refresh.py --check; then
+            echo "due=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "due=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # fetch_views.py -> build_data.py -> validate.py, then the V bump. It fails the job if the
+      # data gate fails, and leaves the version alone in that case.
+      - name: top up, rebuild, validate, bump V
+        if: steps.due.outputs.due == 'true'
+        run: python3 scripts/refresh.py
+
+      - name: open or update the PR
+        if: steps.due.outputs.due == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "refresh.py changed nothing — no PR"
+            exit 0
+          fi
+          MONTH=$(python3 -c "import json;print(json.load(open('composers.json'))['meta']['views_months'][-1])")
+          BRANCH="data/readership-$MONTH"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # A deterministic branch name so a re-run UPDATES the open PR instead of opening a
+          # second one for the same month.
+          git checkout -B "$BRANCH"
+          git add -A
+          git commit -m "Refresh readership through $MONTH" \
+            -m "scripts/refresh.py: fetch_views.py -> build_data.py -> validate.py, then a V bump because composers.json and readership.json are precached. Opened by .github/workflows/refresh.yml."
+          git push -f origin "$BRANCH"
+          if [ -n "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
+            echo "PR for $BRANCH already open — pushed the update to it"
+            exit 0
+          fi
+          {
+            echo "Monthly top-up from \`scripts/refresh.py\`. The statistic window now ends $MONTH, and"
+            echo "\`sw.js\`'s \`V\` is bumped because both shipped files are precached."
+            echo
+            echo "\`validate.py\` passed in the job that produced this, drift checks against the previous"
+            echo "commit included — those are the only thing that can see a wrong-article join. Worth"
+            echo "reading the diff anyway: a composer whose readership moved by a factor is either news"
+            echo "or a bad title resolution, and the diff is where you can tell which."
+          } > /tmp/pr-body.md
+          gh pr create --base main --head "$BRANCH" \
+            --title "Refresh readership through $MONTH" --body-file /tmp/pr-body.md

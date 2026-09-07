@@ -2,12 +2,13 @@
 # /// script
 # requires-python = ">=3.9"
 # ///
-"""Combine the three cached sources into composers.json, the one file the app fetches.
+"""Combine the three cached sources into the two files the app fetches.
 
     data/list.json       scrape_list.py     roster + quartet counts + prose dates
     data/people.json     fetch_wikidata.py  canonical titles + P569/P570 dates + P21 gender
-    data/pageviews.json  fetch_views.py     12 monthly view counts per article
-                      -> composers.json
+    data/pageviews.json  fetch_views.py     every monthly view count the API has, per article
+                      -> composers.json     the roster: one row per composer, one number for views
+                      -> readership.json    the HISTORY: the whole monthly series, per composer
 
     python3 scripts/build_data.py
 
@@ -19,6 +20,19 @@ views are its noisiest input: a single month sits 12% off the 12-month median ty
 worst, August is a seasonal trough, and one composer has a month at 2.13x his own median. The
 median ignores an anniversary or obituary spike rather than baking it in. min and max ship too, so
 the detail panel can show the spread instead of implying a precision that isn't there.
+
+AND IT IS TWELVE MONTHS, NOT THE WHOLE CACHE. fetch_views.py now caches everything back to
+2015-07, but the chart's question is "how much read is this composer NOW", so the statistic is
+still the median of the LAST TWELVE cached months (STAT_MONTHS). Widening it would quietly change
+every dot on the chart and bake a 2016 readership into a 2026 picture — Kaija Saariaho's
+all-history median is 2,340 against 2,840 for the last year, and her obituary month is 42,195.
+
+WHY THE HISTORY IS A SECOND FILE. composers.json is a BOOT dependency: sw.js serves it before the
+page can paint anything at all, and 884 monthly series is more than ten times the size of the
+roster itself. The sparkline is the one thing in this app that nothing else needs, so it is the
+one thing that loads on its own — precached like everything else, fetched after the first paint,
+and simply absent if it never arrives. Keyed by DISPLAY name (what composers.json rows carry),
+because that is what the app has in hand when it draws the panel.
 
 WHAT "LIVING" MEANS NOW. It is `death is None` as of the last fetch_wikidata.py run — a fact about
 today, from a structured claim. The old dataset inferred it by testing `birth + lifespan == 2014`
@@ -32,6 +46,7 @@ silently mixes a pre-2015 measurement system into a 2026 dataset, and renders as
 either way. For gender the alternative would be worse still: the only way to fill that null is to
 guess from a name, which is a guess about a person and is what invariant 10 exists to forbid.
 """
+import collections
 import datetime as dt
 import json
 import os
@@ -45,10 +60,15 @@ LIST = os.path.join(ROOT, "data", "list.json")
 PEOPLE = os.path.join(ROOT, "data", "people.json")
 VIEWS = os.path.join(ROOT, "data", "pageviews.json")
 OUT = os.path.join(ROOT, "composers.json")
+HIST_OUT = os.path.join(ROOT, "readership.json")
 
 # Wikipedia's parenthetical qualifier is a URL disambiguator, not part of anybody's name, and every
 # row on this chart is a composer already.
 QUALIFIER = re.compile(r"\s*\((?:composer|musician|conductor|violinist|pianist|[^)]*musician)\)$", re.I)
+
+# How many of the cached months the headline view statistic is measured over. A year smooths the
+# seasonal trough without reaching back into a readership that is no longer current.
+STAT_MONTHS = 12
 
 
 def main():
@@ -58,9 +78,27 @@ def main():
         people = json.load(f)
     with open(VIEWS, encoding="utf-8") as f:
         pv = json.load(f)
-    months, series = pv["months"], pv["series"]
+    history, series = pv["months"], pv["series"]
+    # The statistic's window: the last twelve cached months. Not the whole cache — see the header.
+    months = history[-STAT_MONTHS:]
+    # Every series is a flat array aligned to `history` (fetch_views.py). Checked rather than
+    # assumed: a mis-aligned array silently reads one composer's months as another's, and the
+    # numbers that come out are plausible — which is the failure mode this whole pipeline is
+    # arranged against.
+    bad = [t for t, a in series.items() if not isinstance(a, list) or len(a) != len(history)]
+    if bad:
+        print("data/pageviews.json: %d series are not aligned to its %d months (%s). Rerun "
+              "scripts/fetch_views.py, which rewrites the cache in the current form."
+              % (len(bad), len(history), ", ".join(bad[:3])), file=sys.stderr)
+        return 1
 
-    rows, seen, dropped = [], {}, []
+    # canons runs parallel to rows and is REORDERED WITH IT below. `seen` maps a canonical title to
+    # a row INDEX, and those indices are meaningless the moment the rows are sorted — that mix-up
+    # handed 673 composers someone else's history and validate.py's check_history caught it. The
+    # obvious repair, a {display name: canonical title} map, has the same bug one step further out:
+    # QUALIFIER strips the disambiguator, so "John Adams (composer)" and a bare "John Adams" — the
+    # exact pair invariant 5 is about — collapse to one key and the second silently wins.
+    rows, seen, dropped, canons = [], {}, [], []
     for e in listing["entries"]:
         title = e["title"]
         p = people.get(title, {})
@@ -74,8 +112,8 @@ def main():
             dropped.append((title, "death %s before birth %s" % (death, birth)))
             continue
 
-        vals = [series.get(canon, {}).get(m) for m in months]
-        vals = [v for v in vals if v is not None]
+        # The stat window is the TAIL of the axis, so it is the tail of every aligned array.
+        vals = [v for v in (series.get(canon) or [])[-STAT_MONTHS:] if v is not None]
         if vals:
             views = int(statistics.median(vals))
             lo, hi = min(vals), max(vals)
@@ -94,9 +132,23 @@ def main():
             dropped.append((title, "duplicate of %s" % canon))
             continue
         seen[canon] = len(rows)
+        canons.append(canon)
         rows.append(row)
 
-    rows.sort(key=lambda r: (r[1], r[0]))
+    order = sorted(range(len(rows)), key=lambda i: (rows[i][1], rows[i][0]))
+    rows = [rows[i] for i in order]
+    canons = [canons[i] for i in order]
+
+    # Two rows that print the same name cannot both be in readership.json, which is keyed by the
+    # name the app has in hand when it draws the panel — one would silently overwrite the other's
+    # decade of history. validate.py errors on it too (a shared link would be ambiguous), but the
+    # build has to stop HERE or it writes the bad file first and the diagnostic points downstream.
+    dupes = sorted(n for n, c in collections.Counter(r[0] for r in rows).items() if c > 1)
+    if dupes:
+        print("%d display names are shared by more than one row (%s) — QUALIFIER collapsed two "
+              "canonical titles into one name; the history file cannot key them apart."
+              % (len(dupes), ", ".join(dupes[:3])), file=sys.stderr)
+        return 1
 
     living = sum(1 for r in rows if r[2] is None)
     no_count = sum(1 for r in rows if r[3] is None)
@@ -124,12 +176,39 @@ def main():
         json.dump(out, f, separators=(",", ":"), ensure_ascii=False)
         f.write("\n")
 
+    # readership.json: the same series, aligned to ONE month axis so two composers' sparklines are
+    # comparable — a composer whose article is five years old draws a line over the right-hand
+    # half of the box, which is the honest picture. A month with no datum is null, never zero:
+    # "nobody read this" and "the article did not exist" are different facts (invariant 10), and
+    # zero would draw the second as a crash to the floor.
+    hist = {}
+    for r, canon in zip(rows, canons):
+        vals = series.get(canon)
+        if vals and any(v is not None for v in vals):
+            hist[r[0]] = list(vals)
+    hout = {
+        "meta": {
+            "generated": dt.date.today().isoformat(),
+            "note": "monthly English Wikipedia page views (agent=user) per composer, aligned to "
+                    "`months`; null where the API has no datum for that month",
+            "stat_months": STAT_MONTHS,
+        },
+        "months": history,
+        "series": dict(sorted(hist.items())),
+    }
+    with open(HIST_OUT, "w", encoding="utf-8") as f:
+        json.dump(hout, f, separators=(",", ":"), ensure_ascii=False)
+        f.write("\n")
+
     print("wrote composers.json - %d composers, %d bytes" % (len(rows), os.path.getsize(OUT)))
+    print("wrote readership.json - %d series x %d months, %d bytes"
+          % (len(hist), len(history), os.path.getsize(HIST_OUT)))
     print("  living (no death date on Wikidata): %d" % living)
     print("  no quartet count (listed, not plotted): %d" % no_count)
     print("  no page-view data: %d" % no_views)
     print("  women (P21 female): %d; no P21 claim: %d" % (women, no_gender))
-    print("  views: median of %s .. %s" % (months[0], months[-1]))
+    print("  views: median of %s .. %s (%d months of %d cached)"
+          % (months[0], months[-1], len(months), len(history)))
     if dropped:
         print("  dropped %d entries:" % len(dropped))
         for t, why in dropped:

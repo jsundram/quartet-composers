@@ -31,7 +31,7 @@
 // one that never updates. The seven review rounds behind this design: #7.
 
 // pwa-starter: sw.js @ d2fad01  (Google Fonts branch removed — this app ships system fonts only.)
-const V = "quartets-v23";   // <-- BUMP ON EVERY SHELL CHANGE (rename the stem freely; keep the digits)
+const V = "quartets-v26";   // <-- BUMP ON EVERY SHELL CHANGE (rename the stem freely; keep the digits)
 
 // "quartets-v" — the stem shared by every cache generation. app.js's VER_PREFIX must match it, and the
 // NUMERIC TAIL is load-bearing: it orders generations for the collect below and for checkVer()'s
@@ -56,6 +56,11 @@ const SHELL = [
   // The dataset. Precached JSON is deliberately NOT revalidated (see the fetch handler), so a
   // rebuild via scripts/build_data.py must be shipped with a V bump like any other shell file.
   "./composers.json",
+  // The readership history behind the detail panel's sparkline — SHELL but deliberately NOT a
+  // BOOT dep (see BOOT below). It is ten times the size of composers.json and nothing on the page
+  // waits for it, so precaching it buys the sparkline offline while gating a navigation on it
+  // would replace a working page with the offline notice over a decoration.
+  "./readership.json",
   "./assets/icon.svg", "./assets/icon-180.png", "./assets/icon-192.png", "./assets/icon-512.png",
 ];
 
@@ -325,7 +330,9 @@ async function cacheLookup(req) {
 //   - chart.js / table.js / histogram.js / app.js  the views and the code that wires them.
 //   - composers.json  the whole point. Present, the page is a chart; absent, it is a headline.
 // styles.css is deliberately NOT here: unstyled, the page is ugly but completely usable, and
-// trading that for the offline page would be the "gating on a nice-to-have" mistake.
+// trading that for the offline page would be the "gating on a nice-to-have" mistake. Neither is
+// readership.json, for the same reason and more so: app.js fetches it after the first paint and
+// draws the sparkline only if it arrives, so its absence costs one graphic and nothing else.
 const BOOT = ["./d3.v7.min.js", "./theme.js", "./names.js", "./chart.js", "./table.js",
               "./histogram.js", "./app.js", "./composers.json"];
 const BOOT_DEPS = { "": BOOT, "index.html": BOOT };

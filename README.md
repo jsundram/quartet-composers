@@ -25,6 +25,7 @@ stable picture, hovering was the only way to learn anything, and a screenshot of
 | Colour = lifespan on RdYlBu-9 | Diverging ramp pivoting on the **median** lifespan, with living composers off the ramp entirely |
 | 477 composers, frozen 2014 scrape | **884**, re-scraped, with a repeatable pipeline (below) |
 | Dot size = one month of page views | **Median of 12 months** — a single month is 12% off typical, 29% at worst |
+| — | **A readership sparkline** in the detail panel — every month since 2015-07, hover or arrow-key any month to read it, and a caption that names the spike (Saariaho's obituary, 18× typical) or the trend (Haydn, down 42% since 2015) |
 | — | **Readership histogram with a drag-to-filter brush**, to get the long tail out of the way |
 | — | **Gender filter** from Wikidata [P21](https://www.wikidata.org/wiki/Property:P21) — 276 of the 884 are women, and the Fame view shows the band they occupy |
 | — | Shareable URLs (`#v=swarm&c=Joseph+Haydn&r=1500-200000`), a share card generated from the real data, installable + offline |
@@ -37,13 +38,40 @@ offline and the exact bytes behind a deploy stay in git.
 ```sh
 python3 scripts/scrape_list.py      # the wiki page  -> data/list.json + data/list.wiki
 python3 scripts/fetch_wikidata.py   # canonical titles + P569/P570 + P21 -> data/people.json
-python3 scripts/fetch_views.py      # 12 monthly counts each -> data/pageviews.json
-python3 scripts/build_data.py       # combine the three -> composers.json
+python3 scripts/fetch_views.py      # every month since 2015-07 -> data/pageviews.json
+python3 scripts/build_data.py       # combine the three -> composers.json + readership.json
 ```
 
-Then run the data gate and **bump `V` in `sw.js`** — `composers.json` is precached, so without a bump the new numbers
+`build_data.py` writes **two** files, because they are wanted at different moments.
+`composers.json` (46 KB) is the roster and carries one view number per composer — the page cannot
+paint without it. `readership.json` (487 KB) is the monthly history behind the sparkline: nothing
+waits for it, so it is fetched after the first paint and the panel simply grows a line when it
+arrives. Both are precached; only the first is a boot dependency.
+
+Then run the data gate and **bump `V` in `sw.js`** — both files are precached, so without a bump the new numbers
 reach the repo and nobody's phone. `scripts/sw-lint.py` guards it; enable the hook with
 `git config core.hooksPath .githooks`.
+
+### Keeping it current
+
+Readership is the one input that goes stale purely because time passed, so it is the one on a
+schedule:
+
+```sh
+python3 scripts/refresh.py            # top up if a month has completed since the last build
+python3 scripts/refresh.py --check    # is one due? exit 1 if so, touch nothing
+```
+
+It is a **no-op unless a month has completed** — the test is whether `composers.json` already
+covers the last complete month, not a timestamp — and when one has, it runs the three stages,
+fails the run if the data gate fails, and bumps `V` only after it passes.
+`.github/workflows/refresh.yml` runs it on the 3rd of each month (the API needs a day or two to
+settle a finished month) and opens a PR. A PR rather than a push because every dataset bug this
+repo has had looked entirely plausible in the file and needed a human to read a two-line diff.
+
+The roster and the Wikidata reads are deliberately **not** on the schedule: those change for
+editorial reasons, and a roster that grows by three composers overnight with nobody looking is how
+a bad parse ships.
 
 Two review tools that are not part of the build:
 
@@ -79,6 +107,31 @@ traps, all of which this repo fell into first:
   typically and 29% at worst; August is a seasonal trough; one composer has a month at 2.13× his
   own median. `monthly` granularity returns the whole range in **one request**, so twelve months
   costs exactly what one did. The stored series makes the statistic recomputable offline.
+
+The cache now holds **every month the API has** — 2015-07 onward, 134 months — for the same
+one-request reason, and the detail panel draws it as a sparkline.
+Each series is stored as a **flat array aligned to a shared `months` axis**, null where the API had
+nothing: the obvious `{month: count}` object repeats the key 884 times per month and cost 1.9 MB
+against 0.5 MB for the same numbers, and had to be rewritten whole every month. A null is *asked,
+and there was nothing there* — distinct from a **missing** month, which is *never asked*, and
+recording it is what makes a top-up cheap: without it the 62 articles created after 2015 look
+permanently incomplete and are refetched in full on every run. The corollary is that a title that
+needs fetching is fetched over the **whole axis**, never over `--months`: a flat array has no third
+value between a count and a null, so the file holds exactly one asked window, and writing a
+narrower fetch onto the wider axis would record un-asked months as nulls that then read as
+complete forever. A month **in progress** is refused outright — the API does not withhold the
+current month, it returns the days so far as though they were the month. And a title that does not
+**answer** — a 404, or five exhausted retries — is dropped from the cache rather than written,
+because the flatten would otherwise null-pad it into looking complete forever; dropping it makes
+the next run ask again in full, which is what "rerun to pick them up" promises.
+`scripts/fetch_views.test.py` holds all of that as six stubbed, offline cases. The headline number did **not**
+move with it: the median is still over the last **twelve** cached months, because "how much read
+is this composer" is a question about now. The rest is history, which is a different question, and
+`validate.py` recomputes one from the other so the two files cannot drift apart. What a decade
+buys is the thing twelve months structurally cannot show: Kaija Saariaho runs at ~2,000 readers a
+month for eight years and touches 42,195 in June 2023, the month she died. 61 of the 884 articles
+did not exist in 2015, and their sparklines start partway across the box and say so — a blank
+stretch under a line chart otherwise reads as "nobody read this" rather than "not written yet".
 
 **(e) Sex or gender** is **Wikidata [P21](https://www.wikidata.org/wiki/Property:P21)**, and it is the one element that is not a measurement but
 a statement about a person — so it is reported, never derived. Same rank discipline as the dates
@@ -116,15 +169,16 @@ matched to the same human.
 
 ```sh
 python3 scripts/validate.py       # THE DATA GATE — see below; run it after every rebuild
-python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (15 cases)
-scripts/ui-test.sh           # 149 behavioural checks in a real headless Chrome (lens, tap-to-pin,
+python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (20 cases)
+python3 scripts/fetch_views.test.py  # the page-view cache's invariants, network stubbed (7 cases)
+scripts/ui-test.sh           # 170 behavioural checks in a real headless Chrome (lens, tap-to-pin,
                              #   the three filters, theme repaint, 390px layout, offline, print) — no deps
 node scripts/sw.test.mjs     # 24 tests of the service worker's fetch handler
 python3 scripts/sw-lint.py   # precache contract: V bumped, SHELL paths exist, no cross-origin
 python3 scripts/og-lint.py   # share card size (a card over ~250 KB previews as a grey box)
 ```
 
-`validate.py`, `validate.test.py`, `sw.test.mjs` and `sw-lint.py` all run in CI; `ui-test.sh` needs
+`validate.py`, `validate.test.py`, `fetch_views.test.py`, `sw.test.mjs` and `sw-lint.py` all run in CI; `ui-test.sh` needs
 a browser, so it's a local check and skips with exit 0 rather than failing if there isn't one.
 
 ### Why there's a data gate
