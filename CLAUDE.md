@@ -199,7 +199,8 @@ plain static assets. Read README.md first for what the app is.
 
 ## Testing
 
-Nine checks, all dependency-free:
+Ten entries — six checks that run offline, one that needs a browser, the monthly top-up, and two
+audits a human grades. No test framework, and nothing to install:
 
 - `node scripts/sw.test.mjs` — the service worker's fetch handler under mocked SW globals.
 - `python3 scripts/sw-lint.py` — the precache contract (invariant 1).
