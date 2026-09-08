@@ -466,8 +466,8 @@ plot — the detail panel on a phone, the legend, the hint — still moves by ex
 is correct. It is a picture changing shape, and none of it is a control.
 
 **The cost is 94px of the phone's first screen**, spent before a dot: 82px of pills-and-buttons
-plus their margin, which pushes the plot's top from 456 to 550 and leaves the Fame cloud 94% above
-the fold instead of all of it. That is what the comment in `index.html` used to defend — "four view
+plus their margin, which pushes the plot's top from 456 to 550 and leaves 294 of the plot's 321px
+above the fold (92%) instead of all of it. That is what the comment in `index.html` used to defend — "four view
 pills and three buttons above it were half the first screen" — and it is the cheaper half of the
 trade now that the row is the only thing standing between a second tap and the wrong control. At
 1280 it costs 50px and the plot still ends above the fold.
@@ -487,6 +487,50 @@ switcher does not move, and that the plot's height changed anyway, because the f
 trivially on a chart that had stopped resizing at all. Both "does not move" checks are red before
 the change, at 61px and 150px. The fifth, that full screen puts the controls back below the chart,
 passed before too: it is a guard against somebody unifying the two layouts, not evidence of a bug.
+
+### Nothing compares `V` between a branch and its base
+`sw-lint.py`'s headline check — a staged SHELL file with an unchanged `V` — reads
+`git diff --cached`, so it only ever bites in the pre-commit hook, and `checks.yml` says so in its
+own header. That leaves one hole, and this stack fell into it: #28 and #30 both bumped
+`quartets-v32` -> `v33` from the same base, byte-identically, so a three-way merge resolved them
+silently (`git merge-tree` confirms) and #30 would have landed `app.js`, `index.html` and
+`styles.css` with a net `V` delta of ZERO — every installed client keeping the old `styles.css`,
+with the controls back under the plot. Rebasing removes the last trace: #30's commit no longer
+touches `sw.js` at all, so no hook fires on the line that matters.
+
+A CI check has the information the hook does not: compare `V` in the head against `V` in the merge
+base, and fail when SHELL files differ but the version does not. It is the base-vs-head comparison
+`checks.yml` already names as a possible enhancement, and this is its motivating case. Not done
+here because it belongs to `checks.yml` rather than to a layout PR, and because it wants a decision
+first: whether a stack bumping one generation per PR (v31 -> v32 -> v33) or per push is the rule
+being enforced.
+
+### The readership brush shows its Clear button mid-drag, which wraps the filter row
+The rule [#29](https://github.com/jsundram/quartet-composers/issues/29) settled — nothing a finger
+rests on may be placed by a box the same press resizes — has one exception left, and it is the row
+directly above the one that issue was about. `applyFilters()` sets
+`$("hist-clear").hidden = !Histogram.getRange()` BEFORE the `settled !== false` guard, so the Clear
+button appears on the first frame of a brush drag rather than at the end of the gesture. On a phone
+`.filterbar` wraps and that button costs the row a line. Measured in place at 390x844, tops before
+-> after the button appears:
+
+| | before | after |
+|---|---|---|
+| `#hist` | 318.8 | 329.4 |
+| `#gender` | 381.8 | 392.4 |
+| `.controls .seg` | 455.8 | 466.4 |
+| `#plot` | 549.8 | 560.4 |
+
+So the brush — the control the finger is on — drops 10.6px mid-gesture, and pressing its Clear
+lifts the gender pills and the view switcher back by the same amount. Nothing at 1280, where the
+row does not wrap.
+
+**Not done, and not urgent**: it is a tenth of what #29 moved and well inside a 36px target, and
+the 4m4 checks cannot see it because they read `.controls .seg` across the four VIEWS and the brush
+is not a view. The fix is small — move that one line inside the settled branch, or reserve the
+button's width so the row cannot re-wrap — but the first changes when the button appears (it should
+still appear on a `#r=` boot, where there is no gesture to settle) and the second spends width on
+every phone for a button that is usually absent. Worth measuring both before picking.
 
 ### The Fame view drops birth year entirely
 Which is the thing the mocked-up "canon path" would have added: joining the repertoire in birth order
