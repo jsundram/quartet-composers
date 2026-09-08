@@ -488,22 +488,43 @@ trivially on a chart that had stopped resizing at all. Both "does not move" chec
 the change, at 61px and 150px. The fifth, that full screen puts the controls back below the chart,
 passed before too: it is a guard against somebody unifying the two layouts, not evidence of a bug.
 
-### Nothing compares `V` between a branch and its base — [#32](https://github.com/jsundram/quartet-composers/issues/32)
+### ~~Nothing compares `V` between a branch and its base~~ — done, 2026-09-08, [#32](https://github.com/jsundram/quartet-composers/issues/32)
 `sw-lint.py`'s headline check — a staged SHELL file with an unchanged `V` — reads
-`git diff --cached`, so it only ever bites in the pre-commit hook, and `checks.yml` says so in its
-own header. That leaves one hole, and this stack fell into it: #28 and #30 both bumped
+`git diff --cached`, so it only ever bit in the pre-commit hook, and `checks.yml` said so in its
+own header. That left one hole, and the #24/#27/#29 stack fell into it: #28 and #30 both bumped
 `quartets-v32` -> `v33` from the same base, byte-identically, so a three-way merge resolved them
-silently (`git merge-tree` confirms) and #30 would have landed `app.js`, `index.html` and
-`styles.css` with a net `V` delta of ZERO — every installed client keeping the old `styles.css`,
-with the controls back under the plot. Rebasing removes the last trace: #30's commit no longer
-touches `sw.js` at all, so no hook fires on the line that matters.
+silently and #30 would have landed `app.js`, `index.html` and `styles.css` with a net `V` delta of
+ZERO — every installed client keeping the old `styles.css`, with the controls back under the plot.
+Rebasing removed the last trace: #30's commit no longer touched `sw.js` at all, so no hook fired on
+the line that matters. It was caught by hand in review.
 
-A CI check has the information the hook does not: compare `V` in the head against `V` in the merge
-base, and fail when SHELL files differ but the version does not. It is the base-vs-head comparison
-`checks.yml` already names as a possible enhancement, and this is its motivating case. Not done
-here because it belongs to `checks.yml` rather than to a layout PR, and because it wants a decision
-first: whether a stack bumping one generation per PR (v31 -> v32 -> v33) or per push is the rule
-being enforced.
+`scripts/sw-lint.py --base REF` is the sixth check, and CI runs it on pull requests with
+`github.event.pull_request.base.sha`. **The decision the issue asked for was per PUSH**: any bump
+clears it, so a branch that bumps twice or jumps several generations is not punished — the rule is
+only that `V` ends up past the base's.
+
+**It takes TWO refs, and that is the whole design.** What the branch CHANGED is read from the merge
+base, so a base that moved ahead does not come back as files this branch touched (the same property
+that makes it survive a rebase, a squash and a stack). Which `V` it has to CLEAR is read from the
+base BRANCH's tip, because the tip is what it is about to merge into — and this is exactly where
+the naive version fails: against the merge base, the motivating case PASSES, since both PRs did
+differ from their own `v32` base. That distinction is the one thing about this check that is not
+obvious, so `sw-lint.test.py` opens with it.
+
+Three smaller decisions, each with a case in the test file: the SHELL list is the UNION of both
+sides (dropping an entry is itself a shell change, since clients keep serving it out of the old
+generation until `V` moves); a `V` whose tail goes DOWN fails with its own message, because the
+tail ORDERS generations and a lower one merges as the stale cache; and a renamed stem is a
+deliberate reset, so the tails stop being comparable and `V` merely differing is the whole answer.
+A missing merge base — what a too-shallow CI checkout looks like — is REPORTED rather than skipped,
+which is why the job's checkout is `fetch-depth: 0`. A check that passes when it could not run is
+the failure mode this whole issue is about.
+
+Eighteen cases in `scripts/sw-lint.test.py`, offline and ~1s, each building a throwaway repo with
+real branches — the failure `--base` catches looks correct from either side alone and cannot be
+staged from a single commit. It also asserts `git merge-tree` resolves the incident's merge without
+a conflict, which is the reason nothing upstream of CI sees it. `sw-lint.py` is a vendored
+pwa-starter file and its stamp now reads `(+ the --base branch check)` rather than `(unmodified)`.
 
 ### The readership brush shows its Clear button mid-drag, which wraps the filter row — [#31](https://github.com/jsundram/quartet-composers/issues/31)
 The rule [#29](https://github.com/jsundram/quartet-composers/issues/29) settled — nothing a finger

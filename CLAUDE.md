@@ -9,7 +9,12 @@ plain static assets. Read README.md first for what the app is.
 1. **Bump `V` in `sw.js` on every change to a `SHELL` file.** `composers.json`, `readership.json`,
    `chart.js`, `table.js`, `app.js`, `styles.css`, `index.html`, `theme.js`, `d3.v7.min.js` are
    all precached and served cache-first. Without a bump the fix reaches the repo and nobody's installed copy.
-   `scripts/sw-lint.py` guards it; `app.js`'s `VER_PREFIX` must keep matching `V`'s stem.
+   `scripts/sw-lint.py` guards it in TWO places, because one commit is not enough information:
+   the pre-commit hook catches a staged SHELL file with an unchanged `V`, and `--base REF` in CI
+   catches a BRANCH whose `V` does not clear the one its base is already on. The second exists
+   because two PRs off one base each bumped `v32` -> `v33` byte-identically, which a three-way
+   merge resolves silently into a net delta of zero (#32). `app.js`'s `VER_PREFIX` must keep
+   matching `V`'s stem.
    *This bit during development*: a headless-Chrome profile kept running the previous edit's
    `chart.js` for two test rounds. That was the feature working.
 
@@ -199,11 +204,17 @@ plain static assets. Read README.md first for what the app is.
 
 ## Testing
 
-Ten entries — six checks that run offline, one that needs a browser, the monthly top-up, and two
-audits a human grades. No test framework, and nothing to install:
+Eleven entries — seven checks that run offline, one that needs a browser, the monthly top-up, and
+two audits a human grades. No test framework, and nothing to install:
 
 - `node scripts/sw.test.mjs` — the service worker's fetch handler under mocked SW globals.
-- `python3 scripts/sw-lint.py` — the precache contract (invariant 1).
+- `python3 scripts/sw-lint.py` — the precache contract (invariant 1). Five of its six checks read
+  one commit; the sixth, `--base REF`, reads two and so takes the other one as an argument. CI runs
+  it on pull requests against the base sha, which is the only place with both sides of the merge.
+  `python3 scripts/sw-lint.test.py` covers that sixth check alone, in eighteen cases that each
+  build a throwaway repo with real branches — the failure it catches (#32) looks correct from
+  either side alone and cannot be staged from a single commit. It is a vendored pwa-starter file,
+  so its stamp reads `(+ the --base branch check)`; keep that current if you touch it again.
 - `python3 scripts/validate.py` — **the data gate**, and the most important one here. Every serious
   defect this dataset has had was a plausible-looking wrong number that no test caught; this
   compares composers.json against its schema, the other caches, readership.json and the previous
@@ -255,8 +266,8 @@ audits a human grades. No test framework, and nothing to install:
   which is the evidence behind invariant 15's refusal to. `--limit N` audits the N most-read
   instead of all 884, which is the difference between two minutes and ten.
 
-The first two run in CI. `ui-test.sh` does not (it needs a browser) — run it by hand after touching
-`chart.js`, `table.js`, or `styles.css`.
+The first two and `sw-lint.test.py` run in CI. `ui-test.sh` does not (it needs a browser) — run it
+by hand after touching `chart.js`, `table.js`, or `styles.css`.
 
 ## Design artifacts
 
