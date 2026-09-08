@@ -96,8 +96,10 @@ body.fs #filters{ margin:0 0 8px; padding:0; border:0; background:transparent }
 body.fs #filters .tablehead{ display:none }
 
 /* --- controls ------------------------------------------------------------------------------- */
-/* margin-TOP: the controls sit under the plot now (see index.html). */
-.controls{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:12px 0 0 }
+/* margin-BOTTOM: the controls sit ABOVE the plot (see index.html), so nothing the finger is on
+   is placed by a box whose height changes with the view. Full screen puts them back underneath
+   and swaps the margin with it. */
+.controls{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 12px }
 .seg{ display:flex; border:1px solid var(--line); border-radius:999px; overflow:hidden }
 .seg button{
   font:500 13px/1 system-ui, sans-serif; color:var(--muted); background:transparent;
@@ -336,7 +338,7 @@ body.fs #viz{
 body.fs #plot{ flex:1 1 auto; min-height:0; order:2 }
 body.fs #filters{ order:0 }
 body.fs #detail.compact{ order:1 }
-body.fs .controls{ order:3; margin-top:8px }
+body.fs .controls{ order:3; margin:8px 0 0 }
 body.fs .legend{ order:4 }
 body.fs #plot svg{ height:100% }
 body.fs .hint{ display:none }
@@ -352,7 +354,7 @@ body.fs .grid{ display:block }
   body.fs .legend{ display:none }
   body.fs #detail.compact{ height:50px; padding:6px 82px 6px 10px }
   body.fs #filters{ margin-bottom:6px }
-  body.fs .controls{ margin-top:6px }
+  body.fs .controls{ margin:6px 0 0 }
 }
 
 /* Phone-specific sizing. Targets REAL touch devices, not just a narrow desktop window. */

@@ -209,7 +209,7 @@ audits a human grades. No test framework, and nothing to install:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 209 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 214 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
@@ -283,6 +283,17 @@ made on evidence.
   of the chart card or the table card — all THREE filters (search, readership brush, gender pills)
   scope both views, and a filter drawn inside one card says otherwise. `placeFilters()` moves it into `#viz` in full screen (where the chart
   is everything) and CSS drops its search half there to keep the chart's height.
+- **The chart's controls sit ABOVE the plot, because the plot's height is a function of the VIEW.**
+  `measure()` in `chart.js` gives each mode its own aspect ratio (0.98 for Fame against 0.82 for
+  the timeline on a phone, 0.44 for the swarm), which is right — the picture is a different shape
+  in each — so a row underneath moves when you press it: 61px on a phone and 150px at 1280,
+  lifting the pill out from under a second tap at the same spot. Nothing a finger rests on may be
+  placed by a box the same press resizes, which is the rule the full-screen strip's fixed height
+  and `.compact`'s reserved box already follow. Full screen is the exception and stays underneath:
+  `#plot` is `flex:1` there, sized by the viewport rather than by the view, so there is nothing to
+  absorb and every pixel above the chart is a pixel of chart. It costs 94px of a phone's first
+  screen, which is what the old ordering was buying (issue 29). `placeDetail()`'s phone anchor
+  moved with the row — it inserts before `.legend`, or the panel lands above the chart.
 - **The table and the chart show short names; the detail panel shows the full title.**
   `names.js` is the only place that takes a canonical Wikipedia name apart, and it is a heuristic
   — see `SURNAME` there. It derives BOTH forms from one shared-surname map, so the two can never

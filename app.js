@@ -521,7 +521,9 @@ function renderLegend() {
 //
 // The two in-card positions are NOT interchangeable:
 //   phone, in flow   BELOW the plot, free to be as tall as the content. Nothing above it moves
-//                    when it grows, so the chart stays exactly where the eye left it.
+//                    when it grows, so the chart stays exactly where the eye left it — and since
+//                    the view switcher moved above the plot (issue 29), nothing it pushes down is
+//                    a control either.
 //   full screen      ABOVE the plot, between the readership filter and the chart, at a FIXED
 //                    height that is drawn whether or not anything is pinned. Every pixel there is
 //                    a pixel of chart, and a box that changed size would re-lay out the chart on
@@ -547,7 +549,9 @@ function placeDetail() {
   const inCard = !WIDE.matches || fs;
   det.classList.toggle("compact", inCard);
   const parent = inCard ? viz : document.querySelector(".grid");
-  const before = inCard ? (fs ? $("plot") : viz.querySelector(".controls")) : null;
+  // Anchored on the LEGEND, not on the controls: those moved above the plot (issue 29), and an
+  // anchor that follows them would drop the panel above the chart it is answering about.
+  const before = inCard ? (fs ? $("plot") : viz.querySelector(".legend")) : null;
   if (det.parentNode === parent && det.nextElementSibling === before) return;
   parent.insertBefore(det, before);            // insertBefore(x, null) === appendChild
   renderDetail(selected, false);               // the strip and the panel say different things
@@ -755,8 +759,10 @@ function ledeClause(st) {
 // and growing by a line beats clipping the sentence. The swap is synchronous — nothing paints
 // between writing the resting text into the span and writing back what is shown.
 //
-// It settles the plot's TOP, not everything under it: each view sizes its own plot, so a switch
-// still moves the controls below it by 52px on a phone. An encoding, not a collapse — issue 29.
+// It settles the plot's TOP, not its HEIGHT: each view sizes its own plot, so everything under the
+// chart still moves by up to 61px on a phone and 150px at 1280 when the view changes. That is an
+// encoding rather than a collapse and it stays; what moved is the switcher, which now sits ABOVE
+// the plot so no control is placed by the box it resizes (issue 29, index.html).
 let ledeW = -1;                        // the width the reservation was last measured at
 function reserveLede() {
   const p = document.querySelector(".lede"), el = $("lede-picked");
