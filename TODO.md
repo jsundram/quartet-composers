@@ -505,14 +505,14 @@ here because it belongs to `checks.yml` rather than to a layout PR, and because 
 first: whether a stack bumping one generation per PR (v31 -> v32 -> v33) or per push is the rule
 being enforced.
 
-### The readership brush shows its Clear button mid-drag, which wraps the filter row — [#31](https://github.com/jsundram/quartet-composers/issues/31)
+### ~~The readership brush shows its Clear button mid-drag~~ — done, 2026-09-08, [#31](https://github.com/jsundram/quartet-composers/issues/31)
 The rule [#29](https://github.com/jsundram/quartet-composers/issues/29) settled — nothing a finger
-rests on may be placed by a box the same press resizes — has one exception left, and it is the row
-directly above the one that issue was about. `applyFilters()` sets
+rests on may be placed by a box the same press resizes — had one exception left, and it was the row
+directly above the one that issue was about. `applyFilters()` set
 `$("hist-clear").hidden = !Histogram.getRange()` BEFORE the `settled !== false` guard, so the Clear
-button appears on the first frame of a brush drag rather than at the end of the gesture. On a phone
+button appeared on the first frame of a brush drag rather than at the end of the gesture. On a phone
 `.filterbar` wraps and that button costs the row a line. Measured in place at 390x844, tops before
--> after the button appears:
+-> after the button appeared:
 
 | | before | after |
 |---|---|---|
@@ -521,26 +521,30 @@ button appears on the first frame of a brush drag rather than at the end of the 
 | `.controls .seg` | 455.8 | 466.4 |
 | `#plot` | 549.8 | 560.4 |
 
-So the brush — the control the finger is on — drops 10.6px mid-gesture, and pressing its Clear
-lifts the gender pills and the view switcher back by the same amount. Nothing at 1280, where the
+So the brush — the control the finger is on — dropped 10.6px mid-gesture, and pressing its Clear
+lifted the gender pills and the view switcher back by the same amount. Nothing at 1280, where the
 row does not wrap.
 
-**Not done, and not urgent**: it is a tenth of what #29 moved and well inside a 36px target, and
-the 4m4 checks cannot see it because they read `.controls .seg` across the four VIEWS and the brush
-is not a view.
+**The fix was the one line, moved inside the guard**, and it does NOT cost the `#r=` boot, which
+was the first objection to it: boot calls `applyFilters(true)` after `Histogram.setRange(link.r)`,
+and the guard is `settled !== false`, which `true` passes. `applyFilters(false)` has exactly one
+source in the app — `Histogram.init`'s `onChange` — and inside `histogram.js` `done=false` comes
+only from `.on("brush", ...)`; `.on("end", ...)` passes `true` on both branches. So the only
+gesture the button now keeps quiet through is exactly the one it should.
 
-**The cheap fix is cheaper than this entry first claimed.** Moving that one line inside the
-`settled` branch does NOT cost the `#r=` boot: boot calls `applyFilters(true)` after
-`Histogram.setRange(link.r)`, and the guard is `settled !== false`, which `true` passes. Measured
-with the line moved — `#r=751-4501` boots with the button shown, and a drag holds `#hist` at 318.8
-throughout instead of dropping it 10.6px on the first frame. The brush's own `onChange` is the only
-source of `false` anywhere, which is exactly the gesture the button should keep quiet through.
+Four checks in `ui.test.mjs` section 4m5, which is its own section because the 4m4 checks
+structurally cannot see this: they read `.controls .seg` across the four VIEWS, and the brush is
+not a view. Two are red before the change — `#hist` reads 318.8 -> 329.4 on the first frame, and
+the button is unhidden mid-drag — and both pass after. The other two pass either way on purpose:
+that Clear still ARRIVES on release, and that a `#r=` deep link still boots with it shown, are
+guards against the two wrong fixes (never unhiding it, and moving the line somewhere the deep link
+misses), the same shape as 4m4's "full screen puts the controls back below the chart".
 
-What it leaves is one re-wrap at the END of the drag (318.8 -> 329.4 on release). That is the
-cheaper half — the gesture is over — but it is why the other option still exists: reserving the
-button's width means the row never wraps at all, at the cost of that width on every phone for a
-button that is usually absent. Do the one-liner first and see whether the release step earns the
-width.
+**What is left is one re-wrap at the END of the drag** (318.8 -> 329.4 on release), which the
+suite asserts rather than forbids. That is the cheaper half — the finger has left the control — but
+it is why the other option is still on the table: reserving the button's width means the row never
+wraps at all, at the cost of that width on every phone for a button that is usually absent. The
+one-liner shipped first, deliberately, so the release step can be judged on its own.
 
 ### The Fame view drops birth year entirely
 Which is the thing the mocked-up "canon path" would have added: joining the repertoire in birth order

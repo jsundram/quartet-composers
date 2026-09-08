@@ -1378,6 +1378,58 @@ for (const [w, h, mobile] of [[390, 844, true], [1280, 900, false]]) {
 }
 await viewport(1100, 1500);
 
+// --- 4m5. ...and neither does the brush, whose Clear button used to appear on the first frame ---
+// The last exception to the rule 4m4 settled, one row UP: `.filterbar` wraps on a phone, so
+// Histogram's Clear button costs the row a line, and applyFilters() used to unhide it above the
+// `settled !== false` guard — i.e. on the first "brush" event of a drag. The brush the finger was
+// resting on dropped 10.6px mid-gesture at 390 wide, and the gender pills and the view switcher
+// under it went with it (issue 31).
+//
+// 4m4 cannot see this, which is why it gets its own check: those loops read `.controls .seg`
+// across the four VIEWS, and the brush is not a view. Measured MID-DRAG — between mousePressed
+// and mouseReleased — because that is the only moment the bug existed; by release everything has
+// settled and the old and new code agree. A real d3-brush drag, not setRange(), for the same
+// reason section 4b uses one.
+await viewport(390, 844, true);
+await goto(BASE);
+await sleep(700);
+const histTop = () => ev(`document.getElementById('hist').getBoundingClientRect().top`);
+const clearHidden = () => ev(`document.getElementById('hist-clear').hidden`);
+const hb2 = await ev(`(()=>{const r=document.querySelector('#hist svg').getBoundingClientRect();
+  return {x:r.x,y:r.y,w:r.width,h:r.height}})()`);
+const beforeDrag = await histTop();
+await mouse("mousePressed", hb2.x + hb2.w * 0.60, hb2.y + hb2.h * 0.4);
+await mouse("mouseMoved",   hb2.x + hb2.w * 0.78, hb2.y + hb2.h * 0.4);
+await sleep(250);
+const midTop = await histTop(), midHidden = await clearHidden();
+await mouse("mouseMoved",   hb2.x + hb2.w * 0.92, hb2.y + hb2.h * 0.4);
+await sleep(250);
+const mid2Top = await histTop();
+await mouse("mouseReleased", hb2.x + hb2.w * 0.96, hb2.y + hb2.h * 0.4);
+await sleep(500);
+const releasedTop = await histTop();
+check("dragging the brush does not move the brush",
+      Math.abs(midTop - beforeDrag) < 1.5 && Math.abs(mid2Top - beforeDrag) < 1.5,
+      `#hist top ${beforeDrag.toFixed(1)} -> ${midTop.toFixed(1)} -> ${mid2Top.toFixed(1)} mid-drag`);
+check("...because Clear stays hidden until the gesture ends", midHidden === true,
+      `hidden mid-drag ${midHidden}, on release ${await clearHidden()}`);
+// The button still has to ARRIVE, or the range cannot be cleared without a second drag. The row
+// re-wrapping HERE is the accepted half of the trade: the finger has left the control. TODO.md
+// records the alternative (reserve the button's width) and why it was not taken first.
+check("...and arrives once it has", (await clearHidden()) === false,
+      `#hist top ${beforeDrag.toFixed(1)} -> ${releasedTop.toFixed(1)} on release`);
+await ev(`document.getElementById('hist-clear').click()`);
+await sleep(400);
+
+// The objection that kept this line above the guard: a `#r=` deep link must still boot with the
+// button shown. It does — boot calls applyFilters(TRUE) after Histogram.setRange(), and the guard
+// is `settled !== false`. Nothing in the app passes false except the brush's own mid-drag onChange.
+await goto(BASE + "#r=751-4501");
+await sleep(800);
+check("a #r= deep link still boots with Clear shown", (await clearHidden()) === false,
+      `range ${await ev(`document.getElementById('hist-read').textContent`)}`);
+await viewport(1100, 1500);
+
 // --- 5. sorting ---------------------------------------------------------------
 await goto(BASE);
 await ev(`[...document.querySelectorAll('thead th button')].find(b=>b.textContent==='Quartets').click()`);
