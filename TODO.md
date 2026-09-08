@@ -308,11 +308,75 @@ thing. Two edges: one surviving curated composer is named ("The one name picked 
 Haydn"), because "1732 to 1732" is not a range, and none leaves the sentence empty rather than
 written about nobody.
 
-Still typed, and correctly so: the clauses saying what the axes MEAN. Those are not facts about
-the data. **One that is still wrong, though, and out of scope here**: "Across is how many quartets
-they wrote, up is how much their article is read" describes the FAME view, and the lede does not
-change when you switch to Timeline or Swarm, where across is birth year. The per-mode hint under
-the chart says the right thing; the lede above it does not.
+Still typed, and correctly so: the clause saying what readership MEANS. That is not a fact about
+the data. The clause naming the AXES was left typed here on the same reasoning and turned out not
+to belong to it — the entry below.
+
+### ~~The lede described the Fame view in all four views~~ — done, 2026-09-08, [#24](https://github.com/jsundram/quartet-composers/issues/24)
+"Across is how many quartets they wrote, up is how much their English Wikipedia article is read"
+was typed into `index.html` and printed in every view. It is true in Fame, false in Timeline and
+Swarm (across is birth year), and only half true in Lens — and the per-mode `HINTS` under the
+chart said the right thing about 600 vertical pixels below, so the page contradicted itself on one
+screen. A shared `#v=swarm` link opened on the contradiction.
+
+**Cut, not derived.** The axes are already stated twice on screen by whichever view is drawn: the
+axis titles inside the plot (`quartets written →` / `birth year →`) and the hint under it. A third
+statement of the same fact can only ever be the copy that goes stale, and Swarm shows why swapping
+two nouns per mode would not have worked anyway — its vertical position means nothing, so there is
+no "up is" to write. The lede now says what the page IS and leaves the geometry to the geometry.
+
+**The issue was half the bug.** The clause the September fix BUILT had the same defect one clause
+over: `Chart.emphasisStats()` reports the curated fill and the derived rings regardless of mode,
+and `setMode()` never called `setLede()` — but every emphasis channel is Fame-only (`fillOf`,
+`strokeOf`, `widthOf`, `labelColorOf` all fall through to the lifespan encoding), so Timeline,
+Swarm and Lens were captioned "The names picked out are the repertoire, 1709 to 1906" over a
+picture that picks nothing out. `emphasisStats()` returns null outside Fame now — the gate is in
+`chart.js`, which is the file that knows which channels are Fame-only, so a fifth mode gets it
+right for free — and `setMode()` calls `setLede()` beside the `renderLegend()` it already called.
+Outside Fame the sentence is not reworded, it is unmade.
+
+The rule in `CLAUDE.md` was sharpened to the form the issue proposed: **prose the app can falsify
+is built or cut; only prose it cannot is typed.** "States a number" was the wrong test — this
+clause states none and the app falsifies it anyway, about the VIEW rather than about the data.
+Build it when nothing else on the page says it; cut it when something does.
+
+Five checks in `ui.test.mjs` (4m2), four of them red before the change: the lede names no axes in
+Fame or Swarm, a `#v=swarm` boot makes no claim about names picked out, and the switcher — the
+path that actually broke, since `goto()` re-boots the app and a pill does not — drops the claim.
+The fifth, that coming back to Fame restores the sentence, passed on the old code too and
+trivially so: the lede never changed on a mode switch at all, so it could not fail to be restored.
+It is a regression guard for the new `setLede()` call, not evidence of the old bug.
+
+### An empty lede clause collapses the paragraph and shoves the chart up
+The lede's built clause is one to three lines depending on the viewport, and when
+`Chart.emphasisStats()` returns null it empties — so everything below it moves up. Measured
+(headless Chrome, 390x844 and 1280x900):
+
+| trigger | phone: plot moves | desktop: plot moves |
+|---|---|---|
+| type "cambini" (no curated survivor) | 61px | 20px |
+| press a view pill | 41px | 41px |
+
+**Pre-existing, but it got a much commoner trigger.** The search case is old — `applyFilters()` has
+always called `setLede()`, and the 4m section already asserts the clause empties at `#q=cambini`.
+What #24 added is the mode switch, which before moved the plot 0px at both widths: pressing
+Timeline on a phone now lifts the switcher pill you just tapped 93px (was 52px, from the legend
+changing shape), so a quick second tap at the same spot lands on the wrong control. That is the
+same complaint the full-screen strip's fixed height and `.compact`'s hover `min-height` answer,
+one component up the page.
+
+Cutting the axis clause moved the other way and by more: the resting lede is 40px shorter at both
+widths (phone 162 to 122, desktop 101 to 81), so there is less above the fold to move at all.
+
+**Not fixed with #24, deliberately, because the obvious fix is the kind of number this repo bans.**
+A `min-height` on `.lede` has to cover the TALLEST state, and that state is a function of both the
+viewport (122px at 390, 81px at 1280 — different wrapping, so one px value cannot serve both) and
+the DATA (the sentence names a composer and two figures; "Only Joseph Haydn is left from the
+repertoire" is a third the length). Hardcoding it per breakpoint is a claim about the data typed
+into CSS, which is the drift `setLede()` exists to prevent, and reserving the tallest state leaves
+a blank band above the fold in the filtered case, which is most of the time anyone is filtering.
+The honest fix is a measured reservation — lock the height from the full sentence at the current
+width, re-measure on resize — which is a mechanism, not a tweak, and wants its own issue.
 
 ### The Fame view drops birth year entirely
 Which is the thing the mocked-up "canon path" would have added: joining the repertoire in birth order

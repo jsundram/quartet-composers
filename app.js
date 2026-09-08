@@ -974,6 +974,10 @@ function setMode(mode) {
   document.querySelectorAll(".controls .seg button").forEach(o => o.setAttribute("aria-pressed", String(o.dataset.mode === mode)));
   Chart.setMode(mode);
   renderLegend();                    // the views encode different things and need different keys
+  // ...and the lede introduces the same emphasis the key explains, so it moves with it or it goes
+  // on describing the view you just left. Only Fame picks any names out, so outside it the
+  // sentence is not reworded, it is unmade (Chart.emphasisStats returns null).
+  setLede();
   // The chips are painted from the view's encoding, but a full Table.render() empties tbody and
   // rebuilds ~880 rows -- which resets the scroll box to the top and destroys the focused row
   // under anyone who tabbed into the table. Only the colours change, so only repaint those.
