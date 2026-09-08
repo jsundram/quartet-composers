@@ -710,9 +710,15 @@ function applyFilters(settled) {
 // — "read about 210+ times a month" is not English — and the two say the same thing, since twoSig
 // floors either way.
 function setLede() {
-  const st = Chart.emphasisStats();
-  const el = $("lede-picked");
-  if (!st) { el.textContent = ""; return; }
+  $("lede-picked").textContent = ledeClause(Chart.emphasisStats());
+  reserveLede();
+}
+
+// The sentence itself, from one set of stats — split out because reserveLede() below writes the
+// RESTING one into the same span to measure it, and two spellings of this template would reserve
+// a height for a sentence the page does not print.
+function ledeClause(st) {
+  if (!st) return "";
   // "The one name picked out is X" was a fill-shaped claim about BOTH channels, and it was false
   // wherever a ring survived alongside it — at #r=751-4501 it named Boccherini while three derived
   // rings were on screen and the key was describing both. Naming the SET it is the last member of
@@ -723,10 +729,45 @@ function setLede() {
     ? `Only ${st.only} is left from ${st.noun}`
     : `The names picked out are ${st.noun}, ${st.from} to ${st.to}`;
   const ex = st.example;
-  el.textContent = ex
+  return ex
     ? `${subject}; ${ex.name} wrote ${ex.quartets} quartet${ex.quartets === 1 ? "" : "s"} and is `
       + `read about ${Histogram.fmt(twoSig(ex.views, -1))} times a month.`
     : `${subject}.`;
+}
+
+// The clause is one to three lines depending on the viewport, and it EMPTIES whenever the view
+// picks nothing out — every mode but Fame, and any filter no curated composer survives. The
+// paragraph then collapses and everything below it moves UP: 40.6px at 390 and at 1280 alike,
+// whether a search empties the clause or a view pill does, which lifts the pill you just tapped
+// out from under a second tap at the same spot (issue 27). Same complaint the full-screen strip's
+// fixed height and .compact's reserved box answer, one component down the page.
+//
+// So the box is reserved — MEASURED, not typed. A min-height in styles.css would have to name the
+// tallest state, which is a function of the VIEWPORT (122px at 390 wide, 82px at 1280, the same
+// sentence) and of the DATA (it names a composer and two figures) — that is the drift setLede()
+// exists to prevent, typed into CSS. Measuring the RESTING sentence at the current width claims
+// neither: the box is exactly the paragraph the reader arrived at, so no blank band is held open
+// that the page did not already have.
+//
+// min-height rather than height, because the resting sentence is not PROVABLY the longest: under a
+// filter the example comes from a derived ring, whose name and figures are not Cambini's. Every
+// filter state measured wraps to the same three lines on a phone, so that is a guard, not a case,
+// and growing by a line beats clipping the sentence. The swap is synchronous — nothing paints
+// between writing the resting text into the span and writing back what is shown.
+//
+// It settles the plot's TOP, not everything under it: each view sizes its own plot, so a switch
+// still moves the controls below it by 52px on a phone. An encoding, not a collapse — see TODO.md.
+let ledeW = -1;                        // the width the reservation was last measured at
+function reserveLede() {
+  const p = document.querySelector(".lede"), el = $("lede-picked");
+  if (!p.clientWidth) return;          // not laid out (full screen): keep what we reserved before
+  const shown = el.textContent;
+  el.textContent = ledeClause(Chart.emphasisStats(true));   // true: the sentence AT REST
+  p.style.minHeight = "";              // measure the SENTENCE, not the last reservation
+  const h = p.getBoundingClientRect().height;
+  el.textContent = shown;
+  p.style.minHeight = Math.ceil(h) + "px";
+  ledeW = p.clientWidth;
 }
 
 // ---- provenance ------------------------------------------------------------
@@ -954,6 +995,13 @@ function wire() {
     cancelAnimationFrame(raf);
     raf = requestAnimationFrame(() => { Chart.resize(); Histogram.resize(); });
   }).observe($("plot"));
+
+  // The lede's reservation is measured at one width, so a rotation or a window drag re-wraps the
+  // sentence and invalidates it. Guarded on the WIDTH rather than re-measuring on every callback:
+  // setting min-height changes the paragraph's height and re-enters this observer, and measuring
+  // again there is a loop.
+  const lede = document.querySelector(".lede");
+  new ResizeObserver(() => { if (lede.clientWidth !== ledeW) reserveLede(); }).observe(lede);
 
   // Theme: chart.js and the legend BAKE colors into SVG/inline styles, which a CSS variable swap
   // cannot reach. theme.js clears the color cache before calling us, so re-reading here is safe.

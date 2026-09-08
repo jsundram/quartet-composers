@@ -1113,11 +1113,20 @@ window.Chart = (function () {
            // 1709 to 1906" over a Swarm that picks nothing out (issue 24). The gate is here rather
            // than in setLede() because this file is the one that knows which channels are
            // Fame-only; a fifth mode then gets the answer right for free.
-           emphasisStats: () => {
-             if (mode !== "fame") return null;
-             const filled = canonIdx.map(i => rows[i]).filter(isVisible);
+           //
+           // `atRest` answers a DIFFERENT question, for app.js's height reservation only: what
+           // would this sentence be with no filter and in Fame, whatever is on screen right now.
+           // Asking it must not disturb what is drawn, so it re-reads the same arrays with the
+           // mode gate and the visibility test dropped rather than un-filtering anything. ringIdx
+           // is left out of it because nothing is derived at rest — refreshEmphasis only derives
+           // under a filter — so the example is the first curated outlier, which is what the
+           // resting sentence names.
+           emphasisStats: (atRest) => {
+             if (!atRest && mode !== "fame") return null;
+             const keep = atRest ? () => true : isVisible;
+             const filled = canonIdx.map(i => rows[i]).filter(keep);
              if (!filled.length) return null;
-             const ringed = outlierIdx.filter(i => isVisible(rows[i])).concat(ringIdx);
+             const ringed = outlierIdx.filter(i => keep(rows[i])).concat(atRest ? [] : ringIdx);
              const ex = ringed.length ? rows[ringed[0]] : null;
              return { noun: repertoire.noun, n: filled.length,
                       // One survivor has no SPAN — "1732 to 1732" is not a range — so the lede

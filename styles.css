@@ -64,6 +64,10 @@ a:not(:hover){ text-decoration:none }
 
 .head{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:6px }
 h1{ font-size:clamp(21px, 4.6vw, 32px); letter-spacing:-.015em; font-weight:650 }
+/* No min-height here on purpose: the built clause empties whenever the view picks nothing out,
+   and the height that reserves is a function of BOTH the viewport (different wrapping at 390 and
+   1280) and the data (the sentence names a composer and two figures). app.js measures it from the
+   resting sentence instead and sets min-height inline -- see reserveLede(), issue 27. */
 .lede{ color:var(--muted); font-size:14px; max-width:62ch; margin-bottom:14px }
 .lede a{ color:var(--accent) }
 

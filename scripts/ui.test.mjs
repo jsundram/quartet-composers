@@ -1248,6 +1248,62 @@ await sleep(400);
 check("and coming back to Fame restores it",
       fameLede.length > 0 && (await lede()) === fameLede, `${fameLede} -> ${await lede()}`);
 
+// --- 4m3. ...and unmaking it does not drag the chart up the page -------------------------------
+// The clause is one to three lines and it EMPTIES in three of the four views and under any filter
+// no curated composer survives — so the paragraph collapsed and everything below it moved 40.6px at
+// both widths, whichever the trigger, which lifted the pill you had just tapped out from under a
+// second tap at the same spot (issue 27, whose table reads 61px for the search case because it was
+// taken on a boot rather than in place). Measured on the PLOT,
+// because "the chart moved" is the complaint, and in place rather than by goto(): a re-boot lays
+// the page out once and could never show the jump. The plot's TOP, deliberately — its HEIGHT still
+// changes with the view (each mode picks its own aspect ratio), which moves the controls under it
+// by 52px on a phone and is a different thing from a box that vanished. TODO.md carries that one.
+//
+// The reservation is MEASURED (reserveLede in app.js), not a min-height in styles.css, because the
+// tallest state is a function of the viewport AND of the data — which is why this is checked at two
+// widths and against the paragraph's own height rather than against a number typed here.
+const plotTop = () => ev(`document.getElementById('plot').getBoundingClientRect().top`);
+const ledeBox = () => ev(`(()=>{const p=document.querySelector('.lede');
+  return {h: p.getBoundingClientRect().height, min: parseFloat(p.style.minHeight) || 0}})()`);
+for (const [w, h, mobile] of [[390, 844, true], [1280, 900, false]]) {
+  await viewport(w, h, mobile);
+  await goto(BASE);
+  await sleep(700);
+  const rest = await ledeBox(), restTop = await plotTop();
+  // The box is reserved from the paragraph the reader ARRIVES at — no blank band held open above
+  // the fold, and nothing typed into CSS that a re-scrape or a re-wrap could falsify.
+  check(`the lede reserves its own resting height at ${w}px`,
+        rest.min > 0 && Math.abs(rest.min - rest.h) < 1.5,
+        `min-height ${rest.min} vs paragraph ${rest.h}`);
+  await searchFor("cambini");
+  await sleep(700);
+  const gone = await ledeBox();
+  check(`emptying the clause does not move the chart at ${w}px`,
+        (await lede()) === "" && Math.abs(await plotTop() - restTop) < 1.5,
+        `plot top ${restTop.toFixed(0)} -> ${(await plotTop()).toFixed(0)} `
+        + `(lede ${rest.h} -> ${gone.h})`);
+  await searchFor("");
+  await sleep(600);
+  await pill("scatter");
+  await sleep(500);
+  check(`switching to a view that picks nothing out does not move it either at ${w}px`,
+        (await lede()) === "" && Math.abs(await plotTop() - restTop) < 1.5,
+        `plot top ${restTop.toFixed(0)} -> ${(await plotTop()).toFixed(0)}`);
+  await pill("fame");
+  await sleep(500);
+}
+// A reservation measured at one width is wrong at another — 122px of paragraph on a phone, 82px on
+// a laptop, the same sentence — so it is re-measured when the paragraph re-wraps. This is the check
+// that a hardcoded min-height could never pass at both widths.
+const wide = await ledeBox();
+await viewport(390, 844, true);
+await sleep(800);
+const narrow = await ledeBox();
+check("a re-wrap re-measures the reservation",
+      narrow.min > wide.min + 10 && Math.abs(narrow.min - narrow.h) < 1.5,
+      `min-height 1280px ${wide.min} -> 390px ${narrow.min} (paragraph ${narrow.h})`);
+await viewport(1100, 1500);
+
 // --- 5. sorting ---------------------------------------------------------------
 await goto(BASE);
 await ev(`[...document.querySelectorAll('thead th button')].find(b=>b.textContent==='Quartets').click()`);
