@@ -235,6 +235,13 @@ def find_moves(canonical, months, log=None):
         inbound = [e for e in edges if e[2] == at and e[0][:7] < before and e[0][:7] <= ceiling]
         if not inbound:
             break
+        when, src, _ = max(inbound)
+        # The floor FIRST. `inbound` is filtered by the ceiling but not by the axis start, so an
+        # article with a full chain inside the window plus any older logged move would otherwise
+        # be reported as truncated and thrown away — six real hops discarded, and the message
+        # false, because walking out of the window is how a complete chain ends.
+        if when[:7] < floor:
+            break                                      # older than the axis: the window is all one title
         if hop == MAX_HOPS:
             # Truncating in silence would be the failure confirm() exists to prevent, one level up:
             # tenures() hands every month before the oldest surviving hop to that hop's source, so
@@ -243,9 +250,6 @@ def find_moves(canonical, months, log=None):
                 "the months before %s are attributed to %r on no evidence"
                 % (canonical, MAX_HOPS, before, at))
             return None
-        when, src, _ = max(inbound)
-        if when[:7] < floor:
-            break                                      # older than the axis: the window is all one title
         chain.append((when[:7], src))
         at, before = src, when[:7]
     return sorted(chain)

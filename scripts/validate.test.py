@@ -208,6 +208,34 @@ def lost_stitch(d):
     _step_it(pv, title)
 
 
+@case("a stitch dropped on a composer too quietly read for the shape check", "still carries a count")
+def lost_stitch_below_the_floor(d):
+    # The shape check has a floor of 100 readers a month, which most of this roster's tail is
+    # under: Lois V. Vierk's post-move median is 44, so a lost stitch on her scores (0.0, None)
+    # and passes. fetch_views.py's recovery from a source that does not answer is to leave the
+    # series unrepaired and let the gate say so, which makes this the case that has to hold.
+    # The null at the month of the move is exact and needs no threshold.
+    pv = d["pageviews"]
+    title, chain = min(((t, c) for t, c in pv["moves"].items() if c),
+                       key=lambda tc: max(v or 0 for v in pv["series"][tc[0]][-12:]))
+    i = pv["months"].index(chain[-1][0])
+    for j in range(i + 1):
+        pv["series"][title][j] = 3                     # written as fetched: redirect-scale, no null
+
+
+@case("a ragged series crashes the gate instead of reporting what it already found", "not aligned")
+def ragged_crashes_check_moves(d):
+    # step() returns an index into the series, so a series LONGER than the axis made months[i]
+    # raise — and a traceback out of check_moves loses every error already collected, including
+    # the ragged-series one from check_sources that explains it. The expected message is that
+    # one: it has to survive.
+    pv = d["pageviews"]
+    title = max(pv["series"], key=lambda t: pv["series"][t][-1] or 0)
+    # The step has to land PAST the end of the axis for months[i] to raise, so the padding carries
+    # it there: a flat stretch and then a jump, both beyond len(months).
+    pv["series"][title] = pv["series"][title] + [2] * 20 + [50000] * 20
+
+
 @case("a move chain that hands one composer another's history", "another composer's canonical")
 def borrowed_history(d):
     pv = d["pageviews"]

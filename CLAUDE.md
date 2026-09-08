@@ -40,7 +40,8 @@ plain static assets. Read README.md first for what the app is.
    one changed line per composer per top-up instead of 884. Alignment is therefore load-bearing:
    an array one element short shifts every month by one and produces entirely plausible numbers,
    so `build_data.py` and `validate.py` both refuse a ragged one rather than reading it. A null
-   there means "asked, nothing was there"; a MISSING month means "never asked", and a title that
+   there means "asked, nothing was there" — or, at the month of a page move, "asked, and the answer
+   belongs to neither title" (invariant 15); a MISSING month means "never asked", and a title that
    did not ANSWER (a 404, or five exhausted retries) is DROPPED from the cache rather than written
    — the flatten fills every month on the axis, so writing it would null-pad the months it never
    answered for and it would read as complete forever, silencing both the "rerun to pick them up"
@@ -219,6 +220,12 @@ Four suites, all dependency-free:
   before a deploy rather than by pasting the live URL into a validator afterwards. The two
   descriptions in `index.html` are deliberately different lengths — a SERP snippet wants 120-160,
   a phone link preview truncates near 125 — and re-unifying them fails the lint.
+- `python3 scripts/pagemoves.test.py` — the page-move rule (invariant 15), offline: `step`,
+  `tenures`, `confirm` and `stitch` are pure, and `find_moves`'s walk runs against a stubbed log.
+  It exists because every defect that module has had is one the PIPELINE cannot show you — a
+  dropped middle hop double-counting one month, a complete chain thrown away as truncated, a
+  reverted move read as a permanent one. None crashes, none moves a number by an order of
+  magnitude, and the shipped twelve chains happen to miss all three.
 - `python3 scripts/fetch_views.test.py` — the page-view cache's invariants, with `fetch` stubbed
   and the cache in a temp file, so it needs no network and runs in CI. It exists because the flat
   array has only two values, a count and a null, and **every bug in that file has been a null no

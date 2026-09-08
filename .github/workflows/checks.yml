@@ -56,3 +56,8 @@ jobs:
       # data/pageviews.json that cannot be seen after the fact — a null that no request justified.
       - name: page-view cache invariants (scripts/fetch_views.test.py)
         run: python3 scripts/fetch_views.test.py
+      # Also offline: the page-move rule is pure apart from two requests, and every defect it has
+      # had is one the pipeline cannot show you — a double-counted month, a complete chain thrown
+      # away, a reverted move read as a permanent one. None of them crashes.
+      - name: page-move rule (scripts/pagemoves.test.py)
+        run: python3 scripts/pagemoves.test.py
