@@ -400,7 +400,7 @@ are not Cambini's — though every filter state measured (`#r=751-4501`, `#g=fem
 rises 52px on a phone when you press Timeline, because `measure()` gives each view its own aspect
 ratio (0.98 for Fame against 0.82 for the timeline on a narrow screen) and the plot is that much
 shorter. So the double-tap hazard the issue describes is 93px -> 52px, not gone. The remainder is
-an encoding decision rather than a collapse — the entry below is where it now lives.
+an encoding decision rather than a collapse, and it is [#29](https://github.com/jsundram/quartet-composers/issues/29).
 
 Seven checks in `ui.test.mjs` (4m3), all red before the change: at 390 and at 1280, that the
 reservation equals the paragraph's own height, that emptying the clause with a search moves the
@@ -409,7 +409,7 @@ the page out once and could never show the jump, and both measured at 40.6px wit
 disabled, so the checks have real force — plus that a 1280→390 re-wrap re-measures
 (82→122), which is the one a hardcoded `min-height` could never pass at both widths.
 
-### A view switch still moves the switcher, because each view sizes its own plot
+### A view switch still moves the switcher, because each view sizes its own plot — [#29](https://github.com/jsundram/quartet-composers/issues/29)
 `measure()` in `chart.js` picks the aspect ratio per mode — 0.98 for Fame against 0.82 for the
 timeline on a narrow screen, 0.44 for the swarm — so pressing Timeline on a 390px phone shortens
 the plot by 52px and everything under it, the switcher pill included, comes up to meet your finger.
