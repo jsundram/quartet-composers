@@ -347,7 +347,7 @@ The fifth, that coming back to Fame restores the sentence, passed on the old cod
 trivially so: the lede never changed on a mode switch at all, so it could not fail to be restored.
 It is a regression guard for the new `setLede()` call, not evidence of the old bug.
 
-### An empty lede clause collapses the paragraph and shoves the chart up — [#27](https://github.com/jsundram/quartet-composers/issues/27)
+### ~~An empty lede clause collapses the paragraph and shoves the chart up~~ — done, 2026-09-08, [#27](https://github.com/jsundram/quartet-composers/issues/27)
 The lede's built clause is one to three lines depending on the viewport, and when
 `Chart.emphasisStats()` returns null it empties — so everything below it moves up. Measured
 (headless Chrome, 390x844 and 1280x900):
@@ -375,10 +375,54 @@ the DATA (the sentence names a composer and two figures; "Only Joseph Haydn is l
 repertoire" is a third the length). Hardcoding it per breakpoint is a claim about the data typed
 into CSS, which is the drift `setLede()` exists to prevent, and reserving the tallest state leaves
 a blank band above the fold in the filtered case, which is most of the time anyone is filtering.
-The honest fix is a measured reservation — lock the height from the full sentence at the current
-width, re-measure on resize — which is a mechanism, not a tweak, so it is [#27](https://github.com/jsundram/quartet-composers/issues/27)
-rather than part of #24. That issue carries the measurements and the two reasons a typed
-`min-height` cannot serve.
+**The fix is the measured reservation the issue asked for.** `reserveLede()` in `app.js` writes the
+RESTING sentence into the same span, reads the paragraph's height at the current width, writes the
+shown text back and sets that height as an inline `min-height`. Synchronous, so nothing paints
+between the two writes. The resting sentence comes from `Chart.emphasisStats(true)`, a new flag
+that answers "what would this sentence be with no filter and in Fame" by re-reading the same arrays
+with the mode gate and the visibility test dropped — it disturbs nothing that is drawn, and only
+`chart.js` can say what the resting claim is. `ledeClause()` is split out of `setLede()` so the
+sentence that is measured and the sentence that is printed cannot come to differ.
+
+Neither number is typed anywhere: the reservation is 122px on a phone and 82px at 1280 because
+that is what the paragraph measures there, and a `ResizeObserver` on `.lede` re-measures when the
+width changes. Guarded on the WIDTH — setting `min-height` changes the height and re-enters the
+observer, so re-measuring on every callback is a loop.
+
+Reserving the RESTING sentence rather than the tallest possible one is what avoids the blank band:
+the box is exactly the paragraph the reader arrived at, so nothing is held open that the page did
+not already have. It is `min-height` rather than `height` because the resting sentence is not
+provably the longest — under a filter the example comes from a derived ring, whose name and figures
+are not Cambini's — though every filter state measured (`#r=751-4501`, `#g=female`, `#q=haydn`,
+`#q=o`, `#r=2000-500000`) wraps to the same three lines on a phone.
+
+**What it does not settle.** The chart's TOP no longer moves; the switcher pill below it still
+rises 52px on a phone when you press Timeline, because `measure()` gives each view its own aspect
+ratio (0.98 for Fame against 0.82 for the timeline on a narrow screen) and the plot is that much
+shorter. So the double-tap hazard the issue describes is 93px -> 52px, not gone. The remainder is
+an encoding decision rather than a collapse — the entry below is where it now lives.
+
+Seven checks in `ui.test.mjs` (4m3), all red before the change: at 390 and at 1280, that the
+reservation equals the paragraph's own height, that emptying the clause with a search moves the
+plot 0px, and that a view pill does too — both driven IN PLACE rather than by a boot, which lays
+the page out once and could never show the jump, and both measured at 40.6px with the reservation
+disabled, so the checks have real force — plus that a 1280→390 re-wrap re-measures
+(82→122), which is the one a hardcoded `min-height` could never pass at both widths.
+
+### A view switch still moves the switcher, because each view sizes its own plot
+`measure()` in `chart.js` picks the aspect ratio per mode — 0.98 for Fame against 0.82 for the
+timeline on a narrow screen, 0.44 for the swarm — so pressing Timeline on a 390px phone shortens
+the plot by 52px and everything under it, the switcher pill included, comes up to meet your finger.
+That is the residue of [#27](https://github.com/jsundram/quartet-composers/issues/27) after the
+lede stopped collapsing (93px -> 52px, measured), and it is a different thing: not a box that
+vanished but a picture that is honestly a different shape.
+
+Which is why it is not simply "fix it". A single height for all four views spends empty card on the
+timeline or squeezes the Fame cloud, and the ratios are chosen (see the comment there — 466 dots at
+0.6 on a phone merge the log bands into stripes). The cheapest honest options, in order: keep the
+CONTROLS above the plot on a phone so nothing the finger is on depends on the plot's height; or
+transition the height so the movement is legible rather than instant. Neither is obviously right,
+and the double-tap it costs is now half what it was.
 
 ### The Fame view drops birth year entirely
 Which is the thing the mocked-up "canon path" would have added: joining the repertoire in birth order

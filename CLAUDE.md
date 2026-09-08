@@ -209,7 +209,7 @@ audits a human grades. No test framework, and nothing to install:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 200 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 207 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
@@ -338,6 +338,20 @@ made on evidence.
   out to introduce. `Chart.emphasisStats()` returns null outside Fame — the gate is in `chart.js`
   because that is the file that knows which channels are Fame-only, and a fifth mode then gets the
   answer for free. Outside Fame the sentence is not reworded, it is UNMADE.
+  **A clause that can be unmade has to leave its box behind.** Empty, the paragraph collapsed and
+  everything under it rose 40px — on a phone that lifted the view pill you had just pressed out
+  from under a second press (issue #27), the same churn the full-screen strip's fixed height and
+  `.compact`'s reserved box answer one component down the page. `reserveLede()` in `app.js` writes
+  the RESTING sentence into the span, measures the paragraph at the current width, writes the shown
+  text back and sets that as an inline `min-height`; a `ResizeObserver` on `.lede` re-measures when
+  the width changes, guarded on the WIDTH because setting `min-height` re-enters it. The height is
+  MEASURED and never typed for the same reason the sentence is: it is a function of the viewport
+  (122px at 390, 82px at 1280) and of the data, so a number in `styles.css` would be exactly the
+  drift `setLede()` exists to prevent. Reserving the RESTING sentence rather than the tallest
+  possible one is what keeps it from holding open a blank band the page never had, and
+  `Chart.emphasisStats(true)` is how it asks what that sentence is without disturbing what is
+  drawn. A second built sentence that can empty needs the same treatment, and `ledeClause()` is
+  split out of `setLede()` so the string that is measured is the string that is printed.
 - **The provenance line is built, not assigned.** `setProv()` in `app.js` linkifies every Wikidata
   property id it prints (`P569` -> its definition page), because an id is jargon a reader cannot
   check from the page. It links the TEXT rather than storing anchors in `composers.json`: that file
