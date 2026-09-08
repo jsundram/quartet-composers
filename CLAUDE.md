@@ -199,7 +199,7 @@ plain static assets. Read README.md first for what the app is.
 
 ## Testing
 
-Four suites, all dependency-free:
+Nine checks, all dependency-free:
 
 - `node scripts/sw.test.mjs` — the service worker's fetch handler under mocked SW globals.
 - `python3 scripts/sw-lint.py` — the precache contract (invariant 1).
