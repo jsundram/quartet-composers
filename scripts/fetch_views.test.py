@@ -338,12 +338,38 @@ def move_record_is_trusted(fv):
 def move_log_unreadable(fv):
     _asked, restore = moving(fv, None)                 # find_moves returns None: the log failed
     try:
-        _rc, out, _log = run(fv, LONG + ["--force"])
+        _rc, out, log = run(fv, LONG + ["--force"])
     finally:
         restore()
     assert "A" not in out["moves"], (
         "a failed lookup was recorded as an answer (%r). Next run has to ask again."
         % (out["moves"].get("A"),))
+    # The report is the only place this failure is visible, so the WRONG sentence is the whole
+    # defect: "really had" sends the operator away satisfied about a question still open.
+    assert "really had" not in log, (
+        "a lookup that failed was reported as a settled reading:\n%s" % log)
+
+
+@case("a source that answers 200 with no data is not an answer either", MOVED)
+def move_source_empty(fv):
+    # fetch() returns {} for a payload with no `items`, not None, so a guard that tests `is None`
+    # has a hole one branch wide — and this is the bad side of it. For a chain already on record
+    # (trusted, not re-confirmed) an all-null source makes stitch() lay nulls over the whole
+    # pre-move stretch while `moves` still says stitched, and step() cannot see it because the
+    # before-window is then empty. Nothing downstream would ever report it.
+    _asked, restore = moving(fv, [("2026-04", "Old A")])
+    try:
+        run(fv, LONG + ["--force"])                    # establish the record
+        good = fv.fetch
+        fv.fetch = lambda t, months: ({} if t == "Old A" else good(t, months))
+        _rc, out, _log = run(fv, LONG + ["--force"])
+    finally:
+        restore()
+    assert out["moves"]["A"] == [["2026-04", "Old A"]], (
+        "the record was rewritten from an empty answer: %r" % (out["moves"].get("A"),))
+    assert out["series"]["A"][:11] == MOVED["series"]["A"][:11], (
+        "nulls from an empty payload were stitched over the pre-move months: %r"
+        % out["series"]["A"][:11])
 
 
 def main():

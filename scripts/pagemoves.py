@@ -317,6 +317,22 @@ def confirm(months, by_title, canonical, chain, log=None):
     return kept
 
 
+def collapse(canonical, moves):
+    """`moves` with the hops that did not actually change the title removed.
+
+    confirm() judges hops independently, so an alternating chain can lose its middle one and leave
+    two entries naming the same title in a row — or a last entry naming the canonical itself. Both
+    say "the article moved here" about a boundary it did not cross, and a record that says so is
+    wrong twice over: `tenures()` would open two spans where there is one, and validate.py's gate
+    asserts a null at every month the record names, which stitch() rightly does not write when the
+    title either side of the boundary is the same. Collapsing at the source is what keeps the
+    record, the series and the gate saying one thing.
+    """
+    chain = list(moves)
+    titles = [src for _, src in chain] + [canonical]
+    return [hop for k, hop in enumerate(chain) if titles[k] != titles[k + 1]]
+
+
 def tenures(canonical, moves):
     """[(title, first month it held, last month it held or None)] oldest first.
 
@@ -324,23 +340,20 @@ def tenures(canonical, moves):
     title, so it is both the end of one tenure and the start of the next. The overlap is on purpose
     — a move happens on a day, and the month it happens in was read under both names.
 
-    ADJACENT SPANS UNDER ONE TITLE ARE MERGED, because `confirm()` judges hops independently and an
-    alternating chain can lose its middle one: A -> B -> A with the first hop rejected leaves two
-    consecutive tenures both named A, and `stitch()` would then find A holding the boundary month
-    twice and count it twice. Latent rather than theoretical — Gerhard and Takemitsu both happen to
-    alternate cleanly today — and the symptom would be one plausible month, not a crash.
+    ADJACENT SPANS UNDER ONE TITLE ARE MERGED — by collapse(), which is the same rule stated on the
+    chain instead of on the spans — because `confirm()` judges hops independently and an alternating
+    chain can lose its middle one: A -> B -> A with the first hop rejected leaves two consecutive
+    tenures both named A, and `stitch()` would then find A holding the boundary month twice and
+    count it twice. Latent rather than theoretical — Gerhard and Takemitsu both happen to alternate
+    cleanly today — and the symptom would be one plausible month, not a crash. This still collapses
+    even though fetch_views.py collapses before recording, because a chain reaching here need not
+    have come from that path.
     """
     spans, start = [], None
-    for month, src in moves:
-        if spans and spans[-1][0] == src:
-            spans[-1] = (src, spans[-1][1], month)
-        else:
-            spans.append((src, start, month))
+    for month, src in collapse(canonical, moves):
+        spans.append((src, start, month))
         start = month
-    if spans and spans[-1][0] == canonical:
-        spans[-1] = (canonical, spans[-1][1], None)
-    else:
-        spans.append((canonical, start, None))
+    spans.append((canonical, start, None))
     return spans
 
 

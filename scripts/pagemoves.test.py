@@ -50,6 +50,18 @@ def merge_adjacent(_):
     assert got[i] == 100, "the boundary month reads %r; A drew 100 there" % got[i]
 
 
+@case("a hop that crosses no boundary is collapsed out of the chain, not just out of the spans")
+def collapse_the_record(_):
+    # The record has to agree with the series about how many moves there were. validate.py derives
+    # the months that must be null from tenures(), and fetch_views.py collapses before writing
+    # `moves`, so a chain naming a boundary the article never crossed cannot make the gate fail a
+    # correctly stitched series — which it did, on the exact shape the merge above exists for.
+    assert pm.collapse("B", [("2020-04", "A"), ("2021-02", "A")]) == [("2021-02", "A")]
+    assert pm.collapse("A", [("2020-04", "A")]) == []
+    assert pm.collapse("C", [("2020-04", "A"), ("2021-02", "B")]) == \
+        [("2020-04", "A"), ("2021-02", "B")]
+
+
 @case("a chain whose last surviving source IS the canonical does not open a second span for it")
 def merge_final(_):
     # Same merge, at the other end: the article left its own name and came back, and the hop that
