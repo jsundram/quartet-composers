@@ -120,13 +120,22 @@
 
   <div class="grid">
     <section id="viz" class="card" aria-label="Chart">
-      <div id="plot">
-        <!-- chart.js renders the SVG here; #flag is the desktop-only hover name tag -->
-        <div id="flag" aria-hidden="true"></div>
-      </div>
-
-      <!-- Below the chart on purpose: four view pills and three buttons above it were half the
-           first screen on a phone before a single dot. The chart is what the card is for. -->
+      <!-- ABOVE the plot, because a control must not be placed by the thing it changes. Every view
+           sizes its own plot (measure() in chart.js picks the aspect ratio per mode: a square-ish
+           Fame cloud, a naturally wide timeline, a swarm only as tall as its collisions), so with
+           this row underneath, pressing Timeline on a 390px phone shortened the plot 52px and this
+           row rose 52px into the finger that had just pressed it — 150px at 1280 for the swarm.
+           That is the same double-tap trap the full-screen strip's fixed height and .compact's
+           reserved box answer elsewhere, arriving through the layout instead of through a panel.
+           It used to sit below the plot, and the reason was real: four pills and three buttons are
+           82px on a phone, which is 82px of the first screen spent before a single dot. The fix
+           costs exactly that (the Fame cloud is 94% above the fold instead of all of it) and it is
+           the cheaper half of the trade — the picture is honestly a different shape per view, so
+           the alternative is a blank band under the short ones. See issue 29.
+           In FULL SCREEN it goes back below the plot (styles.css orders #viz's children there):
+           the plot is flex:1 in that layout, sized by the viewport rather than by the view, so
+           nothing here moves when the view changes and every pixel above the chart is a pixel of
+           chart. -->
       <div class="controls">
         <div class="seg" role="group" aria-label="Chart view">
           <button type="button" id="m-fame" data-mode="fame" aria-pressed="true"
@@ -138,6 +147,11 @@
         <button type="button" id="reset" class="btn" disabled>Reset zoom</button>
         <button type="button" id="share" class="btn spacer">Share</button>
         <button type="button" id="fs" class="btn" aria-pressed="false">Full screen</button>
+      </div>
+
+      <div id="plot">
+        <!-- chart.js renders the SVG here; #flag is the desktop-only hover name tag -->
+        <div id="flag" aria-hidden="true"></div>
       </div>
 
       <div class="legend" id="legend"></div>

@@ -436,20 +436,57 @@ the first cut of this work only because `atRest` did not exist yet to be wrong, 
 against the cut that introduced it (measured 149-quartet Cambini under the women's noun; 122
 against 143 at 360).
 
-### A view switch still moves the switcher, because each view sizes its own plot — [#29](https://github.com/jsundram/quartet-composers/issues/29)
+### ~~A view switch still moves the switcher, because each view sizes its own plot~~ — done, 2026-09-08, [#29](https://github.com/jsundram/quartet-composers/issues/29)
 `measure()` in `chart.js` picks the aspect ratio per mode — 0.98 for Fame against 0.82 for the
-timeline on a narrow screen, 0.44 for the swarm — so pressing Timeline on a 390px phone shortens
-the plot by 52px and everything under it, the switcher pill included, comes up to meet your finger.
-That is the residue of [#27](https://github.com/jsundram/quartet-composers/issues/27) after the
-lede stopped collapsing (93px -> 52px, measured), and it is a different thing: not a box that
-vanished but a picture that is honestly a different shape.
+timeline on a narrow screen, 0.44 for the swarm — so pressing Timeline on a 390px phone shortened
+the plot by 52px and everything under it, the switcher pill included, came up to meet your finger.
+That was the residue of [#27](https://github.com/jsundram/quartet-composers/issues/27) after the
+lede stopped collapsing (93px -> 52px), and it is a different thing: not a box that vanished but a
+picture that is honestly a different shape.
 
-Which is why it is not simply "fix it". A single height for all four views spends empty card on the
-timeline or squeezes the Fame cloud, and the ratios are chosen (see the comment there — 466 dots at
-0.6 on a phone merge the log bands into stripes). The cheapest honest options, in order: keep the
-CONTROLS above the plot on a phone so nothing the finger is on depends on the plot's height; or
-transition the height so the movement is legible rather than instant. Neither is obviously right,
-and the double-tap it costs is now half what it was.
+**So the ratios are not what changed — the ORDER is.** A single height for all four views spends
+empty card on the timeline or squeezes the Fame cloud (466 dots at 0.6 on a phone merge the log
+bands into stripes), and reserving the tallest leaves a blank band under the short ones, which is
+the "held-open box" #27 went out of its way to avoid. The rule underneath is the one the
+full-screen strip and `.compact`'s hover reservation already follow one component up: **nothing a
+finger rests on may be placed by a box that the same press resizes.** The controls are the only
+thing under the plot that is a control, so the controls moved above it — `.controls` now precedes
+`#plot` in `index.html`, and the margin moved with it.
+
+Measured at both widths, pressing each view in place from Fame (worst case across the four):
+
+| | switcher moves, before | after | plot still resizes by |
+|---|---|---|---|
+| 390x844 | 61px (52px for Timeline, 61px for the swarm) | 0px | 61px |
+| 1280x900 | 150px (the swarm) | 0px | 150px |
+
+The desktop number is the surprise and the reason this is not scoped to phones: the swarm is 150px
+shorter than Fame at 1280, three times the shift the issue was filed about. Everything below the
+plot — the detail panel on a phone, the legend, the hint — still moves by exactly that much, which
+is correct. It is a picture changing shape, and none of it is a control.
+
+**The cost is 94px of the phone's first screen**, spent before a dot: 82px of pills-and-buttons
+plus their margin, which pushes the plot's top from 456 to 550 and leaves the Fame cloud 94% above
+the fold instead of all of it. That is what the comment in `index.html` used to defend — "four view
+pills and three buttons above it were half the first screen" — and it is the cheaper half of the
+trade now that the row is the only thing standing between a second tap and the wrong control. At
+1280 it costs 50px and the plot still ends above the fold.
+
+**Full screen keeps them underneath**, and that is not an oversight: `#plot` is `flex:1` there, so
+its height is a function of the viewport and not of the view — nothing to absorb — and every pixel
+above the chart is a pixel of chart. `styles.css` already orders `#viz`'s children in that layout,
+so the DOM move did not disturb it.
+
+One other thing had to move with the row: `placeDetail()` anchored the phone panel on `.controls`,
+which after the move would have inserted it ABOVE the plot. It anchors on `.legend` now — and the
+existing "the answer lands within a finger's reach of the chart" check is what catches that (112px
+below the plot when the two disagree).
+
+Five checks in `ui.test.mjs` (4m4, plus one in section 7). The four in 4m4 are two pairs — that the
+switcher does not move, and that the plot's height changed anyway, because the first passes
+trivially on a chart that had stopped resizing at all. Both "does not move" checks are red before
+the change, at 61px and 150px. The fifth, that full screen puts the controls back below the chart,
+passed before too: it is a guard against somebody unifying the two layouts, not evidence of a bug.
 
 ### The Fame view drops birth year entirely
 Which is the thing the mocked-up "canon path" would have added: joining the repertoire in birth order

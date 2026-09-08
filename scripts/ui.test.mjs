@@ -1340,6 +1340,42 @@ const back = await ledeBox();
 check("a claim that changed behind full screen re-measures on the way back",
       back.min > 0 && Math.abs(back.min - back.h) < 1.5,
       `min-height ${back.min} vs paragraph ${back.h}`);
+
+// --- 4m4. ...and neither does a view switch, because the switcher is no longer under the plot ---
+// The residue of 4m3 (issue 29). Reserving the lede settled the plot's TOP; its HEIGHT still
+// changes with the view, because measure() in chart.js picks an aspect ratio per mode — a
+// square-ish Fame cloud, a naturally wide timeline, a swarm as tall as its collisions demand. With
+// the controls under the plot, pressing Timeline on a phone lifted the pill you had just pressed
+// 52px (61px for the swarm, 150px at 1280), so a quick second press landed on the wrong control:
+// the same double-tap trap the full-screen strip's fixed height answers one component up.
+//
+// The fix is the ORDER, not the ratios — the picture is honestly a different shape per view, and
+// one height for all four either squeezes the Fame cloud or leaves a blank band under the short
+// ones. So the row moved above the plot and nothing a finger rests on is placed by a box the same
+// press resizes. Driven IN PLACE by the pills, like 4m3: a boot lays the page out once and could
+// never show the jump.
+//
+// The plot's height is asserted to CHANGE in the same breath, or this passes on a chart that had
+// stopped resizing at all and the check would be measuring nothing.
+const segTop = () => ev(`document.querySelector('.controls .seg').getBoundingClientRect().top`);
+const plotHeight = () => ev(`document.getElementById('plot').getBoundingClientRect().height`);
+for (const [w, h, mobile] of [[390, 844, true], [1280, 900, false]]) {
+  await viewport(w, h, mobile);
+  await goto(BASE);
+  await sleep(700);
+  const restTop = await segTop(), restH = await plotHeight();
+  let worstTop = 0, worstH = 0;
+  for (const m of ["scatter", "swarm", "lens", "fame"]) {
+    await pill(m);
+    await sleep(500);
+    worstTop = Math.max(worstTop, Math.abs(await segTop() - restTop));
+    worstH = Math.max(worstH, Math.abs(await plotHeight() - restH));
+  }
+  check(`a view switch does not move the switcher at ${w}px`, worstTop < 1.5,
+        `switcher moved ${worstTop.toFixed(1)}px while the plot resized by up to ${worstH.toFixed(0)}px`);
+  check(`...and there was a real shift to absorb at ${w}px`, worstH > 15,
+        `plot height ${restH.toFixed(0)} changed by up to ${worstH.toFixed(0)}px across the four views`);
+}
 await viewport(1100, 1500);
 
 // --- 5. sorting ---------------------------------------------------------------
@@ -1423,6 +1459,17 @@ check("full screen fills the viewport",
       "h=" + await ev(`document.getElementById('viz').getBoundingClientRect().height`));
 check("full screen still draws the chart",
       await ev(`document.querySelectorAll('#plot svg circle.dot').length > 400`));
+// The controls sit ABOVE the plot everywhere else (issue 29: nothing a finger rests on may be
+// placed by a box the same press resizes) — but here #plot is flex:1, sized by the viewport rather
+// than by the view, so there is nothing to absorb and every pixel above the chart is a pixel of
+// chart. styles.css orders #viz's children to put them back underneath.
+check("full screen puts the controls back below the chart",
+      await ev(`(()=>{const c=document.querySelector('.controls').getBoundingClientRect();
+        const p=document.getElementById('plot').getBoundingClientRect();
+        return c.top >= p.bottom - 1})()`),
+      await ev(`(()=>{const c=document.querySelector('.controls').getBoundingClientRect();
+        const p=document.getElementById('plot').getBoundingClientRect();
+        return 'controls top '+c.top.toFixed(0)+' vs plot bottom '+p.bottom.toFixed(0)})()`));
 // The pin survives into full screen — the grid column that normally holds it is display:none, so
 // before this the chart answered a tap with nothing at all.
 check("full screen keeps the pinned composer on screen",
