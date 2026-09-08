@@ -405,7 +405,11 @@ def check_moves(pv):
                     % (title, src))
 
     for title, vals in sorted(series.items()):
-        if not isinstance(vals, list):
+        # Ragged is somebody else's error to report (check_sources already did, and err() only
+        # collects), but step() returns an index into `vals`, so a series LONGER than the axis
+        # would raise on months[i] below — and a traceback out of here loses every error already
+        # collected, including the one that explains this.
+        if not isinstance(vals, list) or len(vals) != len(months):
             continue
         ratio, i = pagemoves.step(vals, pagemoves.GATE_FLOOR)
         if ratio < pagemoves.GATE_STEP:

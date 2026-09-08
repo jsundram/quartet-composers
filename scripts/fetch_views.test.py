@@ -213,7 +213,9 @@ def moving(fv, chain, extra=None):
 
     def log_stub(canonical, months, log=None):
         asked.append(canonical)
-        return list(chain) if canonical == "A" else []
+        if canonical != "A":
+            return []
+        return None if chain is None else list(chain)  # None = the log could not be read
     fv.pagemoves.find_moves = log_stub
     return asked, lambda: setattr(fv.pagemoves, "find_moves", real)
 
@@ -230,7 +232,9 @@ def move_stitched(fv):
         "the months before the move were left under the new title (%r). That is the whole defect: "
         "the API answers per title, so those months measure a redirect nobody followed." % got[:11])
     # The move happened on a day, so its month was read under both names and belongs to neither.
-    assert got[11] == 900, "the transition month is %r, not the two names summed (400+500)" % got[11]
+    # Summing them adds the redirect share every other month excludes, which on the real data
+    # invented a peak 53% over its neighbours in a series the sparkline prints exactly.
+    assert got[11] is None, "the month of the move is %r, not null" % got[11]
     assert got[12:] == [900, 950, 880, 910], "the months after the move were altered: %r" % got[12:]
     assert out["moves"]["A"] == [["2026-04", "Old A"]], out["moves"].get("A")
     assert out["series"]["B"] == [20] * 16, "an article that never moved was rewritten"
@@ -250,9 +254,9 @@ def move_reapplied(fv):
         restore()
     assert out["series"]["A"][:11] == [800] * 11, (
         "the second run undid the stitch: %r" % out["series"]["A"][:11])
-    assert out["series"]["A"][11] == 900, (
-        "the transition month was stitched into an already-stitched series (%r): the sum has to "
-        "be taken from the pre-stitch counts, or every run adds that month to itself"
+    assert out["series"]["A"][11] is None, (
+        "the second run rewrote the month of the move (%r). Every repair reads the PRE-STITCH "
+        "counts, so running it twice has to land on the same series"
         % out["series"]["A"][11])
     assert asked == first, (
         "the move log was asked again for %r — a recorded move is re-applied from the record, "
@@ -276,6 +280,70 @@ def move_not_confirmed(fv):
     assert out["moves"]["A"] == [], (
         "the empty record is what tells validate.py somebody looked, and what stops the next run "
         "asking again; got %r" % (out["moves"].get("A"),))
+
+
+@case("a source title that does not answer leaves the series AND the record alone", MOVED)
+def move_source_unavailable(fv):
+    # The failure the main fetch loop's `except` exists to prevent, one function over: fetch()
+    # re-raises a 429 once its retries are spent, and this runs after all 884 titles are in hand
+    # and before anything is written, so an unguarded raise here discards the whole top-up.
+    #
+    # And the recovery must not be to write `[]`. That sentence means "the log was asked and there
+    # is no move here", which retires the question — the series would revert to the pre-move
+    # numbers with the record agreeing that nothing is wrong.
+    _asked, restore = moving(fv, [("2026-04", "Old A")])
+    try:
+        run(fv, LONG + ["--force"])                    # establish the record
+        good = fv.fetch
+
+        def flaky(title, months):
+            if title == "Old A":
+                raise OSError("simulated 429 after five retries")
+            return good(title, months)
+        fv.fetch = flaky
+        rc, out, log = run(fv, LONG + ["--force"])
+    finally:
+        restore()
+    assert rc == 0 and out["series"]["B"] == [20] * 16, (
+        "one unavailable source title discarded the run (rc=%r)" % rc)
+    assert out["moves"]["A"] == [["2026-04", "Old A"]], (
+        "the recorded move was downgraded to %r — an empty list says the log found nothing, and "
+        "the next run would never look again" % (out["moves"].get("A"),))
+    assert "Old A" in log, "nothing said which source was missing:\n%s" % log
+
+
+@case("a chain already on record is not re-confirmed, so it cannot silently empty", MOVED)
+def move_record_is_trusted(fv):
+    # confirm() is how a chain EARNS its place in the record; re-deriving it on every run gives it
+    # a way back out. Anything that moves the numbers under a recorded hop — a redirect retargeted,
+    # a CONFIRM_ threshold nudged — would empty the record, unstitch the series, and leave
+    # validate.py looking at a title whose record agrees nothing is wrong. Here "Old A" stops
+    # looking like a handover entirely; the recorded chain has to survive it.
+    _asked, restore = moving(fv, [("2026-04", "Old A")])
+    try:
+        run(fv, LONG + ["--force"])                    # establish the record
+        good = fv.fetch
+        fv.fetch = lambda t, months: ({m: 4 for m in months} if t == "Old A"
+                                      else good(t, months))
+        _rc, out, _log = run(fv, LONG + ["--force"])
+    finally:
+        restore()
+    assert out["moves"]["A"] == [["2026-04", "Old A"]], (
+        "a recorded chain was re-judged and dropped: %r" % (out["moves"].get("A"),))
+    assert out["series"]["A"][:11] == [4] * 11, (
+        "the recorded move was not re-applied: %r" % out["series"]["A"][:11])
+
+
+@case("a move log that cannot be READ is not recorded as 'no move'", MOVED)
+def move_log_unreadable(fv):
+    _asked, restore = moving(fv, None)                 # find_moves returns None: the log failed
+    try:
+        _rc, out, _log = run(fv, LONG + ["--force"])
+    finally:
+        restore()
+    assert "A" not in out["moves"], (
+        "a failed lookup was recorded as an answer (%r). Next run has to ask again."
+        % (out["moves"].get("A"),))
 
 
 def main():
