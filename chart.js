@@ -1106,7 +1106,15 @@ window.Chart = (function () {
            // example. The example is the first RINGED composer — the curated outliers while the
            // filter keeps them, the derived ones otherwise — because the ring is the extreme the
            // sentence exists to make concrete: Cambini at rest, Vrebalov under "Women".
+           //
+           // NULL OUTSIDE FAME, because outside it nothing is picked out at all: fillOf, strokeOf,
+           // widthOf and labelColorOf every one fall through to the lifespan encoding for the
+           // other three modes. The lede went on saying "the names picked out are the repertoire,
+           // 1709 to 1906" over a Swarm that picks nothing out (issue 24). The gate is here rather
+           // than in setLede() because this file is the one that knows which channels are
+           // Fame-only; a fifth mode then gets the answer right for free.
            emphasisStats: () => {
+             if (mode !== "fame") return null;
              const filled = canonIdx.map(i => rows[i]).filter(isVisible);
              if (!filled.length) return null;
              const ringed = outlierIdx.filter(i => isVisible(rows[i])).concat(ringIdx);

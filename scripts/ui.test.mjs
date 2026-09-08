@@ -1208,6 +1208,46 @@ await sleep(700);
 check("and no curated survivor leaves the claim unmade", (await lede()) === "",
       JSON.stringify(await lede()));
 
+// --- 4m2. ...and the whole paragraph is about the FAME view, so it leaves with it -------------
+// Two clauses in the lede described a picture only one of the four views draws, and neither moved
+// when the view did — the page contradicted itself across about 600 vertical pixels, and a shared
+// #v=swarm link opened straight onto the contradiction (issue 24).
+//
+// The typed one named the Fame AXES ("across is how many quartets they wrote, up is how much their
+// article is read"), which is false in Timeline and Swarm (across is birth year) and only half
+// true in Lens. It is gone rather than derived: the axis titles inside the plot and the per-mode
+// hint under it already say it for whichever view is on screen, so a third statement of the same
+// fact could only ever be the copy that goes stale.
+const ledeText = () => ev(`document.querySelector('.lede').textContent.replace(/\\s+/g,' ').trim()`);
+for (const v of ["", "#v=swarm"]) {
+  await goto(BASE + v);
+  await sleep(700);
+  check(`the lede names no axes${v && " in " + v}`,
+        !/across is|up is/i.test(await ledeText()), await ledeText());
+}
+// The built one is a claim about which dots are PICKED OUT, and every emphasis channel is
+// Fame-only — fillOf, strokeOf and labelColorOf all fall through to the lifespan encoding outside
+// it — so in the other three views there is nothing picked out to introduce. Asserted on the
+// boot path first, because that is the shared link the issue was filed about.
+await goto(BASE + "#v=swarm");
+await sleep(700);
+check("a view with no emphasis makes no claim about names picked out",
+      (await lede()) === "", `#v=swarm — ${JSON.stringify(await lede())}`);
+// ...and then on the SWITCHER, which is the path that actually broke: setMode() re-rendered the
+// legend and the table and left the sentence above them describing the view you had just left.
+await goto(BASE);
+await sleep(600);
+const fameLede = await lede();
+const pill = m => ev(`document.querySelector('.controls .seg button[data-mode="${m}"]').click()`);
+await pill("scatter");
+await sleep(400);
+check("switching views in place drops the claim with them",
+      (await lede()) === "", `after clicking Timeline — ${JSON.stringify(await lede())}`);
+await pill("fame");
+await sleep(400);
+check("and coming back to Fame restores it",
+      fameLede.length > 0 && (await lede()) === fameLede, `${fameLede} -> ${await lede()}`);
+
 // --- 5. sorting ---------------------------------------------------------------
 await goto(BASE);
 await ev(`[...document.querySelectorAll('thead th button')].find(b=>b.textContent==='Quartets').click()`);
