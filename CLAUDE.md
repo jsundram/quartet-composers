@@ -75,6 +75,7 @@ plain static assets. Read README.md first for what the app is.
    is its own title with its own tiny count, and the request succeeds either way — Bartók returned
    41 instead of 14,330. And resolve the DISAMBIGUATED title: a bare "John Adams" resolves
    correctly to the second President of the United States, whose views outranked Beethoven here.
+   Asking the RIGHT title is only half of it; invariant 15 is the other half.
 
 6. **Wikidata claim RANK is not metadata.** A known-wrong value is marked `deprecated` rather than
    deleted, so reading `claims[0]` reported Tania León — alive, Pulitzer 2021 — as dead since 1996.
@@ -153,6 +154,34 @@ plain static assets. Read README.md first for what the app is.
    the share card stops matching the page. They are duplicated rather than shared because the app
    must not ship a build step and the card must not ship a JS runtime.
 
+15. **A canonical title is only canonical TODAY, so a page MOVE is a hole in the series.** The API
+   counts the string that was requested, so every month before a move was counted under the name
+   the article held then — asking the current one returns the redirect traffic nobody followed.
+   Fanny Hensel's article sat at "Fanny Mendelssohn" until March 2026 and shipped a median of
+   **500** against a real 5,421; worse, the app NARRATED the artefact, because 5,198 against a 95th
+   percentile of 149 fires `SPIKE` in `app.js` at 34.9x and captions a rename as an obituary.
+   `scripts/pagemoves.py` is the one place that rule lives and the three parts are deliberately
+   split: `step()`/`suspects()` are OFFLINE and only generate suspects (the shape has no clean
+   threshold — real moves here run 9x to 1163x and genuine growth reaches 8x, because the Chevalier
+   de Saint-Georges got a film); `find_moves()` reads the MediaWiki move log, which STATES the old
+   title and the date rather than leaving them to be inferred; and `confirm()` throws out the hops
+   the numbers do not support, because **the log records events, not tenures** — a move reverted
+   twenty minutes later leaves the same two entries a permanent one does, and a chain walked from
+   the log alone put Roberto Gerhard at a title he never occupied and would have made his series
+   worse than leaving it alone. The test is the one the issue asked for: the traffic has to CHANGE
+   HANDS across the move, old-against-new before over old-against-new after.
+   The repair is **not a migration that happens once**: a refetch overwrites the stitched series
+   with the API's per-title answer, so `fetch_views.py` re-applies every recorded move on every run
+   that touches the title, and `data/pageviews.json`'s `moves` block records what it did — with an
+   EMPTY list meaning "the log was asked and said none", which is both what stops a no-op run
+   re-investigating the same eight noisy articles and how `validate.py` tells genuine growth from a
+   rename nobody has checked. Twelve articles in this roster moved; only Fanny's moved inside the
+   twelve-month statistic window, so the other eleven changed the SPARKLINE and not one dot.
+   **Do not sum redirects generally** — that is a different policy and it was measured and
+   rejected: `scripts/audit_redirects.py` prices all 2,888 of them and the median correction is
+   1.024x, invisible on a five-decade log axis, in exchange for a count that depends on how many
+   aliases an article happened to accumulate. A move is not an alias; the article LIVED there.
+
 ## Testing
 
 Four suites, all dependency-free:
@@ -182,7 +211,10 @@ Four suites, all dependency-free:
   and the cache in a temp file, so it needs no network and runs in CI. It exists because the flat
   array has only two values, a count and a null, and **every bug in that file has been a null no
   request justified** — invisible afterwards, because the array is the right length and every
-  number in it is plausible. The only symptom is that `todo` quietly stops asking.
+  number in it is plausible. The only symptom is that `todo` quietly stops asking. Its last three
+  cases stub the move log as well and cover invariant 15: that a move is stitched, that the stitch
+  is re-applied on every refetch (or the next monthly top-up silently undoes every one of them),
+  and that a logged move the traffic does not support is recorded and NOT stitched.
 - `scripts/refresh.py` — not a test but the same discipline: it decides whether a top-up is DUE
   (does `composers.json` already cover the last complete month?), runs the three pipeline stages,
   refuses to bump `V` if `validate.py` fails, and is a pure no-op otherwise.
@@ -191,6 +223,10 @@ Four suites, all dependency-free:
   the gate must not be skippable because a robot opened the PR.
 - `scripts/audit_counts.py` — not automated: it prints parsed quartet counts beside the sentence
   they came from so a human can grade them. Run it after touching `scrape_list.py`.
+- `scripts/audit_redirects.py` — not automated either, and for the same reason: it answers a POLICY
+  question. It prices every redirect into every article and reports what summing them would change,
+  which is the evidence behind invariant 15's refusal to. `--limit N` audits the N most-read
+  instead of all 884, which is the difference between two minutes and ten.
 
 The first two run in CI. `ui-test.sh` does not (it needs a browser) — run it by hand after touching
 `chart.js`, `table.js`, or `styles.css`.

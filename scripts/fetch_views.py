@@ -59,6 +59,21 @@ TITLES MUST BE CANONICAL. Views are counted per title and a redirect is its own 
 tiny count: asking for "Bela Bartok" returns 41 instead of Béla Bartók's 14,330, with a 200 and no
 error. Canonical titles come from data/people.json (scripts/fetch_wikidata.py). Run that first.
 
+AND THE CANONICAL TITLE IS ONLY CANONICAL TODAY. An article that was MOVED inside the window was
+counted under its old name for every month before the move, so asking the right title still
+undercounts — Fanny Hensel's article sat at "Fanny Mendelssohn" until March 2026 and her shipped
+median of 500 was eleven times too small. scripts/pagemoves.py holds that rule and the reasoning;
+this file applies it, after the fetch, to the series it just wrote. Two passes, for two different
+failure modes: a move already recorded in `moves` is re-applied UNCONDITIONALLY to any title this
+run refetched (the refetch has just overwritten the stitched series with the raw per-title counts,
+so the repair has to happen again every time), and a title whose series still shows the SHAPE of a
+move is put to the move log to find new ones. Re-deriving rather than trusting is what keeps the
+two in step; the detector is a suspect generator and the log is the arbiter.
+
+`moves` records the answer either way, including "looked, found nothing" as an empty list. That
+empty list is load-bearing twice: it is what stops a no-op run from asking the same eight noisy
+articles again, and it is how validate.py tells genuine growth from a move nobody has checked.
+
 WHAT THIS DOES NOT DO: re-scrape the composer list (scripts/scrape_list.py) or re-read birth and
 death dates (scripts/fetch_wikidata.py).
 
@@ -77,6 +92,9 @@ import urllib.parse
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import pagemoves                                       # noqa: E402 - needs HERE on the path first
+
 ROOT = os.path.dirname(HERE)
 PEOPLE = os.path.join(ROOT, "data", "people.json")
 OUT = os.path.join(ROOT, "data", "pageviews.json")
@@ -157,6 +175,84 @@ def fetch(title, months):
                 continue
             raise
     return None
+
+
+def repair_moves(series, axis, recorded, refetched, report):
+    """Put every series back under the title the article actually occupied. Returns the new record.
+
+    Two passes, because a known move and an unknown one fail differently (see the header). The
+    first re-applies what `data/pageviews.json` already records, for every title this run refetched
+    — the refetch overwrote the stitched series with the API's per-title answer, so the repair is
+    not a migration that happens once, it is part of writing the file. The second asks the move log
+    about anything that still LOOKS moved, and records the answer either way.
+
+    A suspect is investigated when its series was refetched (so the shape is new information) or
+    when nothing has ever been recorded for it (so nobody has looked). Both conditions are false on
+    a run that fetched nothing, which is what keeps `fetch_views.py` a true no-op at the network
+    when it has nothing to do.
+    """
+    moves = {t: [tuple(m) for m in v] for t, v in (recorded or {}).items()}
+    by_title, handled = {}, set()
+    # The PRE-STITCH counts, snapshotted before anything below rewrites `series`. Stitching reads
+    # the canonical title's own numbers, and a stitched series contains the source's months already
+    # — so repairing from `series` twice would add the transition month to itself. A title is only
+    # ever repaired from this snapshot, which makes the operation idempotent whatever order the two
+    # passes run in. (`raw` really is raw for every title either pass touches: one that was not
+    # refetched is only repaired when nothing has ever been recorded for it, which means nothing
+    # has ever stitched it.)
+    raw = {t: list(v) for t, v in series.items()}
+
+    def series_for(title):
+        """The title's own counts over the axis, fetched once per run and cached here."""
+        if title not in by_title:
+            if title in raw and title not in refetched:
+                by_title[title] = raw[title]           # nothing refetched it; the cache is it
+            else:
+                got = fetch(title, axis)
+                by_title[title] = [None] * len(axis) if got is None else [got.get(m) for m in axis]
+                time.sleep(PAUSE)
+        return by_title[title]
+
+    def repair(title, chain):
+        """Confirm a candidate chain against the numbers, record it, and stitch what survives."""
+        by_title[title] = raw[title]                   # the canonical's own counts, pre-stitch
+        handled.add(title)
+        for _, src in chain:
+            series_for(src)
+        chain = pagemoves.confirm(axis, by_title, title, chain, log=report)
+        moves[title] = chain
+        if chain:
+            series[title] = pagemoves.stitch(axis, by_title, title, chain)
+            report("   %-32s stitched across %s" % (
+                title, ", ".join("%s <- %s" % (m, src) for m, src in chain)))
+        return bool(chain)
+
+    # A recorded chain is re-confirmed rather than trusted, for the same reason it is re-applied:
+    # it costs nothing (the series it needs are being fetched anyway) and a record that can rot
+    # silently is the thing this whole file is arranged against.
+    known = [t for t in sorted(moves) if t in series and moves[t] and t in refetched]
+    if known:
+        report("re-applying %d recorded page move(s):" % len(known))
+    for t in known:
+        repair(t, moves[t])
+
+    found = 0
+    for ratio, title, i in pagemoves.suspects(series):
+        # `handled` rather than a shape test: a stitch does not always flatten the series all the
+        # way (Hanna Havrylets still steps 8x afterwards, because she died the month she was moved),
+        # so a repaired title can still read as a suspect and would otherwise be investigated and
+        # stitched a second time.
+        if title in handled or not (title in refetched or title not in moves):
+            continue
+        report("   %-32s %.0fx step near %s — asking the move log" % (title, ratio, axis[i]))
+        if repair(title, pagemoves.find_moves(title, axis, log=report)):
+            found += 1
+        else:
+            report("      no move that stuck; a %.0fx step in readership this article really had"
+                   % ratio)
+    if found:
+        report("found %d page move(s) not previously recorded" % found)
+    return {t: v for t, v in moves.items() if t in series}
 
 
 def main():
@@ -265,14 +361,6 @@ def main():
         for t, e in failed:
             print("   %s (%s)" % (t, e))
 
-    covered = sum(1 for t in titles
-                  if all(series.get(t, {}).get(m) is not None for m in axis_out))
-    print("\n%d/%d articles have data for all %d months" % (covered, len(titles), len(axis_out)))
-
-    if args.dry_run:
-        print("dry run - data/pageviews.json unchanged")
-        return 0
-
     # Every series is written over axis_out, and every series was ASKED over axis_out, so a null in
     # the file means exactly one thing. A title that has dropped off people.json is not asked for
     # any more, so it cannot keep that promise — and validate.py's stray-title check already fails
@@ -284,12 +372,34 @@ def main():
     if orphans:
         print("dropped %d cached series no longer in data/people.json: %s"
               % (len(orphans), ", ".join(orphans[:4])))
+
+    # THE MOVE REPAIR, on the flat form the detector reads and the file stores. It runs before
+    # `covered` is counted and before the dry-run returns, because a run that reports numbers the
+    # write would not produce is a run that lies. Every remaining series covers exactly axis_out —
+    # a title missing a month is in `todo`, and one that did not answer has just been dropped — so
+    # flattening here is lossless and flattening at the write below would be a second copy of the
+    # same rule.
+    flat = {t: [series[t].get(m) for m in axis_out] for t in series}
+    moves = repair_moves(flat, axis_out, cached.get("moves"), set(todo) - set(stalled), print)
+    series = {t: dict(zip(axis_out, v)) for t, v in flat.items()}
+
+    covered = sum(1 for t in titles
+                  if all(series.get(t, {}).get(m) is not None for m in axis_out))
+    print("\n%d/%d articles have data for all %d months" % (covered, len(titles), len(axis_out)))
+
+    if args.dry_run:
+        print("dry run - data/pageviews.json unchanged")
+        return 0
+
     out_axis = axis_out
     out = {
         "fetched": dt.date.today().isoformat(),
         "months": out_axis,
         "note": "monthly English Wikipedia page views (agent=user), by canonical article title; "
-                "each series is aligned to `months`, null where the API had no datum",
+                "each series is aligned to `months`, null where the API had no datum. A month "
+                "before a page move is counted under the title the article held then; `moves` "
+                "records which, and an empty list means the move log was asked and said none",
+        "moves": {k: [list(x) for x in v] for k, v in sorted(moves.items())},
         "series": {k: [v.get(m) for m in out_axis] for k, v in sorted(series.items())},
     }
     with open(OUT, "w", encoding="utf-8") as f:
@@ -299,6 +409,13 @@ def main():
         f.write('"fetched": %s,\n' % json.dumps(out["fetched"]))
         f.write('"months": %s,\n' % json.dumps(out["months"]))
         f.write('"note": %s,\n' % json.dumps(out["note"]))
+        f.write('"moves": {\n')
+        mv = list(out["moves"].items())
+        for i, (k, v) in enumerate(mv):
+            f.write("%s: %s%s\n" % (json.dumps(k, ensure_ascii=False),
+                                    json.dumps(v, ensure_ascii=False, separators=(",", ":")),
+                                    "," if i < len(mv) - 1 else ""))
+        f.write("},\n")
         f.write('"series": {\n')
         items = list(out["series"].items())
         for i, (k, v) in enumerate(items):
@@ -306,8 +423,9 @@ def main():
                                     json.dumps(v, separators=(",", ":")),
                                     "," if i < len(items) - 1 else ""))
         f.write("}\n}\n")
-    print("wrote data/pageviews.json (%d articles x %d months, %d bytes)"
-          % (len(series), len(out_axis), os.path.getsize(OUT)))
+    print("wrote data/pageviews.json (%d articles x %d months, %d moved, %d bytes)"
+          % (len(series), len(out_axis), sum(1 for v in moves.values() if v),
+             os.path.getsize(OUT)))
     return 0
 
 

@@ -116,6 +116,37 @@ exists to smooth away. He is also the one composer with no sparkline: `sparkline
 points to draw a line. Harmless at one row out of 884, but it is the row where the pipeline's
 guarantees don't hold, and worth deciding whether one month should count as a measurement at all.
 
+### ~~Readership was counted under whatever the article is called TODAY~~ — done, 2026-09-08, [#23](https://github.com/jsundram/quartet-composers/issues/23)
+The pageviews API counts the string that was REQUESTED, so an article that was renamed inside the
+window had every earlier month filed under a name nobody was asking for. Invariant 5 protects
+against reading a redirect INSTEAD of its target; nothing protected against the mirror image, and
+asking the correct title still undercounted.
+
+Fanny Hensel was the case that showed it: her article sat at "Fanny Mendelssohn" until March 2026,
+so her shipped median of **500** was not a readership at all — it was the midpoint of a series half
+of which measured a redirect. The real figure is **5,421**, an order of magnitude on a log axis, and
+it moves her from last to second in `WOMEN_CANON`. The app also NARRATED the artefact: against ten
+years of ~41-a-month the post-move months are a 34.9× peak where `SPIKE` fires at 3×, so the panel
+captioned a rename as an obituary.
+
+`scripts/pagemoves.py` now holds the rule (invariant 15) and **twelve** articles turn out to have
+moved, not one. Only Fanny's move is inside the twelve-month statistic window, so the other eleven
+changed nothing on the chart and everything about their sparklines — Leopold Koželuch's first
+eighteen months read 1 a month and were really 600; Franz Schmidt's read 2 and were really 1,200.
+That is why the survey on the issue found a category of one: it priced the last twelve months, and
+eleven of the twelve moves are older than that.
+
+Three parts, deliberately: an offline detector that only generates SUSPECTS (the shape has no clean
+threshold — real moves run 9× to 1163×, genuine growth reaches 8×), the move LOG as the arbiter of
+whether a move happened, and a numeric check of whether it STUCK. That last one is not belt and
+braces: the log records events, not tenures, so a move reverted twenty minutes later leaves the
+same two entries a permanent one does, and the first version of this — log only — put Roberto
+Gerhard at a title he never occupied and made his series worse than leaving it alone.
+
+Still open, and deliberately: an old title that is neither a redirect nor the qualifier-stripped
+form (deleted, or now a different article) is not reachable from the canonical title, so a move
+into one would go unrepaired. `validate.py` would say so rather than shipping it quietly.
+
 ### The 2014 archive is only half-used
 `compare_2014.py` reports 28 composers who dropped off the list. Most are deleted articles, but a
 few were renames the fold-matching doesn't catch (Fanny Mendelssohn → Fanny Hensel, Charles Wesley →
@@ -359,6 +390,16 @@ composers — a Czech composer's readers are on cs.wikipedia. Fixing it means Wi
 a per-language fan-out, which trades a clean, stated bias for a messy, hidden one (which languages?
 weighted how?). The current approach is to name the measure honestly instead. Revisit only with a
 specific reason.
+
+**Summing a composer's redirects into their readership.** Measured, not assumed:
+`scripts/audit_redirects.py` prices all 2,888 redirects into the 884 articles, and 436 composers do
+read higher — by a median of **1.024×**. Only 49 exceed 10%, and nothing in `CANON` moves at all
+(Mozart 186,772 → 191,780; every one of the ten rounds to 1.0×). What the sum buys is invisible on
+an axis spanning five orders of magnitude; what it costs is a stated measure — page views for this
+article — traded for one that depends on how many aliases the article happened to accumulate, which
+is an artefact of Wikipedia's edit history rather than of readership. Same trade as the per-language
+question above, same answer. A page MOVE is not this: the article lived at the old title, so those
+months are the same measurement under a different string, and they are stitched (invariant 15).
 
 **Wikidata as a source for quartet counts.** Evaluated and rejected on evidence: Beethoven's
 quartets are typed as generic "musical work/composition" with nothing linking them to the genre, so
