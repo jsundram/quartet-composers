@@ -359,10 +359,18 @@ def check_moves(pv):
     before the move belong to a name nobody was asking for.
 
     THE EXACT CHECK COMES FIRST, and it needs no threshold at all: stitch() writes `null` at every
-    month a chain names, because that is the month of the move and it belongs to neither title.
-    Nothing else in the file produces that pattern, so a recorded move with a COUNT at its own
-    move month is proof the series was written as fetched — the stitch was skipped, or lost in a
+    month that belongs to two tenures at once, because that is the month of a move and it belongs
+    to neither title. Nothing else in the file produces that pattern, so a count at one of those
+    months is proof the series was written as fetched — the stitch was skipped, or lost in a
     rebuild, or abandoned this run because a source title did not answer.
+
+    THE MONTHS ARE DERIVED FROM pagemoves.tenures(), NOT FROM THE CHAIN. Reading them straight off
+    the record asserts a null at every month the record NAMES, which is a different set: a chain
+    whose surviving hops leave two adjacent tenures under one title crosses no boundary there, so
+    stitch() writes a real count and the gate would fail a correctly stitched series — with a
+    message saying it was written as fetched, and advice to rerun a deterministic script that
+    reproduces it exactly. Sharing the function is what makes the gate and the stitch unable to
+    disagree about which months are holes.
 
     That last case is why this exists. fetch_views.py's recovery from a missing source is to leave
     the series and the record alone and let the gate say so, and the shape-based check below cannot
@@ -414,13 +422,22 @@ def check_moves(pv):
             if src in series and src != title:
                 err("%s: says it moved from %r, which is another composer's canonical title"
                     % (title, src))
-            vals = series.get(title)
-            if month in months and isinstance(vals, list) and len(vals) == len(months) \
-                    and vals[months.index(month)] is not None:
-                err("%s: a move at %s is recorded but the series still carries a count there. "
-                    "stitch() nulls the month of a move, so this series was written as fetched — "
-                    "the months before %s are counted under a title nobody was asking for. Rerun "
-                    "scripts/fetch_views.py." % (title, month, month))
+
+        vals = series.get(title)
+        pairs = [tuple(e) for e in chain if isinstance(e, list) and len(e) == 2 and e[0] in months]
+        if not pairs or not isinstance(vals, list) or len(vals) != len(months):
+            continue
+        spans = pagemoves.tenures(title, pairs)
+        holes = [m for m in months
+                 if len([1 for _t, lo, hi in spans
+                         if (lo is None or m >= lo) and (hi is None or m <= hi)]) != 1]
+        kept = [m for m in holes if vals[months.index(m)] is not None]
+        if kept:
+            err("%s: the article was at two titles at once in %s and the series still carries a "
+                "count there. stitch() nulls a month like that, so this series was written as "
+                "fetched — the months before %s are counted under a title nobody was asking for. "
+                "Rerun scripts/fetch_views.py." % (title, ", ".join(kept[:3]), kept[0]))
+
 
     for title, vals in sorted(series.items()):
         # Ragged is somebody else's error to report (check_sources already did, and err() only

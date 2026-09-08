@@ -275,6 +275,13 @@ def repair_moves(series, axis, recorded, refetched, report):
                 return "unresolved"
         if not recorded_already:
             chain = pagemoves.confirm(axis, by_title, title, chain, log=report)
+        # A rejected hop can leave the chain naming a boundary the article never crossed — two
+        # entries under one title, or a last entry naming the canonical. Recording that would have
+        # the file claim a move it did not act on, and validate.py asserts a null at every month
+        # the record names while stitch() correctly writes a count there. Collapsed, all three
+        # agree. Applied on the recorded path too, so a record written before this rule is fixed
+        # the next time the title is touched rather than failing the gate forever.
+        chain = pagemoves.collapse(title, chain)
         moves[title] = chain
         if not chain:
             return "no-move"

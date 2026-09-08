@@ -111,8 +111,10 @@ plain static assets. Read README.md first for what the app is.
    contained would be labelling the wrong channel.
 
 9. **Readership is a measure, not a tally — round it everywhere except the table.** It is the
-   median of the last TWELVE monthly page-view counts (`STAT_MONTHS` in `build_data.py`) — not
-   however many months `data/pageviews.json` happens to cache, which is 134 and grows every run.
+   median of the last TWELVE monthly page-view counts (`STAT_MONTHS` in `build_data.py`) — up to
+   twelve, strictly: a null is dropped rather than counted, and a composer whose article MOVED
+   inside the window has one (invariant 15), so Fanny Hensel's median is over eleven. Not, either
+   way, however many months `data/pageviews.json` happens to cache, which is 134 and grows every run.
    Widening that window would resize every dot on the chart and bake a 2016 readership into a 2026
    picture. The rest of the series belongs to the sparkline, which answers a different question —
    and the SPARKLINE prints exact counts, on purpose: a month on that line is a raw tally of one

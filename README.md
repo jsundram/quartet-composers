@@ -134,7 +134,7 @@ current month, it returns the days so far as though they were the month. And a t
 because the flatten would otherwise null-pad it into looking complete forever; dropping it makes
 the next run ask again in full, which is what "rerun to pick them up" promises.
 `scripts/fetch_views.test.py` holds all of that as thirteen stubbed, offline cases. The headline number did **not**
-move with it: the median is still over the last **twelve** cached months, because "how much read
+move with it: the median is still over the last **twelve** cached months (up to twelve — a null is dropped, and a composer whose article moved inside the window has one), because "how much read
 is this composer" is a question about now. The rest is history, which is a different question, and
 `validate.py` recomputes one from the other so the two files cannot drift apart. What a decade
 buys is the thing twelve months structurally cannot show: Kaija Saariaho runs at ~2,000 readers a
