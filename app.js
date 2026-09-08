@@ -760,7 +760,13 @@ function ledeClause(st) {
 let ledeW = -1;                        // the width the reservation was last measured at
 function reserveLede() {
   const p = document.querySelector(".lede"), el = $("lede-picked");
-  if (!p.clientWidth) return;          // not laid out (full screen): keep what we reserved before
+  // Not laid out: full screen sets .lede display:none, so there is nothing to measure and the box
+  // we already reserved stays on the element for the windowed layout to come back to. But it is no
+  // longer a MEASUREMENT of anything — the claim can change while the paragraph is hidden — so the
+  // width it was taken at is invalidated too, or the observer's guard reads "same width, nothing to
+  // do" on the way out and keeps a reservation for a sentence the page has stopped making. At 360
+  // that is a 122px box under a 142px paragraph: enter full screen, press Women, come back.
+  if (!p.clientWidth) { ledeW = -1; return; }
   const shown = el.textContent;
   el.textContent = ledeClause(Chart.emphasisStats(true));   // true: the sentence AT REST
   p.style.minHeight = "";              // measure the SENTENCE, not the last reservation

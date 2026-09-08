@@ -415,14 +415,26 @@ the pipeline runs. The resting rings now follow the swap: the curated outliers w
 fill is on screen, whatever the swap derived otherwise (unfiltered, `ringIdx` is empty and that is
 the outliers again). Checked as STRINGS rather than as a height, in 4m3.
 
-Eight checks in `ui.test.mjs` (4m3). Seven were red before the reservation existed: at 390 and at
+**And a reservation kept through full screen is not a reservation.** `.lede` is `display:none`
+there, so `reserveLede()` has nothing to measure and keeps the box it last set — which is right,
+since the windowed layout comes back to it. What it keeps stops being a MEASUREMENT the moment the
+claim changes behind the hidden paragraph, and the `ResizeObserver`'s width guard then reads "same
+width, nothing to do" on the way out. At 360: boot, enter full screen, press Women, come back, and
+a 122px box sat under a 143px paragraph. It recovered on the next `setLede()` — every path that
+empties the clause goes through one — so it was safe by luck rather than by construction. The bail
+now invalidates the width instead, and the guard re-measures once on the way back. Invisible at
+390, where the two sentences wrap to the same height.
+
+Nine checks in `ui.test.mjs` (4m3). Seven were red before the reservation existed: at 390 and at
 1280, that the reservation equals the paragraph's own height, that emptying the clause with a search moves the
 plot 0px, and that a view pill does too — both driven IN PLACE rather than by a boot, which lays
 the page out once and could never show the jump, and both measured at 40.6px with the reservation
 disabled, so the checks have real force — plus that a 1280→390 re-wrap re-measures
-(82→122), which is the one a hardcoded `min-height` could never pass at both widths. The eighth is
-the strings check above — green on the first cut of this work only because `atRest` did not exist
-yet to be wrong, and red against the cut that introduced it.
+(82→122), which is the one a hardcoded `min-height` could never pass at both widths. The last two
+are the review findings above — the strings check and the full-screen round trip — both green on
+the first cut of this work only because `atRest` did not exist yet to be wrong, and both red
+against the cut that introduced it (measured 149-quartet Cambini under the women's noun; 122
+against 143 at 360).
 
 ### A view switch still moves the switcher, because each view sizes its own plot — [#29](https://github.com/jsundram/quartet-composers/issues/29)
 `measure()` in `chart.js` picks the aspect ratio per mode — 0.98 for Fame against 0.82 for the
