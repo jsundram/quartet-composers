@@ -40,6 +40,11 @@ def case(name, expect):
     The inverted form names the STRING rather than demanding a clean exit, because a case that
     asserts the whole dataset passes is hostage to every check added later: close an unrelated gap
     and it goes red pointing at an ERROR that has nothing to do with what it is about.
+
+    AND IT MUST FORBID A STRING SOME POSITIVE CASE REQUIRES, or it is an assertion about nothing:
+    absence proves the check stayed quiet only if the words could have appeared at all, and a
+    reword of the message quietly retires it. Pairing them is what makes it non-vacuous by
+    construction — the message cannot be reworded without reddening the positive case first.
     """
     def deco(fn):
         CASES.append((name, expect, fn))
@@ -235,7 +240,7 @@ def lost_stitch_below_the_floor(d):
 
 
 @case("a chain whose surviving hops leave two tenures under one title is NOT a lost stitch",
-      "!was at two titles at once")
+      "!still carries a count")
 def adjacent_tenures_are_not_a_lost_stitch(d):
     # The mirror image of the case above, and the only shape that can tell the gate's rule from
     # the one it replaced. confirm() judges hops independently, so an alternating chain can lose
@@ -251,9 +256,9 @@ def adjacent_tenures_are_not_a_lost_stitch(d):
     # naming one title in a row. Taken deliberately rather than from whichever chain sorts first:
     # dropping the last hop of a two-hop chain collapses to nothing at all, which the gate is
     # equally right about and which does not exercise this shape.
-    # next(), not max(): with one qualifying chain in the shipped data, a top-up that drops a hop
-    # would make max() raise, and neither run_case() nor main() wraps the mutation — the suite
-    # would die mid-run with a traceback instead of one legible FAIL line.
+    # next() rather than max() for the message, not for the legibility: run_case() is what turns a
+    # fixture that has aged out into one FAIL line, and it has to, because the asserts below have
+    # the same shape and no selection can guard those.
     title = next((t for t, c in sorted(pv["moves"].items()) if len(c) >= 3), None)
     assert title, "no recorded chain has three hops any more; this case needs a new fixture"
     chain = [tuple(e) for e in pv["moves"][title]]
@@ -312,7 +317,15 @@ def run_case(name, expect, mutate):
             "pageviews": json.load(open(os.path.join(tmp, "data/pageviews.json"), encoding="utf-8")),
             "history": json.load(open(os.path.join(tmp, "readership.json"), encoding="utf-8")),
         }
-        mutate(d)
+        try:
+            mutate(d)
+        except Exception as e:                         # noqa: BLE001 - a fixture that aged out
+            # A case whose FIXTURE no longer exists is a failed case, not a dead suite. Neither
+            # this function nor main() wrapped the mutation, so any raise in one — a selection
+            # that found nothing, an assert guarding a shape — took the summary line and every
+            # case after it down with the traceback. Hardening the selections could not fix that;
+            # only this can, and it covers the ones already written the same way.
+            return False, "the mutation could not be applied: %s: %s" % (type(e).__name__, e)
         json.dump(d["composers"], open(os.path.join(tmp, "composers.json"), "w", encoding="utf-8"))
         json.dump(d["people"], open(os.path.join(tmp, "data/people.json"), "w", encoding="utf-8"))
         json.dump(d["pageviews"], open(os.path.join(tmp, "data/pageviews.json"), "w", encoding="utf-8"))

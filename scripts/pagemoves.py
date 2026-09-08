@@ -323,7 +323,8 @@ def collapse(canonical, moves):
     confirm() judges hops independently, so an alternating chain can lose its middle one and leave
     two entries naming the same title in a row — or a last entry naming the canonical itself. Both
     say "the article moved here" about a boundary it did not cross, so the record claims a move
-    nothing acted on and `tenures()` would open two spans where there is one. It was worse before
+    nothing acted on. (`tenures()` guards itself against such a chain by calling this function on
+    whatever it is handed, so the spans are safe either way.) It was worse before
     validate.py learned to derive its months from holes(): the gate then asserted a null at every
     month the record NAMED, which stitch() rightly does not write when the title either side of
     the boundary is the same, and a correctly stitched series failed the build. Collapsing at the
