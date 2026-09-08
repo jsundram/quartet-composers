@@ -338,6 +338,31 @@ def record_is_collapsed(fv):
         "the series was not stitched: %r" % out["series"]["A"][:11])
 
 
+# A record naming a boundary that is no boundary at all: the article "moved" from its own title.
+# Collapsing it leaves nothing, and nothing is the one thing this path must not write down.
+SELF_NAMING = dict(MOVED, moves={"A": [["2026-04", "A"]]})
+
+
+@case("a record that collapses to NOTHING is not written down as 'the log said none'", SELF_NAMING)
+def record_collapsing_to_empty(fv):
+    # `[]` is not a shorter record, it is a sentence: "the log was asked and there is no move
+    # here". On the recorded path the log is not opened at all — that is the whole point of
+    # trusting the record — so writing it would retire a question nobody put, and `handled` would
+    # stop the suspects loop from putting it either. The composer keeps redirect traffic for a
+    # decade and the file says nothing is wrong.
+    _asked, restore = moving(fv, [("2026-04", "Old A")])
+    try:
+        _rc, out, log = run(fv, LONG + ["--force"])
+    finally:
+        restore()
+    assert out["moves"]["A"] == [["2026-04", "Old A"]], (
+        "a chain that collapsed to nothing was recorded as an answer: %r" % (out["moves"].get("A"),))
+    assert out["series"]["A"][:11] == [800] * 11, (
+        "the title was never repaired: %r" % out["series"]["A"][:11])
+    assert "leaving it for the move log to answer" in log, (
+        "the deferral was silent:\n%s" % log)
+
+
 @case("a chain already on record is not re-confirmed, so it cannot silently empty", MOVED)
 def move_record_is_trusted(fv):
     # confirm() is how a chain EARNS its place in the record; re-deriving it on every run gives it

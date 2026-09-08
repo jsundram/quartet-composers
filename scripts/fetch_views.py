@@ -285,8 +285,12 @@ def repair_moves(series, axis, recorded, refetched, report):
         chain = pagemoves.collapse(title, chain)
         # EXCEPT that it must not empty one. `[]` is not a shorter record, it is the sentence "the
         # log was asked and there is no move here" — and on this path the log was not opened at
-        # all, so writing it would retire a question nobody put. Hand it to the suspects loop
-        # instead, which asks properly; `handled` is what would otherwise stop it looking.
+        # all, so writing it would retire a question nobody put. Hand it back to the suspects loop,
+        # which asks properly; `handled` is what would otherwise stop it looking. That handoff is
+        # conditional, though: the loop only takes titles whose series still STEPS, so a garbage
+        # record on a quiet article is deferred every run and never resolved here. Harmless —
+        # tenures() collapses it, so the series and the gate still agree — and validate.py's shape
+        # check is what names it if it ever matters.
         if recorded_already and not chain:
             report("   %-32s the record names no boundary the article crossed; leaving it for "
                    "the move log to answer" % title)

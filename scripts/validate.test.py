@@ -31,11 +31,15 @@ CASES = []
 def case(name, expect):
     """Register a mutation. `expect` is a substring the failure message must contain.
 
-    `expect=None` inverts it: the mutated dataset must still PASS. Every case here was a positive
-    one — break the data, expect an error — which is the right shape for a check that CATCHES
-    something and the wrong shape for one that was deliberately LOOSENED. The gate learned not to
-    fail a correctly stitched series whose chain names a boundary the article never crossed; with
-    only positive cases, re-tightening it back to the false positive left the whole suite green.
+    An `expect` beginning with "!" inverts it: that substring must NOT appear. Every case here was
+    a positive one — break the data, expect an error — which is the right shape for a check that
+    CATCHES something and the wrong shape for one that was deliberately LOOSENED. The gate learned
+    not to fail a correctly stitched series whose chain names a boundary the article never crossed;
+    with only positive cases, re-tightening it back to the false positive left the suite green.
+
+    The inverted form names the STRING rather than demanding a clean exit, because a case that
+    asserts the whole dataset passes is hostage to every check added later: close an unrelated gap
+    and it goes red pointing at an ERROR that has nothing to do with what it is about.
     """
     def deco(fn):
         CASES.append((name, expect, fn))
@@ -230,7 +234,8 @@ def lost_stitch_below_the_floor(d):
         pv["series"][title][j] = 3                     # written as fetched: redirect-scale, no null
 
 
-@case("a chain whose surviving hops leave two tenures under one title is NOT a lost stitch", None)
+@case("a chain whose surviving hops leave two tenures under one title is NOT a lost stitch",
+      "!was at two titles at once")
 def adjacent_tenures_are_not_a_lost_stitch(d):
     # The mirror image of the case above, and the only shape that can tell the gate's rule from
     # the one it replaced. confirm() judges hops independently, so an alternating chain can lose
@@ -246,7 +251,11 @@ def adjacent_tenures_are_not_a_lost_stitch(d):
     # naming one title in a row. Taken deliberately rather than from whichever chain sorts first:
     # dropping the last hop of a two-hop chain collapses to nothing at all, which the gate is
     # equally right about and which does not exercise this shape.
-    title = max((t for t, c in pv["moves"].items() if len(c) >= 3), key=lambda t: len(pv["moves"][t]))
+    # next(), not max(): with one qualifying chain in the shipped data, a top-up that drops a hop
+    # would make max() raise, and neither run_case() nor main() wraps the mutation — the suite
+    # would die mid-run with a traceback instead of one legible FAIL line.
+    title = next((t for t, c in sorted(pv["moves"].items()) if len(c) >= 3), None)
+    assert title, "no recorded chain has three hops any more; this case needs a new fixture"
     chain = [tuple(e) for e in pv["moves"][title]]
     del chain[1]
     assert chain[0][1] == chain[1][1], "the chain picked does not leave two tenures under one title"
@@ -312,10 +321,12 @@ def run_case(name, expect, mutate):
         out = subprocess.run([sys.executable, VALIDATE, "--root", tmp, "--baseline", base],
                              capture_output=True, text=True)
         blob = out.stdout + out.stderr
-        if expect is None:
-            if out.returncode != 0:
+        if expect.startswith("!"):
+            if "Traceback" in blob:
+                return False, "validate crashed, so the absence proves nothing: %s" % blob[-300:]
+            if expect[1:] in blob:
                 return False, "validate REJECTED a dataset it must accept: %s" % (
-                    "; ".join(l.strip() for l in blob.splitlines() if "ERROR" in l)[:300])
+                    "; ".join(l.strip() for l in blob.splitlines() if expect[1:] in l)[:300])
             return True, ""
         if out.returncode == 0:
             return False, "validate PASSED a corrupted dataset"
