@@ -347,7 +347,7 @@ The fifth, that coming back to Fame restores the sentence, passed on the old cod
 trivially so: the lede never changed on a mode switch at all, so it could not fail to be restored.
 It is a regression guard for the new `setLede()` call, not evidence of the old bug.
 
-### An empty lede clause collapses the paragraph and shoves the chart up
+### An empty lede clause collapses the paragraph and shoves the chart up — [#27](https://github.com/jsundram/quartet-composers/issues/27)
 The lede's built clause is one to three lines depending on the viewport, and when
 `Chart.emphasisStats()` returns null it empties — so everything below it moves up. Measured
 (headless Chrome, 390x844 and 1280x900):
@@ -376,7 +376,9 @@ repertoire" is a third the length). Hardcoding it per breakpoint is a claim abou
 into CSS, which is the drift `setLede()` exists to prevent, and reserving the tallest state leaves
 a blank band above the fold in the filtered case, which is most of the time anyone is filtering.
 The honest fix is a measured reservation — lock the height from the full sentence at the current
-width, re-measure on resize — which is a mechanism, not a tweak, and wants its own issue.
+width, re-measure on resize — which is a mechanism, not a tweak, so it is [#27](https://github.com/jsundram/quartet-composers/issues/27)
+rather than part of #24. That issue carries the measurements and the two reasons a typed
+`min-height` cannot serve.
 
 ### The Fame view drops birth year entirely
 Which is the thing the mocked-up "canon path" would have added: joining the repertoire in birth order
