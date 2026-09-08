@@ -402,12 +402,27 @@ ratio (0.98 for Fame against 0.82 for the timeline on a narrow screen) and the p
 shorter. So the double-tap hazard the issue describes is 93px -> 52px, not gone. The remainder is
 an encoding decision rather than a collapse, and it is [#29](https://github.com/jsundram/quartet-composers/issues/29).
 
-Seven checks in `ui.test.mjs` (4m3), all red before the change: at 390 and at 1280, that the
-reservation equals the paragraph's own height, that emptying the clause with a search moves the
+**The measured sentence has to be the printed one, and under one pill it was not.** Splitting
+`ledeClause()` out of `setLede()` guarantees the two strings are built the same way; it does not
+guarantee they are built from the same STATE. `emphasisStats(true)` drops the mode gate and the
+visibility test, but the gender pill also SWAPS the curated fill, and `WOMEN_CANON` holds none of
+the three curated outliers — so under "Women" the page rings three derived composers while the
+measurement was still reading `outlierIdx`. It measured "the women's repertoire, 1805 to 1962;
+Giuseppe Cambini wrote 149 quartets", a sentence naming a dot that filter does not draw. Nothing
+was visibly wrong — both wrap to three lines at 320/360/390/430/768 — but the margin was the
+name-length luck of two different composers, and invariant 4 says those names change spelling when
+the pipeline runs. The resting rings now follow the swap: the curated outliers while the curated
+fill is on screen, whatever the swap derived otherwise (unfiltered, `ringIdx` is empty and that is
+the outliers again). Checked as STRINGS rather than as a height, in 4m3.
+
+Eight checks in `ui.test.mjs` (4m3). Seven were red before the reservation existed: at 390 and at
+1280, that the reservation equals the paragraph's own height, that emptying the clause with a search moves the
 plot 0px, and that a view pill does too — both driven IN PLACE rather than by a boot, which lays
 the page out once and could never show the jump, and both measured at 40.6px with the reservation
 disabled, so the checks have real force — plus that a 1280→390 re-wrap re-measures
-(82→122), which is the one a hardcoded `min-height` could never pass at both widths.
+(82→122), which is the one a hardcoded `min-height` could never pass at both widths. The eighth is
+the strings check above — green on the first cut of this work only because `atRest` did not exist
+yet to be wrong, and red against the cut that introduced it.
 
 ### A view switch still moves the switcher, because each view sizes its own plot — [#29](https://github.com/jsundram/quartet-composers/issues/29)
 `measure()` in `chart.js` picks the aspect ratio per mode — 0.98 for Fame against 0.82 for the

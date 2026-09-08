@@ -1304,6 +1304,22 @@ check("a re-wrap re-measures the reservation",
       `min-height 1280px ${wide.min} -> 390px ${narrow.min} (paragraph ${narrow.h})`);
 await viewport(1100, 1500);
 
+// The reservation is only worth anything if the sentence it MEASURES is the sentence the page
+// PRINTS — which is why ledeClause() was split out of setLede() in the first place. The one place
+// they could come apart is the pill that SWAPS the claim: setRepertoire() replaces the curated
+// fill under "Women", and WOMEN_CANON holds none of the three curated outliers, so the page rings
+// three DERIVED composers while emphasisStats(true) was still reading outlierIdx. It measured "the
+// women's repertoire, 1805 to 1962; Giuseppe Cambini wrote 149 quartets" — a sentence naming a dot
+// that filter does not draw, and one the app can never print. Nothing was visibly wrong (both
+// wrapped to three lines at 320/360/390/430/768); the next canonical rename decides whether that
+// holds, which is why this compares the STRINGS and not a height.
+await goto(BASE + "#g=female");
+await sleep(700);
+const claim = await ev(`(()=>{const s=o=>JSON.stringify(o);
+  return {rest:s(Chart.emphasisStats(true)), now:s(Chart.emphasisStats())}})()`);
+check("the measured sentence is the printed one under the pill that swaps the claim",
+      claim.rest === claim.now, `measured ${claim.rest} / printed ${claim.now}`);
+
 // --- 5. sorting ---------------------------------------------------------------
 await goto(BASE);
 await ev(`[...document.querySelectorAll('thead th button')].find(b=>b.textContent==='Quartets').click()`);

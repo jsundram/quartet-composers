@@ -1117,16 +1117,27 @@ window.Chart = (function () {
            // `atRest` answers a DIFFERENT question, for app.js's height reservation only: what
            // would this sentence be with no filter and in Fame, whatever is on screen right now.
            // Asking it must not disturb what is drawn, so it re-reads the same arrays with the
-           // mode gate and the visibility test dropped rather than un-filtering anything. ringIdx
-           // is left out of it because nothing is derived at rest — refreshEmphasis only derives
-           // under a filter — so the example is the first curated outlier, which is what the
-           // resting sentence names.
+           // mode gate and the visibility test dropped rather than un-filtering anything.
+           //
+           // The REPERTOIRE swap is not one of the things it drops, and the rings have to follow
+           // it. A gender pill both filters and replaces the curated fill (setRepertoire), and
+           // WOMEN_CANON contains none of the three curated outliers — so under "Women" the page
+           // rings three DERIVED composers, and reading outlierIdx here measured "the women's
+           // repertoire, 1805 to 1962; Giuseppe Cambini wrote 149 quartets" — a sentence naming a
+           // dot that filter does not draw, and one the app can never print. Measuring a string
+           // the page never shows is the exact failure splitting ledeClause() out of setLede()
+           // was meant to make impossible; that it wrapped to the same three lines was luck, and
+           // invariant 4 says these names change spelling when the pipeline runs. So the resting
+           // rings are the curated outliers while the curated fill is on screen, and whatever the
+           // swap derived otherwise. Unfiltered, ringIdx is empty and this is the outliers again.
            emphasisStats: (atRest) => {
              if (!atRest && mode !== "fame") return null;
              const keep = atRest ? () => true : isVisible;
              const filled = canonIdx.map(i => rows[i]).filter(keep);
              if (!filled.length) return null;
-             const ringed = outlierIdx.filter(i => keep(rows[i])).concat(atRest ? [] : ringIdx);
+             const ringed = atRest
+               ? (repertoire === DEFAULT_REPERTOIRE ? outlierIdx : ringIdx)
+               : outlierIdx.filter(i => keep(rows[i])).concat(ringIdx);
              const ex = ringed.length ? rows[ringed[0]] : null;
              return { noun: repertoire.noun, n: filled.length,
                       // One survivor has no SPAN — "1732 to 1732" is not a range — so the lede
