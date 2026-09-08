@@ -358,6 +358,12 @@ def main():
     # how the first version of the one below stopped asserting anything. The rule was documented
     # and held by inspection, and a rule that holds by inspection is the shape of half the defects
     # this file exists to catch.
+    # Exact membership, not containment: a forbidden string is paired only by a positive case that
+    # requires that string, so the pairing is unambiguous rather than "some other expect happens to
+    # contain these words". The cost is that MAKING A POSITIVE EXPECT MORE SPECIFIC orphans its
+    # partner — widen "still carries a count" to "still carries a count at the boundary" and this
+    # fires. That is the safe direction (a loud refusal to run, fixed the same day, rather than a
+    # silent pass), but it is a trap worth knowing about: change both halves together.
     pins = {e for _n, e, _f in CASES if not e.startswith("!")}
     orphans = [(n, e[1:]) for n, e, _f in CASES if e.startswith("!") and e[1:] not in pins]
     if orphans:
