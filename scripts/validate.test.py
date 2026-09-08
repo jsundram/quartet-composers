@@ -325,7 +325,9 @@ def run_case(name, expect, mutate):
             # that found nothing, an assert guarding a shape — took the summary line and every
             # case after it down with the traceback. Hardening the selections could not fix that;
             # only this can, and it covers the ones already written the same way.
-            return False, "the mutation could not be applied: %s: %s" % (type(e).__name__, e)
+            # "or its own checks": the same wrapper catches a post-condition assert inside the
+            # mutation, where the change WAS applied and it is the claim about it that failed.
+            return False, "the mutation or its own checks raised: %s: %s" % (type(e).__name__, e)
         json.dump(d["composers"], open(os.path.join(tmp, "composers.json"), "w", encoding="utf-8"))
         json.dump(d["people"], open(os.path.join(tmp, "data/people.json"), "w", encoding="utf-8"))
         json.dump(d["pageviews"], open(os.path.join(tmp, "data/pageviews.json"), "w", encoding="utf-8"))
@@ -350,6 +352,20 @@ def run_case(name, expect, mutate):
 
 
 def main():
+    # THE PAIRING RULE, CHECKED RATHER THAN STATED. An inverted case proves the gate stayed quiet
+    # only if the words it forbids could have appeared, so it has to forbid something a positive
+    # case requires — otherwise a reword of the message retires it in silence, which is exactly
+    # how the first version of the one below stopped asserting anything. The rule was documented
+    # and held by inspection, and a rule that holds by inspection is the shape of half the defects
+    # this file exists to catch.
+    pins = {e for _n, e, _f in CASES if not e.startswith("!")}
+    orphans = [(n, e[1:]) for n, e, _f in CASES if e.startswith("!") and e[1:] not in pins]
+    if orphans:
+        for n, e in orphans:
+            print("  FAIL - %s\n       nothing positive requires %r, so its absence proves nothing"
+                  % (n, e), file=sys.stderr)
+        return 1
+
     # The gate must also pass the REAL data, or every case above is vacuously green.
     out = subprocess.run([sys.executable, VALIDATE], capture_output=True, text=True)
     ok = out.returncode == 0
