@@ -312,6 +312,32 @@ def move_source_unavailable(fv):
     assert "Old A" in log, "nothing said which source was missing:\n%s" % log
 
 
+# A record from before the collapse rule: two entries naming one title in a row, which is what a
+# rejected middle hop leaves behind. It names a boundary the article never crossed.
+LEGACY = dict(MOVED, moves={"A": [["2025-09", "Old A"], ["2026-04", "Old A"]]})
+
+
+@case("the RECORD names only boundaries the article actually crossed", LEGACY)
+def record_is_collapsed(fv):
+    # Written down uncollapsed, the file claims a move it did not act on and `stitched across`
+    # names a hop that never happened — and before the gate learned to derive its months from
+    # pagemoves.holes(), it also failed the build over the count stitch() correctly writes there.
+    # A run that touches the title has to rewrite the record as what it actually did.
+    _asked, restore = moving(fv, [("2026-04", "Old A")])
+    try:
+        _rc, out, log = run(fv, LONG + ["--force"])
+    finally:
+        restore()
+    got = out["moves"]["A"]
+    assert got == [["2026-04", "Old A"]], (
+        "the record still names %d boundaries; the article crossed one: %r" % (len(got), got))
+    said = [ln for ln in log.splitlines() if "stitched across" in ln]
+    assert said and "2025-09" not in said[0], (
+        "the summary named a hop that did not happen: %r" % (said,))
+    assert out["series"]["A"][:11] == [800] * 11, (
+        "the series was not stitched: %r" % out["series"]["A"][:11])
+
+
 @case("a chain already on record is not re-confirmed, so it cannot silently empty", MOVED)
 def move_record_is_trusted(fv):
     # confirm() is how a chain EARNS its place in the record; re-deriving it on every run gives it

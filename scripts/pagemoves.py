@@ -357,6 +357,22 @@ def tenures(canonical, moves):
     return spans
 
 
+def holes(months, canonical, moves):
+    """The months stitch() writes `null` at: the ones that belong to two tenures at once.
+
+    ONE PREDICATE, because two readers need it and they must not drift. stitch() writes the series
+    and validate.py's check_moves asserts that it did; when the second carried its own copy of this
+    test the two agreed only by inspection, and a change to the null policy here — nulling the
+    month after a move as well, say — would have the gate failing a correctly written series with
+    advice to rerun a script that reproduces it. That is the same drift the shared tenures() call
+    closed, one predicate deeper.
+    """
+    spans = tenures(canonical, moves)
+    return [m for m in months
+            if len([1 for _t, lo, hi in spans
+                    if (lo is None or m >= lo) and (hi is None or m <= hi)]) != 1]
+
+
 def stitch(months, by_title, canonical, moves):
     """One series over `months`: each month counted under the title the article was at.
 
@@ -376,14 +392,15 @@ def stitch(months, by_title, canonical, moves):
     price than a fabricated peak.
     """
     spans = tenures(canonical, moves)
+    gaps = set(holes(months, canonical, moves))
     idx = {m: i for i, m in enumerate(months)}
     out = []
     for m in months:
-        held = [t for t, lo, hi in spans
-                if (lo is None or m >= lo) and (hi is None or m <= hi)]
-        if len(held) != 1:
+        if m in gaps:
             out.append(None)                           # the month of the move; see the docstring
             continue
+        held = [t for t, lo, hi in spans
+                if (lo is None or m >= lo) and (hi is None or m <= hi)]
         v = by_title.get(held[0]) or []
         out.append(v[idx[m]] if idx[m] < len(v) else None)
     return out

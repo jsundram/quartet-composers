@@ -232,10 +232,13 @@ Four suites, all dependency-free:
   and the cache in a temp file, so it needs no network and runs in CI. It exists because the flat
   array has only two values, a count and a null, and **every bug in that file has been a null no
   request justified** — invisible afterwards, because the array is the right length and every
-  number in it is plausible. The only symptom is that `todo` quietly stops asking. Its last three
-  cases stub the move log as well and cover invariant 15: that a move is stitched, that the stitch
-  is re-applied on every refetch (or the next monthly top-up silently undoes every one of them),
-  and that a logged move the traffic does not support is recorded and NOT stitched.
+  number in it is plausible. The only symptom is that `todo` quietly stops asking. Seven of its
+  cases stub the move log as well and cover invariant 15: that a move is stitched and the month of
+  the move nulled, that the stitch is re-applied on every refetch (or the next monthly top-up
+  silently undoes every one of them), that a chain already on record is not re-judged, that a
+  logged move the traffic does not support is recorded and NOT stitched, that a source which does
+  not answer — by raising, or by a 200 carrying nothing — leaves both the series and the record
+  alone, and that what gets RECORDED names only boundaries the article actually crossed.
 - `scripts/refresh.py` — not a test but the same discipline: it decides whether a top-up is DUE
   (does `composers.json` already cover the last complete month?), runs the three pipeline stages,
   refuses to bump `V` if `validate.py` fails, and is a pure no-op otherwise.
