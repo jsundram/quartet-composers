@@ -538,6 +538,10 @@ function placeFilters() {
   const f = $("filters"), viz = $("viz");
   const fs = document.body.classList.contains("fs");
   const parent = fs ? viz : document.querySelector("main");
+  // firstElementChild, whatever it happens to be — it is `.controls` now that those precede the
+  // plot (issue 29), and it does not matter which: full screen lays #viz out with an explicit
+  // `order` per child, so the DOM position only breaks ties between equal orders and this one has
+  // none. placeDetail() below is the function that IS coupled to a specific sibling.
   const before = fs ? viz.firstElementChild : document.querySelector(".grid");
   if (f.parentNode === parent && f.nextElementSibling === before) return;
   parent.insertBefore(f, before);

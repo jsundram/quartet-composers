@@ -268,8 +268,9 @@ implementation of it. See `mocks/README.md`.
 
 ## Where to pick up
 
-`TODO.md` holds the open work with the reasoning behind each item, including one known defect (the
-readership brush has no keyboard path) and two things deliberately NOT being done, with why. Read it
+`TODO.md` holds the open work with the reasoning behind each item, including two known defects (the
+readership brush has no keyboard path, and it shows its Clear button mid-drag) and two things
+deliberately NOT being done, with why. Read it
 before starting something; it exists so a cold session doesn't re-derive a decision that was already
 made on evidence.
 
@@ -293,7 +294,11 @@ made on evidence.
   `#plot` is `flex:1` there, sized by the viewport rather than by the view, so there is nothing to
   absorb and every pixel above the chart is a pixel of chart. It costs 94px of a phone's first
   screen, which is what the old ordering was buying (issue 29). `placeDetail()`'s phone anchor
-  moved with the row — it inserts before `.legend`, or the panel lands above the chart.
+  moved with the row — it inserts before `.legend`, or the panel lands above the chart. One control
+  still breaks the rule, one row up: the readership brush shows its Clear button on the first frame
+  of a drag, which wraps `.filterbar` on a phone and drops the brush 10.6px under the finger.
+  `TODO.md` records it beside the issue 29 entry, with the measurement and why neither fix is
+  obviously right.
 - **The table and the chart show short names; the detail panel shows the full title.**
   `names.js` is the only place that takes a canonical Wikipedia name apart, and it is a heuristic
   — see `SURNAME` there. It derives BOTH forms from one shared-surname map, so the two can never
