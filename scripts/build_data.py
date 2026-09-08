@@ -190,7 +190,9 @@ def main():
         "meta": {
             "generated": dt.date.today().isoformat(),
             "note": "monthly English Wikipedia page views (agent=user) per composer, aligned to "
-                    "`months`; null where the API has no datum for that month",
+                    "`months`; null where the API has no datum for that month. A month before a "
+                    "page move is counted under the title the article held then, so a rename is "
+                    "not drawn as a step",
             "stat_months": STAT_MONTHS,
         },
         "months": history,

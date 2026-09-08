@@ -177,6 +177,45 @@ def history_rename(d):
     ser["Fanny Mendelssohn"] = ser.pop(victim)
 
 
+# ---------------------------------------------------------------- a page move
+def _step_it(pv, title, upto=-12):
+    """Give one cached series the shape of an article that was renamed mid-window."""
+    vals = pv["series"][title]
+    for i in range(len(vals) + upto):
+        vals[i] = 2                       # what the new title drew while it was still a redirect
+
+
+@case("a renamed article nobody has put to the move log", "asked the move log")
+def unstitched_move(d):
+    # Fanny Hensel's defect, reproduced. The series is the right length, aligned to the right axis
+    # and full of numbers the API really returned; what it is not is continuous. Nothing else in
+    # this file can see that, because every check either reads the last twelve months or compares
+    # two files that were both built from the same wrong series.
+    pv = d["pageviews"]
+    title = max(pv["series"], key=lambda t: pv["series"][t][-1] or 0)
+    pv["moves"].pop(title, None)
+    _step_it(pv, title)
+
+
+@case("a recorded page move whose stitch was lost in a rebuild", "stitch was lost")
+def lost_stitch(d):
+    # The other way it reaches a build: the repair was found, recorded, and then dropped — which
+    # is what rebuilding data/pageviews.json without re-applying it looks like. Silent, because
+    # every number that comes back is one the API really answered for the title as it stands now.
+    pv = d["pageviews"]
+    title = max((t for t, c in pv["moves"].items() if c),
+                key=lambda t: pv["series"][t][-1] or 0)
+    _step_it(pv, title)
+
+
+@case("a move chain that hands one composer another's history", "another composer's canonical")
+def borrowed_history(d):
+    pv = d["pageviews"]
+    title = next(t for t, c in pv["moves"].items() if c)
+    other = next(t for t in pv["series"] if t != title)
+    pv["moves"][title] = [[pv["months"][40], other]]
+
+
 @case("a gender the cache never stated", "does not state")
 def invented_gender(d):
     for r in d["composers"]["rows"]:

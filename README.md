@@ -77,6 +77,7 @@ Two review tools that are not part of the build:
 
 ```sh
 python3 scripts/audit_counts.py     # sample parsed counts beside their source sentence, to grade
+python3 scripts/audit_redirects.py  # price every redirect: what summing them would change (1.024x)
 python3 scripts/compare_2014.py     # diff against the archived 2014 snapshot, with reasons
 ```
 
@@ -103,6 +104,14 @@ traps, all of which this repo fell into first:
   before any view is requested.
 - *A disambiguator is load-bearing.* A bare "John Adams" resolves correctly and unambiguously to
   the second President of the United States, whose 144,948 views briefly outranked Beethoven here.
+- *And a canonical title is only canonical today.* The API counts the string that was **requested**,
+  so every month before a page **move** was counted under the name the article held then. Fanny
+  Hensel's article sat at "Fanny Mendelssohn" until March 2026 and shipped a median of **500**
+  against a real **5,421** — and the sparkline caption, which names a spike when a month clears 3×
+  the composer's own 95th percentile, obligingly captioned the rename as an obituary. Twelve of the
+  884 articles have moved. `scripts/pagemoves.py` finds them (a level shift proposes, the MediaWiki
+  move log decides, and a traffic-handover test throws out the moves that were reverted an hour
+  later), and each month is counted under the title the article actually occupied.
 - *One month is weather.* Measured against a 12-month window, a single month is 12% off the median
   typically and 29% at worst; August is a seasonal trough; one composer has a month at 2.13× his
   own median. `monthly` granularity returns the whole range in **one request**, so twelve months
@@ -124,7 +133,7 @@ current month, it returns the days so far as though they were the month. And a t
 **answer** — a 404, or five exhausted retries — is dropped from the cache rather than written,
 because the flatten would otherwise null-pad it into looking complete forever; dropping it makes
 the next run ask again in full, which is what "rerun to pick them up" promises.
-`scripts/fetch_views.test.py` holds all of that as six stubbed, offline cases. The headline number did **not**
+`scripts/fetch_views.test.py` holds all of that as ten stubbed, offline cases. The headline number did **not**
 move with it: the median is still over the last **twelve** cached months, because "how much read
 is this composer" is a question about now. The rest is history, which is a different question, and
 `validate.py` recomputes one from the other so the two files cannot drift apart. What a decade
@@ -169,8 +178,8 @@ matched to the same human.
 
 ```sh
 python3 scripts/validate.py       # THE DATA GATE — see below; run it after every rebuild
-python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (20 cases)
-python3 scripts/fetch_views.test.py  # the page-view cache's invariants, network stubbed (7 cases)
+python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (23 cases)
+python3 scripts/fetch_views.test.py  # the page-view cache's invariants, network stubbed (10 cases)
 scripts/ui-test.sh           # 170 behavioural checks in a real headless Chrome (lens, tap-to-pin,
                              #   the three filters, theme repaint, 390px layout, offline, print) — no deps
 node scripts/sw.test.mjs     # 24 tests of the service worker's fetch handler
@@ -187,8 +196,9 @@ Every serious bug this dataset has had was a **data** bug, and not one was caugh
 were caught by a human noticing a number looked off, twice only after it was already live. A
 redirect returning 41 views instead of 14,330. The second President of the United States outranking
 Beethoven. A living composer reported dead because Wikidata marks known-wrong values `deprecated`
-rather than deleting them. Every one produced *plausible-looking output*, which is precisely what
-unit tests and code review are worst at catching.
+rather than deleting them. A composer's decade of readership counted under a title her article had
+not lived at since March 2026. Every one produced *plausible-looking output*, which is precisely
+what unit tests and code review are worst at catching.
 
 `validate.py` compares `composers.json` against three things — its schema, the other cached files,
 and the previous commit — and fails the build. Drift against the last commit is the only check that

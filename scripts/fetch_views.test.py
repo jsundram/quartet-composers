@@ -37,9 +37,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CASES = []
 
 
-def case(name):
+def case(name, cache=None):
+    """Register a case. `cache` overrides the two-month fixture for the ones that need a history."""
     def deco(fn):
-        CASES.append((name, fn))
+        CASES.append((name, fn, cache))
         return fn
     return deco
 
@@ -182,12 +183,107 @@ def partial_month_refused(fv):
     assert rc == 2, "an incomplete month was accepted (rc=%r)" % rc
 
 
+# ------------------------------------------------------------------ page moves
+# A sixteen-month axis, because the detector measures a level shift over windows and cannot see one
+# in the two months the cases above run in. "A" is an article that moved from "Old A" in the twelfth
+# month; its own series is redirect traffic before that and real traffic after, which is exactly
+# the shape Fanny Hensel's had. "B" never moves and is here to be left alone.
+MOVED = {
+    "months": ["2025-%02d" % m for m in range(5, 13)] + ["2026-%02d" % m for m in range(1, 9)],
+    "series": {"A": [3] * 11 + [400] + [900, 950, 880, 910],
+               "B": [20] * 16},
+}
+OLD_A = [800] * 11 + [500] + [60, 55, 58, 52]
+LONG = ["--months", "16", "--end", "2026-08"]
+
+
+def moving(fv, chain, extra=None):
+    """Stub the network: `chain` is what the move log says, `extra` the old titles' own counts."""
+    tables = dict({"Old A": OLD_A}, **(extra or {}))
+
+    def stub(title, months):
+        vals = tables.get(title)
+        if vals is not None:
+            return dict(zip(MOVED["months"], vals))
+        return {m: MOVED["series"].get(title, [1] * 16)[i]
+                for i, m in enumerate(MOVED["months"]) if m in months}
+    fv.fetch = stub
+    asked = []
+    real = fv.pagemoves.find_moves
+
+    def log_stub(canonical, months, log=None):
+        asked.append(canonical)
+        return list(chain) if canonical == "A" else []
+    fv.pagemoves.find_moves = log_stub
+    return asked, lambda: setattr(fv.pagemoves, "find_moves", real)
+
+
+@case("a moved article is stitched back into one series", MOVED)
+def move_stitched(fv):
+    _asked, restore = moving(fv, [("2026-04", "Old A")])
+    try:
+        _rc, out, _log = run(fv, LONG + ["--force"])
+    finally:
+        restore()
+    got = out["series"]["A"]
+    assert got[:11] == [800] * 11, (
+        "the months before the move were left under the new title (%r). That is the whole defect: "
+        "the API answers per title, so those months measure a redirect nobody followed." % got[:11])
+    # The move happened on a day, so its month was read under both names and belongs to neither.
+    assert got[11] == 900, "the transition month is %r, not the two names summed (400+500)" % got[11]
+    assert got[12:] == [900, 950, 880, 910], "the months after the move were altered: %r" % got[12:]
+    assert out["moves"]["A"] == [["2026-04", "Old A"]], out["moves"].get("A")
+    assert out["series"]["B"] == [20] * 16, "an article that never moved was rewritten"
+
+
+@case("a recorded move is re-applied every time the canonical series is refetched", MOVED)
+def move_reapplied(fv):
+    # A refetch overwrites the stitched series with the API's per-title answer, so the repair is
+    # not a migration that happens once. If it were, the next monthly top-up would silently undo
+    # every stitch in the file and nothing downstream could tell.
+    asked, restore = moving(fv, [("2026-04", "Old A")])
+    try:
+        run(fv, LONG + ["--force"])
+        first = list(asked)
+        _rc, out, _log = run(fv, LONG + ["--force"])
+    finally:
+        restore()
+    assert out["series"]["A"][:11] == [800] * 11, (
+        "the second run undid the stitch: %r" % out["series"]["A"][:11])
+    assert out["series"]["A"][11] == 900, (
+        "the transition month was stitched into an already-stitched series (%r): the sum has to "
+        "be taken from the pre-stitch counts, or every run adds that month to itself"
+        % out["series"]["A"][11])
+    assert asked == first, (
+        "the move log was asked again for %r — a recorded move is re-applied from the record, "
+        "which is what keeps a monthly run from re-investigating the whole roster"
+        % (asked[len(first):],))
+
+
+@case("a logged move the traffic does not support is recorded and NOT stitched", MOVED)
+def move_not_confirmed(fv):
+    # The log states events, not tenures: a move reverted twenty minutes later leaves the same two
+    # entries a permanent one does. "Other A" here is logged as the source and never had the
+    # readers, which is Roberto Gerhard's case — stitching it would have handed him a decade of an
+    # empty redirect's traffic and made his series worse than leaving it alone.
+    _asked, restore = moving(fv, [("2026-04", "Other A")], extra={"Other A": [4] * 16})
+    try:
+        _rc, out, _log = run(fv, LONG + ["--force"])
+    finally:
+        restore()
+    assert out["series"]["A"] == MOVED["series"]["A"], (
+        "an unconfirmed move was stitched anyway: %r" % out["series"]["A"])
+    assert out["moves"]["A"] == [], (
+        "the empty record is what tells validate.py somebody looked, and what stops the next run "
+        "asking again; got %r" % (out["moves"].get("A"),))
+
+
 def main():
     passed = failed = 0
-    for name, fn in CASES:
+    for name, fn, cache in CASES:
         with tempfile.TemporaryDirectory(dir=HERE) as tmp:
             try:
-                fn(load(tmp, dict(CACHED)))
+                fn(load(tmp, json.loads(json.dumps(cache or CACHED))))
                 print("  ok   - %s" % name)
                 passed += 1
             except AssertionError as e:

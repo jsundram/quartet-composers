@@ -22,6 +22,10 @@ it was already live:
     without checking rank reported Tania León — alive, Pulitzer 2021 — as dead since 1996.
   - The "living" flag was derived from the page-view month, so refreshing views to a new year would
     have silently reclassified every living composer as dead.
+  - Fanny Hensel's article was at "Fanny Mendelssohn" until March 2026, so ten years of her history
+    was counted under a title that was, at the time, a redirect. Her shipped median of 500 was not
+    a readership at all — it was the midpoint of a series half of which measured the wrong string —
+    and the app then captioned the rename as an obituary spike, because that is what it looks like.
 
 Every one produced PLAUSIBLE-LOOKING output. That is the whole problem: unit tests do not help,
 code review does not help, and the only thing that reliably catches them is comparing the numbers
@@ -40,6 +44,9 @@ import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import pagemoves                      # noqa: E402 - the move rule, shared with fetch_views.py
+
 ROOT = os.path.dirname(HERE)          # overridable with --root, so the suite can validate a copy
 THIS_YEAR = dt.date.today().year
 
@@ -341,6 +348,79 @@ def check_history(rows, meta, hist, pv):
             % (len(disagree), "; ".join(disagree[:3])))
 
 
+def check_moves(pv):
+    """data/pageviews.json's `moves` — that a page move was found, and that the repair survived.
+
+    THE FANNY HENSEL CHECK, and the only one here that had to be invented rather than copied from
+    an incident report, because the incident is invisible from inside the file: a series counted
+    under the wrong title is the right length, aligned to the right axis, and full of real numbers
+    the API really returned. What it is not is CONTINUOUS. An article that gains an order of
+    magnitude in one month and holds it did not become famous overnight; it moved, and the months
+    before the move belong to a name nobody was asking for.
+
+    Two ways that can reach a build, so two assertions:
+
+      - a series that steps and has no `moves` entry at all — nobody has ever put it to the move
+        log. An empty list is a real answer and passes: fetch_views.py writes one when the log says
+        the article has not moved, which is how genuine growth (a film about the Chevalier de
+        Saint-Georges, 8x) is told apart from a rename nobody checked.
+      - a series that steps and has a non-empty one — the repair was recorded and then lost. That
+        is what a rebuild of data/pageviews.json without the stitch looks like, and it is silent:
+        the numbers all come back plausible and only the shape gives it away.
+
+    The thresholds are pagemoves.GATE_*, well above what it takes to make fetch_views.py LOOK. A
+    gate that fails a build has to clear every real reading, and the largest genuine step in this
+    roster is 8x against a smallest confirmed move of 9x.
+    """
+    if not pv:
+        return
+    months, series = pv.get("months") or [], pv.get("series") or {}
+    moves = pv.get("moves")
+    if moves is None:
+        warn("data/pageviews.json records no `moves` — it predates the page-move repair; rerun "
+             "scripts/fetch_views.py, which writes one for every series it checks")
+        return
+
+    for title, chain in sorted(moves.items()):
+        if title not in series:
+            err("moves names %r, which has no page-view series" % title)
+            continue
+        last = ""
+        for entry in chain:
+            if not (isinstance(entry, list) and len(entry) == 2):
+                err("%s: %r is not a [month, title it moved from] pair" % (title, entry))
+                continue
+            month, src = entry
+            if month not in months:
+                err("%s: moved at %s, which is not a month on the axis" % (title, month))
+            if month <= last:
+                err("%s: moves are out of order at %s — tenures are read in sequence, so an "
+                    "unsorted chain hands the article's history to the wrong title" % (title, month))
+            last = month
+            # The article's own title is a legitimate source: an article that was moved away and
+            # came back (Takemitsu, three times) left and re-entered its own name. Anyone ELSE's
+            # canonical title is not — that would be two composers sharing one history.
+            if src in series and src != title:
+                err("%s: says it moved from %r, which is another composer's canonical title"
+                    % (title, src))
+
+    for title, vals in sorted(series.items()):
+        if not isinstance(vals, list):
+            continue
+        ratio, i = pagemoves.step(vals, pagemoves.GATE_FLOOR)
+        if ratio < pagemoves.GATE_STEP:
+            continue
+        if title not in moves:
+            err("%s: readership steps %.0fx around %s and nothing has asked the move log about "
+                "it — run scripts/fetch_views.py, which stitches the history back together if the "
+                "article was renamed and records that it looked if it was not"
+                % (title, ratio, months[i] if i is not None else "?"))
+        elif moves[title]:
+            err("%s: a page move is recorded but the series still steps %.0fx around %s — the "
+                "stitch was lost, so the months before the move are counted under a title nobody "
+                "was asking for" % (title, ratio, months[i] if i is not None else "?"))
+
+
 def check_names(rows, people):
     """Every displayed name must BE a canonical Wikipedia title, minus its disambiguator.
 
@@ -443,6 +523,7 @@ def main():
         pv = load("data/pageviews.json", required=False)
         check_sources(rows, meta, people, pv, load("data/list.json", required=False))
         check_history(rows, meta, load("readership.json", required=False), pv)
+        check_moves(pv)
         check_names(rows, people)
         if not args.no_drift:
             check_drift(rows, baseline_rows(args.baseline))
