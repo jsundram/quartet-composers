@@ -358,17 +358,28 @@ def check_moves(pv):
     magnitude in one month and holds it did not become famous overnight; it moved, and the months
     before the move belong to a name nobody was asking for.
 
-    Two ways that can reach a build, so two assertions:
+    THE EXACT CHECK COMES FIRST, and it needs no threshold at all: stitch() writes `null` at every
+    month a chain names, because that is the month of the move and it belongs to neither title.
+    Nothing else in the file produces that pattern, so a recorded move with a COUNT at its own
+    move month is proof the series was written as fetched — the stitch was skipped, or lost in a
+    rebuild, or abandoned this run because a source title did not answer.
 
-      - a series that steps and has no `moves` entry at all — nobody has ever put it to the move
-        log. An empty list is a real answer and passes: fetch_views.py writes one when the log says
-        the article has not moved, which is how genuine growth (a film about the Chevalier de
-        Saint-Georges, 8x) is told apart from a rename nobody checked.
-      - a series that steps and has a non-empty one — the repair was recorded and then lost. That
-        is what a rebuild of data/pageviews.json without the stitch looks like, and it is silent:
-        the numbers all come back plausible and only the shape gives it away.
+    That last case is why this exists. fetch_views.py's recovery from a missing source is to leave
+    the series and the record alone and let the gate say so, and the shape-based check below cannot
+    always say so: it has a floor of 100 readers a month, and Lois V. Vierk's post-move median is
+    44, so a lost stitch on her — or on most of this roster's tail — reads as (0.0, None) and
+    passes. The null check catches her, and catches a rebuild that skipped the repair entirely.
 
-    The thresholds are pagemoves.GATE_*, well above what it takes to make fetch_views.py LOOK. A
+    Then the shape, for the case no record can cover — a rename NOBODY has looked for:
+
+      - a series that steps and has no `moves` entry at all. An empty list is a real answer and
+        passes: fetch_views.py writes one when the log says the article has not moved, which is how
+        genuine growth (a film about the Chevalier de Saint-Georges, 8x) is told apart from a
+        rename nobody checked.
+      - a series that steps and has a non-empty one — belt to the null check's braces, for a
+        rebuild that dropped the whole `moves` block along with the stitch.
+
+    Those thresholds are pagemoves.GATE_*, well above what it takes to make fetch_views.py LOOK. A
     gate that fails a build has to clear every real reading, and the largest genuine step in this
     roster is 8x against a smallest confirmed move of 9x.
     """
@@ -403,6 +414,13 @@ def check_moves(pv):
             if src in series and src != title:
                 err("%s: says it moved from %r, which is another composer's canonical title"
                     % (title, src))
+            vals = series.get(title)
+            if month in months and isinstance(vals, list) and len(vals) == len(months) \
+                    and vals[months.index(month)] is not None:
+                err("%s: a move at %s is recorded but the series still carries a count there. "
+                    "stitch() nulls the month of a move, so this series was written as fetched — "
+                    "the months before %s are counted under a title nobody was asking for. Rerun "
+                    "scripts/fetch_views.py." % (title, month, month))
 
     for title, vals in sorted(series.items()):
         # Ragged is somebody else's error to report (check_sources already did, and err() only

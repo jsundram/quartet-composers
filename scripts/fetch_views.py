@@ -41,7 +41,9 @@ key 884 times per month and cost 1.9 MB against 0.5 MB for the same numbers, whi
 rewritten whole on every monthly top-up. The dict form is still READ, once, so an older cache
 migrates itself the first time this runs.
 
-A null is "asked, and the API had nothing" — an article that did not exist yet. It is not the same
+A null is "asked, and the API had nothing" — an article that did not exist yet — or, at the month
+an article was MOVED, "asked, and the answer belongs to neither of its titles" (see the page-move
+section below). It is not the same
 as a MISSING month, which is "never asked", and recording it is what keeps a top-up cheap: without
 it an article created in 2019 is forever missing its 2015 months, so it looks incomplete and is
 refetched in full on every single run (62 of 884 titles). Same distinction the app makes
@@ -214,7 +216,13 @@ def repair_moves(series, axis, recorded, refetched, report):
 
         A 404 counts as not answering too: for a SOURCE title it means the redirect the article
         used to live at is gone, so its months cannot be recovered — which is a thing to report and
-        retry, not a series of nulls to stitch in as though they were readings.
+        retry, not a series of nulls to stitch in as though they were readings. So does an EMPTY
+        payload, which fetch() returns as `{}` rather than None: a 200 carrying no `items` is the
+        same absence wearing a different type, and taking it for an answer is worse here than
+        anywhere else — for a new suspect the all-null source makes confirm() reject the hop and
+        write the `[]` that retires the question, and for a chain already on record (trusted, not
+        re-confirmed) stitch() would lay nulls over the whole pre-move stretch while `moves` still
+        says stitched, which step() cannot see because the before-window is then empty.
         """
         if title not in by_title:
             if title in raw and title not in refetched:
@@ -226,14 +234,21 @@ def repair_moves(series, axis, recorded, refetched, report):
                     report("      %r did not answer (%s)" % (title, e))
                     return None
                 time.sleep(PAUSE)
-                if got is None:
-                    report("      %r returned no data at all (404)" % title)
+                if not got:
+                    report("      %r returned no data at all" % title)
                     return None
                 by_title[title] = [got.get(m) for m in axis]
         return by_title[title]
 
     def repair(title, chain, recorded_already=False):
-        """Stitch `chain` into `title`'s series and record it. Returns whether anything was.
+        """Stitch `chain` into `title`'s series and record it. Returns what happened, in a word.
+
+        THREE OUTCOMES, NOT TWO, because two of them are not the same news. "stitched" and
+        "no-move" are answers — the log named a chain, or it named nothing — while "unresolved"
+        means the question is still open and nothing was written. Collapsing the last into a
+        boolean printed the operator "a 105x step in readership this article really had" after a
+        429 on Fanny's redirect list, which is the opposite of what happened and the opposite of
+        what to do about it.
 
         NOTHING IS RECORDED UNLESS THE WHOLE ANSWER IS IN HAND. `chain is None` means the move log
         could not be read; a source that does not answer means the numbers to stitch are missing.
@@ -251,21 +266,22 @@ def repair_moves(series, axis, recorded, refetched, report):
         handled.add(title)
         if chain is None:
             report("   %-32s the move log could not be read; leaving it as it was" % title)
-            return False
+            return "unresolved"
         by_title[title] = raw[title]                   # the canonical's own counts, pre-stitch
         for _, src in chain:
             if series_for(src) is None:
                 report("   %-32s cannot be repaired this run; %r is missing. The series is "
                        "written as fetched and the gate will say so." % (title, src))
-                return False
+                return "unresolved"
         if not recorded_already:
             chain = pagemoves.confirm(axis, by_title, title, chain, log=report)
         moves[title] = chain
-        if chain:
-            series[title] = pagemoves.stitch(axis, by_title, title, chain)
-            report("   %-32s stitched across %s" % (
-                title, ", ".join("%s <- %s" % (m, src) for m, src in chain)))
-        return bool(chain)
+        if not chain:
+            return "no-move"
+        series[title] = pagemoves.stitch(axis, by_title, title, chain)
+        report("   %-32s stitched across %s" % (
+            title, ", ".join("%s <- %s" % (m, src) for m, src in chain)))
+        return "stitched"
 
     known = [t for t in sorted(moves) if t in series and moves[t] and t in refetched]
     if known:
@@ -282,9 +298,12 @@ def repair_moves(series, axis, recorded, refetched, report):
         if title in handled or not (title in refetched or title not in moves):
             continue
         report("   %-32s %.0fx step near %s — asking the move log" % (title, ratio, axis[i]))
-        if repair(title, pagemoves.find_moves(title, axis, log=report)):
+        outcome = repair(title, pagemoves.find_moves(title, axis, log=report))
+        if outcome == "stitched":
             found += 1
-        else:
+        elif outcome == "no-move":
+            # ONLY here. The other way out of repair() is that the question is still open, and
+            # saying "this article really had" about it would send the operator away satisfied.
             report("      no move that stuck; a %.0fx step in readership this article really had"
                    % ratio)
     if found:
@@ -433,9 +452,10 @@ def main():
         "fetched": dt.date.today().isoformat(),
         "months": out_axis,
         "note": "monthly English Wikipedia page views (agent=user), by canonical article title; "
-                "each series is aligned to `months`, null where the API had no datum. A month "
-                "before a page move is counted under the title the article held then; `moves` "
-                "records which, and an empty list means the move log was asked and said none",
+                "each series is aligned to `months`, null where the API had no datum and null at "
+                "the month of a page move, which belongs to neither title. A month before a move "
+                "is counted under the title the article held then; `moves` records which, and an "
+                "empty list means the move log was asked and said none",
         "moves": {k: [list(x) for x in v] for k, v in sorted(moves.items())},
         "series": {k: [v.get(m) for m in out_axis] for k, v in sorted(series.items())},
     }

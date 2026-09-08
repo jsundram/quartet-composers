@@ -161,7 +161,10 @@ def main():
             "list_source": listing.get("source"),
             "list_revid": listing.get("revid"),
             "views_months": months,
-            "views_stat": "median of %d monthly counts" % len(months),
+            # The WINDOW, not a count of values. A composer whose article moved inside it has a
+            # null at the month of the move (invariant 15), so her median is over eleven — and a
+            # sentence built from this one goes into the provenance line verbatim.
+            "views_stat": "median of up to %d monthly counts" % len(months),
             "views_note": "monthly English Wikipedia page views, a proxy for Anglophone familiarity",
             "dates_source": "Wikidata P569/P570",
             # Named in the footnote so the page says whose statement this is. It is Wikidata's
@@ -190,9 +193,10 @@ def main():
         "meta": {
             "generated": dt.date.today().isoformat(),
             "note": "monthly English Wikipedia page views (agent=user) per composer, aligned to "
-                    "`months`; null where the API has no datum for that month. A month before a "
-                    "page move is counted under the title the article held then, so a rename is "
-                    "not drawn as a step",
+                    "`months`; null where the API has no datum for that month, and null at the "
+                    "month an article was moved, which belongs to neither of its titles. A month "
+                    "before a move is counted under the title the article held then, so a rename "
+                    "is not drawn as a step",
             "stat_months": STAT_MONTHS,
         },
         "months": history,
