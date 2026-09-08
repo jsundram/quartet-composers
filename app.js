@@ -756,7 +756,7 @@ function ledeClause(st) {
 // between writing the resting text into the span and writing back what is shown.
 //
 // It settles the plot's TOP, not everything under it: each view sizes its own plot, so a switch
-// still moves the controls below it by 52px on a phone. An encoding, not a collapse — see TODO.md.
+// still moves the controls below it by 52px on a phone. An encoding, not a collapse — issue 29.
 let ledeW = -1;                        // the width the reservation was last measured at
 function reserveLede() {
   const p = document.querySelector(".lede"), el = $("lede-picked");

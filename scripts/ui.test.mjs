@@ -1257,7 +1257,7 @@ check("and coming back to Fame restores it",
 // because "the chart moved" is the complaint, and in place rather than by goto(): a re-boot lays
 // the page out once and could never show the jump. The plot's TOP, deliberately — its HEIGHT still
 // changes with the view (each mode picks its own aspect ratio), which moves the controls under it
-// by 52px on a phone and is a different thing from a box that vanished. TODO.md carries that one.
+// by 52px on a phone and is a different thing from a box that vanished — that one is issue 29.
 //
 // The reservation is MEASURED (reserveLede in app.js), not a min-height in styles.css, because the
 // tallest state is a function of the viewport AND of the data — which is why this is checked at two
