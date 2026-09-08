@@ -488,7 +488,7 @@ trivially on a chart that had stopped resizing at all. Both "does not move" chec
 the change, at 61px and 150px. The fifth, that full screen puts the controls back below the chart,
 passed before too: it is a guard against somebody unifying the two layouts, not evidence of a bug.
 
-### Nothing compares `V` between a branch and its base
+### Nothing compares `V` between a branch and its base — [#32](https://github.com/jsundram/quartet-composers/issues/32)
 `sw-lint.py`'s headline check — a staged SHELL file with an unchanged `V` — reads
 `git diff --cached`, so it only ever bites in the pre-commit hook, and `checks.yml` says so in its
 own header. That leaves one hole, and this stack fell into it: #28 and #30 both bumped
@@ -505,7 +505,7 @@ here because it belongs to `checks.yml` rather than to a layout PR, and because 
 first: whether a stack bumping one generation per PR (v31 -> v32 -> v33) or per push is the rule
 being enforced.
 
-### The readership brush shows its Clear button mid-drag, which wraps the filter row
+### The readership brush shows its Clear button mid-drag, which wraps the filter row — [#31](https://github.com/jsundram/quartet-composers/issues/31)
 The rule [#29](https://github.com/jsundram/quartet-composers/issues/29) settled — nothing a finger
 rests on may be placed by a box the same press resizes — has one exception left, and it is the row
 directly above the one that issue was about. `applyFilters()` sets
