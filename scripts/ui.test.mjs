@@ -1320,6 +1320,28 @@ const claim = await ev(`(()=>{const s=o=>JSON.stringify(o);
 check("the measured sentence is the printed one under the pill that swaps the claim",
       claim.rest === claim.now, `measured ${claim.rest} / printed ${claim.now}`);
 
+// Full screen sets .lede display:none, so reserveLede() has nothing to measure and keeps the box it
+// last set. What it keeps stops being a MEASUREMENT the moment the claim changes behind the hidden
+// paragraph — and the ResizeObserver's width guard then reads "same width, nothing to do" on the
+// way back, so the stale box stands: at 360, boot, enter full screen, press Women, come back, and a
+// 122px reservation sat under a 143px paragraph. It recovered on the next setLede(), so nothing was
+// visibly wrong; the bail invalidates the width now instead of relying on that. At 360 rather than
+// 390 because at 390 the two sentences wrap to the same height and there is nothing to see.
+await viewport(360, 844, true);
+await goto(BASE);
+await sleep(700);
+await ev(`document.getElementById('fs').click()`);
+await sleep(600);
+await ev(`document.querySelector('#gender button[data-g="female"]').click()`);
+await sleep(600);
+await ev(`document.getElementById('fs').click()`);
+await sleep(800);
+const back = await ledeBox();
+check("a claim that changed behind full screen re-measures on the way back",
+      back.min > 0 && Math.abs(back.min - back.h) < 1.5,
+      `min-height ${back.min} vs paragraph ${back.h}`);
+await viewport(1100, 1500);
+
 // --- 5. sorting ---------------------------------------------------------------
 await goto(BASE);
 await ev(`[...document.querySelectorAll('thead th button')].find(b=>b.textContent==='Quartets').click()`);
