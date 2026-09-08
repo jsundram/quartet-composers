@@ -29,7 +29,14 @@ CASES = []
 
 
 def case(name, expect):
-    """Register a mutation. `expect` is a substring the failure message must contain."""
+    """Register a mutation. `expect` is a substring the failure message must contain.
+
+    `expect=None` inverts it: the mutated dataset must still PASS. Every case here was a positive
+    one — break the data, expect an error — which is the right shape for a check that CATCHES
+    something and the wrong shape for one that was deliberately LOOSENED. The gate learned not to
+    fail a correctly stitched series whose chain names a boundary the article never crossed; with
+    only positive cases, re-tightening it back to the false positive left the whole suite green.
+    """
     def deco(fn):
         CASES.append((name, expect, fn))
         return fn
@@ -223,6 +230,35 @@ def lost_stitch_below_the_floor(d):
         pv["series"][title][j] = 3                     # written as fetched: redirect-scale, no null
 
 
+@case("a chain whose surviving hops leave two tenures under one title is NOT a lost stitch", None)
+def adjacent_tenures_are_not_a_lost_stitch(d):
+    # The mirror image of the case above, and the only shape that can tell the gate's rule from
+    # the one it replaced. confirm() judges hops independently, so an alternating chain can lose
+    # its middle one and name a boundary the article never crossed — stitch() writes a real count
+    # there, correctly. Asserting a null at every month the RECORD names would fail this, with a
+    # message saying the series was written as fetched and advice to rerun a deterministic script
+    # that reproduces it: a build with no way back to green.
+    sys.path.insert(0, HERE)
+    import pagemoves
+    pv = d["pageviews"]
+    months = pv["months"]
+    # The longest recorded chain, with its MIDDLE hop dropped — that is what leaves two entries
+    # naming one title in a row. Taken deliberately rather than from whichever chain sorts first:
+    # dropping the last hop of a two-hop chain collapses to nothing at all, which the gate is
+    # equally right about and which does not exercise this shape.
+    title = max((t for t, c in pv["moves"].items() if len(c) >= 3), key=lambda t: len(pv["moves"][t]))
+    chain = [tuple(e) for e in pv["moves"][title]]
+    del chain[1]
+    assert chain[0][1] == chain[1][1], "the chain picked does not leave two tenures under one title"
+    pv["moves"][title] = [list(c) for c in chain]
+    # Counts, not the shipped nulls: the point is that the month the record names but the article
+    # never crossed carries a real number, and the gate must not object to it.
+    by = {src: [100] * len(months) for _m, src in chain}
+    by[title] = [7] * len(months)
+    pv["series"][title] = pagemoves.stitch(months, by, title, chain)
+    assert pv["series"][title][months.index(chain[0][0])] == 100, "the boundary month is not a count"
+
+
 @case("a ragged series crashes the gate instead of reporting what it already found", "not aligned")
 def ragged_crashes_check_moves(d):
     # step() returns an index into the series, so a series LONGER than the axis made months[i]
@@ -276,6 +312,11 @@ def run_case(name, expect, mutate):
         out = subprocess.run([sys.executable, VALIDATE, "--root", tmp, "--baseline", base],
                              capture_output=True, text=True)
         blob = out.stdout + out.stderr
+        if expect is None:
+            if out.returncode != 0:
+                return False, "validate REJECTED a dataset it must accept: %s" % (
+                    "; ".join(l.strip() for l in blob.splitlines() if "ERROR" in l)[:300])
+            return True, ""
         if out.returncode == 0:
             return False, "validate PASSED a corrupted dataset"
         if expect not in blob:

@@ -277,11 +277,21 @@ def repair_moves(series, axis, recorded, refetched, report):
             chain = pagemoves.confirm(axis, by_title, title, chain, log=report)
         # A rejected hop can leave the chain naming a boundary the article never crossed — two
         # entries under one title, or a last entry naming the canonical. Recording that would have
-        # the file claim a move it did not act on, and validate.py asserts a null at every month
-        # the record names while stitch() correctly writes a count there. Collapsed, all three
-        # agree. Applied on the recorded path too, so a record written before this rule is fixed
-        # the next time the title is touched rather than failing the gate forever.
+        # the file claim a move it did not act on; before the gate learned to derive its months
+        # from pagemoves.holes(), it also asserted a null at every month the record NAMED, which
+        # stitch() rightly does not write there. Collapsed, the record and the series agree.
+        # Applied on the recorded path too, so a record written before this rule is repaired the
+        # next time the title is touched.
         chain = pagemoves.collapse(title, chain)
+        # EXCEPT that it must not empty one. `[]` is not a shorter record, it is the sentence "the
+        # log was asked and there is no move here" — and on this path the log was not opened at
+        # all, so writing it would retire a question nobody put. Hand it to the suspects loop
+        # instead, which asks properly; `handled` is what would otherwise stop it looking.
+        if recorded_already and not chain:
+            report("   %-32s the record names no boundary the article crossed; leaving it for "
+                   "the move log to answer" % title)
+            handled.discard(title)
+            return "unresolved"
         moves[title] = chain
         if not chain:
             return "no-move"

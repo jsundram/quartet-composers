@@ -133,9 +133,10 @@ current month, it returns the days so far as though they were the month. And a t
 **answer** — a 404, or five exhausted retries — is dropped from the cache rather than written,
 because the flatten would otherwise null-pad it into looking complete forever; dropping it makes
 the next run ask again in full, which is what "rerun to pick them up" promises.
-`scripts/fetch_views.test.py` holds all of that as thirteen stubbed, offline cases. The headline number did **not**
-move with it: the median is still over the last **twelve** cached months (up to twelve — a null is dropped, and a composer whose article moved inside the window has one), because "how much read
-is this composer" is a question about now. The rest is history, which is a different question, and
+`scripts/fetch_views.test.py` holds all of that as fifteen stubbed, offline cases. The headline number did **not**
+move with it: the median is still over the last **twelve** cached months — up to twelve, since a
+null is dropped and a composer whose article moved inside the window has one — because "how much
+read is this composer" is a question about now. The rest is history, which is a different question, and
 `validate.py` recomputes one from the other so the two files cannot drift apart. What a decade
 buys is the thing twelve months structurally cannot show: Kaija Saariaho runs at ~2,000 readers a
 month for eight years and touches 42,195 in June 2023, the month she died. 61 of the 884 articles
@@ -178,9 +179,9 @@ matched to the same human.
 
 ```sh
 python3 scripts/validate.py       # THE DATA GATE — see below; run it after every rebuild
-python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (25 cases)
-python3 scripts/fetch_views.test.py  # the page-view cache's invariants, network stubbed (13 cases)
-python3 scripts/pagemoves.test.py # the page-move rule, offline (8 cases)
+python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (25 + a clean pass)
+python3 scripts/fetch_views.test.py  # the page-view cache's invariants, network stubbed (15 cases)
+python3 scripts/pagemoves.test.py # the page-move rule, offline (9 cases)
 scripts/ui-test.sh           # 170 behavioural checks in a real headless Chrome (lens, tap-to-pin,
                              #   the three filters, theme repaint, 390px layout, offline, print) — no deps
 node scripts/sw.test.mjs     # 24 tests of the service worker's fetch handler

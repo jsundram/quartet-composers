@@ -364,13 +364,14 @@ def check_moves(pv):
     months is proof the series was written as fetched — the stitch was skipped, or lost in a
     rebuild, or abandoned this run because a source title did not answer.
 
-    THE MONTHS ARE DERIVED FROM pagemoves.tenures(), NOT FROM THE CHAIN. Reading them straight off
+    THE MONTHS ARE DERIVED FROM pagemoves.holes(), THE SAME CALL stitch() MAKES, NOT FROM THE CHAIN. Reading them straight off
     the record asserts a null at every month the record NAMES, which is a different set: a chain
     whose surviving hops leave two adjacent tenures under one title crosses no boundary there, so
     stitch() writes a real count and the gate would fail a correctly stitched series — with a
     message saying it was written as fetched, and advice to rerun a deterministic script that
-    reproduces it exactly. Sharing the function is what makes the gate and the stitch unable to
-    disagree about which months are holes.
+    reproduces it exactly. Sharing the function — the whole predicate, not just tenures() under a
+    second copy of the test — is what makes the gate and the stitch unable to disagree about which
+    months are holes.
 
     That last case is why this exists. fetch_views.py's recovery from a missing source is to leave
     the series and the record alone and let the gate say so, and the shape-based check below cannot
@@ -427,11 +428,8 @@ def check_moves(pv):
         pairs = [tuple(e) for e in chain if isinstance(e, list) and len(e) == 2 and e[0] in months]
         if not pairs or not isinstance(vals, list) or len(vals) != len(months):
             continue
-        spans = pagemoves.tenures(title, pairs)
-        holes = [m for m in months
-                 if len([1 for _t, lo, hi in spans
-                         if (lo is None or m >= lo) and (hi is None or m <= hi)]) != 1]
-        kept = [m for m in holes if vals[months.index(m)] is not None]
+        kept = [m for m in pagemoves.holes(months, title, pairs)
+                if vals[months.index(m)] is not None]
         if kept:
             err("%s: the article was at two titles at once in %s and the series still carries a "
                 "count there. stitch() nulls a month like that, so this series was written as "
