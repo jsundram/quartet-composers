@@ -527,10 +527,20 @@ row does not wrap.
 
 **Not done, and not urgent**: it is a tenth of what #29 moved and well inside a 36px target, and
 the 4m4 checks cannot see it because they read `.controls .seg` across the four VIEWS and the brush
-is not a view. The fix is small — move that one line inside the settled branch, or reserve the
-button's width so the row cannot re-wrap — but the first changes when the button appears (it should
-still appear on a `#r=` boot, where there is no gesture to settle) and the second spends width on
-every phone for a button that is usually absent. Worth measuring both before picking.
+is not a view.
+
+**The cheap fix is cheaper than this entry first claimed.** Moving that one line inside the
+`settled` branch does NOT cost the `#r=` boot: boot calls `applyFilters(true)` after
+`Histogram.setRange(link.r)`, and the guard is `settled !== false`, which `true` passes. Measured
+with the line moved — `#r=751-4501` boots with the button shown, and a drag holds `#hist` at 318.8
+throughout instead of dropping it 10.6px on the first frame. The brush's own `onChange` is the only
+source of `false` anywhere, which is exactly the gesture the button should keep quiet through.
+
+What it leaves is one re-wrap at the END of the drag (318.8 -> 329.4 on release). That is the
+cheaper half — the gesture is over — but it is why the other option still exists: reserving the
+button's width means the row never wraps at all, at the cost of that width on every phone for a
+button that is usually absent. Do the one-liner first and see whether the release step earns the
+width.
 
 ### The Fame view drops birth year entirely
 Which is the thing the mocked-up "canon path" would have added: joining the repertoire in birth order
