@@ -124,7 +124,7 @@ asking the correct title still undercounted.
 
 Fanny Hensel was the case that showed it: her article sat at "Fanny Mendelssohn" until March 2026,
 so her shipped median of **500** was not a readership at all — it was the midpoint of a series half
-of which measured a redirect. The real figure is **5,421**, an order of magnitude on a log axis, and
+of which measured a redirect. The real figure is **5,217**, an order of magnitude on a log axis, and
 it moves her from last to second in `WOMEN_CANON`. The app also NARRATED the artefact: against ten
 years of ~41-a-month the post-move months are a 34.9× peak where `SPIKE` fires at 3×, so the panel
 captioned a rename as an obituary.

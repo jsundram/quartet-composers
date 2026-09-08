@@ -186,12 +186,21 @@ def _move_log(title):
     return out
 
 
+# How far back the walk will follow a chain. Six is far more than any article here needs
+# (Takemitsu, the longest, uses three) and exists so a cycle in the log cannot hang the run.
+MAX_HOPS = 6
+
+
 def find_moves(canonical, months, log=None):
     """[(YYYY-MM, title it moved FROM)] oldest first — the article's tenure inside `months`.
 
-    An empty list is a real answer: this title was investigated and the log says the article has
-    sat where it is for the whole window. fetch_views.py records that, and validate.py reads it as
-    the difference between "genuine growth nobody need look at again" and "nobody has ever looked".
+    Three distinct returns, and the caller must keep them distinct:
+      - a non-empty list: this is where the article lived.
+      - an EMPTY list: investigated, and the log says it has sat where it is for the whole window.
+        fetch_views.py records that, and validate.py reads it as the difference between genuine
+        growth nobody need look at again and a rename nobody has ever checked.
+      - None: the log could not be READ this run. Not the same answer as "no move", and recording
+        it as one would retire the question on the strength of a 429.
 
     Walks BACKWARDS from today, taking at each step the latest move that landed on the title the
     article was at. Backwards rather than forwards because only the end of the chain is known, and
@@ -200,7 +209,14 @@ def find_moves(canonical, months, log=None):
     between the two names instead of walking out of the window.
     """
     say = log or (lambda *_: None)
-    candidates = [canonical] + redirects(canonical)
+    # EVERY request here is guarded and any failure abandons the question rather than answering it
+    # from a partial log: a missing redirect list loses the candidate the real hop is logged under,
+    # and a missing move log loses the hop itself. Both would come back as a confident empty list.
+    try:
+        candidates = [canonical] + redirects(canonical)
+    except Exception as e:                             # noqa: BLE001 - any transport failure
+        say("      redirect list for %r failed (%s); not recording an answer" % (canonical, e))
+        return None
     bare = QUALIFIER.sub("", canonical)
     if bare != canonical and bare not in candidates:
         candidates.append(bare)                        # the move that disambiguated; see the header
@@ -208,16 +224,25 @@ def find_moves(canonical, months, log=None):
     for t in candidates:
         try:
             edges += _move_log(t)
-        except Exception as e:                         # noqa: BLE001 - one dud title, not the run
-            say("      move log for %r failed (%s)" % (t, e))
+        except Exception as e:                         # noqa: BLE001 - any transport failure
+            say("      move log for %r failed (%s); not recording an answer" % (t, e))
+            return None
         time.sleep(PAUSE)
 
     floor, ceiling = months[0], months[-1]
     chain, at, before = [], canonical, "9999"
-    for _ in range(6):                                 # chains are short; a cycle must not hang
+    for hop in range(MAX_HOPS + 1):
         inbound = [e for e in edges if e[2] == at and e[0][:7] < before and e[0][:7] <= ceiling]
         if not inbound:
             break
+        if hop == MAX_HOPS:
+            # Truncating in silence would be the failure confirm() exists to prevent, one level up:
+            # tenures() hands every month before the oldest surviving hop to that hop's source, so
+            # a cut chain puts the article at a title it did not hold and looks complete on disk.
+            say("      %r has more than %d moves inside the window; the chain is truncated and "
+                "the months before %s are attributed to %r on no evidence"
+                % (canonical, MAX_HOPS, before, at))
+            return None
         when, src, _ = max(inbound)
         if when[:7] < floor:
             break                                      # older than the axis: the window is all one title
@@ -294,25 +319,44 @@ def tenures(canonical, moves):
     `moves` is what find_moves returned: each entry names the month the article ARRIVED at the next
     title, so it is both the end of one tenure and the start of the next. The overlap is on purpose
     — a move happens on a day, and the month it happens in was read under both names.
+
+    ADJACENT SPANS UNDER ONE TITLE ARE MERGED, because `confirm()` judges hops independently and an
+    alternating chain can lose its middle one: A -> B -> A with the first hop rejected leaves two
+    consecutive tenures both named A, and `stitch()` would then find A holding the boundary month
+    twice and count it twice. Latent rather than theoretical — Gerhard and Takemitsu both happen to
+    alternate cleanly today — and the symptom would be one plausible month, not a crash.
     """
     spans, start = [], None
     for month, src in moves:
-        spans.append((src, start, month))
+        if spans and spans[-1][0] == src:
+            spans[-1] = (src, spans[-1][1], month)
+        else:
+            spans.append((src, start, month))
         start = month
-    spans.append((canonical, start, None))
+    if spans and spans[-1][0] == canonical:
+        spans[-1] = (canonical, spans[-1][1], None)
+    else:
+        spans.append((canonical, start, None))
     return spans
 
 
 def stitch(months, by_title, canonical, moves):
     """One series over `months`: each month counted under the title the article was at.
 
-    The transition month is SUMMED rather than picked. A move happens on a day, so that month's
-    readers are split across both names — Fanny's March 2026 is 852 under the new title and 6,556
-    under the old — and choosing either one alone reports a month that never happened. Summing
-    over-counts by whatever redirect traffic the other name still drew for the rest of the month,
-    which is the small end of the correction this file otherwise declines to make.
+    THE MONTH OF THE MOVE IS NULL, because it is the one month the rule cannot answer for. A move
+    happens on a day, so those readers are split across both names — Fanny's March 2026 is 852
+    under the new title and 6,556 under the old — and none of the three available numbers is the
+    month: either title alone is a partial month, and the sum quietly adds the redirect share that
+    every OTHER month excludes. For an ASCII-to-diacritic rename that share is large, so summing
+    invented a peak rather than a rounding error — Takemitsu's 2020-10 came out at 5,366 against
+    neighbours of ~3,500, 53% high. That matters because of invariant 9: the sparkline prints
+    EXACT counts on hover, so a reader hovering it would have read a month that never happened,
+    in a file whose whole argument is that a step nobody can explain is an artefact.
 
-    Everywhere else there is exactly one title, so nothing is summed and the general policy stands.
+    `null` already means exactly this here — asked, and there is no answer to give (invariant 10) —
+    the sparkline already breaks its path at one, and build_data.py already drops it from the
+    median rather than counting it as zero. One month of twelve for one composer is a cheaper
+    price than a fabricated peak.
     """
     spans = tenures(canonical, moves)
     idx = {m: i for i, m in enumerate(months)}
@@ -320,7 +364,9 @@ def stitch(months, by_title, canonical, moves):
     for m in months:
         held = [t for t, lo, hi in spans
                 if (lo is None or m >= lo) and (hi is None or m <= hi)]
-        vals = [by_title[t][idx[m]] for t in held
-                if t in by_title and by_title[t][idx[m]] is not None]
-        out.append(sum(vals) if vals else None)
+        if len(held) != 1:
+            out.append(None)                           # the month of the move; see the docstring
+            continue
+        v = by_title.get(held[0]) or []
+        out.append(v[idx[m]] if idx[m] < len(v) else None)
     return out

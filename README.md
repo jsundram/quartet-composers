@@ -107,7 +107,7 @@ traps, all of which this repo fell into first:
 - *And a canonical title is only canonical today.* The API counts the string that was **requested**,
   so every month before a page **move** was counted under the name the article held then. Fanny
   Hensel's article sat at "Fanny Mendelssohn" until March 2026 and shipped a median of **500**
-  against a real **5,421** — and the sparkline caption, which names a spike when a month clears 3×
+  against a real **5,217** — and the sparkline caption, which names a spike when a month clears 3×
   the composer's own 95th percentile, obligingly captioned the rename as an obituary. Twelve of the
   884 articles have moved. `scripts/pagemoves.py` finds them (a level shift proposes, the MediaWiki
   move log decides, and a traffic-handover test throws out the moves that were reverted an hour

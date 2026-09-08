@@ -203,23 +203,63 @@ def repair_moves(series, axis, recorded, refetched, report):
     raw = {t: list(v) for t, v in series.items()}
 
     def series_for(title):
-        """The title's own counts over the axis, fetched once per run and cached here."""
+        """The title's counts over the axis, or None if it did not answer. Fetched once per run.
+
+        GUARDED FOR THE SAME REASON THE MAIN FETCH LOOP IS. fetch() re-raises a 429 or a timeout
+        once its retries are spent, and repair_moves() runs AFTER all 884 titles are in hand and
+        BEFORE the file is written — so an unguarded raise on one of these dozen-odd old-title
+        requests would leave main() with nothing written and discard the entire top-up. That is
+        precisely the failure the `except` in the main loop exists to prevent, and this is the same
+        network.
+
+        A 404 counts as not answering too: for a SOURCE title it means the redirect the article
+        used to live at is gone, so its months cannot be recovered — which is a thing to report and
+        retry, not a series of nulls to stitch in as though they were readings.
+        """
         if title not in by_title:
             if title in raw and title not in refetched:
                 by_title[title] = raw[title]           # nothing refetched it; the cache is it
             else:
-                got = fetch(title, axis)
-                by_title[title] = [None] * len(axis) if got is None else [got.get(m) for m in axis]
+                try:
+                    got = fetch(title, axis)
+                except Exception as e:                 # noqa: BLE001 - any transport failure
+                    report("      %r did not answer (%s)" % (title, e))
+                    return None
                 time.sleep(PAUSE)
+                if got is None:
+                    report("      %r returned no data at all (404)" % title)
+                    return None
+                by_title[title] = [got.get(m) for m in axis]
         return by_title[title]
 
-    def repair(title, chain):
-        """Confirm a candidate chain against the numbers, record it, and stitch what survives."""
-        by_title[title] = raw[title]                   # the canonical's own counts, pre-stitch
+    def repair(title, chain, recorded_already=False):
+        """Stitch `chain` into `title`'s series and record it. Returns whether anything was.
+
+        NOTHING IS RECORDED UNLESS THE WHOLE ANSWER IS IN HAND. `chain is None` means the move log
+        could not be read; a source that does not answer means the numbers to stitch are missing.
+        Either way this leaves both the series and the record exactly as they were and reports why,
+        because the alternative is worse than doing nothing: writing `[]` would say "the log was
+        asked and there is no move here", which is the sentence that retires the question for good.
+
+        For a title whose chain is already ON RECORD the confirmation is not repeated. The record
+        was written only after confirm() accepted it, and re-deriving it every run opened a path
+        where a rejected hop silently emptied a good record and reverted the series — a 404 on one
+        redirect, or a nudged CONFIRM_ threshold, and Fanny reads 500 again with `moves` saying
+        nobody found anything and validate.py agreeing. A chain therefore only ever goes from
+        non-empty to empty by a human editing the file.
+        """
         handled.add(title)
+        if chain is None:
+            report("   %-32s the move log could not be read; leaving it as it was" % title)
+            return False
+        by_title[title] = raw[title]                   # the canonical's own counts, pre-stitch
         for _, src in chain:
-            series_for(src)
-        chain = pagemoves.confirm(axis, by_title, title, chain, log=report)
+            if series_for(src) is None:
+                report("   %-32s cannot be repaired this run; %r is missing. The series is "
+                       "written as fetched and the gate will say so." % (title, src))
+                return False
+        if not recorded_already:
+            chain = pagemoves.confirm(axis, by_title, title, chain, log=report)
         moves[title] = chain
         if chain:
             series[title] = pagemoves.stitch(axis, by_title, title, chain)
@@ -227,14 +267,11 @@ def repair_moves(series, axis, recorded, refetched, report):
                 title, ", ".join("%s <- %s" % (m, src) for m, src in chain)))
         return bool(chain)
 
-    # A recorded chain is re-confirmed rather than trusted, for the same reason it is re-applied:
-    # it costs nothing (the series it needs are being fetched anyway) and a record that can rot
-    # silently is the thing this whole file is arranged against.
     known = [t for t in sorted(moves) if t in series and moves[t] and t in refetched]
     if known:
         report("re-applying %d recorded page move(s):" % len(known))
     for t in known:
-        repair(t, moves[t])
+        repair(t, moves[t], recorded_already=True)
 
     found = 0
     for ratio, title, i in pagemoves.suspects(series):

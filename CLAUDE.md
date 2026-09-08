@@ -158,7 +158,7 @@ plain static assets. Read README.md first for what the app is.
    counts the string that was requested, so every month before a move was counted under the name
    the article held then — asking the current one returns the redirect traffic nobody followed.
    Fanny Hensel's article sat at "Fanny Mendelssohn" until March 2026 and shipped a median of
-   **500** against a real 5,421; worse, the app NARRATED the artefact, because 5,198 against a 95th
+   **500** against a real 5,217; worse, the app NARRATED the artefact, because 5,198 against a 95th
    percentile of 149 fires `SPIKE` in `app.js` at 34.9x and captions a rename as an obituary.
    `scripts/pagemoves.py` is the one place that rule lives and the three parts are deliberately
    split: `step()`/`suspects()` are OFFLINE and only generate suspects (the shape has no clean
@@ -170,12 +170,24 @@ plain static assets. Read README.md first for what the app is.
    the log alone put Roberto Gerhard at a title he never occupied and would have made his series
    worse than leaving it alone. The test is the one the issue asked for: the traffic has to CHANGE
    HANDS across the move, old-against-new before over old-against-new after.
+   **The month of the move itself is null.** It is the one month the rule cannot answer for — a
+   move happens on a day, so either title alone is a partial month and the SUM quietly adds the
+   redirect share every other month excludes. For an ASCII-to-diacritic rename that share is large,
+   so summing invented a peak rather than a rounding error (Takemitsu's 2020-10 came out 53% over
+   its neighbours), and invariant 9 is why that matters: the sparkline prints exact counts on hover.
+   `null` already means "no answer to give" here, already breaks the sparkline's path, and is
+   already dropped from the median.
    The repair is **not a migration that happens once**: a refetch overwrites the stitched series
    with the API's per-title answer, so `fetch_views.py` re-applies every recorded move on every run
    that touches the title, and `data/pageviews.json`'s `moves` block records what it did — with an
    EMPTY list meaning "the log was asked and said none", which is both what stops a no-op run
    re-investigating the same eight noisy articles and how `validate.py` tells genuine growth from a
-   rename nobody has checked. Twelve articles in this roster moved; only Fanny's moved inside the
+   rename nobody has checked. **A chain on record is trusted, never re-derived**, and nothing
+   records an answer it does not have: a move log that could not be READ and a source title that
+   did not ANSWER both leave the series and the record exactly as they were, and the gate then
+   fails on a recorded move whose stitch is missing. Re-confirming a recorded chain gave it a way
+   back out — one 404 on a redirect and Fanny reads 500 again with `moves` agreeing nothing is
+   wrong — so a chain now only ever goes from non-empty to empty by a human editing the file. Twelve articles in this roster moved; only Fanny's moved inside the
    twelve-month statistic window, so the other eleven changed the SPARKLINE and not one dot.
    **Do not sum redirects generally** — that is a different policy and it was measured and
    rejected: `scripts/audit_redirects.py` prices all 2,888 of them and the median correction is
