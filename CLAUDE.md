@@ -220,7 +220,7 @@ two audits a human grades. No test framework, and nothing to install:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 240 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 241 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
@@ -440,6 +440,12 @@ would not have worked.
   function of the aspect ratio, so the dots' area gives up the pixels and the card is the size it
   was. `ui.test.mjs` 7c2 asserts zero coverage across all four views AND that the buttons fit inside
   the reservation, because the second is the cause and the first only the symptom.
+  They are drawn as BARE GLYPHS — 16px in an invisible 40px hit target, no border, no background,
+  `var(--muted)` like every other `.btn` label and like the axis title beside them. That is the
+  platform shape for a control sitting on content, and a `.btn` pill moved onto the chart is not:
+  40px of visible chrome around a 16px mark reads as furniture next to an 11px axis title. The hit
+  target is felt and not seen, so the suite taps 3px in from a CORNER — about 12px clear of the
+  glyph — rather than at the centre, which would pass on a 16px button.
   One more thing moving them INTO `#plot` broke: `#plot svg{ width:100% }` means THE CHART, and as a
   descendant selector it caught the icons too and stretched an 18px glyph to 38px — 95% of its
   button — with a 3.2px stroke, `body.fs #plot svg{ height:100% }` doing it again in full screen.

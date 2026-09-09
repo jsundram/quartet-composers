@@ -131,7 +131,7 @@ body.fs #filters .tablehead{ display:none }
 #chart-tools{ display:flex; gap:8px; align-items:center }
 /* Sized here rather than only by the width/height attributes, which any stylesheet outranks — and
    one did. flex:none so the button's centring cannot stretch it either. */
-.btn .ico{ display:none; flex:none; width:18px; height:18px }
+.btn .ico{ display:none; flex:none; width:16px; height:16px }
 .btn .btn-t{ display:inline }
 
 /* The "you're on an old version — tap to update" tag (app.js). */
@@ -421,11 +421,19 @@ body.fs .grid{ display:block }
      86px group — so it goes at the band's right end, and nothing is covered in any view.
      What it costs is 24px of DATA height, not page height: the plot's outer box is a function of
      the aspect ratio, so the band takes its room from the dots' area and the card is the size it
-     was. Still drawn at .85 rather than opaque — the band is empty, but a dot near the top of the
-     range should read through the edge of a disc rather than vanish behind it. */
+     was. Nothing is drawn translucent, because nothing is drawn behind the glyph at all. */
   #plot > #chart-tools{ position:absolute; top:3px; right:6px; z-index:2; gap:6px }
-  #chart-tools .btn{ width:40px; padding:0; justify-content:center; opacity:.85 }
-  #chart-tools .btn:active, #chart-tools .btn:focus-visible{ opacity:1 }
+  /* A bare glyph in an invisible 40px hit area — the platform shape for a control that sits on
+     content, not a .btn pill moved onto the chart. The disc and border are what made these read as
+     furniture: 40px of chrome around a 16px mark, three times the height of the 11px axis title
+     beside them. Removed, so what is drawn IS the glyph and the touch target is only felt.
+     Muted like every other .btn label and like the axis title, so they belong to the chart's
+     chrome; --ink on press, which is the whole feedback a control with no box can give. */
+  #chart-tools .btn{
+    width:40px; padding:0; justify-content:center;
+    background:none; border:0; border-radius:0; color:var(--muted);
+  }
+  #chart-tools .btn:active{ color:var(--ink) }
   #chart-tools .btn .ico{ display:block }
   #chart-tools .btn .btn-t{
     position:absolute; width:1px; height:1px; padding:0; margin:-1px;
