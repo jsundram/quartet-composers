@@ -134,11 +134,18 @@ window.Histogram = (function () {
       .attr("text-anchor", "middle").merge(en)
       .attr("x", d => d.x).attr("y", H + 11).attr("fill", C.sel).text(d => fmt(d.v));
 
-    // Keyed by side, and placed from the SCALE rather than from the brush's pixels, so the tab, the
-    // number under it and the highlighted bars are all three drawn from one value.
-    const gr = gGrips.selectAll("path").data(range ? [-1, 1] : []);
+    // Keyed by SIDE — really keyed, unlike the join above, which says so about ITSELF for its own
+    // reason. The datum here is not a value to print, it is which way the tab is MIRRORED, so a
+    // node that kept its shape while receiving the other side's datum would draw a west tab at the
+    // east edge, curling into the selection instead of away from it. `d` is therefore set on the
+    // MERGED selection and not on enter: with the shape following the datum, the order of the array
+    // stops being load-bearing, which is the only way the comment above can go on being true.
+    // Placed from the SCALE rather than from the brush's pixels, so the tab, the number under it
+    // and the highlighted bars are all three drawn from one value.
+    const gr = gGrips.selectAll("path").data(range ? [-1, 1] : [], d => d);
     gr.exit().remove();
-    gr.enter().append("path").attr("d", grip).merge(gr)
+    gr.enter().append("path").merge(gr)
+      .attr("d", grip)
       .attr("transform", d => `translate(${x(d < 0 ? range[0] : range[1])},0)`);
 
     // The <svg> is role="img", so nothing drawn inside it reaches a screen reader — including the

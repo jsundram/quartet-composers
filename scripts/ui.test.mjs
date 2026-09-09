@@ -397,11 +397,14 @@ await mouse("mousePressed", hb.x + hb.w * 0.45, hb.y + hb.h * 0.4);
 await mouse("mouseMoved",   hb.x + hb.w * 0.60, hb.y + hb.h * 0.4);
 await mouse("mouseReleased", hb.x + hb.w * 0.72, hb.y + hb.h * 0.4);
 await sleep(400);
+// Identified by POSITION, not by DOM order. The join is keyed by side, so which node d3 creates
+// first is not part of the contract — and a check that assumed it went red on a reorder that
+// changed nothing on screen, which is a test failing for its own reasons rather than the code's.
 check("a grip is drawn at each end of the selection, on the outside of it",
       await ev(`(()=>{const g=[...document.querySelectorAll('#hist .grips path')];
         if (g.length !== 2) return false;
         const s=document.querySelector('#hist .selection').getBoundingClientRect();
-        const b=g.map(p=>p.getBoundingClientRect());
+        const b=g.map(p=>p.getBoundingClientRect()).sort((a,c)=>a.left-c.left);
         return Math.abs(b[0].right - s.left) < 2 && b[0].left < s.left
             && Math.abs(b[1].left - s.right) < 2 && b[1].right > s.right})()`),
       await ev(`document.querySelectorAll('#hist .grips path').length + " grips"`));
@@ -1364,11 +1367,13 @@ await mouse("mouseMoved",   past, hb2.y + hb2.h * 0.4);
 await mouse("mouseReleased", past, hb2.y + hb2.h * 0.4);
 await sleep(500);
 check("a grip pushed to the end of the axis stays inside the card (390px, in the row's own card)",
-      await ev(`(()=>{const g=document.querySelector('#hist .grips path').getBoundingClientRect();
+      await ev(`(()=>{const g=[...document.querySelectorAll('#hist .grips path')]
+          .map(p=>p.getBoundingClientRect()).sort((a,c)=>a.left-c.left)[0];
         const c=document.getElementById('filters').getBoundingClientRect();
         const s=document.querySelector('#hist svg').getBoundingClientRect();
         return g.left < s.left && g.left > c.left + 1})()`),
-      await ev(`(()=>{const g=document.querySelector('#hist .grips path').getBoundingClientRect();
+      await ev(`(()=>{const g=[...document.querySelectorAll('#hist .grips path')]
+          .map(p=>p.getBoundingClientRect()).sort((a,c)=>a.left-c.left)[0];
         const c=document.getElementById('filters').getBoundingClientRect();
         const s=document.querySelector('#hist svg').getBoundingClientRect();
         return (s.left - g.left).toFixed(1) + "px past the svg, " +
@@ -1586,10 +1591,12 @@ await mouse("mouseMoved",   Math.max(1, fh.x - 30), fh.y + fh.h * 0.4);
 await mouse("mouseReleased", Math.max(1, fh.x - 30), fh.y + fh.h * 0.4);
 await sleep(500);
 check("...and a grip at the end of the axis still clears the full-screen edge",
-      await ev(`(()=>{const g=document.querySelector('#hist .grips path').getBoundingClientRect();
+      await ev(`(()=>{const g=[...document.querySelectorAll('#hist .grips path')]
+          .map(p=>p.getBoundingClientRect()).sort((a,c)=>a.left-c.left)[0];
         const s=document.querySelector('#hist svg').getBoundingClientRect();
         return g.left < s.left && g.left > 1})()`),
-      await ev(`(()=>{const g=document.querySelector('#hist .grips path').getBoundingClientRect();
+      await ev(`(()=>{const g=[...document.querySelectorAll('#hist .grips path')]
+          .map(p=>p.getBoundingClientRect()).sort((a,c)=>a.left-c.left)[0];
         const s=document.querySelector('#hist svg').getBoundingClientRect();
         return (s.left - g.left).toFixed(1) + "px past the svg, " +
                g.left.toFixed(1) + "px from the screen edge"})()`));
