@@ -129,7 +129,9 @@ body.fs #filters .tablehead{ display:none }
    and there is nothing for Theme.subscribe to re-bake — the same reason the sparkline is plain
    markup (invariant 3 does not apply to either). Hidden until a phone asks for them. */
 #chart-tools{ display:flex; gap:8px; align-items:center }
-.btn .ico{ display:none }
+/* Sized here rather than only by the width/height attributes, which any stylesheet outranks — and
+   one did. flex:none so the button's centring cannot stretch it either. */
+.btn .ico{ display:none; flex:none; width:18px; height:18px }
 .btn .btn-t{ display:inline }
 
 /* The "you're on an old version — tap to update" tag (app.js). */
@@ -167,7 +169,13 @@ body.fs #filters .tablehead{ display:none }
 /* overflow:hidden, not the SVG default of visible: chart.js clips the dots to the plot rectangle,
    and this is the backstop for anything else a zoom pushes past the frame. Nothing in the chart is
    drawn outside its own viewBox, so there is nothing legitimate to lose here. */
-#plot svg{ display:block; width:100%; height:auto; overflow:hidden }
+/* `> svg`, not a descendant selector: this rule means THE CHART, and app.js moves the Share and
+   Full screen buttons inside #plot on a phone (placeChartTools). As a descendant it caught their
+   icons too and stretched an 18px glyph to 38px with a 3.2px stroke — invisible on a desktop, where
+   those buttons are still in the controls row, which is exactly how it shipped. Anything else that
+   ever goes in this box will be nested, so the child combinator is the durable half; .ico's own
+   size below is the belt. */
+#plot > svg{ display:block; width:100%; height:auto; overflow:hidden }
 .hint{ font-size:12px; color:var(--muted); margin-top:8px }
 
 /* Name flag that tracks the cursor on a real pointer. Never shown on touch — there the tap
@@ -357,7 +365,7 @@ body.fs #filters{ order:0 }
 body.fs #detail.compact{ order:1 }
 body.fs .controls{ order:3; margin:8px 0 0 }
 body.fs .legend{ order:4 }
-body.fs #plot svg{ height:100% }
+body.fs #plot > svg{ height:100% }   /* > svg for the same reason as the base rule; see there */
 body.fs .hint{ display:none }
 body.fs .filterbar{ margin-bottom:6px }
 body.fs main > *:not(.grid), body.fs .grid > *:not(#viz){ display:none }
@@ -416,8 +424,7 @@ body.fs .grid{ display:block }
      was. Still drawn at .85 rather than opaque — the band is empty, but a dot near the top of the
      range should read through the edge of a disc rather than vanish behind it. */
   #plot > #chart-tools{ position:absolute; top:3px; right:6px; z-index:2; gap:6px }
-  #chart-tools .btn{ width:40px; padding:0; justify-content:center; opacity:.85;
-                     background:var(--card); border-color:var(--line); color:var(--ink) }
+  #chart-tools .btn{ width:40px; padding:0; justify-content:center; opacity:.85 }
   #chart-tools .btn:active, #chart-tools .btn:focus-visible{ opacity:1 }
   #chart-tools .btn .ico{ display:block }
   #chart-tools .btn .btn-t{

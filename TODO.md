@@ -583,6 +583,12 @@ Two traps worth remembering, both of which cost a debugging round here:
 - **`#chart-tools .btn .ico` (1,2,0) out-specifies `#fs .ico-out` (1,1,0)**, so the state rules for
   the two full-screen glyphs have to carry the group's id too. Written without it, both glyphs
   showed at once. Same specificity trap as the one below, one selector along.
+- **`#plot svg{ width:100% }` means the CHART, and moving the buttons into `#plot` made it a
+  descendant selector over their icons.** An 18px glyph rendered at 38x38 — 95% of its button — with
+  a 3.2px stroke, and `body.fs #plot svg{ height:100% }` repeated it in full screen. Fixed with
+  `> svg` plus an explicit size on `.ico`, since a width ATTRIBUTE loses to any stylesheet. Worth
+  noting how it hid: on a desktop the buttons are still in the controls row, so the rule never
+  reaches them and the bug is invisible in exactly the place a change is usually eyeballed.
 
 ### The lede's reserved height still moves the page — **known defect** — [#36](https://github.com/jsundram/quartet-composers/issues/36)
 Found while building #35 and NOT caused by it — it reproduces byte-identically on the commit before.
