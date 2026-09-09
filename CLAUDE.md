@@ -220,7 +220,7 @@ two audits a human grades. No test framework, and nothing to install:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 233 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 239 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
@@ -474,6 +474,19 @@ would not have worked.
   the two halves cannot disagree. It is not phone-only: `navigator.share` returns before either
   fallback on a real phone, and the branches that reach the swap are exactly the ones that run where
   it is missing — including a desktop under 640px, which gets this layout from a width-only query.
+- **The readership brush's handles are crossfilter's grips, and the rect underneath is the hit
+  area.** d3-brush's `.handle` is `handleSize` wide by the extent PLUS `handleSize` tall, so
+  painting it drew a 20x62 slab of accent above the bars and down through the tick labels — the hit
+  area wearing the costume of the control (#40). The fix was a DELETION: d3-brush sets `fill:none`
+  and `pointer-events:all` on the brush `<g>` and both inherit, so the handle arrives as an
+  unpainted hit area and this stylesheet was the only thing painting it. `histogram.js` draws the
+  visible tab instead — the same felt-not-seen split the chart's icon buttons use. The one
+  load-bearing line is `pointer-events="none"` on the grips group: it sits on top of the brush and
+  outside it, so a hittable grip swallows the press and the drag does nothing. That is an
+  ATTRIBUTE, so a later `#hist .grips path{ pointer-events: … }` would silently outrank it — the
+  same specificity trap as `#hist-clear` and the chart-tools glyphs. The grips are colored from
+  CSS rather than baked (invariant 3) because they are uniform — a variable reaches them the way it
+  reaches the sparkline, so a theme change has nothing to redo.
 - **The `hidden` ATTRIBUTE is only `display:none` in the UA sheet**, so ANY author `display` on the
   same element beats it — silently, since the element stays hidden to a screen reader and to
   `.hidden` in JS while being drawn. Giving `.btn` a `display` for its icon did exactly that: the
