@@ -220,7 +220,7 @@ two audits a human grades. No test framework, and nothing to install:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 237 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 239 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
@@ -425,13 +425,21 @@ would not have worked.
   state and `share()` holds a timeout on its own label. Everything that makes the overlay safe is
   already true of `#plot`: it is `position:relative` and already hosts `#flag`, d3-zoom binds to the
   `svg` rather than to `#plot` so the buttons take taps without eating a pan, and `chart.js`'s
-  rebuild removes `svg` elements specifically rather than every child. Three things a change here
+  rebuild removes `svg` elements specifically rather than every child. Four things a change here
   must keep. The words stay in the DOM, visually hidden rather than `display:none`, because they are
   still the buttons' accessible NAMES. The label is written into that `.btn-t` span and never onto
   the button — `share()` and `setFull()` used to set `textContent` directly, which now deletes the
-  icon beside it. And the print rule names `#chart-tools` separately from `.controls`, because on a
-  phone it is no longer inside it. The Fame view has no empty corner (top right at rest is Haydn),
-  so the discs are drawn as chrome at `opacity:.85`, full strength on press.
+  icon beside it. The print rule names `#chart-tools` separately from `.controls`, because on a
+  phone it is no longer inside it. And they sit in the AXIS-TITLE BAND, over no dot in any view:
+  `placeChartTools()` asks `Chart.setTopReserve(46)` and `measure()` widens `m.top` from 22 to fit a
+  touch target. Every corner was measured first and every one covers something — dots the group
+  would sit on, summed over the four views at 390: top-left 11, top-right 90, bottom-right 239,
+  bottom-left 3. **Top right is the trap**: it reads as empty in Fame and is exactly where the SWARM
+  piles up, 90 dots and the "Rachmaninoff" label, which is what judging a shared overlay from one
+  view gets you. The band costs 24px of DATA height and no page height — the plot's outer box is a
+  function of the aspect ratio, so the dots' area gives up the pixels and the card is the size it
+  was. `ui.test.mjs` 7c2 asserts zero coverage across all four views AND that the buttons fit inside
+  the reservation, because the second is the cause and the first only the symptom.
 - **The `hidden` ATTRIBUTE is only `display:none` in the UA sheet**, so ANY author `display` on the
   same element beats it — silently, since the element stays hidden to a screen reader and to
   `.hidden` in JS while being drawn. Giving `.btn` a `display` for its icon did exactly that: the

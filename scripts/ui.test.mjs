@@ -1690,6 +1690,48 @@ check("...and #fs shows one glyph, not both",
           && vis[0].classList.contains('ico-in')})()`),
       await ev(`[...document.querySelectorAll('#fs .ico')]
         .map(i=>i.getAttribute('class')+':'+getComputedStyle(i).display).join(' | ')`));
+// It covers NOTHING, in any view — which is the whole reason it sits in the axis-title band rather
+// than in a corner. Checked in all four, because the corners were judged from Fame and Fame is the
+// one view where the top right looks empty: the swarm piles 90 dots and the "Rachmaninoff" label
+// exactly there. Bottom left was the best corner at 3 dots and still ate the axis origin ("1700").
+// Zero is the assertion because the band makes zero achievable; anything above it means the band
+// stopped being tall enough (Chart.setTopReserve) or the title grew into the group's 86px.
+const covered = () => ev(`(()=>{const t=document.getElementById('chart-tools').getBoundingClientRect();
+  const hit=r=>r.left<t.right&&r.right>t.left&&r.top<t.bottom&&r.bottom>t.top;
+  const dots=[...document.querySelectorAll('#plot svg circle.dot')].filter(c=>hit(c.getBoundingClientRect()));
+  const names=[...document.querySelectorAll('#plot svg text.label, #plot svg text')]
+    .filter(t2=>hit(t2.getBoundingClientRect())).map(t2=>t2.textContent.trim())
+    .filter(s=>s && !/^[0-9.,k]+$/.test(s) && !/quartet|year|→|↑|readers/i.test(s));
+  return JSON.stringify({dots:dots.length, names})})()`);
+let worstDots = 0, coveredNames = [];
+for (const m of ["fame", "scatter", "swarm", "lens"]) {
+  await ev(`document.querySelector('.controls .seg button[data-mode="${m}"]').click()`);
+  await sleep(700);
+  const c = JSON.parse(await covered());
+  worstDots = Math.max(worstDots, c.dots);
+  coveredNames.push(...c.names.map(n => `${m}:${n}`));
+}
+await ev(`document.querySelector('.controls .seg button[data-mode="fame"]').click()`);
+await sleep(600);
+check("the overlay covers no dot and no label, in any view",
+      worstDots === 0 && coveredNames.length === 0,
+      `worst view covers ${worstDots} dots; labels: ${coveredNames.join(", ") || "none"}`);
+// And it fits INSIDE the reservation rather than merely happening to miss the dots: the band is the
+// plot group's own translate, read off the DOM, so this goes red the moment Chart.setTopReserve is
+// dropped or the buttons grow — before anything is visibly covered. Zero coverage above is the
+// symptom; this is the cause, and the cause is what a reader needs when it breaks.
+// Read off the SVG transform MATRIX, not by parsing the attribute: a `\d` inside a template
+// literal is consumed before the browser ever sees it, which is a good way to write a regex that
+// silently matches nothing and a check that silently passes.
+const band = await ev(`(()=>{const tops=[...document.querySelectorAll('#plot svg > g')]
+    .map(g=>{const c=g.transform.baseVal.consolidate(); return c ? c.matrix.f : 0});
+  const tools=document.getElementById('chart-tools').getBoundingClientRect();
+  const plot=document.getElementById('plot').getBoundingClientRect();
+  return JSON.stringify({top:Math.max(0, ...tops), used:+(tools.bottom-plot.top).toFixed(1)})})()`);
+const b = JSON.parse(band);
+check("...because the chart reserved the band for it", b.top >= 40 && b.used <= b.top + 0.5,
+      `band ${b.top}px, buttons reach ${b.used}px`);
+
 // A REAL tap through the CDP, not .click(): the whole question is whether a press over the zoom
 // surface reaches the button or is swallowed by the pan gesture.
 const fsBox = await ev(`(()=>{const r=document.getElementById('fs').getBoundingClientRect();

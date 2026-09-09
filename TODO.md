@@ -558,8 +558,21 @@ first screen. Measured, `.controls` height and lines:
 | …lifted onto the canvas | 90 (2) | 90 (2) | 38 (1) |
 
 So shrinking them in place does not pay for it at 360; only lifting them out does. See the
-`placeChartTools()` bullet in `CLAUDE.md` for what makes the overlay safe and the three things a
+`placeChartTools()` bullet in `CLAUDE.md` for what makes the overlay safe and the four things a
 change there must keep.
+
+**They are in the axis-title band, not in a corner, and that was measured rather than judged.** Dots
+the 86x40 group would cover, summed over Fame/Timeline/Swarm/Lens at 390: top-left 11, top-right 90,
+bottom-right 239, bottom-left 3. The first placement was top right on the strength of the Fame view,
+where it looks empty — and the SWARM piles 90 dots and the "Rachmaninoff" label exactly there. Even
+the best corner ate the axis origin ("1700"), and raising the box off the bottom did not buy that
+back, because the y-axis ticks run up the left edge: at +40px it still caught them and started
+covering dots instead. The band is the only placement that covers NOTHING, in every view.
+`Chart.setTopReserve(46)` widens `m.top` from 22 so a 40px target fits with clearance; the chart is
+TOLD rather than reading the breakpoint, because two copies of "640px" is two things that can
+disagree and `chart.js` would be the one silently reserving space for a control that had moved. The
+cost is 24px of data height and no page height — `ch` comes from the aspect ratio, so the band takes
+its room from the dots' area and the outer box is unchanged.
 
 Two traps worth remembering, both of which cost a debugging round here:
 

@@ -551,20 +551,31 @@ function placeFilters() {
 // never a second copy — #fs holds the pressed state and share() holds a timeout on its own label, so
 // two of either would drift apart.
 //
-// On a phone Share and Full screen leave the controls row and become icons in the corner of the
-// chart. That is what PAYS for the Reset filters button beside Reset zoom: .controls is already two
-// lines at 390, and a third word button takes it to three — 48px of the first screen, half of what
-// issue 29 spent 94px winning back. Shrinking these two to icons IN the row is not enough on its
-// own; at 360 it still wraps to three lines. Only lifting them out clears it at both widths.
+// On a phone Share and Full screen leave the controls row and become icons on the chart. That is
+// what PAYS for the Reset filters button beside Reset zoom: .controls is already two lines at 390,
+// and a third word button takes it to three — 48px of the first screen, half of what issue 29 spent
+// 94px winning back. Shrinking these two to icons IN the row is not enough on its own; at 360 it
+// still wraps to three lines. Only lifting them out clears it at both widths.
+//
+// They do not float over the DOTS. They sit in the band chart.js already spends on the y-axis
+// title, which the chart widens to fit them — so the cost is 24px of data area rather than any dot
+// being covered, and it is paid out of a box whose outer height is unchanged.
 //
 // Width, not full screen: the words stay wherever there is room for them, and #plot is the target in
-// both layouts (in full screen it is flex:1, so the corner is still the corner). Everything that
-// makes the overlay safe is already true of #plot — see the CSS.
+// both layouts (in full screen it is flex:1, so the band is still the band). Everything that makes
+// the overlay safe is already true of #plot — see the CSS.
 const PHONE = matchMedia("(max-width:640px)");
+
+// 40px of touch target plus 3px of clearance top and bottom. The band chart.js already draws the
+// y-axis title in is 22px, so it asks for the difference rather than the buttons hanging into the
+// dots — see setTopReserve() there for why the chart is TOLD and does not read the breakpoint.
+const TOOLS_BAND = 46;
 
 function placeChartTools() {
   const tools = $("chart-tools"), viz = $("viz");
-  const parent = PHONE.matches ? $("plot") : viz.querySelector(".controls");
+  const onPlot = PHONE.matches;
+  const parent = onPlot ? $("plot") : viz.querySelector(".controls");
+  Chart.setTopReserve(onPlot ? TOOLS_BAND : 0);
   if (tools.parentNode === parent) return;
   parent.appendChild(tools);
 }

@@ -121,6 +121,13 @@ window.Chart = (function () {
   let rows = [], mode = DEFAULT_MODE, visible = null, selected = null, hovered = null;
   let svg, gPlot, gDots, gLabels, gAxX, gAxY, gGrid, gLens, gSel;
   let w = 0, h = 0, m = { top: 22, right: 14, bottom: 32, left: 46 };
+  // Extra room at the TOP, requested by whoever draws something there. app.js asks for it when it
+  // moves Share and Full screen onto the plot (placeChartTools), so those buttons sit in the same
+  // band as the y-axis title instead of floating over the dots. It is a REQUEST rather than a media
+  // query read here, because the breakpoint that decides it belongs to the code doing the drawing —
+  // two copies of "640px" is two things that can disagree, and this file would be the one that
+  // silently kept reserving space for a control that had moved away.
+  let topReserve = 0;
   let x0, y0, qx, vy, rScale, colorScale, C = {};
   let transform = d3.zoomIdentity, zoom;
   let swarmY = null, swarmKey = "";      // memo: the sim is expensive, size/radius are its inputs
@@ -404,6 +411,11 @@ window.Chart = (function () {
     const ch = full
       ? Math.max(120, Math.round(box.height))
       : Math.round(Math.max(260, Math.min(540, cw * aspect)));
+    // The band absorbs the reservation rather than the card growing to fit it: ch is a function of
+    // the aspect ratio, so the plot's outer box is exactly the height it was and the DATA area is
+    // what gives up the pixels. Growing ch instead would spend a phone's first screen, which is the
+    // thing moving these buttons onto the chart was buying back.
+    m.top = Math.max(22, topReserve);
     m.left = cw < 480 ? 38 : 46;
     m.bottom = cw < 480 ? 40 : 44;
     w = cw - m.left - m.right;
@@ -1068,6 +1080,14 @@ window.Chart = (function () {
   // "Reset" means back to where this filter opens, not back to the whole field: the fitted box IS
   // the resting view while a filter is on, and dropping the reader out to the full extent would
   // undo the filter's answer rather than their pinch.
+  // Idempotent, because placeChartTools() calls it on every boot, rotation and full-screen toggle
+  // and a re-measure at this size is a full re-layout of 790 dots.
+  function setTopReserve(px) {
+    if (px === topReserve) return;
+    topReserve = px;
+    resize();
+  }
+
   function resetZoom() {
     if (mode === "lens") { lens = null; draw(); return; }
     goTo(restingTransform(), true);
@@ -1152,7 +1172,7 @@ window.Chart = (function () {
            },
            // Every gender pill value that swaps the claim, so app.js can assert they are reachable.
            repertoireKeys: () => Object.keys(REPERTOIRES),
-           resetZoom, zoomed, colorOf, hint,
+           resetZoom, zoomed, colorOf, hint, setTopReserve,
            // The current zoom scale, for the suite: "the frame closed in on the filter" is a
            // claim about this number, and reading it off the axis ticks would be reading a
            // rendering of it.
