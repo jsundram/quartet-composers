@@ -424,12 +424,14 @@ body.fs .grid{ display:block }
      was. Nothing is drawn translucent, because nothing is drawn behind the glyph at all. */
   /* Bottom-aligned to the axis title's BASELINE, which is the visible bottom edge of "readers /
      month" (no descenders in it). The arithmetic is the band's, not a nudge: the group's bottom sits
-     flush with the glyph, and that line is the title's baseline — 8px above the plot area, the same
-     8 chart.js draws it at (`.attr("y", -8)` on text.ttl). TOOLS_BAND in app.js is 48 so the 40px
-     target spans 0 to 40 and still clears the plot area by that 8px: the target is invisible, so a
-     dot it overlaps silently stops being tappable. ui.test.mjs checks the alignment against the
-     title's real baseline via getScreenCTM, not against these numbers. */
-  #plot > #chart-tools{ position:absolute; top:0; right:6px; z-index:2; gap:6px }
+     flush with the glyph, and the glyph is CENTRED on the axis title's line rather than sitting on
+     its baseline — bottom-aligned read a touch high, because a 16px glyph next to 11px text has
+     more visual mass below its own middle than the letters do.
+     The 3.5px is derived, not nudged: the title's box centre sits 4.47px above its baseline, the
+     baseline is 8px above the plot area (chart.js draws text.ttl at `y:-8`), so the glyph's centre
+     wants to be at TOOLS_BAND-12.47 and a 40px target whose bottom is the glyph's bottom starts at
+     48-44.47. ui.test.mjs measures the real thing and would fail if the title's metrics moved. */
+  #plot > #chart-tools{ position:absolute; top:3.5px; right:6px; z-index:2; gap:6px }
   /* A bare glyph in an invisible 40px hit area — the platform shape for a control that sits on
      content, not a .btn pill moved onto the chart. The disc and border are what made these read as
      furniture: 40px of chrome around a 16px mark, three times the height of the 11px axis title
