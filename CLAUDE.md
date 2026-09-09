@@ -446,15 +446,17 @@ would not have worked.
   40px of visible chrome around a 16px mark reads as furniture next to an 11px axis title. The hit
   target is felt and not seen, so the suite taps 3px in from a CORNER — 22.8px clear of the glyph —
   rather than at the centre, which would pass on a 16px button.
-  **They sit ON the axis title's baseline**, bottom-aligned to the visible underside of "readers /
-  month", and the band's height is what that costs: the glyph's bottom IS the target's bottom, that
-  line is the baseline at `BAND - 8` (the same `-8` chart.js draws `text.ttl` at), so the target
-  spans `BAND-48` to `BAND-8` and 48 is the smallest band that both starts inside the box and keeps
-  the target clear of the plot area. That clearance is not cosmetic — the target is invisible, so a
-  dot it overlaps silently stops being TAPPABLE, which is worse than being hidden because nothing on
-  screen explains it. At 46 it shadowed 12 dots in the swarm. The suite counts coverage against the
-  whole button for that reason, and checks the alignment against the title's real baseline through
-  `getScreenCTM`, never against the numbers here.
+  **They are CENTRED on the axis title's line**, not sitting on its baseline: bottom-aligned read a
+  touch high, because a 16px glyph beside 11px text carries more visual mass below its own middle
+  than the letters do. The offsets follow from that and are not nudges — the title's box centre is
+  4.47px above its baseline and the baseline is 8px above the plot area (chart.js draws `text.ttl`
+  at `y:-8`), so the glyph's centre lands at `BAND - 12.47` and the 40px target, whose bottom is the
+  glyph's bottom, starts 3.5px down. The band is 48 because the target must also stay CLEAR of the
+  plot area: it is invisible, so a dot it overlaps silently stops being TAPPABLE, which is worse
+  than being hidden because nothing on screen explains it — at 46 it shadowed 12 dots in the swarm.
+  The suite counts coverage against the whole button for that reason, and measures the alignment
+  against the title's own box rather than against the constants here, so a change of font, size or
+  that `y:-8` fails instead of drifting.
   One more thing moving them INTO `#plot` broke: `#plot svg{ width:100% }` means THE CHART, and as a
   descendant selector it caught the icons too and stretched an 18px glyph to 38px — 95% of its
   button — with a 3.2px stroke, `body.fs #plot svg{ height:100% }` doing it again in full screen.

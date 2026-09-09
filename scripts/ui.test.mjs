@@ -1701,26 +1701,23 @@ check("the glyphs are icon-sized, not stretched to fill the button",
         .map(i=>{const g=i.getBoundingClientRect(), b=i.closest('.btn').getBoundingClientRect();
           return i.closest('.btn').id+' '+g.width.toFixed(0)+'px ('
             + (g.width/b.width*100).toFixed(0)+'% of button)'}).join(', ')`));
-// Sitting ON the axis title's line, not floating above it. Measured against the title's real
-// BASELINE — the visible bottom edge of "readers / month", which has no descenders — read through
-// getScreenCTM rather than from its bounding box, whose bottom carries the font's descent metrics
-// and is 2px lower than any ink. Checked in the views that HAVE a title; the swarm has none.
-let worstBaseline = 0;
+// Centred on the axis title's line. Measured against the title's own box rather than against the
+// 3.5px in styles.css, so this fails if the font, the size or chart.js's `y:-8` ever moves the text
+// — the constant is derived from those and a check that repeated it would only confirm arithmetic.
+// Checked in the views that HAVE a title; the swarm has none.
+let worstCentre = 0;
 for (const m of ["fame", "scatter", "lens"]) {
   await ev(`document.querySelector('.controls .seg button[data-mode="${m}"]').click()`);
   await sleep(700);
-  worstBaseline = Math.max(worstBaseline, Math.abs(await ev(`(()=>{
-    const t=document.querySelector('#plot svg text.ttl');
-    const svg=document.querySelector('#plot > svg');
-    const p=svg.createSVGPoint(); p.x=+t.getAttribute('x'); p.y=+t.getAttribute('y');
-    const base=p.matrixTransform(t.getScreenCTM()).y;
+  worstCentre = Math.max(worstCentre, Math.abs(await ev(`(()=>{
+    const t=document.querySelector('#plot svg text.ttl').getBoundingClientRect();
     const g=document.querySelector('#share .ico').getBoundingClientRect();
-    return g.bottom - base})()`)));
+    return (g.top+g.bottom)/2 - (t.top+t.bottom)/2})()`)));
 }
 await ev(`document.querySelector('.controls .seg button[data-mode="fame"]').click()`);
 await sleep(600);
-check("the glyphs sit on the axis title's baseline", worstBaseline <= 1.5,
-      `worst gap ${worstBaseline.toFixed(1)}px between glyph bottom and title baseline`);
+check("the glyphs are centred on the axis title's line", worstCentre <= 1.5,
+      `worst offset ${worstCentre.toFixed(1)}px between glyph centre and title centre`);
 check("...drawn as a bare glyph, not a pill moved onto the chart",
       await ev(`[...document.querySelectorAll('#chart-tools .btn')].every(b=>{
         const c=getComputedStyle(b);

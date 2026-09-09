@@ -568,14 +568,16 @@ where it looks empty — and the SWARM piles 90 dots and the "Rachmaninoff" labe
 the best corner ate the axis origin ("1700"), and raising the box off the bottom did not buy that
 back, because the y-axis ticks run up the left edge: at +40px it still caught them and started
 covering dots instead. The band is the only placement that covers NOTHING, in every view.
-They sit ON the axis title's baseline — bottom-aligned to the visible underside of "readers /
-month" — and that is what sizes the band: the glyph's bottom is the target's bottom, that line is
-the baseline at `BAND - 8` (chart.js draws `text.ttl` at `y=-8`), so the target spans `BAND-48` to
-`BAND-8`, and 48 is the smallest band that starts inside the box AND keeps the target clear of the
-plot area. The clearance is not cosmetic: the target is invisible, so a dot it overlaps silently
-stops being TAPPABLE rather than merely being hidden, and at 46 it shadowed 12 dots in the swarm,
-whose blob reaches the top of its box. The coverage check therefore counts the whole button, not the
-glyph.
+They are CENTRED on the axis title's line. Bottom-aligning them to its baseline was tried first and
+read a touch high — a 16px glyph beside 11px text carries more visual mass below its own middle than
+the letters do. The offsets are derived, not nudged: the title's box centre is 4.47px above its
+baseline and the baseline is 8px above the plot area (chart.js draws `text.ttl` at `y=-8`), so the
+glyph's centre lands at `BAND - 12.47` and the 40px target, whose bottom is the glyph's bottom,
+starts 3.5px down. The band is 48 so that target also stays CLEAR of the plot area — it is
+invisible, so a dot it overlaps silently stops being TAPPABLE rather than merely being hidden, and
+at 46 it shadowed 12 dots in the swarm, whose blob reaches the top of its box. The coverage check
+therefore counts the whole button, not the glyph, and the alignment check measures the title's own
+box rather than repeating the constant.
 
 They are bare glyphs, not pills: 16px at `var(--muted)`, no border and no background, in an
 invisible 40px hit target — the first version put a bordered disc round each one, which is 40px of
