@@ -1150,26 +1150,6 @@ window.Chart = (function () {
            // invariant 4 says these names change spelling when the pipeline runs. So the resting
            // rings are the curated outliers while the curated fill is on screen, and whatever the
            // swap derived otherwise. Unfiltered, ringIdx is empty and this is the outliers again.
-           emphasisStats: (atRest) => {
-             if (!atRest && mode !== "fame") return null;
-             const keep = atRest ? () => true : isVisible;
-             const filled = canonIdx.map(i => rows[i]).filter(keep);
-             if (!filled.length) return null;
-             const ringed = atRest
-               ? (repertoire === DEFAULT_REPERTOIRE ? outlierIdx : ringIdx)
-               : outlierIdx.filter(i => keep(rows[i])).concat(ringIdx);
-             const ex = ringed.length ? rows[ringed[0]] : null;
-             return { noun: repertoire.noun, n: filled.length,
-                      // One survivor has no SPAN — "1732 to 1732" is not a range — so the lede
-                      // names them instead. Common enough to matter: any search that keeps a
-                      // single curated composer lands here. It is only ever a claim about the
-                      // FILL: rings can still be drawn beside it, so the sentence must not say
-                      // that this is the only name picked out (it did, at #r=751-4501).
-                      only: filled.length === 1 ? filled[0].name : null,
-                      from: d3.min(filled, d => d.birth), to: d3.max(filled, d => d.birth),
-                      example: ex && ex.quartets != null && ex.views != null
-                        ? { name: ex.name, quartets: ex.quartets, views: ex.views } : null };
-           },
            // Every gender pill value that swaps the claim, so app.js can assert they are reachable.
            repertoireKeys: () => Object.keys(REPERTOIRES),
            resetZoom, zoomed, colorOf, hint, setTopReserve,

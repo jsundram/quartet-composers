@@ -48,6 +48,12 @@ const send = (method, params = {}) => new Promise(res => {
   const i = ++id; pending.set(i, res); ws.send(JSON.stringify({ id: i, method, params }));
 });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+// NB every expression here is a TEMPLATE LITERAL, so a backslash is consumed before the browser
+// ever sees it: `/\s+/` arrives as `/s+/` and `/\d/` as `/d/`. Both are still valid regexes, so
+// nothing throws — the check just quietly matches the wrong thing or nothing at all, and passes.
+// Write `\\s` for a `\s` that reaches the page, or avoid the escape entirely (`[0-9]`,
+// `.includes(...)`, the SVG DOM). This has cost three debugging rounds; grep for `\\s` above to
+// see the shape that works.
 async function ev(expr) {
   const r = await send("Runtime.evaluate", { expression: expr, returnByValue: true, awaitPromise: true });
   if (r.result?.exceptionDetails) throw new Error(r.result.exceptionDetails.text + " :: " + expr);
@@ -1155,193 +1161,49 @@ check("every curated set is reachable by a pill",
         [...document.querySelectorAll('#gender button')].some(b => b.dataset.g === k))`),
       await ev(`JSON.stringify(Chart.repertoireKeys())`));
 
-// --- 4m. the lede is written from the chart, not typed into index.html -------------------------
-// It used to hardcode three claims about the data — "the repertoire", "1709 to 1906", and
-// "Cambini wrote 149 quartets and is read about 200 times a month". Nothing checked any of them:
-// the median was actually 216, so the rounded figure was already wrong, and the first two became
-// false the moment a filter changed which names are picked out. Asserted against the DATA rather
-// than against a string, so a re-scrape that moves a birth year cannot pass this while the page
-// says something else.
-const lede = () => ev(`document.getElementById('lede-picked').textContent`);
+// --- 4m. the lede says one static thing, and stays out of the layout's way ---------------------
+// It used to carry a clause BUILT from the chart — which set is picked out, its birth span, a
+// worked example — and three sections here checked it. That sentence is gone (issue 35): it could
+// empty or change length under a filter, which moved everything below it, so it dragged
+// reserveLede(), a ResizeObserver and a 20px page shift (issue 36) behind it. Nothing was lost by
+// cutting it, and this is the check that says so — every claim it made is still ON the page, in the
+// place that owns it.
 await goto(BASE);
 await sleep(600);
-const st = await ev(`(()=>{const s=Chart.emphasisStats();
-  return {from:s.from, to:s.to, noun:s.noun, ex:s.example.name, q:s.example.quartets,
-          views:s.example.views, rounded:Histogram.fmt(twoSig(s.example.views,-1))}})()`);
-check("the lede states the curated set's real birth span",
-      (await lede()).includes(`${st.from} to ${st.to}`), await lede());
-check("and its example is the chart's own, with the real quartet count",
-      (await lede()).includes(`${st.ex} wrote ${st.q} quartets`), await lede());
-// Invariant 9: a median is a smoothed estimate and any one month runs ~12% off it, so the lede
-// rounds like everywhere else. Printing the exact integer here would claim a precision the
-// number does not have — and 216 is what the old hand-written "about 200" was rounding wrong.
-check("and the readership is rounded, not the raw median",
-      (await lede()).includes(`about ${st.rounded} times a month`)
-      && !(await lede()).includes(String(st.views)),
-      `median ${st.views} -> "${st.rounded}"; ${await lede()}`);
-// The filter changes which names are picked out, so a sentence introducing them has to move too —
-// this is the state where the hardcoded version was simply false.
-await goto(BASE + "#g=female");
-await sleep(700);
-const wst = await ev(`(()=>{const s=Chart.emphasisStats(); return {from:s.from,to:s.to}})()`);
-check("a filter renames the set and re-spans it",
-      /women's repertoire/.test(await lede())
-      && (await lede()).includes(`${wst.from} to ${wst.to}`)
-      && wst.from !== st.from,
-      await lede());
-// "1732 to 1732" is not a range. Any search that keeps a single curated composer lands here.
-await goto(BASE + "#q=haydn");
-await sleep(700);
-check("one survivor is named, not given a zero-width span",
-      (await lede()) === "Only Joseph Haydn is left from the repertoire.", await lede());
-// ...and the sentence is about the FILL only. It used to read "The one name picked out is X",
-// which is false wherever a ring survives beside it — a claim about both channels made from a
-// count of one. This brush keeps Boccherini as the only curated composer AND derives three rings.
-await goto(BASE + "#r=751-4501");
-await sleep(900);
-const withRings = { text: await lede(), rings: await ev(`Chart.derivedRings()`) };
-check("a lone curated survivor does not claim the rings beside it",
-      withRings.rings > 0 && !/one name picked out/.test(withRings.text)
-      && /^Only .+ is left from the repertoire;/.test(withRings.text),
-      `${withRings.rings} derived rings — ${withRings.text}`);
-// Nothing curated survives, so there is no sentence to write rather than a sentence about nobody.
-await goto(BASE + "#q=cambini");
-await sleep(700);
-check("and no curated survivor leaves the claim unmade", (await lede()) === "",
-      JSON.stringify(await lede()));
-
-// --- 4m2. ...and the whole paragraph is about the FAME view, so it leaves with it -------------
-// Two clauses in the lede described a picture only one of the four views draws, and neither moved
-// when the view did — the page contradicted itself across about 600 vertical pixels, and a shared
-// #v=swarm link opened straight onto the contradiction (issue 24).
-//
-// The typed one named the Fame AXES ("across is how many quartets they wrote, up is how much their
-// article is read"), which is false in Timeline and Swarm (across is birth year) and only half
-// true in Lens. It is gone rather than derived: the axis titles inside the plot and the per-mode
-// hint under it already say it for whichever view is on screen, so a third statement of the same
-// fact could only ever be the copy that goes stale.
-const ledeText = () => ev(`document.querySelector('.lede').textContent.replace(/\\s+/g,' ').trim()`);
-for (const v of ["", "#v=swarm"]) {
-  await goto(BASE + v);
-  await sleep(700);
-  check(`the lede names no axes${v && " in " + v}`,
-        !/across is|up is/i.test(await ledeText()), await ledeText());
-}
-// The built one is a claim about which dots are PICKED OUT, and every emphasis channel is
-// Fame-only — fillOf, strokeOf and labelColorOf all fall through to the lifespan encoding outside
-// it — so in the other three views there is nothing picked out to introduce. Asserted on the
-// boot path first, because that is the shared link the issue was filed about.
-await goto(BASE + "#v=swarm");
-await sleep(700);
-check("a view with no emphasis makes no claim about names picked out",
-      (await lede()) === "", `#v=swarm — ${JSON.stringify(await lede())}`);
-// ...and then on the SWITCHER, which is the path that actually broke: setMode() re-rendered the
-// legend and the table and left the sentence above them describing the view you had just left.
-await goto(BASE);
-await sleep(600);
-const fameLede = await lede();
+// Defined here because the sections below still use it and its old home was one of the three this
+// replaced. searchFor() lives up in section 4.
 const pill = m => ev(`document.querySelector('.controls .seg button[data-mode="${m}"]').click()`);
-await pill("scatter");
-await sleep(400);
-check("switching views in place drops the claim with them",
-      (await lede()) === "", `after clicking Timeline — ${JSON.stringify(await lede())}`);
-await pill("fame");
-await sleep(400);
-check("and coming back to Fame restores it",
-      fameLede.length > 0 && (await lede()) === fameLede, `${fameLede} -> ${await lede()}`);
-
-// --- 4m3. ...and unmaking it does not drag the chart up the page -------------------------------
-// The clause is one to three lines and it EMPTIES in three of the four views and under any filter
-// no curated composer survives — so the paragraph collapsed and everything below it moved 40.6px at
-// both widths, whichever the trigger, which lifted the pill you had just tapped out from under a
-// second tap at the same spot (issue 27, whose table reads 61px for the search case because it was
-// taken on a boot rather than in place). Measured on the PLOT,
-// because "the chart moved" is the complaint, and in place rather than by goto(): a re-boot lays
-// the page out once and could never show the jump. The plot's TOP, deliberately — its HEIGHT still
-// changes with the view (each mode picks its own aspect ratio), which moves the controls under it
-// by 52px on a phone and is a different thing from a box that vanished — that one is issue 29.
-//
-// The reservation is MEASURED (reserveLede in app.js), not a min-height in styles.css, because the
-// tallest state is a function of the viewport AND of the data — which is why this is checked at two
-// widths and against the paragraph's own height rather than against a number typed here.
-const plotTop = () => ev(`document.getElementById('plot').getBoundingClientRect().top`);
-const ledeBox = () => ev(`(()=>{const p=document.querySelector('.lede');
-  return {h: p.getBoundingClientRect().height, min: parseFloat(p.style.minHeight) || 0}})()`);
-for (const [w, h, mobile] of [[390, 844, true], [1280, 900, false]]) {
-  await viewport(w, h, mobile);
-  await goto(BASE);
-  await sleep(700);
-  const rest = await ledeBox(), restTop = await plotTop();
-  // The box is reserved from the paragraph the reader ARRIVES at — no blank band held open above
-  // the fold, and nothing typed into CSS that a re-scrape or a re-wrap could falsify.
-  check(`the lede reserves its own resting height at ${w}px`,
-        rest.min > 0 && Math.abs(rest.min - rest.h) < 1.5,
-        `min-height ${rest.min} vs paragraph ${rest.h}`);
-  await searchFor("cambini");
-  await sleep(700);
-  const gone = await ledeBox();
-  check(`emptying the clause does not move the chart at ${w}px`,
-        (await lede()) === "" && Math.abs(await plotTop() - restTop) < 1.5,
-        `plot top ${restTop.toFixed(0)} -> ${(await plotTop()).toFixed(0)} `
-        + `(lede ${rest.h} -> ${gone.h})`);
-  await searchFor("");
-  await sleep(600);
-  await pill("scatter");
-  await sleep(500);
-  check(`switching to a view that picks nothing out does not move it either at ${w}px`,
-        (await lede()) === "" && Math.abs(await plotTop() - restTop) < 1.5,
-        `plot top ${restTop.toFixed(0)} -> ${(await plotTop()).toFixed(0)}`);
-  await pill("fame");
-  await sleep(500);
-}
-// A reservation measured at one width is wrong at another — 122px of paragraph on a phone, 82px on
-// a laptop, the same sentence — so it is re-measured when the paragraph re-wraps. This is the check
-// that a hardcoded min-height could never pass at both widths.
-const wide = await ledeBox();
-await viewport(390, 844, true);
+const ledeText = () => ev(`document.querySelector('.lede').textContent.replace(/\\s+/g,' ').trim()`);
+check("the lede is one static sentence", (await ledeText()) ===
+      "Everyone on Wikipedia's List of String Quartet Composers, visualized.", await ledeText());
+check("...that links the list it names",
+      await ev(`!!document.querySelector('.lede a[href*="List_of_string_quartet_composers"]')`));
+// The three things it used to claim, each still stated by the component that owns it. This is the
+// rule in CLAUDE.md — build a claim only where the page states it nowhere else — checked rather
+// than asserted, so cutting the sentence cannot quietly cut the information with it.
+check("the legend still names the highlighted set",
+      /repertoire/i.test(await ev(`document.getElementById('legend').textContent`)),
+      await ev(`document.getElementById('legend').textContent.replace(/\\s+/g,' ').trim().slice(0,60)`));
+check("the axes are still named by the chart itself",
+      await ev(`[...document.querySelectorAll('#plot svg text')]
+        .some(t=>t.textContent.includes("readers / month"))`)
+      && (await ev(`document.getElementById('hint').textContent`)).length > 10,
+      await ev(`document.getElementById('hint').textContent`));
+check("the footnote still says readership is English-only, and what that misses",
+      /English only|undercounted/.test(await ev(`document.getElementById('prov').textContent`)));
+// And it can no longer move: nothing writes to it, so no filter and no view can change its height.
+const ledeH = () => ev(`document.querySelector('.lede').getBoundingClientRect().height`);
+const ledeRest = await ledeH();
+await goto(BASE + "#g=female&r=751-4501");
 await sleep(800);
-const narrow = await ledeBox();
-check("a re-wrap re-measures the reservation",
-      narrow.min > wide.min + 10 && Math.abs(narrow.min - narrow.h) < 1.5,
-      `min-height 1280px ${wide.min} -> 390px ${narrow.min} (paragraph ${narrow.h})`);
-await viewport(1100, 1500);
-
-// The reservation is only worth anything if the sentence it MEASURES is the sentence the page
-// PRINTS — which is why ledeClause() was split out of setLede() in the first place. The one place
-// they could come apart is the pill that SWAPS the claim: setRepertoire() replaces the curated
-// fill under "Women", and WOMEN_CANON holds none of the three curated outliers, so the page rings
-// three DERIVED composers while emphasisStats(true) was still reading outlierIdx. It measured "the
-// women's repertoire, 1805 to 1962; Giuseppe Cambini wrote 149 quartets" — a sentence naming a dot
-// that filter does not draw, and one the app can never print. Nothing was visibly wrong (both
-// wrapped to three lines at 320/360/390/430/768); the next canonical rename decides whether that
-// holds, which is why this compares the STRINGS and not a height.
-await goto(BASE + "#g=female");
-await sleep(700);
-const claim = await ev(`(()=>{const s=o=>JSON.stringify(o);
-  return {rest:s(Chart.emphasisStats(true)), now:s(Chart.emphasisStats())}})()`);
-check("the measured sentence is the printed one under the pill that swaps the claim",
-      claim.rest === claim.now, `measured ${claim.rest} / printed ${claim.now}`);
-
-// Full screen sets .lede display:none, so reserveLede() has nothing to measure and keeps the box it
-// last set. What it keeps stops being a MEASUREMENT the moment the claim changes behind the hidden
-// paragraph — and the ResizeObserver's width guard then reads "same width, nothing to do" on the
-// way back, so the stale box stands: at 360, boot, enter full screen, press Women, come back, and a
-// 122px reservation sat under a 143px paragraph. It recovered on the next setLede(), so nothing was
-// visibly wrong; the bail invalidates the width now instead of relying on that. At 360 rather than
-// 390 because at 390 the two sentences wrap to the same height and there is nothing to see.
-await viewport(360, 844, true);
+check("no filter changes the lede's height any more",
+      Math.abs(await ledeH() - ledeRest) < 0.5,
+      `${ledeRest.toFixed(1)} -> ${(await ledeH()).toFixed(1)} under the combination that moved it 20px`);
+check("...and it reserves no height of its own to go stale",
+      await ev(`!document.querySelector('.lede').style.minHeight`),
+      await ev(`JSON.stringify(document.querySelector('.lede').style.minHeight)`));
 await goto(BASE);
-await sleep(700);
-await ev(`document.getElementById('fs').click()`);
 await sleep(600);
-await ev(`document.querySelector('#gender button[data-g="female"]').click()`);
-await sleep(600);
-await ev(`document.getElementById('fs').click()`);
-await sleep(800);
-const back = await ledeBox();
-check("a claim that changed behind full screen re-measures on the way back",
-      back.min > 0 && Math.abs(back.min - back.h) < 1.5,
-      `min-height ${back.min} vs paragraph ${back.h}`);
 
 // --- 4m4. ...and neither does a view switch, because the switcher is no longer under the plot ---
 // The residue of 4m3 (issue 29). Reserving the lede settled the plot's TOP; its HEIGHT still
@@ -1432,24 +1294,17 @@ check("brushing moves nothing, mid-drag or on release",
 check("...and the button lights up on the first frame of the drag",
       midState === `{"off":false,"lit":true}`, `mid-drag ${midState}`);
 
-// 2. the other two filters, and all three at once — measured RELATIVE to #filters' own top.
-// Absolute tops cannot answer this question, and not because of anything in this section: with the
-// Women pill on, applying the brush re-measures the lede's reserved box from 122px to 102px and
-// lifts everything below it 20px. That reproduces byte-identically on main (issue 36), it is a
-// reserveLede() defect one component UP, and rolling it into this assertion would mean this section
-// goes red for a reason it does not own. What it owns is that no FILTER CONTROL's box changes size.
-const relTops = async () => {
-  const base = await ev(`document.getElementById('filters').getBoundingClientRect().top`);
-  return JSON.stringify(JSON.parse(await rowTops()).map(v => +(v - base).toFixed(1)));
-};
-const restRel = await relTops();
+// 2. the other two filters, and all three at once — measured on ABSOLUTE tops again. This used to
+// need an offset from #filters, because the lede's reserved box shrank 20px under Women plus a
+// brush range and lifted the whole page (issue 36). That sentence is gone, so the page genuinely
+// does not move and the check can say so directly.
 await ev(`document.querySelector('#gender button[data-g="female"]').click()`);
 await sleep(500);
 await searchFor("a");
 await sleep(600);
-const all3 = await relTops();
-check("all three filters at once change no control's box", drift(restRel, all3) < 1.5,
-      `offsets from #filters ${restRel} -> ${all3} with search + brush + gender`);
+const all3 = await rowTops();
+check("all three filters at once still move nothing", drift(rest5, all3) < 1.5,
+      `tops ${rest5} -> ${all3} with search + brush + gender`);
 
 // 3. and the button undoes all three, which is what its name promises.
 await ev(`document.getElementById('reset-filters').click()`);
