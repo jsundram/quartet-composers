@@ -1695,12 +1695,19 @@ check("the glyphs are icon-sized, not stretched to fill the button",
         .filter(i=>getComputedStyle(i).display !== 'none')
         .every(i=>{const g=i.getBoundingClientRect(),
                          b=i.closest('.btn').getBoundingClientRect();
-          return g.width >= 14 && g.width <= 22 && g.width / b.width < 0.6})`),
+          return g.width >= 13 && g.width <= 20 && g.width / b.width < 0.5})`),
       await ev(`[...document.querySelectorAll('#chart-tools .ico')]
         .filter(i=>getComputedStyle(i).display !== 'none')
         .map(i=>{const g=i.getBoundingClientRect(), b=i.closest('.btn').getBoundingClientRect();
           return i.closest('.btn').id+' '+g.width.toFixed(0)+'px ('
             + (g.width/b.width*100).toFixed(0)+'% of button)'}).join(', ')`));
+check("...drawn as a bare glyph, not a pill moved onto the chart",
+      await ev(`[...document.querySelectorAll('#chart-tools .btn')].every(b=>{
+        const c=getComputedStyle(b);
+        return parseFloat(c.borderTopWidth) === 0
+          && (c.backgroundColor === 'rgba(0, 0, 0, 0)' || c.backgroundColor === 'transparent')})`),
+      await ev(`(()=>{const c=getComputedStyle(document.getElementById('share'));
+        return 'border '+c.borderTopWidth+', bg '+c.backgroundColor})()`));
 check("...and #fs shows one glyph, not both",
       await ev(`(()=>{const vis=[...document.querySelectorAll('#fs .ico')]
         .filter(i=>getComputedStyle(i).display !== 'none'); return vis.length === 1
@@ -1751,13 +1758,19 @@ check("...because the chart reserved the band for it", b.top >= 40 && b.used <= 
 
 // A REAL tap through the CDP, not .click(): the whole question is whether a press over the zoom
 // surface reaches the button or is swallowed by the pan gesture.
+// Deliberately NOT the centre: the affordance here is a 40px target around a 16px glyph, so the
+// tap that proves it is one that lands on empty space inside the button — 3px in from the corner,
+// about 12px clear of the mark that is actually drawn. A centre tap would pass on a 16px button.
 const fsBox = await ev(`(()=>{const r=document.getElementById('fs').getBoundingClientRect();
-  return {x:r.x+r.width/2, y:r.y+r.height/2}})()`);
+  const g=document.querySelector('#fs .ico').getBoundingClientRect();
+  return {x:r.left+3, y:r.top+3,
+          clear:+Math.hypot(g.left-(r.left+3), g.top-(r.top+3)).toFixed(1)}})()`);
 await mouse("mousePressed", fsBox.x, fsBox.y);
 await mouse("mouseReleased", fsBox.x, fsBox.y);
 await sleep(700);
-check("a tap on the overlaid Full screen icon actually fires",
-      await ev(`document.body.classList.contains('fs')`));
+check("a tap in the empty part of the hit target fires, not just on the glyph",
+      await ev(`document.body.classList.contains('fs')`),
+      `tapped ${fsBox.clear}px clear of the glyph`);
 check("...and the icon swaps to the exit glyph rather than losing it",
       await ev(`(()=>{const b=document.getElementById('fs');
         return b.getAttribute('aria-pressed') === 'true'

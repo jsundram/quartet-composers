@@ -568,6 +568,11 @@ where it looks empty — and the SWARM piles 90 dots and the "Rachmaninoff" labe
 the best corner ate the axis origin ("1700"), and raising the box off the bottom did not buy that
 back, because the y-axis ticks run up the left edge: at +40px it still caught them and started
 covering dots instead. The band is the only placement that covers NOTHING, in every view.
+They are bare glyphs, not pills: 16px at `var(--muted)`, no border and no background, in an
+invisible 40px hit target — the first version put a bordered disc round each one, which is 40px of
+visible chrome next to an 11px axis title and reads as furniture rather than as the platform's own
+shape for a control on content. The suite taps 3px in from a corner, ~12px clear of the mark, so it
+is the invisible half of the target being tested and not the glyph.
 `Chart.setTopReserve(46)` widens `m.top` from 22 so a 40px target fits with clearance; the chart is
 TOLD rather than reading the breakpoint, because two copies of "640px" is two things that can
 disagree and `chart.js` would be the one silently reserving space for a control that had moved. The
