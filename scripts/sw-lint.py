@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# pwa-starter: sw-lint.py @ d2fad01  (unmodified)
+# pwa-starter: sw-lint.py @ d2fad01  (+ the --base branch check)
 # /// script
 # requires-python = ">=3.9"
 # ///
@@ -22,8 +22,24 @@ sw.js precaches the app SHELL. Five mistakes are cheap to catch here and expensi
    so a renamed stem on one side only makes the version tag go blank (no cache matches) or read
    a sibling app's caches — silently, since nothing throws. The stems must agree. (#7)
 
-The pre-commit hook runs it warn-only; run it in CI with a real exit code. By hand:
+Check 1 reads the INDEX, so it only ever bites in the pre-commit hook, and it is blind to what a
+branch does as a whole. Two PRs off one base can each bump v32 -> v33 byte-identically; a
+three-way merge resolves that silently, and the second one lands its shell changes with a net V
+delta of zero (#32). Hence the sixth check, which needs a second commit to compare against and so
+takes it as an argument:
+
+6. `--base REF`: a branch that changes shell files without carrying V past the one REF is
+   already on. What the branch CHANGED is read from the merge base (the diff a rebase, a squash
+   and a stacked branch all leave alone); which V it must CLEAR is read from REF's tip, which is
+   what it is about to merge into — against the merge base instead, the motivating case passes,
+   since both PRs did differ from their own v32 base. It replaces the other five rather than
+   joining them, being a different question asked with different information, and it is where CI
+   earns its keep: CI has both sides of the merge and the hook has neither.
+
+The pre-commit hook runs the first five warn-only; run them in CI with a real exit code, and the
+sixth on pull requests with the base sha. By hand:
     python3 scripts/sw-lint.py
+    python3 scripts/sw-lint.py --base origin/main
 """
 import os, re, subprocess, sys
 
@@ -51,7 +67,83 @@ def shell_entries(src):
     return [s for s in re.findall(r'//[^\n]*|"([^"]+)"', m.group(1)) if s]
 
 
+def tail_of(v):
+    m = re.search(r"(\d+)$", v or "")
+    return int(m.group(1)) if m else None
+
+
+# Check 6. The hook cannot ask this: it sees one commit against its parent, so a branch that bumps
+# v32 -> v33 from a base that has since become v33 looks correct at every step and still merges to
+# a net delta of zero. CI has both sides.
+#
+# Two references, deliberately, because the two halves are different questions:
+#   - WHAT THIS BRANCH CHANGED is measured from the MERGE BASE, so a base that moved ahead does not
+#     show up as files this branch touched. That is also the diff a rebase, a squash and a stacked
+#     branch all leave unchanged.
+#   - WHICH V IT HAS TO CLEAR is REF's TIP, because the tip is what it is about to merge into.
+#     Against the merge base instead, the motivating case passes: both PRs bumped v32 -> v33 off a
+#     v32 base, so each one differs from its own merge base and the second still lands a net zero.
+#
+# Everything here is REPORTED rather than skipped, including "I could not read the base". Silence
+# is what opened the hole in the first place — a check that passes when it could not run is a check
+# that reports an answer it does not have.
+def base_check(ref):
+    mb = sh("git", "merge-base", ref, "HEAD")
+    if mb.returncode != 0 or not mb.stdout.strip():
+        return [f'no merge base between HEAD and "{ref}" — with a shallow checkout there is '
+                "nothing to compare V against, so this check cannot run. Fetch enough history "
+                "(actions/checkout with fetch-depth: 0) rather than letting it pass silently."]
+    mb = mb.stdout.strip()
+
+    head, base = sh("git", "show", "HEAD:sw.js"), sh("git", "show", f"{ref}:sw.js")
+    if head.returncode != 0 or base.returncode != 0:
+        return []                                 # sw.js added on this branch: no prior V to hold
+    v, old = ver(head.stdout), ver(base.stdout)
+    if v is None or old is None:
+        return []                                 # no declaration to read; checks 1-5 own that
+
+    # The UNION of both SHELL lists, because dropping an entry is itself a shell change: clients
+    # that already cached it keep serving it out of the old generation until V moves.
+    shell = {e.lstrip("./") for src in (head.stdout, base.stdout)
+             for e in shell_entries(src) if "://" not in e and e.strip("./")}
+    diff = sh("git", "diff", "--name-only", mb, "HEAD")
+    touched = sorted(set(diff.stdout.split()) & shell)
+    if not touched:
+        return []
+
+    files = ", ".join(touched)
+    if v == old:
+        return [f'V is "{v}" on both this branch and {ref}, but the branch changes precached '
+                f"shell files ({files}) — merging it leaves every installed client on the cached "
+                "version. Bump V in sw.js."]
+    # Any bump clears it (one generation per push is fine); the tail must only ever go UP, because
+    # both sw.js's collect and app.js's checkVer() rank generations by it and would read a lower
+    # number as the older cache. A renamed stem is a deliberate reset, so the tails are not
+    # comparable and V simply differing is the whole answer.
+    stem, old_stem = re.sub(r"\d+$", "", v), re.sub(r"\d+$", "", old)
+    if stem == old_stem:
+        t, ot = tail_of(v), tail_of(old)
+        if t is not None and ot is not None and t < ot:
+            return [f'V is "{v}" but {ref} is already on "{old}", and the branch changes precached '
+                    f"shell files ({files}) — the numeric tail orders cache generations, so this "
+                    f"one would be collected as the stale one. Bump past {ot}."]
+    return []
+
+
 def main():
+    if "--base" in sys.argv:
+        i = sys.argv.index("--base")
+        if i + 1 >= len(sys.argv):
+            print("  sw.js:\n   - --base needs a ref to compare against")
+            return 1
+        problems = base_check(sys.argv[i + 1])
+        if not problems:
+            return 0
+        print("  sw.js:")
+        for p in problems:
+            print(f"   - {p}")
+        return 1
+
     idx = sh("git", "show", ":sw.js")            # staged sw.js
     if idx.returncode != 0:
         return 0                                  # no sw.js in the index / not a repo
