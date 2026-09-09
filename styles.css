@@ -71,10 +71,12 @@ a:not(:hover){ text-decoration:none }
 
 .head{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:6px }
 h1{ font-size:clamp(21px, 4.6vw, 32px); letter-spacing:-.015em; font-weight:650 }
-/* No min-height here on purpose: the built clause empties whenever the view picks nothing out,
-   and the height that reserves is a function of BOTH the viewport (different wrapping at 390 and
-   1280) and the data (the sentence names a composer and two figures). app.js measures it from the
-   resting sentence instead and sets min-height inline -- see reserveLede(), issue 27. */
+/* Still no min-height, but for the opposite reason to the one that used to be written here. The
+   sentence was built from the chart and could EMPTY, so it needed a reserved height measured at
+   runtime (reserveLede) rather than typed here, being a function of the viewport and the data both.
+   Issue 35 cut the clause instead, so there is nothing left to reserve and ui.test.mjs asserts this
+   element carries no inline min-height at all. A future clause that can empty brings the whole
+   problem back with it -- and the answer is still a measurement in app.js, never a number here. */
 .lede{ color:var(--muted); font-size:14px; max-width:62ch; margin-bottom:14px }
 .lede a{ color:var(--accent) }
 
