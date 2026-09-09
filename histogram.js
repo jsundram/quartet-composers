@@ -19,7 +19,7 @@ window.Histogram = (function () {
   const AXIS = 15;              // tick labels below it
   const PAD = 2;
 
-  let el, cb, svg, gBars, gAxis, gEnds, brush, gBrush;
+  let el, cb, svg, gBars, gAxis, gEnds, gGrips, brush, gBrush;
   let rows = [], counts = [], edges = [], x = null, y = null;
   let range = null;             // [lo, hi] in views, or null for "everything"
   let w = 0, C = {};
@@ -49,6 +49,33 @@ window.Histogram = (function () {
   // A bin is "in" the selection when it overlaps it at all, so the highlighted bars always cover
   // the composers the brush actually keeps — never a bar narrower than the selection under it.
   const inRange = i => !range || (edges[i + 1] >= range[0] && edges[i] <= range[1]);
+
+  // THE HANDLES ARE CROSSFILTER'S GRIPS (square.github.io/crossfilter, issue 40), not d3's rect.
+  // d3-brush's own .handle is `handleSize` wide by the extent PLUS handleSize tall, so painting it
+  // drew a 20x62 slab of accent sticking out above the bars and down through the tick labels — the
+  // hit area rendered as if it were the control. It stays as the hit area and styles.css paints it
+  // to nothing; this is what is seen, on the same felt-not-seen split the chart's icon buttons use.
+  //
+  // Crossfilter's path is written for a 100px chart, where the third of the height it takes is a
+  // 33px tab: two 6-radius corners and 21px of straight edge between them. What carries over is the
+  // TAB, not the third — a third of 42 is 14px, which the corners swallow whole, and a grip is an
+  // affordance for a finger, so its absolute size is the thing that has to survive the move. At 26
+  // it is shorter than crossfilter's own and still has half its height straight; the corner
+  // geometry is theirs exactly and the grip lines keep their quarter-of-the-tab inset.
+  // Drawn OUTWARD from the edge, as there — the flat side IS the selection's boundary, which is
+  // what makes it read as a thing to pull. At an extreme that bleeds 6.5px past the svg, into the
+  // padding of whatever box the row is in — measured, not assumed, and measured at the TIGHTEST of
+  // them: 8.5px to spare in the filters card on a 390px phone, but only ~3.5px in full screen at
+  // that width, where `body.fs #filters` has no padding of its own and #viz pads 10px. ui.test.mjs
+  // takes both, so a change to either padding fails here rather than clipping a grip.
+  const TAB = 26;
+  function grip(side) {                       // -1 west, +1 east, drawn from x=0 at the edge
+    const e = side > 0 ? 1 : 0;               // the sweep flag mirrors the corners with the tab
+    const y0 = (H - TAB) / 2, y1 = y0 + TAB, i = TAB / 4;
+    return `M${0.5 * side},${y0}A6,6 0 0 ${e} ${6.5 * side},${y0 + 6}V${y1 - 6}`
+         + `A6,6 0 0 ${e} ${0.5 * side},${y1}Z`
+         + `M${2.5 * side},${y0 + i}V${y1 - i}M${4.5 * side},${y0 + i}V${y1 - i}`;
+  }
 
   function draw() {
     if (!svg) return;
@@ -107,6 +134,13 @@ window.Histogram = (function () {
       .attr("text-anchor", "middle").merge(en)
       .attr("x", d => d.x).attr("y", H + 11).attr("fill", C.sel).text(d => fmt(d.v));
 
+    // Keyed by side, and placed from the SCALE rather than from the brush's pixels, so the tab, the
+    // number under it and the highlighted bars are all three drawn from one value.
+    const gr = gGrips.selectAll("path").data(range ? [-1, 1] : []);
+    gr.exit().remove();
+    gr.enter().append("path").attr("d", grip).merge(gr)
+      .attr("transform", d => `translate(${x(d < 0 ? range[0] : range[1])},0)`);
+
     // The <svg> is role="img", so nothing drawn inside it reaches a screen reader — including the
     // two numbers above. The label carries the state instead, and #hist-read keeps the sentence.
     svg.attr("aria-label", range
@@ -139,6 +173,15 @@ window.Histogram = (function () {
         emit(ev.selection, true);
       });
     gBrush = svg.append("g").attr("class", "brush").call(brush);
+    // After the brush, so the grips draw over the selection edge they mark — which is exactly what
+    // makes pointer-events THE load-bearing line in this file: being on top, a hittable grip would
+    // swallow the mousedown, and it is outside gBrush, so the brush would not see the drag at all.
+    // Nothing in styles.css is needed for the handle itself (d3-brush sets fill:none and
+    // pointer-events:all on the brush <g> and both inherit) — this is the one that matters.
+    // It is a presentation ATTRIBUTE, the weakest origin there is, so any future
+    // `#hist .grips path{ pointer-events: … }` would silently outrank it: the same trap that left
+    // #hist-clear under the touch floor and stretched the chart-tools glyphs.
+    gGrips = svg.append("g").attr("class", "grips").attr("pointer-events", "none");
   }
 
   function emit(sel, done) {

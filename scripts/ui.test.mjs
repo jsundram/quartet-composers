@@ -389,6 +389,62 @@ check("Reset filters restores every row",
       await ev(`document.querySelectorAll('tbody tr').length`) === totalRows);
 check("...and drops the range from the URL", !(await ev(`location.hash`)).includes("r="));
 
+// The handles are crossfilter's grips (issue 40). d3's own .handle is handleSize wide by the extent
+// PLUS handleSize tall, so painting it drew a 20x62 accent slab through the tick labels — the hit
+// area wearing the costume of the control. It is now the hit area only, and three things have to
+// stay true together for that to be an improvement rather than a trade.
+await mouse("mousePressed", hb.x + hb.w * 0.45, hb.y + hb.h * 0.4);
+await mouse("mouseMoved",   hb.x + hb.w * 0.60, hb.y + hb.h * 0.4);
+await mouse("mouseReleased", hb.x + hb.w * 0.72, hb.y + hb.h * 0.4);
+await sleep(400);
+check("a grip is drawn at each end of the selection, on the outside of it",
+      await ev(`(()=>{const g=[...document.querySelectorAll('#hist .grips path')];
+        if (g.length !== 2) return false;
+        const s=document.querySelector('#hist .selection').getBoundingClientRect();
+        const b=g.map(p=>p.getBoundingClientRect());
+        return Math.abs(b[0].right - s.left) < 2 && b[0].left < s.left
+            && Math.abs(b[1].left - s.right) < 2 && b[1].right > s.right})()`),
+      await ev(`document.querySelectorAll('#hist .grips path').length + " grips"`));
+// The grip is what is SEEN and the handle is what is FELT, the same split the chart's icon buttons
+// use. Assert both numbers: shrinking the grip is only an improvement if the target survives it.
+check("the grip is a small tab inside a 20px hit target",
+      await ev(`(()=>{const p=document.querySelector('#hist .grips path').getBoundingClientRect();
+        const h=document.querySelector('#hist .handle--e').getBoundingClientRect();
+        return p.width < 10 && p.height > 20 && p.height < 34 && h.width >= 19})()`),
+      await ev(`(()=>{const p=document.querySelector('#hist .grips path').getBoundingClientRect();
+        const h=document.querySelector('#hist .handle--e').getBoundingClientRect();
+        return `+"`grip ${p.width.toFixed(1)}x${p.height.toFixed(1)}, target ${h.width.toFixed(1)}`"+`})()`));
+// The bug as REPORTED was the handle being visible at all, and none of the checks above would
+// notice it coming back: a repainted handle draws its slab straight over an intact grip. Both
+// values are d3's own, set on the brush <g> and inherited — what this asserts is that no rule in
+// THIS stylesheet overrides either, which is the only way they have ever gone wrong.
+check("...and the handle itself stays unpainted, so the slab cannot come back",
+      await ev(`(()=>{const h=document.querySelector('#hist .handle--e');
+        const c=getComputedStyle(h); return c.fill === 'none' && c.pointerEvents === 'all'})()`),
+      await ev(`(()=>{const c=getComputedStyle(document.querySelector('#hist .handle--e'));
+        return c.fill + ", pointer-events:" + c.pointerEvents})()`));
+// THE REGRESSION THIS GUARDS is one line up in histogram.js, not in the stylesheet: the grips group
+// is drawn ON TOP of the brush and OUTSIDE it, so without pointer-events:none on it a press lands on
+// a path the brush never sees, and the drag does nothing at all. Ablating that attribute is what
+// turns this check red; ablating anything in styles.css does not.
+const r0 = await ev(`Histogram.getRange()`);
+const eh = await ev(`(()=>{const r=document.querySelector('#hist .handle--e').getBoundingClientRect();
+  return {cx:r.x+r.width/2, cy:r.y+r.height/2}})()`);
+await mouse("mousePressed", eh.cx, eh.cy);
+await mouse("mouseMoved",   eh.cx - 40, eh.cy);
+await mouse("mouseReleased", eh.cx - 60, eh.cy);
+await sleep(400);
+const r1 = await ev(`Histogram.getRange()`);
+// Both halves of the message are guarded. An unguarded r0[0] here throws a TypeError while BUILDING
+// the failure text, which aborts the run and silently skips every check below — the same
+// fails-by-vanishing shape goto()'s own comment calls worse than failing every time.
+const span = r => (r ? r[0].toFixed(1) + "-" + r[1].toFixed(1) : "null");
+check("dragging a grip resizes that end and leaves the other one alone",
+      !!r0 && !!r1 && Math.abs(r1[0] - r0[0]) < r0[0] * 1e-6 && r1[1] < r0[1] * 0.9,
+      `${span(r0)} -> ${span(r1)}`);
+await ev(`document.getElementById('reset-filters').click()`);
+await sleep(400);
+
 // --- 4c. the frame holds: nothing escapes the plot rectangle under a zoom ----------------------
 // Pinned to the timeline view: it is the one with the birth-year domain and the size legend these
 // checks are about. The default view is now Fame (section 4e).
@@ -1294,6 +1350,30 @@ check("brushing moves nothing, mid-drag or on release",
 check("...and the button lights up on the first frame of the drag",
       midState === `{"off":false,"lit":true}`, `mid-drag ${midState}`);
 
+// The grip is drawn OUTWARD from the selection edge (issue 40), so a selection pushed to either
+// end of the axis bleeds ~6.5px past the svg — histogram.js claims the card's padding absorbs it.
+// A phone is where that padding is tightest and the brush is widest, so measure it here instead of
+// taking the claim's word for it. Left in place afterwards: it moves no row top, which is what the
+// checks below are about.
+// max(1, …): the target is 30px left of the svg, which at 390px is x=1 — body padding 16 + border 1
+// + card padding 14. A negative coordinate may never reach the renderer, and the check would then
+// fail for a reason with nothing to do with the grip. Clamping keeps it past the axis end either way.
+const past = Math.max(1, hb2.x - 30);
+await mouse("mousePressed", hb2.x + hb2.w * 0.4, hb2.y + hb2.h * 0.4);
+await mouse("mouseMoved",   past, hb2.y + hb2.h * 0.4);
+await mouse("mouseReleased", past, hb2.y + hb2.h * 0.4);
+await sleep(500);
+check("a grip pushed to the end of the axis stays inside the card (390px, in the row's own card)",
+      await ev(`(()=>{const g=document.querySelector('#hist .grips path').getBoundingClientRect();
+        const c=document.getElementById('filters').getBoundingClientRect();
+        const s=document.querySelector('#hist svg').getBoundingClientRect();
+        return g.left < s.left && g.left > c.left + 1})()`),
+      await ev(`(()=>{const g=document.querySelector('#hist .grips path').getBoundingClientRect();
+        const c=document.getElementById('filters').getBoundingClientRect();
+        const s=document.querySelector('#hist svg').getBoundingClientRect();
+        return (s.left - g.left).toFixed(1) + "px past the svg, " +
+               (g.left - c.left).toFixed(1) + "px still inside the card"})()`));
+
 // 2. the other two filters, and all three at once — measured on ABSOLUTE tops again. This used to
 // need an offset from #filters, because the lede's reserved box shrank 20px under Women plus a
 // brush range and lifted the whole page (issue 36). That sentence is gone, so the page genuinely
@@ -1496,6 +1576,25 @@ check("clearing the pin does not resize the full-screen chart",
 check("the strip is still drawn with nothing pinned",
       await ev(`(()=>{const d=document.getElementById('detail');
         return d.offsetParent !== null && d.getBoundingClientRect().height > 40})()`));
+// THE TIGHTEST BOX THE GRIP EVER BLEEDS INTO. Section 4m5 measures the same 6.5px overhang inside
+// the filters card, which pads 14px; here `body.fs #filters` pads nothing at all and #viz pads 10,
+// so this is the case a padding change breaks first, and 4m5 would not notice.
+const fh = await ev(`(()=>{const r=document.querySelector('#hist svg').getBoundingClientRect();
+  return {x:r.x,y:r.y,w:r.width,h:r.height}})()`);
+await mouse("mousePressed", fh.x + fh.w * 0.4, fh.y + fh.h * 0.4);
+await mouse("mouseMoved",   Math.max(1, fh.x - 30), fh.y + fh.h * 0.4);
+await mouse("mouseReleased", Math.max(1, fh.x - 30), fh.y + fh.h * 0.4);
+await sleep(500);
+check("...and a grip at the end of the axis still clears the full-screen edge",
+      await ev(`(()=>{const g=document.querySelector('#hist .grips path').getBoundingClientRect();
+        const s=document.querySelector('#hist svg').getBoundingClientRect();
+        return g.left < s.left && g.left > 1})()`),
+      await ev(`(()=>{const g=document.querySelector('#hist .grips path').getBoundingClientRect();
+        const s=document.querySelector('#hist svg').getBoundingClientRect();
+        return (s.left - g.left).toFixed(1) + "px past the svg, " +
+               g.left.toFixed(1) + "px from the screen edge"})()`));
+await ev(`document.getElementById('reset-filters').click()`);
+await sleep(400);
 await send("Emulation.setTouchEmulationEnabled", { enabled: false });
 
 // --- 7c2. Share and Full screen become icons ON the chart, and stay usable there ---------------

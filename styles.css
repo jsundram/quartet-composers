@@ -160,9 +160,18 @@ body.fs #filters .tablehead{ display:none }
 #gender-label{ margin-left:6px }
 #hist{ flex:1 1 auto; min-width:0; margin-right:2px; touch-action:none }   /* touch-action:none so d3-brush owns the drag */
 #hist svg{ display:block; width:100%; height:auto; overflow:visible }
-/* d3-brush chrome: keep the unselected area readable and give the handles a visible grip. */
+/* The selection's tint: enough to read as selected, light enough to leave the bars under it legible. */
 #hist .selection{ fill:var(--accent); fill-opacity:.10; stroke:var(--accent); stroke-opacity:.55 }
-#hist .handle{ fill:var(--accent); fill-opacity:.65 }
+/* NO .handle RULE, on purpose. d3-brush sets fill:none and pointer-events:all on the brush <g> and
+   both inherit, so the handle arrives as an unpainted hit area already — the 20x62 slab of issue 40
+   was this stylesheet PAINTING it, not d3 drawing it. Restating the inherited values here would be
+   a rule that looks load-bearing and is not; ui.test.mjs 4b checks the computed values instead, so
+   the contract is asserted where it can actually fail. The visible grip is drawn by histogram.js. */
+/* The grip itself. Colored here rather than baked into the SVG (invariant 3) because it is uniform:
+   a CSS variable reaches it the way it reaches the sparkline, so a theme change has nothing to redo.
+   Opaque --card, not a tint: it is a thing sitting ON the bars, and a translucent one is what the
+   old handle looked like. */
+#hist .grips path{ fill:var(--card); stroke:var(--accent); stroke-width:1 }
 #hist .overlay{ cursor:crosshair }
 
 /* --- chart ---------------------------------------------------------------------------------- */
