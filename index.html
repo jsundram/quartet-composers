@@ -137,17 +137,20 @@
              It is `disabled` at rest and accent-filled when it will do something, so the row also
              answers "is anything filtered?" without the reader checking three separate controls. -->
         <button type="button" id="reset-filters" class="btn" disabled>Reset filters</button>
-        <!-- A GROUP, because app.js reparents these two onto the plot on a phone (placeChartTools)
-             — they are the only controls here that name a mechanism rather than a fact about the
-             data, both have a standard glyph, and both are what a video player puts in the corner
-             of its own canvas. The words stay on desktop, where there is room and no reason to make
-             anyone learn a glyph. Moving them is what PAYS for Reset filters: the row is already two
-             lines at 390, a word button takes it to three (+48px of the first screen), and shrinking
-             these two in place still wraps at 360. See issue 35.
+        <!-- A GROUP, because app.js reparents these two onto the plot wherever the row will not
+             hold them (placeChartTools) — they are the only controls here that name a mechanism
+             rather than a fact about the data, both have a standard glyph, and both are what a
+             video player puts in the corner of its own canvas. Moving them is what PAYS for Reset
+             filters: the row is already two lines at 390, a word button takes it to three (+48px of
+             the first screen), and shrinking these two in place still wraps at 360. See issue 35.
+             The words stay only where the row fits them on one line, which is 1100px up — see
+             styles.css for why that number and not the 1056 the row wraps at.
              The label lives in its own span: share() and setFull() used to write textContent
-             straight onto the button, which would now delete the icon beside it. -->
+             straight onto the button, which would now delete the icon beside it. The `title` is
+             the same string and app.js's label() rewrites both together, because below 1100 the
+             span is clipped and the tooltip is the only name a pointer can reach. -->
         <div id="chart-tools" class="spacer">
-          <button type="button" id="share" class="btn">
+          <button type="button" id="share" class="btn" title="Share">
             <svg class="ico ico-share" viewBox="0 0 24 24" width="18" height="18" fill="none"
                  stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                  stroke-linejoin="round" aria-hidden="true">
@@ -163,7 +166,7 @@
               <path d="m4 13 5 5L20 7"/>
             </svg><span class="btn-t">Share</span>
           </button>
-          <button type="button" id="fs" class="btn" aria-pressed="false">
+          <button type="button" id="fs" class="btn" aria-pressed="false" title="Full screen">
             <svg class="ico ico-in" viewBox="0 0 24 24" width="18" height="18" fill="none"
                  stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
                  stroke-linejoin="round" aria-hidden="true">

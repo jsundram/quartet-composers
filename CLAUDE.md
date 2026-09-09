@@ -578,10 +578,11 @@ would not have worked.
 - Anything that BAKES a color into JS (SVG fills in `chart.js` and `histogram.js`, the legend in
   `app.js`) needs a `rerender()` wired into `Theme.subscribe`. Adding a fourth such component
   means adding a fourth call there.
-- **Share and Full screen are icons ON the chart below 640px, and that is what PAYS for the third
-  button in the row.** `.controls` is already two lines at 390, and a third word button takes it to
-  three — 48px of a phone's first screen, half of what issue 29 spent 94px winning back. Shrinking
-  those two to icons IN the row is not enough on its own: at 360 it still wraps. So
+- **Share and Full screen are icons ON the chart wherever the controls row will not hold them on
+  one line, and that is what PAYS for the third button in the row.** `.controls` is already two
+  lines at 390, and a third word button takes it to three — 48px of a phone's first screen, half of
+  what issue 29 spent 94px winning back. Shrinking those two to icons IN the row is not enough on
+  its own: at 360 it still wraps. So
   `placeChartTools()` reparents `#chart-tools` into `#plot`, on the same one-element-moved contract
   as `placeFilters()` and `placeDetail()` — never a second copy, because `#fs` holds the pressed
   state and `share()` holds a timeout on its own label. Everything that makes the overlay safe is
@@ -589,8 +590,24 @@ would not have worked.
   `svg` rather than to `#plot` so the buttons take taps without eating a pan, and `chart.js`'s
   rebuild removes the one svg it made BY REFERENCE. That last one was a claim before it was true:
   `selectAll("svg")` is a DESCENDANT query and matched the three `.ico` glyphs as well, and nothing
-  showed it because `build()` only runs from `init()`, which runs before the move. Four things a
-  change here must keep. The words stay in the DOM, visually hidden rather than `display:none`, because they are
+  showed it because `build()` only runs from `init()`, which runs before the move.
+  **The breakpoint is 1100px, and it is a MEASUREMENT of that row rather than a device.** It was
+  640 while this was read as a phone fix, but the row is two lines from 641 up as well: 82px up to
+  1054 and 38px from 1056, so lifting the two buttons out is worth 44px of page height at every
+  width below that — a 1024 laptop included. Above it the words cost nothing, because the row is
+  one line either way, while the band below would spend 26px of DATA height to buy no page height
+  at all; so up there the words stay, which is also the only place a reader is asked to learn a
+  glyph and is not. The number is 1100 and not the 1056 the row actually wraps at because `share()`
+  swaps the label to "Link copied", which is wider than "Share" and pushes the same wrap out to
+  1092: a breakpoint between the two would have let a PRESS on Share wrap the row and drop the plot
+  44px under the cursor that just pressed it — the rule the chart's controls already follow one row
+  down, arriving one row up. Those widths are one machine's font metrics, so the number is defended
+  by a check rather than by arithmetic: `ui.test.mjs` presses Share at 1101, the first width that
+  draws the words, and fails if the row grows. `app.js`'s `ICONS` media query and the `(max-width:1100px)` block in `styles.css` are the
+  two halves of it: the first decides WHERE the group is, the second what it LOOKS like, and the
+  two disagreeing is a word button parked over the dots. `chart.js` reads neither — it is TOLD, via
+  `Chart.setTopReserve()`, which is why moving the breakpoint changed nothing in that file.
+  Four things a change here must keep. The words stay in the DOM, visually hidden rather than `display:none`, because they are
   still the buttons' accessible NAMES. The label is written into that `.btn-t` span and never onto
   the button — `share()` and `setFull()` used to set `textContent` directly, which now deletes the
   icon beside it. The print rule names `#chart-tools` separately from `.controls`, because on a
@@ -627,29 +644,42 @@ would not have worked.
   put it under the 40px floor issue 31 was fought over. The suite counts coverage against the whole
   button for that reason, asserts the centre rule at a NON-IDENTITY transform, and measures the
   alignment against the title's own box rather than against the constants here, so a change of font,
-  size or that `y:-8` fails instead of drifting. The 40px height is stated in the 640px block rather
-  than inherited from the touch-target rule, which asks a different question
-  (`(hover:none) and (pointer:coarse)`): a desktop window dragged narrow matched one and not the
-  other, took `.btn`'s 36px, and the derivation above stopped describing the box being drawn.
+  size or that `y:-8` fails instead of drifting. The corner was re-measured at 700, 900 and 1024
+  when the breakpoint moved, because zero coverage on a 390px box does not imply zero on a laptop —
+  the dots are laid out again on a card twice as wide, and the swarm spreads to fill it. It is
+  still zero in every view, and the suite now asserts it at 1024 as well as at 390. The 40px height
+  is stated in the 1100px block rather than inherited from the touch-target rule, which asks a
+  different question (`(hover:none) and (pointer:coarse)`): a desktop window dragged narrow matched
+  one and not the other, took `.btn`'s 36px, and the derivation above stopped describing the box
+  being drawn. Every laptop in this range answers no to that query, so the block having its own
+  height is now the common case rather than the edge one.
   One more thing moving them INTO `#plot` broke: `#plot svg{ width:100% }` means THE CHART, and as a
   descendant selector it caught the icons too and stretched an 18px glyph to 38px — 95% of its
   button — with a 3.2px stroke, `body.fs #plot svg{ height:100% }` doing it again in full screen.
   Both are `> svg` now, `.ico` carries its own `width`/`flex:none` (a width ATTRIBUTE loses to any
-  stylesheet), and a check measures the glyph against its button. Note the shape of it: a desktop
-  can never show this, because the buttons are still in the controls row there — the same reason
-  the tap-target scan could not see a control that hides itself. The suite now enters both states
-  the phone hides — a narrow window with a real pointer, and a wide one.
-  One consequence of the icon layout reaches `app.js`: below 640px `.btn-t` is the accessible NAME
-  and not the face, so `share()`'s "Link copied" swap wrote the confirmation where nobody could see
-  it. The glyph acknowledges too (`.copied` swaps the arrow for a check), off the same one call, so
-  the two halves cannot disagree. Both are raced against `STALL`, because a clipboard write that
-  never SETTLES is not a rejection and the catch beside it can never fire — Chrome under a bare X
-  server leaves `writeText` pending indefinitely, which is a Share button that promises nothing and
-  delivers nothing. The suite stubs that promise rather than waiting for a platform that does it,
-  since on macOS the real write rejects and a check written around the Linux behaviour would leave
-  the fix unproven on every machine it is developed on. It is not phone-only: `navigator.share` returns before either
-  fallback on a real phone, and the branches that reach the swap are exactly the ones that run where
-  it is missing — including a desktop under 640px, which gets this layout from a width-only query.
+  stylesheet), and a check measures the glyph against its button. Note the shape of it: it shipped
+  because a desktop could not show it, the buttons being words in the row there — the same reason
+  the tap-target scan could not see a control that hides itself. Widening the breakpoint shrinks
+  that blind spot rather than moving it: the layout every bug in this group hid in is now the one
+  the machine it was written on draws. The suite enters the states the phone hides — a narrow
+  window with a real pointer, a laptop, a wide window, and the boundary itself.
+  One consequence of the icon layout reaches `app.js`: under the breakpoint `.btn-t` is the
+  accessible NAME and not the face, so `share()`'s "Link copied" swap wrote the confirmation where
+  nobody could see it. The glyph acknowledges too (`.copied` swaps the arrow for a check), off the
+  same one call, so the two halves cannot disagree. Both are raced against `STALL`, because a
+  clipboard write that never SETTLES is not a rejection and the catch beside it can never fire —
+  Chrome under a bare X server leaves `writeText` pending indefinitely, which is a Share button that
+  promises nothing and delivers nothing. The suite stubs that promise rather than waiting for a
+  platform that does it, since on macOS the real write rejects and a check written around the Linux
+  behaviour would leave the fix unproven on every machine it is developed on. It is not phone-only:
+  `navigator.share` returns before either fallback on a real phone, so the branches that reach the
+  swap are exactly the ones that run where it is missing — which, at 1100px, is most of the desktops
+  that see this layout.
+  The other consequence is the TOOLTIP. A clipped label is a name a screen reader can read and a
+  pointer cannot, and up to 1100px that pointer is usually a mouse — so both buttons carry a
+  `title`, and `label()` writes it with the span in one call rather than the markup carrying it
+  alone. `#fs`'s name changes with its state, and a tooltip still reading "Full screen" over the
+  exit glyph would be worse than none.
 - **The readership brush's handles are crossfilter's grips, and the rect underneath is the hit
   area.** d3-brush's `.handle` is `handleSize` wide by the extent PLUS `handleSize` tall, so
   painting it drew a 20x62 slab of accent above the bars and down through the tick labels — the hit

@@ -629,6 +629,33 @@ Two traps worth remembering, both of which cost a debugging round here:
   noting how it hid: on a desktop the buttons are still in the controls row, so the rule never
   reaches them and the bug is invisible in exactly the place a change is usually eyeballed.
 
+**Follow-up, 2026-09-09: the breakpoint moved from 640 to 1100.** The table above only ever asked
+about phones, and the answer for 1280 (38px, one line, so nothing to pay for) was read as the answer
+for every desktop. It is not: the row is two lines from 641 to 1054 as well, so the icons are worth
+44px of page height on a 1024 laptop for the same reason they are at 390. Re-measured, `.controls`
+height by viewport width, words in the row:
+
+| | 390 | 700 | 900 | 1024 | 1054 | 1056 | 1280 |
+|---|---|---|---|---|---|---|---|
+| words in the row | 82 (2) | 82 (2) | 82 (2) | 82 (2) | 82 (2) | 38 (1) | 38 (1) |
+| icons on the canvas | 82 (2) | 38 (1) | 38 (1) | 38 (1) | 38 (1) | 38 (1) | 38 (1) |
+
+Above the wrap point the words cost nothing and the band would cost 26px of data height for no page
+height at all, so that is where they stay. The breakpoint is **1100 and not 1056** because `share()`
+swaps the label to "Link copied", which is wider than "Share" and moves the same wrap out to 1092 —
+a breakpoint between the two would have let a PRESS on Share wrap the row and drop the plot 44px
+under the cursor that just pressed it, which is the rule the controls row already follows one row
+down. Those widths are this machine's font metrics (the 90px in the older table is another
+machine's), so the number is defended by a check rather than by arithmetic: `ui.test.mjs` presses
+Share at 1101, the first width that draws the words, and fails if the row grows.
+
+Two things the wider breakpoint buys beyond the pixels. The icon layout is no longer invisible on
+the machine the code is written on — every bug in this group so far (the stretched glyph, the
+36px button, the two glyphs at once) hid in a layout a desktop never drew. And the corner had only
+ever been measured at 390; it is now measured at 1024 too, in all four views, which is where the
+swarm spreads across a card twice as wide. Still zero coverage. What the words were still buying up
+there was a NAME on hover, so both buttons carry a `title` and `label()` writes it with the span.
+
 ### ~~The lede's reserved height still moves the page~~ — done by DELETION, 2026-09-09, [#36](https://github.com/jsundram/quartet-composers/issues/36)
 Not fixed — the sentence it was about is gone. `reserveLede()` reserved the height of the RESTING
 sentence, and the gender pill changed what "resting" meant (`Chart.setRepertoire()` swaps `CANON`

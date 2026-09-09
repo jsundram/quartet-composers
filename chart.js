@@ -128,8 +128,9 @@ window.Chart = (function () {
   // moves Share and Full screen onto the plot (placeChartTools), so those buttons sit in the same
   // band as the y-axis title instead of floating over the dots. It is a REQUEST rather than a media
   // query read here, because the breakpoint that decides it belongs to the code doing the drawing —
-  // two copies of "640px" is two things that can disagree, and this file would be the one that
-  // silently kept reserving space for a control that had moved away.
+  // two copies of it is two things that can disagree, and this file would be the one that silently
+  // kept reserving space for a control that had moved away. That paid off the day the breakpoint
+  // moved from 640 to 1100: nothing in here changed.
   let topReserve = 0;
   let x0, y0, qx, vy, rScale, colorScale, C = {};
   let transform = d3.zoomIdentity, zoom;
@@ -780,11 +781,12 @@ window.Chart = (function () {
   // ---- render -------------------------------------------------------------
   function build() {
     // BY REFERENCE, not by query. `selectAll("svg")` is a DESCENDANT query, and #plot also hosts
-    // #chart-tools on a phone (placeChartTools) — so it matched the chart's svg and the three .ico
-    // glyphs inside Share and Full screen, and removed all four. Nothing showed it, because build()
-    // only runs from init() and init() runs before the move; the day anything rebuilds the svg the
-    // icons vanish on phones only, since a desktop keeps the group in .controls. This removes the
-    // one svg this module made, which no overlay can ever be.
+    // #chart-tools in the icon layout (placeChartTools) — so it matched the chart's svg and the
+    // three .ico glyphs inside Share and Full screen, and removed all four. Nothing showed it,
+    // because build() only runs from init() and init() runs before the move; the day anything
+    // rebuilds the svg the icons vanish wherever the group is on the plot, which was phones only
+    // when this was found and is now every window under 1100px. This removes the one svg this
+    // module made, which no overlay can ever be.
     if (svg) svg.remove();
     svg = d3.select(el).append("svg").attr("role", "img");
     // Everything that MOVES under a zoom is clipped to the plot rectangle. Without this a pinch

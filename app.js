@@ -531,11 +531,16 @@ function placeFilters() {
 // never a second copy — #fs holds the pressed state and share() holds a timeout on its own label, so
 // two of either would drift apart.
 //
-// On a phone Share and Full screen leave the controls row and become icons on the chart. That is
-// what PAYS for the Reset filters button beside Reset zoom: .controls is already two lines at 390,
-// and a third word button takes it to three — 48px of the first screen, half of what issue 29 spent
-// 94px winning back. Shrinking these two to icons IN the row is not enough on its own; at 360 it
-// still wraps to three lines. Only lifting them out clears it at both widths.
+// Share and Full screen leave the controls row and become icons on the chart wherever the row does
+// not fit on one line with them in it. That is what PAYS for the Reset filters button beside Reset
+// zoom: .controls is already two lines at 390, and a third word button takes it to three — 48px of
+// the first screen, half of what issue 29 spent 94px winning back. Shrinking these two to icons IN
+// the row is not enough on its own; at 360 it still wraps to three lines. Only lifting them out
+// clears it at both widths.
+//
+// The row is two lines up to 1054, not just on a phone, so this is not a phone rule and stopped
+// pretending to be one. styles.css carries the measurement and why the breakpoint is 1100 rather
+// than the 1056 the row itself wraps at — share()'s "Link copied" is wider than "Share".
 //
 // They do not float over the DOTS. They sit in the band chart.js already spends on the y-axis
 // title, which the chart widens to fit them — so the cost is 26px of data area rather than any dot
@@ -544,7 +549,11 @@ function placeFilters() {
 // Width, not full screen: the words stay wherever there is room for them, and #plot is the target in
 // both layouts (in full screen it is flex:1, so the band is still the band). Everything that makes
 // the overlay safe is already true of #plot — see the CSS.
-const PHONE = matchMedia("(max-width:640px)");
+//
+// Must stay in step with the `(max-width:1100px)` block in styles.css: this decides WHERE the group
+// is, that decides what it LOOKS like, and the two disagreeing is a word button parked over the
+// dots or a bare glyph sitting in the controls row.
+const ICONS = matchMedia("(max-width:1100px)");
 
 // 40px of touch target, CENTRED on the axis title's line, with the whole target clear of the plot
 // area. Those numbers pin the band, and styles.css carries the derivation: the glyph's centre sits
@@ -562,7 +571,7 @@ const TOOLS_BAND = 48;
 
 function placeChartTools() {
   const tools = $("chart-tools"), viz = $("viz");
-  const onPlot = PHONE.matches;
+  const onPlot = ICONS.matches;
   const parent = onPlot ? $("plot") : viz.querySelector(".controls");
   Chart.setTopReserve(onPlot ? TOOLS_BAND : 0);
   if (tools.parentNode === parent) return;
@@ -619,10 +628,18 @@ function readHash() {
 // The buttons that carry an icon keep their words in a `.btn-t` span, so writing a new label means
 // writing to the SPAN. `btn.textContent = "..."` would replace every child, icon included — the
 // same shape of trap as setProv() dropping its links, and it fails identically: silently, and only
-// on the phone layout where the icon is the visible half.
+// in the icon layout, where the icon is the visible half.
+//
+// The `title` goes with it. In the icon layout the span is clipped, so on a real pointer the
+// tooltip is the only NAME a reader can get at — and it is the one thing the words were still
+// buying up to 1100px. Written here rather than left in the markup because #fs's label changes
+// with its state: a tooltip that still said "Full screen" over the exit glyph would be worse than
+// none. One call, so the two can never disagree.
 function label(btn, text) {
   const t = btn.querySelector(".btn-t");
-  if (t) t.textContent = text; else btn.textContent = text;
+  if (!t) { btn.textContent = text; return; }
+  t.textContent = text;
+  btn.title = text;
 }
 
 // How long a clipboard write may take before the button acknowledges anyway. Past about a second
@@ -652,12 +669,12 @@ async function share() {
   }
 }
 
-// The confirmation, in both halves of the button, because below 640px the half that carried it is
-// clipped: .btn-t is the accessible NAME there, not the face, so swapping its text wrote "Link
-// copied" where nobody could see it. The glyph has to acknowledge as well. It is not a phone-only
-// gap — navigator.share returns before either branch on a real phone, and the two branches that
-// reach here are exactly the ones that run where it is missing: a desktop dragged under 640px gets
-// the icon layout from a width-only media query and the clipboard path from its own capabilities.
+// The confirmation, in both halves of the button, because in the icon layout the half that carried
+// it is clipped: .btn-t is the accessible NAME there, not the face, so swapping its text wrote
+// "Link copied" where nobody could see it. The glyph has to acknowledge as well. It is not a
+// phone-only gap, and never was — navigator.share returns before either branch on a real phone, so
+// the two branches that reach here are exactly the ones that run where it is missing, which is most
+// of the desktops now under the 1100px breakpoint.
 function copied(btn) {
   label(btn, "Link copied");
   btn.classList.add("copied");
@@ -1066,7 +1083,7 @@ function wire() {
     Table.select(selected, false);
   });
   WIDE.addEventListener("change", placeDetail);   // rotation / a window drag crosses the breakpoint
-  PHONE.addEventListener("change", placeChartTools);
+  ICONS.addEventListener("change", placeChartTools);
   $("theme").onclick = () => Theme.cycle();
   themeLabel();
 }
