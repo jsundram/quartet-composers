@@ -48,6 +48,13 @@
 
 *{ box-sizing:border-box; margin:0; padding:0 }
 html{ -webkit-text-size-adjust:100% }   /* stop iOS inflating text on rotate */
+/* The `hidden` ATTRIBUTE is only display:none in the UA sheet, so ANY author `display` on the same
+   element beats it — and silently, since the element is still hidden to a screen reader and to
+   .hidden checks in JS while being drawn on screen. Giving .btn a display for its icon did exactly
+   that: the search box's Clear × came back at rest, wrapped the search row, and the whole page ran
+   50px tall until a filter was applied (issue 35). !important because the point is that it must
+   outrank whatever a component sets for its own layout. */
+[hidden]{ display:none !important }
 
 body{
   background:var(--bg); color:var(--ink);
@@ -110,9 +117,20 @@ body.fs #filters .tablehead{ display:none }
 .btn{
   font:500 13px/1 system-ui, sans-serif; color:var(--muted); background:transparent;
   border:1px solid var(--line); border-radius:999px; padding:0 13px; min-height:36px; cursor:pointer;
+  display:inline-flex; align-items:center; gap:6px;
 }
 .btn:disabled{ opacity:.4; cursor:default }
+/* The SAME fill the pressed gender pill carries, and the readership bars: "this control is live" is
+   one idea and it gets one colour. On #reset-filters it does a second job — it is the only place
+   the page answers "is anything filtered?" in one glance, instead of by reading three controls. */
+.btn.on{ background:var(--accent); border-color:var(--accent); color:#fff }
 .spacer{ margin-left:auto }
+/* Icons ship as inline SVG in the document, NOT baked by JS, so `currentColor` follows the theme
+   and there is nothing for Theme.subscribe to re-bake — the same reason the sparkline is plain
+   markup (invariant 3 does not apply to either). Hidden until a phone asks for them. */
+#chart-tools{ display:flex; gap:8px; align-items:center }
+.btn .ico{ display:none }
+.btn .btn-t{ display:inline }
 
 /* The "you're on an old version — tap to update" tag (app.js). */
 .ver{ font:500 11px/1 ui-monospace, monospace; color:var(--muted) }
@@ -138,12 +156,6 @@ body.fs #filters .tablehead{ display:none }
 #gender-label{ margin-left:6px }
 #hist{ flex:1 1 auto; min-width:0; margin-right:2px; touch-action:none }   /* touch-action:none so d3-brush owns the drag */
 #hist svg{ display:block; width:100%; height:auto; overflow:visible }
-/* 28px because the row's own scale is small (see .seg.sm above). The phone block below raises it
-   to the touch floor, and has to name this ID to do it: an ID outranks .btn whatever the order,
-   which is the same specificity trap documented for .seg.sm one rule up. It sat 12px under the
-   floor until #31, unseen because the tap-target scan filters on offsetParent and ran with no
-   range applied — the one .btn hidden at rest was the one never audited. */
-#hist-clear{ min-height:28px; padding:0 10px; font-size:12px }
 /* d3-brush chrome: keep the unselected area readable and give the handles a visible grip. */
 #hist .selection{ fill:var(--accent); fill-opacity:.10; stroke:var(--accent); stroke-opacity:.55 }
 #hist .handle{ fill:var(--accent); fill-opacity:.65 }
@@ -365,8 +377,7 @@ body.fs .grid{ display:block }
 /* Phone-specific sizing. Targets REAL touch devices, not just a narrow desktop window. */
 @media (hover:none) and (pointer:coarse) and (max-width:800px){
   .scroll{ max-height:56vh }
-  /* keep tap targets at the 44px-ish floor. #hist-clear is named because an ID outranks .btn. */
-  .seg button, .seg.sm button, .btn, #hist-clear{ min-height:40px }
+  .seg button, .seg.sm button, .btn{ min-height:40px }   /* keep tap targets at the 44px-ish floor */
   #q{ min-height:42px }
 }
 
@@ -383,22 +394,37 @@ body.fs .grid{ display:block }
      against and `auto` would have shoved the label away from its own buttons. */
   #gender-label{ order:4 }
   #gender{ order:5; margin-left:0 }
-  /* The Clear button takes that third line too, at its far end, because it is the ONE control here
-     whose box appears and disappears under the reader's finger. Left at order 0 it shared line one
-     with the "Readership" label, and showing it took that line from a 17.4px label to a 40px button
-     — the whole row, the brush, the pills and the plot all dropped 22.6px, on the frame the brush
-     was released. Nothing wraps and no line is added either way (#hist is flex:1 0 100%, so the
-     three lines are pinned by `order`, not by width), which is why reserving its WIDTH would have
-     changed nothing: line one had 200px spare. The pills' line is already 42px tall, so a 40px
-     button costs it nothing and every box on the page measures identical with the button shown and
-     hidden — see ui.test.mjs 4m5.
-     margin-left:auto is doing two jobs. It parks the button at the far right, away from the pills
-     it does NOT clear (the adjacency #gender-label's margin answers on the wide row, arriving here
-     by a different door), and that lands its right edge exactly on the brush's — 359px at 390 wide
-     — which is the only positional cue left saying which control it belongs to. Its accessible name
-     says so outright, since alignment is not available to a screen reader and the visible word
-     cannot grow: "Clear views" wraps the row at 360. */
-  #hist-clear{ order:6; margin-left:auto }
+  /* Share and Full screen become icons in the corner of the chart. app.js moves the group into
+     #plot (placeChartTools); everything that makes that safe is already here — #plot is
+     position:relative and already hosts an absolutely-positioned overlay in #flag, d3-zoom binds to
+     the SVG rather than to #plot so these take taps without eating a pan or a pinch, and chart.js's
+     rebuild removes `svg` elements specifically rather than every child.
+     The words are not display:none'd but visually hidden, because they are still the buttons'
+     accessible NAMES — an icon-only control with no name is unusable to a screen reader, and these
+     two are the ones a reader is least able to guess from a glyph out of context. */
+  /* The Fame view has no empty corner — at rest the top right is Haydn, which is the whole point of
+     that corner — so these are drawn as CHROME over the picture rather than as opaque buttons cut
+     out of it: a card-coloured disc at .85, coming to full strength on press or keyboard focus.
+     Top right is still the least bad of the four: the y axis owns both left corners and the x axis
+     labels own the bottom. 40px because the touch floor is not negotiable for a control this
+     small, and the alpha is what buys the dot underneath back. */
+  #plot > #chart-tools{ position:absolute; top:6px; right:6px; z-index:2; gap:6px }
+  #chart-tools .btn{ width:40px; padding:0; justify-content:center; opacity:.85;
+                     background:var(--card); border-color:var(--line); color:var(--ink) }
+  #chart-tools .btn:active, #chart-tools .btn:focus-visible{ opacity:1 }
+  #chart-tools .btn .ico{ display:block }
+  #chart-tools .btn .btn-t{
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip-path:inset(50%); white-space:nowrap;
+  }
+  /* One button, two meanings, so it carries both glyphs and shows the one that matches its state —
+     the same source of truth (aria-pressed) the label swap already used.
+     Scoped through #chart-tools, and that is not tidiness: the rule above it is `#chart-tools .btn
+     .ico` at (1,2,0), which out-specifies a bare `#fs .ico-out` at (1,1,0). Written that way both
+     glyphs showed at once and the 40px box held two 18px icons. Same specificity trap that kept
+     #hist-clear under the touch floor in issue 31, one selector along. */
+  #chart-tools #fs .ico-out, #chart-tools #fs[aria-pressed="true"] .ico-in{ display:none }
+  #chart-tools #fs[aria-pressed="true"] .ico-out{ display:block }
   .wide-only{ display:none }
   tbody td{ padding:9px 8px }
   thead th button{ padding:10px 8px }
@@ -413,7 +439,10 @@ body.fs .grid{ display:block }
   body{ background:#fff; color:#000; padding:0 }
   :root{ --plot:#fff; --grid:#ddd; --axis:#444; --card:#fff; --line:#999; --dot-line:#fff }
   .card{ border:0; padding:0 }
-  .controls, .tablehead, #flag, .detail-nav, #theme, .ver, .hint, .filterbar, .filters{ display:none }
+  /* #chart-tools is named separately from .controls because on a phone it is not INSIDE .controls
+     — app.js moves it onto the plot, where hiding its parent no longer reaches it. */
+  .controls, #chart-tools, .tablehead, #flag, .detail-nav, #theme, .ver, .hint,
+  .filterbar, .filters{ display:none }
   .grid{ display:block }
   .scroll{ max-height:none; overflow:visible; border:0; background:none }
   thead th{ position:static }

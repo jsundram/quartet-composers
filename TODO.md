@@ -526,6 +526,67 @@ staged from a single commit. It also asserts `git merge-tree` resolves the incid
 a conflict, which is the reason nothing upstream of CI sees it. `sw-lint.py` is a vendored
 pwa-starter file and its stamp now reads `(+ the --base branch check)` rather than `(unmodified)`.
 
+### ~~Three filters, three ways to undo them, and one of them moved the page~~ — done, 2026-09-09, [#35](https://github.com/jsundram/quartet-composers/issues/35)
+One permanent `Reset filters` button in `.controls` beside `Reset zoom` clears all three filters —
+search included, because the name is plural and a typed query is a filter. `disabled` and muted at
+rest, accent-filled when live, which is the same fill the pressed gender pill and the readership
+bars carry and the only place the page answers "is anything filtered?" in one glance.
+
+**The layout consequence is the point, not a side effect.** A control that is always present cannot
+resize the row it is in, so the whole class of defect the entry below is about stops being possible
+rather than being mitigated: `#hist-clear` left `.filterbar` entirely, taking `order:6`, its
+`margin-left:auto` alignment and the "flush with the brush's right edge" checks with it. Those
+existed only to make an appearing box harmless. It also means the button's state may be updated
+ABOVE the `settled` guard — a colour and a `disabled` flag move nothing — so it lights up on the
+first frame of a brush drag, which the button it replaces could never do.
+
+`resetFilters()` runs exactly ONE `applyFilters()`, which is what its branch is for: `Histogram
+.clear()` moves the brush to null and d3-brush emits "end" for a programmatic move, so it comes back
+through `onChange` on its own; with no range there is nothing to emit and the other side makes the
+call itself. Rebuilding ~880 rows twice is the one thing here that visibly stutters, and 4m5 asserts
+the single repaint with a MutationObserver rather than trusting the reading.
+
+**Share and Full screen became icons on the canvas below 640px, and that is what paid for it.**
+`.controls` is already two lines at 390 and a word button takes it to three — 48px of a phone's
+first screen. Measured, `.controls` height and lines:
+
+| | 390 | 360 | 1280 |
+|---|---|---|---|
+| before | 90 (2) | 90 (2) | 38 (1) |
+| + a third word button | 138 (3) | 138 (3) | 38 (1) |
+| …with Share/Full screen as icons IN the row | 90 (2) | **138 (3)** | 38 (1) |
+| …lifted onto the canvas | 90 (2) | 90 (2) | 38 (1) |
+
+So shrinking them in place does not pay for it at 360; only lifting them out does. See the
+`placeChartTools()` bullet in `CLAUDE.md` for what makes the overlay safe and the three things a
+change there must keep.
+
+Two traps worth remembering, both of which cost a debugging round here:
+
+- **`[hidden]` is only `display:none` in the UA sheet.** Giving `.btn` a `display` for its icon
+  un-hid the search box's ×, which wrapped the search row and ran the page 50px tall until a filter
+  was applied. Answered once with `[hidden]{ display:none !important }`, with a check that notices
+  if it is ever dropped.
+- **`#chart-tools .btn .ico` (1,2,0) out-specifies `#fs .ico-out` (1,1,0)**, so the state rules for
+  the two full-screen glyphs have to carry the group's id too. Written without it, both glyphs
+  showed at once. Same specificity trap as the one below, one selector along.
+
+### The lede's reserved height still moves the page — **known defect** — [#36](https://github.com/jsundram/quartet-composers/issues/36)
+Found while building #35 and NOT caused by it — it reproduces byte-identically on the commit before.
+`reserveLede()` reserves the height of the RESTING sentence, and the gender pill changes what
+"resting" means (`Chart.setRepertoire()` swaps `CANON` for `WOMEN_CANON`), so the reservation is
+correct at every instant and still moves the page when the claim itself gets shorter. Measured at
+390x844: the pill alone is harmless and the brush alone is harmless, but Women PLUS a brush range
+takes `.lede` from 122px to 102px and lifts `#gender` and `#plot` 20px — including the pills the
+reader may have just pressed, which is the trap #27 and #29 both answer elsewhere.
+
+`ui.test.mjs` 4m3 cannot see it: it drives the search box only, and search alone does not shorten
+the sentence. 4m5 measures the filter row RELATIVE to `#filters` for this reason — the defect is one
+component up and rolling it in would make that section red for something it does not own.
+The issue carries three options; it wants a decision before code, because "reserve the tallest claim
+any pill can produce" trades the step for a blank band, which is exactly what reserving the RESTING
+sentence was written to avoid.
+
 ### ~~The readership brush shows its Clear button mid-drag~~ — done, 2026-09-08, [#31](https://github.com/jsundram/quartet-composers/issues/31)
 The rule [#29](https://github.com/jsundram/quartet-composers/issues/29) settled — nothing a finger
 rests on may be placed by a box the same press resizes — had one exception left, and it was the row

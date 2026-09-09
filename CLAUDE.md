@@ -220,7 +220,7 @@ two audits a human grades. No test framework, and nothing to install:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 223 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 237 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
@@ -279,8 +279,9 @@ implementation of it. See `mocks/README.md`.
 
 ## Where to pick up
 
-`TODO.md` holds the open work with the reasoning behind each item, including one known defect (the
-readership brush has no keyboard path) and three things deliberately NOT being done, with why. Read
+`TODO.md` holds the open work with the reasoning behind each item, including two known defects (the
+readership brush has no keyboard path, and the lede's reserved height still moves the page when the
+gender pill and the brush are combined) and three things deliberately NOT being done, with why. Read
 it before starting something; it exists so a cold session doesn't re-derive a decision that was
 already made on evidence — or re-derive one badly, which the issue-31 entry records an instance of:
 a layout fix prescribed from a description of the bug rather than from a measurement of it, which
@@ -307,18 +308,21 @@ would not have worked.
   absorb and every pixel above the chart is a pixel of chart. It costs 94px of a phone's first
   screen, which is what the old ordering was buying (issue 29). `placeDetail()`'s phone anchor
   moved with the row — it inserts before `.legend`, or the panel lands above the chart. The rule
-  reaches one row up too, where it took two changes rather than one (issue 31). WHEN the readership
-  brush's Clear button appears: `applyFilters()` unhides it INSIDE the `settled !== false` guard,
-  not above it, so it arrives when the gesture ends and not on the drag's first frame. WHERE it
-  appears: `#hist-clear{ order:6 }` below 640px gives it the gender pills' line, which is already
-  42px tall, instead of line one beside the `Readership` label — where showing it took that line
-  from a 17.4px label to a 40px button and dropped the brush, the pills and the plot by 22.6px.
-  Nothing ever WRAPPED (below 640px `#hist` is `flex:1 0 100%`, so the three lines are pinned by
-  `order`, not by width), which is why reserving the button's width — the fix `TODO.md` first
-  prescribed — would have changed nothing; that entry keeps the measurement as a record of getting
-  it wrong from a description. `ui.test.mjs` 4m5 now asserts every box in and under that row is
-  identical with the button shown and hidden, mid-drag and on release, under TOUCH emulation —
-  without it a 390px box is a narrow desktop and the button measures 28px instead of 40px.
+  reaches one row up too, and there it is now satisfied by CONSTRUCTION rather than by placement:
+  **no filter control appears or disappears at all.** Issue 31 fixed the readership brush's own
+  Clear button in place, twice — inside the `settled` guard so it arrived at the end of a drag
+  rather than its first frame, then onto the gender pills' line so that arriving cost no height.
+  Issue 35 deleted the category instead. There is one permanent `Reset filters` button in
+  `.controls` beside `Reset zoom`, it clears all three filters, and it is `disabled` at rest and
+  accent-filled when live — a state change that moves no box, which is why `applyFilters()` may
+  update it ABOVE the `settled` guard and light it on the drag's first frame. `ui.test.mjs` 4m5
+  asserts the whole row is unmoved through a brush drag and under all three filters at once, under
+  TOUCH emulation — without it a 390px box is a narrow desktop, buttons measure 28px not 40px, and
+  the numbers are the wrong ones. Two lessons from #31 outlived its fix and are worth keeping: the
+  row NEVER wrapped (below 640px `#hist` is `flex:1 0 100%`, so the lines are pinned by `order`,
+  not by width), so a fix prescribed from a description of the bug rather than a measurement of it
+  would have reserved a width that was never the constraint; and an ID selector out-specifies
+  `.btn`, which is how that button sat 12px under the touch floor unseen.
 - **The table and the chart show short names; the detail panel shows the full title.**
   `names.js` is the only place that takes a canonical Wikipedia name apart, and it is a heuristic
   — see `SURNAME` there. It derives BOTH forms from one shared-surname map, so the two can never
@@ -412,6 +416,28 @@ would not have worked.
 - Anything that BAKES a color into JS (SVG fills in `chart.js` and `histogram.js`, the legend in
   `app.js`) needs a `rerender()` wired into `Theme.subscribe`. Adding a fourth such component
   means adding a fourth call there.
+- **Share and Full screen are icons ON the chart below 640px, and that is what PAYS for the third
+  button in the row.** `.controls` is already two lines at 390, and a third word button takes it to
+  three — 48px of a phone's first screen, half of what issue 29 spent 94px winning back. Shrinking
+  those two to icons IN the row is not enough on its own: at 360 it still wraps. So
+  `placeChartTools()` reparents `#chart-tools` into `#plot`, on the same one-element-moved contract
+  as `placeFilters()` and `placeDetail()` — never a second copy, because `#fs` holds the pressed
+  state and `share()` holds a timeout on its own label. Everything that makes the overlay safe is
+  already true of `#plot`: it is `position:relative` and already hosts `#flag`, d3-zoom binds to the
+  `svg` rather than to `#plot` so the buttons take taps without eating a pan, and `chart.js`'s
+  rebuild removes `svg` elements specifically rather than every child. Three things a change here
+  must keep. The words stay in the DOM, visually hidden rather than `display:none`, because they are
+  still the buttons' accessible NAMES. The label is written into that `.btn-t` span and never onto
+  the button — `share()` and `setFull()` used to set `textContent` directly, which now deletes the
+  icon beside it. And the print rule names `#chart-tools` separately from `.controls`, because on a
+  phone it is no longer inside it. The Fame view has no empty corner (top right at rest is Haydn),
+  so the discs are drawn as chrome at `opacity:.85`, full strength on press.
+- **The `hidden` ATTRIBUTE is only `display:none` in the UA sheet**, so ANY author `display` on the
+  same element beats it — silently, since the element stays hidden to a screen reader and to
+  `.hidden` in JS while being drawn. Giving `.btn` a `display` for its icon did exactly that: the
+  search box's × came back at rest, wrapped the search row, and the page ran 50px tall until you
+  filtered. `styles.css` answers it once with `[hidden]{ display:none !important }` and
+  `ui.test.mjs` has a check that notices if that line is ever dropped or out-specified.
 - **There is ONE detail panel, and `app.js`'s `placeDetail()` moves it.** Beside the chart above
   900px; inside `#viz` (`.compact`) on a phone and in full screen at any width, because the grid
   column is a screen-height away there and `display:none` in full screen. Never render a second

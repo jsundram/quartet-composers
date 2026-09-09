@@ -547,6 +547,28 @@ function placeFilters() {
   parent.insertBefore(f, before);
 }
 
+// The third of these, on the same contract as placeFilters() and placeDetail(): one element, moved,
+// never a second copy — #fs holds the pressed state and share() holds a timeout on its own label, so
+// two of either would drift apart.
+//
+// On a phone Share and Full screen leave the controls row and become icons in the corner of the
+// chart. That is what PAYS for the Reset filters button beside Reset zoom: .controls is already two
+// lines at 390, and a third word button takes it to three — 48px of the first screen, half of what
+// issue 29 spent 94px winning back. Shrinking these two to icons IN the row is not enough on its
+// own; at 360 it still wraps to three lines. Only lifting them out clears it at both widths.
+//
+// Width, not full screen: the words stay wherever there is room for them, and #plot is the target in
+// both layouts (in full screen it is flex:1, so the corner is still the corner). Everything that
+// makes the overlay safe is already true of #plot — see the CSS.
+const PHONE = matchMedia("(max-width:640px)");
+
+function placeChartTools() {
+  const tools = $("chart-tools"), viz = $("viz");
+  const parent = PHONE.matches ? $("plot") : viz.querySelector(".controls");
+  if (tools.parentNode === parent) return;
+  parent.appendChild(tools);
+}
+
 function placeDetail() {
   const det = $("detail"), viz = $("viz");
   const fs = document.body.classList.contains("fs");
@@ -594,6 +616,15 @@ function readHash() {
            g: pillValues().includes(p.get("g")) ? p.get("g") : "" };
 }
 
+// The buttons that carry an icon keep their words in a `.btn-t` span, so writing a new label means
+// writing to the SPAN. `btn.textContent = "..."` would replace every child, icon included — the
+// same shape of trap as setProv() dropping its links, and it fails identically: silently, and only
+// on the phone layout where the icon is the visible half.
+function label(btn, text) {
+  const t = btn.querySelector(".btn-t");
+  if (t) t.textContent = text; else btn.textContent = text;
+}
+
 async function share() {
   const btn = $("share");
   writeHash();
@@ -604,11 +635,11 @@ async function share() {
   try {
     if (navigator.share) { await navigator.share(payload); return; }
     await navigator.clipboard.writeText(location.href);
-    btn.textContent = "Link copied";
-    setTimeout(() => { btn.textContent = "Share"; }, 1600);
+    label(btn, "Link copied");
+    setTimeout(() => label(btn, "Share"), 1600);
   } catch {
-    btn.textContent = "Link copied";      // clipboard blocked: the URL bar already shows the link
-    setTimeout(() => { btn.textContent = "Share"; }, 1600);
+    label(btn, "Link copied");            // clipboard blocked: the URL bar already shows the link
+    setTimeout(() => label(btn, "Share"), 1600);
   }
 }
 
@@ -662,7 +693,29 @@ function genderMatches() {
   return set;
 }
 
-function setGender(g) {
+// The three filters, asked as one question. Read from the same places applyFilters() intersects, so
+// a fourth filter that forgets to appear here leaves the button dark while it is active.
+function anyFilter() {
+  return !!$("q").value || !!Histogram.getRange() || !!gender;
+}
+
+// All three, search included: the name is plural and a typed query is a filter. A button that sat
+// lit while a search was active and then did not clear it would be worse than the inconsistency it
+// replaces — the search box keeps its own × for clearing just the text.
+//
+// Exactly ONE applyFilters() runs, which is what the branch is for. Histogram.clear() moves the
+// brush to null, and d3-brush emits "end" for a programmatic move, so it comes back through
+// onChange -> applyFilters(true) on its own; calling it as well would rebuild ~880 table rows a
+// second time. With no range there is nothing to emit, so this side makes the call itself.
+function resetFilters() {
+  $("q").value = "";
+  setGender("", false);
+  if (Histogram.getRange()) Histogram.clear();
+  else applyFilters(true);
+  $("q").focus();
+}
+
+function setGender(g, apply = true) {
   gender = g;
   document.querySelectorAll("#gender button").forEach(b =>
     b.setAttribute("aria-pressed", String(b.dataset.g === g)));
@@ -672,7 +725,7 @@ function setGender(g) {
   // place -- chart.js falls back to the default for any value it has no list for, which is what
   // makes the women's set appear under that filter and nowhere else.
   Chart.setRepertoire(g);
-  applyFilters(true);
+  if (apply) applyFilters(true);
 }
 
 // `settled` is false during a brush DRAG. The chart repaint is cheap and watching the field thin
@@ -683,6 +736,13 @@ function applyFilters(settled) {
   visible = intersect(intersect(Table.matches(q), Histogram.matches()), genderMatches());
   $("clear").hidden = !q;
   $("hist-read").textContent = Histogram.label();
+  // ABOVE the guard on purpose, unlike the button this replaced: `disabled` and a class change
+  // nothing about any box, so tracking the brush live is free feedback rather than a control that
+  // moves under the finger dragging it. That is the whole reason this button lives in .controls and
+  // is never hidden — see resetFilters() and issue 35.
+  const on = anyFilter();
+  $("reset-filters").disabled = !on;
+  $("reset-filters").classList.toggle("on", on);
   // `settled` travels with it: the chart closes its frame in on what the filter kept, and that
   // must happen once at the end of a brush drag, not on every frame of one.
   Chart.setFilter(visible, settled);
@@ -705,7 +765,6 @@ function applyFilters(settled) {
     // writes into a box with no layout; and `#count` only ever goes from the longest string it has
     // ("884 composers") to a shorter one ("181 of 884"), so `.tablehead` cannot gain a line. A
     // third live write that has a BOX belongs below the guard with this one.
-    $("hist-clear").hidden = !Histogram.getRange();
     // The ring is derived from the filtered group, so the key that explains it and the row chips
     // that repeat it both move when the filter does. Table.render() repaints the chips anyway.
     // The lede names the same two things the key does, so it moves with them or it contradicts
@@ -840,9 +899,10 @@ function setProv(text) {
 function setFull(on) {
   document.body.classList.toggle("fs", on);
   placeFilters();                    // both are hidden by the full-screen layout where they live
+  placeChartTools();
   placeDetail();
   $("fs").setAttribute("aria-pressed", String(on));
-  $("fs").textContent = on ? "Exit full screen" : "Full screen";
+  label($("fs"), on ? "Exit full screen" : "Full screen");
   if (on && document.documentElement.requestFullscreen) {
     document.documentElement.requestFullscreen().catch(() => {});
   } else if (!on && document.fullscreenElement && document.exitFullscreen) {
@@ -938,6 +998,7 @@ async function start() {
 
   renderLegend();
   placeFilters();
+  placeChartTools();
   placeDetail();
   renderDetail(null, false);
   applyFilters(true);
@@ -982,7 +1043,6 @@ async function start() {
 function wire() {
   $("q").addEventListener("input", () => applyFilters(true));
   $("clear").onclick = () => { $("q").value = ""; applyFilters(true); $("q").focus(); };
-  $("hist-clear").onclick = () => Histogram.clear();   // fires "end" -> applyFilters
   document.querySelectorAll("#gender button").forEach(b => {
     b.onclick = () => setGender(b.dataset.g);
   });
@@ -993,6 +1053,7 @@ function wire() {
   document.querySelectorAll(".controls .seg button").forEach(b => {
     b.onclick = () => setMode(b.dataset.mode);
   });
+  $("reset-filters").onclick = resetFilters;
   $("share").onclick = share;
   $("reset").onclick = () => { Chart.resetZoom(); setTimeout(() => { $("reset").disabled = !Chart.zoomed(); }, 450); };
   $("fs").onclick = () => setFull(!document.body.classList.contains("fs"));
@@ -1045,6 +1106,7 @@ function wire() {
     Table.select(selected, false);
   });
   WIDE.addEventListener("change", placeDetail);   // rotation / a window drag crosses the breakpoint
+  PHONE.addEventListener("change", placeChartTools);
   $("theme").onclick = () => Theme.cycle();
   themeLabel();
 }
