@@ -129,7 +129,7 @@ body.fs #filters .tablehead{ display:none }
 .spacer{ margin-left:auto }
 /* Icons ship as inline SVG in the document, NOT baked by JS, so `currentColor` follows the theme
    and there is nothing for Theme.subscribe to re-bake — the same reason the sparkline is plain
-   markup (invariant 3 does not apply to either). Hidden until a phone asks for them. */
+   markup (invariant 3 does not apply to either). Hidden until the narrow layout asks for them. */
 #chart-tools{ display:flex; gap:8px; align-items:center }
 /* Sized here rather than only by the width/height attributes, which any stylesheet outranks — and
    one did. flex:none so the button's centring cannot stretch it either. */
@@ -406,31 +406,32 @@ body.fs .grid{ display:block }
   #q{ min-height:42px }
 }
 
-/* Six columns don't fit a phone: the name wraps to three lines and Quartets scrolls off. Drop the
-   two that are one tap away in the detail panel. Width-only (not hover/pointer) so a narrow
-   desktop window gets the same fit — and so it still applies when printing to a narrow page. */
-@media (max-width:640px){
-  .filterbar{ flex-wrap:wrap; gap:6px 10px }
-  .filterbar #hist{ flex:1 0 100%; order:3 }
-  /* Three filters do not fit two lines here, and the brush is the one that needs the full width.
-     So the gender pills take a third line of their own, WITH their label — sharing line one with
-     the readership readout put "Women | Men" next to a views range, where the two read as one
-     control. margin-left is dropped with it: the row is theirs now, so there is no slack to push
-     against and `auto` would have shoved the label away from its own buttons. */
-  #gender-label{ order:4 }
-  #gender{ order:5; margin-left:0 }
-  /* Share and Full screen become icons in the corner of the chart. app.js moves the group into
-     #plot (placeChartTools); everything that makes that safe is already here — #plot is
-     position:relative and already hosts an absolutely-positioned overlay in #flag, d3-zoom binds to
-     the SVG rather than to #plot so these take taps without eating a pan or a pinch, and chart.js's
-     rebuild removes the one svg it made BY REFERENCE — a `selectAll("svg")` there is a descendant
-     query and took these glyphs with it.
+/* Share and Full screen leave the controls row wherever the row does not fit on one line with them
+   in it. 1100px is MEASURED, not a device: the row is 82px (two lines) up to 1054 and 38px (one)
+   from 1056 — so taking the two buttons out is worth 44px of page height everywhere below that —
+   and share() swaps the label to "Link copied", which is wider than "Share" and pushes the same
+   wrap point out to 1092. A breakpoint between the two would have let a PRESS on Share wrap the
+   row and drop the plot 44px under the cursor that just pressed it, which is the rule the chart's
+   controls already follow one row down (see index.html). 1100 is the round number clear of both.
+   Above it the words cost nothing — the row is one line either way — and the band below would be
+   26px of chart height bought for no page height at all, so up there the words stay.
+   This was `(max-width:640px)` when the icons were a phone answer to a three-line row. The row is
+   two lines from 641 to 1054 as well; the reasoning never was about phones. */
+@media (max-width:1100px){
+  /* app.js moves the group into #plot (placeChartTools); everything that makes that safe is
+     already here — #plot is position:relative and already hosts an absolutely-positioned overlay in
+     #flag, d3-zoom binds to the SVG rather than to #plot so these take taps without eating a pan or
+     a pinch, and chart.js's rebuild removes the one svg it made BY REFERENCE — a `selectAll("svg")`
+     there is a descendant query and took these glyphs with it.
      The words are not display:none'd but visually hidden, because they are still the buttons'
      accessible NAMES — an icon-only control with no name is unusable to a screen reader, and these
      two are the ones a reader is least able to guess from a glyph out of context. */
   /* IN THE AXIS-TITLE BAND, not over the data. Every corner was measured across all four views
      first, and every one of them covers something: dots the 86x40 group would sit on, summed over
      Fame/Timeline/Swarm/Lens at 390 — top-left 11, top-right 90, bottom-right 239, bottom-left 3.
+     Re-measured at 700, 900 and 1024 when this stopped being a phone rule: still zero, in every
+     view. A wider card does not make the corner safe by itself — the swarm spreads to fill it —
+     it is the band that does, and the band is asked for at every width this block covers.
      Top right reads as empty in Fame and is exactly where the SWARM piles up (90 dots and the
      "Rachmaninoff" label), which is the trap in judging a shared overlay from one view.
      The band is the answer instead: chart.js already spends 22px above the plot on the y-axis
@@ -464,9 +465,10 @@ body.fs .grid{ display:block }
      chrome; --ink on press, which is the whole feedback a control with no box can give.
      The 40px HEIGHT is stated here rather than inherited from the touch-target rule, which is
      `(hover:none) and (pointer:coarse) and (max-width:800px)` — a different question from this
-     block's width-only one. A desktop window dragged under 640px matches this and not that, took
-     .btn's base min-height of 36, and put the glyph's centre 4px above the title's: the derivation
-     above would have been describing a box the browser was not drawing. */
+     block's width-only one, and one no laptop in this range answers yes to. A window dragged under
+     the breakpoint matches this and not that, took .btn's base min-height of 36, and put the
+     glyph's centre 4px above the title's: the derivation above would have been describing a box
+     the browser was not drawing. */
   #chart-tools .btn{
     width:40px; height:40px; padding:0; justify-content:center; align-items:flex-end;
     background:none; border:0; border-radius:0; color:var(--muted);
@@ -490,6 +492,21 @@ body.fs .grid{ display:block }
      #hist-clear under the touch floor in issue 31, one selector along. */
   #chart-tools #fs .ico-out, #chart-tools #fs[aria-pressed="true"] .ico-in{ display:none }
   #chart-tools #fs[aria-pressed="true"] .ico-out{ display:block }
+}
+
+/* Six columns don't fit a phone: the name wraps to three lines and Quartets scrolls off. Drop the
+   two that are one tap away in the detail panel. Width-only (not hover/pointer) so a narrow
+   desktop window gets the same fit — and so it still applies when printing to a narrow page. */
+@media (max-width:640px){
+  .filterbar{ flex-wrap:wrap; gap:6px 10px }
+  .filterbar #hist{ flex:1 0 100%; order:3 }
+  /* Three filters do not fit two lines here, and the brush is the one that needs the full width.
+     So the gender pills take a third line of their own, WITH their label — sharing line one with
+     the readership readout put "Women | Men" next to a views range, where the two read as one
+     control. margin-left is dropped with it: the row is theirs now, so there is no slack to push
+     against and `auto` would have shoved the label away from its own buttons. */
+  #gender-label{ order:4 }
+  #gender{ order:5; margin-left:0 }
   .wide-only{ display:none }
   /* Four columns still have to FIT, and what they fit in is whatever face the reader's platform
      hands `system-ui` — SF here, DejaVu on Linux, and DejaVu is wide enough that the table

@@ -1940,9 +1940,10 @@ await settle(`document.getElementById('reset-filters').disabled`);
 await send("Emulation.setTouchEmulationEnabled", { enabled: false });
 
 // --- 7c2. Share and Full screen become icons ON the chart, and stay usable there ---------------
-// Issue 35. They leave .controls on a phone because that is what pays for the Reset filters button
-// beside Reset zoom — the row is already two lines at 390, and a third word button takes it to
-// three. The risks of putting a control over a zoom surface are what this checks: that they still
+// Issue 35. They leave .controls wherever the row will not hold them on one line, which is every
+// window up to 1100px — on a phone that is what pays for the Reset filters button beside Reset
+// zoom, since the row is already two lines at 390 and a third word button takes it to three. The
+// risks of putting a control over a zoom surface are what this checks: that they still
 // receive taps (d3-zoom binds to the SVG, not to #plot, so they should), that chart.js's rebuild
 // does not delete them (it removes its own svg by reference, and a descendant query there took
 // these glyphs with it), that they clear the touch floor, and that an icon-only button still has a
@@ -1951,8 +1952,10 @@ await send("Emulation.setTouchEmulationEnabled", { enabled: false });
 // It sets its own device state and its own URL. The checks above leave the page in full screen and
 // turn touch emulation back OFF, and everything here up to the narrow-window check is about a phone:
 // without the emulation a 390px box is a narrow desktop, the touch floor does not apply, and the
-// button heights this checks are the wrong ones. The two states at the END are deliberate — a
-// narrow window WITH a pointer, then a wide one — because each has a rule the phone cannot reach.
+// button heights this checks are the wrong ones. The states at the END are deliberate — a narrow
+// window with a pointer, then a LAPTOP, then a wide one, then the breakpoint itself — because each
+// has a rule the phone cannot reach, and the middle two only exist at all because the breakpoint
+// moved off 640.
 // A BOOT, not rest(), though section 7 booted under the same touch emulation: after a full-screen
 // round trip this headless Chromium stops forwarding wheel events to the page at all — every
 // wheel below went nowhere, three sends each, until a listener was registered afresh — and
@@ -2233,7 +2236,30 @@ check("a narrow window with a mouse gets the same geometry, not a 36px button",
         return r.height.toFixed(1)+'px tall, glyph '
           + ((g.top+g.bottom)/2 - (t.top+t.bottom)/2).toFixed(1)+'px off the title'})()`));
 
-// And on a desktop they go back to being words in the row, one element moved rather than two drawn.
+// A LAPTOP. The breakpoint is 1100 because the controls row is two lines up to 1054 — not because
+// of a device — so every window from 641 up now draws this overlay, on a card twice the phone's
+// width with the swarm spread across it. Zero coverage at 390 does not imply zero at 1024: the dots
+// are laid out again and the y-axis title is the same length while the band around it is not. This
+// is the state the corner was never measured in, which is the shape of every bug this group has had.
+await viewport(1024, 800, false);
+await goto(BASE);
+await settle(`document.getElementById('chart-tools').parentNode.id === 'plot'`);
+check("a laptop under the breakpoint gets the icons on the plot, not words in the row",
+      await ev(`document.getElementById('chart-tools').parentNode.id === 'plot'`),
+      "parent = " + await ev(`document.getElementById('chart-tools').parentNode.id`));
+let lapDots = 0, lapNames = [];
+for (const m of ["fame", "scatter", "swarm", "lens"]) {
+  await view(m);
+  const c = JSON.parse(await covered());
+  lapDots = Math.max(lapDots, c.dots);
+  lapNames.push(...c.names.map(n => `${m}:${n}`));
+}
+check("...and covers nothing there either, in any view",
+      lapDots === 0 && lapNames.length === 0,
+      `worst view covers ${lapDots} dots; labels: ${lapNames.join(", ") || "none"}`);
+
+// And above the breakpoint they go back to being words in the row, one element moved rather than
+// two drawn.
 await viewport(1280, 900, false);
 await settle(`document.getElementById('chart-tools').parentNode.classList.contains('controls')`);
 check("on a desktop they are words in the controls row again",
@@ -2242,6 +2268,26 @@ check("on a desktop they are words in the controls row again",
           && getComputedStyle(document.querySelector('#share .ico')).display === 'none'
           && document.querySelector('#share .btn-t').offsetParent !== null})()`),
       "parent = " + await ev(`document.getElementById('chart-tools').parentNode.className`));
+
+// 1101 is the FIRST width that draws the words, and the reason the breakpoint is not the 1056 the
+// row actually wraps at: share() swaps the label to "Link copied", which is wider than "Share" and
+// wraps the row up to 1092. A row that wraps on the PRESS drops the plot 44px under the cursor that
+// just pressed it — the rule the chart's controls already follow one row down (see index.html).
+// Measured at the boundary, because that is the only width where a few pixels of drift show up.
+await viewport(1101, 900, false);
+await goto(BASE);
+await settle(`document.getElementById('chart-tools').parentNode.classList.contains('controls')`);
+const rowH = () => ev(`Math.round(document.querySelector('.controls').getBoundingClientRect().height)`);
+const rowRest = await rowH();
+await ev(`document.getElementById('share').click()`);
+await settle(`document.querySelector('#share .btn-t').textContent === 'Link copied'`);
+const rowCopied = await rowH(), copiedTxt = await ev(`document.querySelector('#share .btn-t').textContent`);
+check("at the first width that shows the words, pressing Share does not wrap the row",
+      rowRest <= 40 && rowCopied === rowRest && copiedTxt === "Link copied",
+      `row ${rowRest}px at rest, ${rowCopied}px showing "${copiedTxt}"`);
+// Back to the width 7d assumes, rather than leaving it at the boundary this check needed.
+await viewport(1280, 900, false);
+await relaid();
 
 // --- 7d. full screen on a real pointer: hover previews into the strip, and nothing moves --------
 await rest();
