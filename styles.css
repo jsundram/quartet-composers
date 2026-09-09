@@ -402,13 +402,20 @@ body.fs .grid{ display:block }
      The words are not display:none'd but visually hidden, because they are still the buttons'
      accessible NAMES — an icon-only control with no name is unusable to a screen reader, and these
      two are the ones a reader is least able to guess from a glyph out of context. */
-  /* The Fame view has no empty corner — at rest the top right is Haydn, which is the whole point of
-     that corner — so these are drawn as CHROME over the picture rather than as opaque buttons cut
-     out of it: a card-coloured disc at .85, coming to full strength on press or keyboard focus.
-     Top right is still the least bad of the four: the y axis owns both left corners and the x axis
-     labels own the bottom. 40px because the touch floor is not negotiable for a control this
-     small, and the alpha is what buys the dot underneath back. */
-  #plot > #chart-tools{ position:absolute; top:6px; right:6px; z-index:2; gap:6px }
+  /* IN THE AXIS-TITLE BAND, not over the data. Every corner was measured across all four views
+     first, and every one of them covers something: dots the 86x40 group would sit on, summed over
+     Fame/Timeline/Swarm/Lens at 390 — top-left 11, top-right 90, bottom-right 239, bottom-left 3.
+     Top right reads as empty in Fame and is exactly where the SWARM piles up (90 dots and the
+     "Rachmaninoff" label), which is the trap in judging a shared overlay from one view.
+     The band is the answer instead: chart.js already spends 22px above the plot on the y-axis
+     title, and app.js asks it for 46 so a touch target fits with clearance. The title starts at the
+     left and ends by x=202 in the worst case (Fame's is the longest), leaving 96px at 360 for an
+     86px group — so it goes at the band's right end, and nothing is covered in any view.
+     What it costs is 24px of DATA height, not page height: the plot's outer box is a function of
+     the aspect ratio, so the band takes its room from the dots' area and the card is the size it
+     was. Still drawn at .85 rather than opaque — the band is empty, but a dot near the top of the
+     range should read through the edge of a disc rather than vanish behind it. */
+  #plot > #chart-tools{ position:absolute; top:3px; right:6px; z-index:2; gap:6px }
   #chart-tools .btn{ width:40px; padding:0; justify-content:center; opacity:.85;
                      background:var(--card); border-color:var(--line); color:var(--ink) }
   #chart-tools .btn:active, #chart-tools .btn:focus-visible{ opacity:1 }
