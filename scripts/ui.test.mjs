@@ -353,9 +353,11 @@ check("no axis tick is printed under the range labels",
         const t=[...document.querySelectorAll('#hist svg g.axis text')].map(b);
         const e2=[...document.querySelectorAll('#hist svg g.ends text')].map(b);
         return !t.some(a=>e2.some(c=>a.left < c.right && a.right > c.left))})()`));
-// THE REPORTED BUG: .seg is overflow:hidden, so when Clear appeared the pill group gave up width
-// and clipped its last pill — the filter lost the word "Men" while you were using the filter.
-check("the gender pills are not clipped when Clear appears",
+// THE REPORTED BUG: .seg is overflow:hidden, so when a Clear button appeared beside it the pill
+// group gave up width and clipped its last pill — the filter lost the word "Men" while you were
+// using the filter. That button has since left this row entirely (issue 35); the check stays,
+// because what it is really asserting is that nothing in .filterbar may steal the pills' width.
+check("the gender pills are not clipped",
       await ev(`(()=>{const g=document.getElementById('gender');
         return g.scrollWidth <= g.clientWidth + 1})()`),
       await ev(`(()=>{const g=document.getElementById('gender');
@@ -375,11 +377,11 @@ await ev(`(()=>{const q=document.getElementById('q'); q.value='';
   q.dispatchEvent(new Event('input',{bubbles:true}));})()`);
 await sleep(200);
 
-await ev(`document.getElementById('hist-clear').click()`);
+await ev(`document.getElementById('reset-filters').click()`);
 await sleep(400);
-check("clearing the brush restores every row",
+check("Reset filters restores every row",
       await ev(`document.querySelectorAll('tbody tr').length`) === totalRows);
-check("clearing drops the range from the URL", !(await ev(`location.hash`)).includes("r="));
+check("...and drops the range from the URL", !(await ev(`location.hash`)).includes("r="));
 
 // --- 4c. the frame holds: nothing escapes the plot rectangle under a zoom ----------------------
 // Pinned to the timeline view: it is the one with the birth-year domain and the size legend these
@@ -1378,92 +1380,109 @@ for (const [w, h, mobile] of [[390, 844, true], [1280, 900, false]]) {
 }
 await viewport(1100, 1500);
 
-// --- 4m5. ...and neither does the brush, whose Clear button used to appear on the first frame ---
-// The last exception to the rule 4m4 settled, one row UP. Two separate defects met on this one
-// button (issue 31), and the section checks both because either alone still moves the page:
+// --- 4m5. ...and neither does a filter, because no control appears or disappears any more --------
+// The rule 4m4 settled, one row up. Issue 31 fixed the readership brush's own Clear button in
+// place — it appeared on the first frame of a drag, and it shared line one of `.filterbar` with the
+// "Readership" label, so showing it took that line from a 17.4px label to a 40px button and dropped
+// the brush, the pills and the plot 22.6px under the finger. Issue 35 removed the CATEGORY instead:
+// there is no per-filter Clear at all now, one permanent `Reset filters` button in .controls clears
+// all three, and a control that can never appear can never resize the row it is in.
 //
-//   WHEN it appears — applyFilters() unhid it ABOVE the `settled !== false` guard, i.e. on the
-//   first "brush" event of a drag, so the control the finger was resting on moved mid-gesture.
-//   WHERE it appears — at order 0 it shared line one with the "Readership" label, and showing it
-//   took that line from a 17.4px label to a 40px button, dropping the whole row, the brush, the
-//   pills and the plot by 22.6px. Nothing WRAPPED and no line was added: `#hist` is `flex:1 0
-//   100%`, so below 640px the row is already three lines pinned by `order`, not by width. That is
-//   why reserving the button's width would have fixed nothing — line one had 200px spare — and
-//   why the button now takes the pills' line (order:6), which is already 42px tall.
-//
-// So the assertion is the strong one: EVERY box in and under the filter row measures identical
-// with the button shown and hidden, mid-drag and on release alike. 4m4 cannot see any of it —
-// those loops read `.controls .seg` across the four VIEWS, and the brush is not a view.
-//
-// With TOUCH EMULATION, for the reason section 7 states: setDeviceMetricsOverride alone leaves
-// (pointer:coarse) FALSE, so a 390px box is a narrow desktop and the button measures 28px there
-// instead of the 40px a real phone gets. Measured at 28 the step this section is about is 10.6px;
-// the honest number is 22.6px, and only the emulated device reports it.
+// So this section no longer measures a step and hopes it is small. It asserts that going from no
+// filter to all three filters, by every route a reader has, moves NOTHING. Under touch emulation,
+// for the reason section 7 states: setDeviceMetricsOverride alone leaves (pointer:coarse) false, so
+// a 390px box is a narrow desktop, buttons measure 28px instead of 40px, and the numbers are not
+// the ones a phone gets.
 await viewport(390, 844, true);
 await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
 await goto(BASE);
 await sleep(700);
-// Everything the button's box could push: the brush itself, the two filters below it, and the
-// plot. A check on `#hist` alone passed a layout that moved the pills under a second tap.
-const rowTops = () => ev(`JSON.stringify(['#hist','#gender','.controls .seg','#plot']
+// Everything a filter control's box could push, and the plot under all of it. A check on one
+// element passed a layout that moved the pills under a second tap.
+const rowTops = () => ev(`JSON.stringify(['#hist','#gender','.controls .seg','#reset-filters','#plot']
   .map(s=>+document.querySelector(s).getBoundingClientRect().top.toFixed(1)))`);
-const clearHidden = () => ev(`document.getElementById('hist-clear').hidden`);
 const drift = (a, b) => Math.max(...JSON.parse(a).map((v, i) => Math.abs(v - JSON.parse(b)[i])));
+const resetState = () => ev(`(()=>{const b=document.getElementById('reset-filters');
+  return JSON.stringify({off:b.disabled, lit:b.classList.contains('on')})})()`);
 const hb2 = await ev(`(()=>{const r=document.querySelector('#hist svg').getBoundingClientRect();
   return {x:r.x,y:r.y,w:r.width,h:r.height}})()`);
 const rest5 = await rowTops();
+check("nothing is filtered at rest, and the button says so",
+      await resetState() === `{"off":true,"lit":false}`, await resetState());
+
+// 1. the brush, mid-gesture and on release — the case issue 31 was reported for.
 await mouse("mousePressed", hb2.x + hb2.w * 0.60, hb2.y + hb2.h * 0.4);
 await mouse("mouseMoved",   hb2.x + hb2.w * 0.78, hb2.y + hb2.h * 0.4);
 await sleep(250);
-const mid5 = await rowTops(), midHidden = await clearHidden();
+const mid5 = await rowTops(), midState = await resetState();
 await mouse("mouseMoved",   hb2.x + hb2.w * 0.92, hb2.y + hb2.h * 0.4);
 await sleep(250);
 const mid5b = await rowTops();
 await mouse("mouseReleased", hb2.x + hb2.w * 0.96, hb2.y + hb2.h * 0.4);
 await sleep(500);
-const rel5 = await rowTops();
 check("a real touch device is what this section is measuring",
       await ev(`matchMedia('(pointer:coarse)').matches`) === true
-      && await ev(`document.getElementById('hist-clear').getBoundingClientRect().height`) >= 40,
-      `Clear is ${await ev(`document.getElementById('hist-clear').getBoundingClientRect().height`)}px tall`);
-check("dragging the brush moves nothing in or under the filter row",
-      Math.max(drift(rest5, mid5), drift(rest5, mid5b)) < 1.5,
-      `tops ${rest5} -> ${mid5} mid-drag`);
-check("...because Clear stays hidden until the gesture ends", midHidden === true,
-      `hidden mid-drag ${midHidden}, on release ${await clearHidden()}`);
-// The second half. Before, this was the ACCEPTED residue — the finger has left the control, so a
-// step here is the cheap one — and TODO.md priced reserving the button's width against it. It
-// turned out the width was never the constraint (see the header), so the button moved to the
-// pills' line instead and there is no residue left to accept.
-check("...and arriving costs the page nothing either", drift(rest5, rel5) < 1.5,
-      `tops ${rest5} -> ${rel5} with Clear shown`);
-check("...but it does arrive, or the range cannot be cleared", (await clearHidden()) === false);
-// It has to land on the pills' line, not beside its own label, and flush with the brush it clears
-// — that alignment is the only thing on screen saying which control it belongs to, since the word
-// cannot say so ("Clear views" wraps this row at 360) and it now sits beside the gender pills,
-// which it does NOT clear. The accessible name carries what the alignment cannot.
-check("Clear sits on the pills' line, flush with the brush's right edge",
-      await ev(`(()=>{const c=document.getElementById('hist-clear').getBoundingClientRect();
-        const g=document.getElementById('gender').getBoundingClientRect();
-        const h=document.getElementById('hist').getBoundingClientRect();
-        return Math.abs(c.top-g.top) < 4 && Math.abs(c.right-h.right) < 1.5})()`),
-      await ev(`(()=>{const c=document.getElementById('hist-clear').getBoundingClientRect();
-        const h=document.getElementById('hist').getBoundingClientRect();
-        return 'clear right '+c.right.toFixed(1)+' vs brush right '+h.right.toFixed(1)})()`));
-check("...and says what it clears to a screen reader",
-      (await ev(`document.getElementById('hist-clear').getAttribute('aria-label')`) || "")
-        .toLowerCase().includes("readership"),
-      await ev(`document.getElementById('hist-clear').getAttribute('aria-label')`));
-await ev(`document.getElementById('hist-clear').click()`);
-await sleep(400);
+      && await ev(`document.getElementById('reset-filters').getBoundingClientRect().height`) >= 40,
+      `Reset filters is ${await ev(`document.getElementById('reset-filters').getBoundingClientRect().height`)}px tall`);
+check("brushing moves nothing, mid-drag or on release",
+      Math.max(drift(rest5, mid5), drift(rest5, mid5b), drift(rest5, await rowTops())) < 1.5,
+      `tops ${rest5} -> ${mid5} mid-drag -> ${await rowTops()} released`);
+// It lights up DURING the drag, which the old button could not do without moving the row. A colour
+// and a disabled flag change no box, so live feedback is free here where it was not before.
+check("...and the button lights up on the first frame of the drag",
+      midState === `{"off":false,"lit":true}`, `mid-drag ${midState}`);
 
-// The objection that kept the unhide above the guard: a `#r=` deep link must still boot with the
-// button shown. It does — boot calls applyFilters(TRUE) after Histogram.setRange(), and the guard
-// is `settled !== false`. Nothing in the app passes false except the brush's own mid-drag onChange.
+// 2. the other two filters, and all three at once — measured RELATIVE to #filters' own top.
+// Absolute tops cannot answer this question, and not because of anything in this section: with the
+// Women pill on, applying the brush re-measures the lede's reserved box from 122px to 102px and
+// lifts everything below it 20px. That reproduces byte-identically on main (issue 36), it is a
+// reserveLede() defect one component UP, and rolling it into this assertion would mean this section
+// goes red for a reason it does not own. What it owns is that no FILTER CONTROL's box changes size.
+const relTops = async () => {
+  const base = await ev(`document.getElementById('filters').getBoundingClientRect().top`);
+  return JSON.stringify(JSON.parse(await rowTops()).map(v => +(v - base).toFixed(1)));
+};
+const restRel = await relTops();
+await ev(`document.querySelector('#gender button[data-g="female"]').click()`);
+await sleep(500);
+await searchFor("a");
+await sleep(600);
+const all3 = await relTops();
+check("all three filters at once change no control's box", drift(restRel, all3) < 1.5,
+      `offsets from #filters ${restRel} -> ${all3} with search + brush + gender`);
+
+// 3. and the button undoes all three, which is what its name promises.
+await ev(`document.getElementById('reset-filters').click()`);
+await sleep(700);
+check("Reset filters clears the search, the brush and the pills together",
+      await ev(`(()=>{const q=document.getElementById('q').value;
+        const g=document.querySelector('#gender button[data-g=""]').getAttribute('aria-pressed');
+        return q === '' && g === 'true' && !location.hash.includes('r=')
+               && !location.hash.includes('g=') && !location.hash.includes('q=')})()`),
+      await ev(`'q='+JSON.stringify(document.getElementById('q').value)
+        +' hash='+JSON.stringify(decodeURIComponent(location.hash))`));
+check("...and goes dark again once there is nothing to reset",
+      await resetState() === `{"off":true,"lit":false}`, await resetState());
+check("...and the page is back where it started", drift(rest5, await rowTops()) < 1.5,
+      `tops ${rest5} -> ${await rowTops()}`);
+// One applyFilters, not three: resetFilters() branches on whether the brush has a range, because
+// d3-brush emits "end" for a programmatic move and would come back through onChange on its own.
+// Rebuilding ~880 rows twice is the one thing in this app that visibly stutters.
+check("...having rebuilt the table exactly once",
+      await ev(`(()=>{const t=document.querySelector('tbody'); let n=0;
+        const o=new MutationObserver(()=>n++); o.observe(t,{childList:true});
+        document.querySelector('#gender button[data-g="male"]').click();
+        Histogram.setRange([751,4501]); applyFilters(true);
+        return new Promise(r=>setTimeout(()=>{ n=0;
+          document.getElementById('reset-filters').click();
+          setTimeout(()=>{ o.disconnect(); r(n) }, 700) }, 700))})()`) === 1,
+      "table repaints on one reset");
+
+// 4. the deep link that used to be the objection to all of this still boots filtered.
 await goto(BASE + "#r=751-4501");
 await sleep(800);
-check("a #r= deep link still boots with Clear shown", (await clearHidden()) === false,
-      `range ${await ev(`document.getElementById('hist-read').textContent`)}`);
+check("a #r= deep link boots with Reset filters lit",
+      await resetState() === `{"off":false,"lit":true}`, await resetState());
 await send("Emulation.setTouchEmulationEnabled", { enabled: false, maxTouchPoints: 0 });
 await viewport(1100, 1500);
 
@@ -1508,17 +1527,29 @@ check("no horizontal overflow at 390px",
       await ev(`document.documentElement.scrollWidth <= 390`),
       "scrollWidth=" + await ev(`document.documentElement.scrollWidth`));
 // offsetParent is null while an element is `hidden`, so this scan only ever sees the controls that
-// are on screen RIGHT NOW — and at BASE with no range applied, the readership Clear button is not.
-// It was 28px for as long as this check has existed, 8px under the assertion and 12px under the
-// floor the phone block enforces, because `#hist-clear`'s ID outranks `.btn` whatever the order
-// (the same specificity trap styles.css documents for `.seg.sm`). So the scan runs TWICE: once at
-// rest, and once with a filter applied, which is the only way a control that hides itself is
-// audited at all. A third state that hides a control needs a third pass here.
+// are on screen RIGHT NOW. It ran at BASE with no range applied, and the readership brush's own
+// Clear button was the one control not on screen there — 28px for as long as this check existed,
+// 8px under the assertion, because an ID selector outranks `.btn` whatever the order (the same
+// specificity trap styles.css documents for `.seg.sm`). That button is gone (issue 35) and nothing
+// on the page hides itself any more, but the scan still runs TWICE, once at rest and once filtered:
+// it costs a second pass and it is the only thing standing between a future state-dependent control
+// and the same blind spot. A third such state needs a third pass here.
 const tapTargets = async () => ev(`JSON.stringify([...document.querySelectorAll('.seg button,.btn')]
   .filter(b=>b.offsetParent && b.getBoundingClientRect().height < 36)
   .map(b=>(b.id||b.textContent.trim())+'='+b.getBoundingClientRect().height.toFixed(1)))`);
 const smallRest = await tapTargets();
 check("control tap targets >= 36px tall", smallRest === "[]", `too small: ${smallRest}`);
+// The `hidden` attribute is only display:none in the UA sheet, so any author `display` on the same
+// element beats it — and the element goes on being hidden to a screen reader and to `.hidden` in JS
+// while being drawn. Giving .btn a display for its icon did exactly that (issue 35): the search
+// box's × came back at rest, wrapped the search row, and the page ran 50px tall until you filtered.
+// styles.css answers it once with [hidden]{display:none!important}; this is what notices if that
+// line is ever dropped or out-specified.
+check("a hidden control is actually not drawn",
+      await ev(`[...document.querySelectorAll('[hidden]')].every(e=>e.offsetParent === null
+        && getComputedStyle(e).display === 'none')`),
+      await ev(`[...document.querySelectorAll('[hidden]')]
+        .map(e=>(e.id||e.tagName)+':'+getComputedStyle(e).display).join(', ') || 'nothing hidden'`));
 await ev(`(()=>{ Histogram.setRange([751, 4501]); applyFilters(true) })()`);
 await sleep(400);
 const smallFiltered = await tapTargets();
@@ -1611,6 +1642,96 @@ check("the strip is still drawn with nothing pinned",
       await ev(`(()=>{const d=document.getElementById('detail');
         return d.offsetParent !== null && d.getBoundingClientRect().height > 40})()`));
 await send("Emulation.setTouchEmulationEnabled", { enabled: false });
+
+// --- 7c2. Share and Full screen become icons ON the chart, and stay usable there ---------------
+// Issue 35. They leave .controls on a phone because that is what pays for the Reset filters button
+// beside Reset zoom — the row is already two lines at 390, and a third word button takes it to
+// three. The risks of putting a control over a zoom surface are what this checks: that they still
+// receive taps (d3-zoom binds to the SVG, not to #plot, so they should), that chart.js's rebuild
+// does not delete them (it removes `svg` elements specifically), that they clear the touch floor,
+// and that an icon-only button still has a NAME — the words are visually hidden, not display:none'd,
+// precisely so it does.
+//
+// It sets its own device state and its own URL. The checks above leave the page in full screen and
+// turn touch emulation back OFF, and every assertion here is about a phone at rest: without the
+// emulation a 390px box is a narrow desktop, the touch floor does not apply, and the button heights
+// this checks are the wrong ones.
+await viewport(390, 844, true);
+await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
+await goto(BASE);
+await sleep(700);
+check("...and it really is a phone this time",
+      await ev(`matchMedia('(pointer:coarse)').matches && matchMedia('(hover:none)').matches`));
+check("the chart tools sit on the plot at 390px",
+      await ev(`document.getElementById('chart-tools').parentNode.id === 'plot'`),
+      "parent = " + await ev(`document.getElementById('chart-tools').parentNode.id`));
+check("...showing a glyph instead of a word",
+      await ev(`(()=>{const s=document.querySelector('#share .ico');
+        return s && getComputedStyle(s).display !== 'none'
+          && getComputedStyle(document.querySelector('#share .btn-t')).clipPath !== 'none'})()`));
+check("...but still naming themselves to a screen reader",
+      await ev(`(()=>{const t=n=>document.querySelector('#'+n+' .btn-t').textContent.trim();
+        return t('share') === 'Share' && t('fs') === 'Full screen'})()`),
+      await ev(`document.querySelector('#fs .btn-t').textContent`));
+check("...at the touch floor, and inside the plot",
+      await ev(`(()=>{const p=document.getElementById('plot').getBoundingClientRect();
+        return [...document.querySelectorAll('#chart-tools .btn')].every(b=>{const r=b.getBoundingClientRect();
+          return r.height >= 40 && r.width >= 40
+            && r.top >= p.top - 0.5 && r.right <= p.right + 0.5})})()`),
+      await ev(`[...document.querySelectorAll('#chart-tools .btn')].map(b=>{const r=b.getBoundingClientRect();
+        return b.id+' '+r.width.toFixed(0)+'x'+r.height.toFixed(0)}).join(', ')`));
+// Exactly ONE glyph, or the 40px box holds two 18px icons side by side. `#chart-tools .btn .ico` is
+// (1,2,0) and out-specifies a bare `#fs .ico-out` (1,1,0), so the state rules have to carry the
+// group's id too — the same specificity trap that left #hist-clear under the touch floor in #31,
+// one selector along.
+check("...and #fs shows one glyph, not both",
+      await ev(`(()=>{const vis=[...document.querySelectorAll('#fs .ico')]
+        .filter(i=>getComputedStyle(i).display !== 'none'); return vis.length === 1
+          && vis[0].classList.contains('ico-in')})()`),
+      await ev(`[...document.querySelectorAll('#fs .ico')]
+        .map(i=>i.getAttribute('class')+':'+getComputedStyle(i).display).join(' | ')`));
+// A REAL tap through the CDP, not .click(): the whole question is whether a press over the zoom
+// surface reaches the button or is swallowed by the pan gesture.
+const fsBox = await ev(`(()=>{const r=document.getElementById('fs').getBoundingClientRect();
+  return {x:r.x+r.width/2, y:r.y+r.height/2}})()`);
+await mouse("mousePressed", fsBox.x, fsBox.y);
+await mouse("mouseReleased", fsBox.x, fsBox.y);
+await sleep(700);
+check("a tap on the overlaid Full screen icon actually fires",
+      await ev(`document.body.classList.contains('fs')`));
+check("...and the icon swaps to the exit glyph rather than losing it",
+      await ev(`(()=>{const b=document.getElementById('fs');
+        return b.getAttribute('aria-pressed') === 'true'
+          && getComputedStyle(b.querySelector('.ico-out')).display !== 'none'
+          && getComputedStyle(b.querySelector('.ico-in')).display === 'none'
+          && b.querySelector('.btn-t').textContent.trim() === 'Exit full screen'})()`),
+      await ev(`document.querySelector('#fs .btn-t').textContent`));
+check("...and they are still on the plot in full screen",
+      await ev(`document.getElementById('chart-tools').parentNode.id === 'plot'`));
+await ev(`document.getElementById('fs').click()`);
+await sleep(700);
+// setData/setMode rebuild the SVG inside #plot. An overlay that a re-render deletes is the way this
+// breaks silently: the buttons are simply gone the first time the reader changes the view.
+await ev(`document.querySelector('.controls .seg button[data-mode="swarm"]').click()`);
+await sleep(600);
+await ev(`document.querySelector('.controls .seg button[data-mode="fame"]').click()`);
+await sleep(600);
+check("a chart re-render does not delete the overlay",
+      await ev(`document.getElementById('chart-tools').parentNode.id === 'plot'
+        && !!document.querySelector('#plot > #chart-tools #share .ico')`));
+// And on a desktop they go back to being words in the row, one element moved rather than two drawn.
+await viewport(1280, 900, false);
+await sleep(600);
+check("on a desktop they are words in the controls row again",
+      await ev(`(()=>{const t=document.getElementById('chart-tools');
+        return t.parentNode.classList.contains('controls')
+          && getComputedStyle(document.querySelector('#share .ico')).display === 'none'
+          && document.querySelector('#share .btn-t').offsetParent !== null})()`),
+      "parent = " + await ev(`document.getElementById('chart-tools').parentNode.className`));
+await send("Emulation.setTouchEmulationEnabled", { enabled: false });
+await viewport(390, 844, true);
+await goto(BASE);
+await sleep(700);
 
 // --- 7d. full screen on a real pointer: hover previews into the strip, and nothing moves --------
 await viewport(1280, 900);
