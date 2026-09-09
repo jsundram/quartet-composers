@@ -1503,14 +1503,15 @@ await send("Emulation.setTouchEmulationEnabled", { enabled: false });
 // beside Reset zoom — the row is already two lines at 390, and a third word button takes it to
 // three. The risks of putting a control over a zoom surface are what this checks: that they still
 // receive taps (d3-zoom binds to the SVG, not to #plot, so they should), that chart.js's rebuild
-// does not delete them (it removes `svg` elements specifically), that they clear the touch floor,
-// and that an icon-only button still has a NAME — the words are visually hidden, not display:none'd,
-// precisely so it does.
+// does not delete them (it removes its own svg by reference, and a descendant query there took
+// these glyphs with it), that they clear the touch floor, and that an icon-only button still has a
+// NAME — the words are visually hidden, not display:none'd, precisely so it does.
 //
 // It sets its own device state and its own URL. The checks above leave the page in full screen and
-// turn touch emulation back OFF, and every assertion here is about a phone at rest: without the
-// emulation a 390px box is a narrow desktop, the touch floor does not apply, and the button heights
-// this checks are the wrong ones.
+// turn touch emulation back OFF, and everything here up to the narrow-window check is about a phone:
+// without the emulation a 390px box is a narrow desktop, the touch floor does not apply, and the
+// button heights this checks are the wrong ones. The two states at the END are deliberate — a
+// narrow window WITH a pointer, then a wide one — because each has a rule the phone cannot reach.
 await viewport(390, 844, true);
 await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
 await goto(BASE);
@@ -1580,6 +1581,24 @@ check("...drawn as a bare glyph, not a pill moved onto the chart",
           && (c.backgroundColor === 'rgba(0, 0, 0, 0)' || c.backgroundColor === 'transparent')})`),
       await ev(`(()=>{const c=getComputedStyle(document.getElementById('share'));
         return 'border '+c.borderTopWidth+', bg '+c.backgroundColor})()`));
+// The copy confirmation, in the half that is visible here. navigator.share is absent in this
+// browser and the clipboard write is refused without a permission, so BOTH fallback branches land
+// on copied() — which is the point: the label they used to swap is `clip-path:inset(50%)` in this
+// layout, so the button acknowledged a copy nowhere a reader could see it.
+await ev(`document.getElementById('share').click()`);
+await sleep(200);
+check("Share acknowledges a copy with the glyph, not just the clipped label",
+      await ev(`(()=>{const b=document.getElementById('share');
+        const vis=[...b.querySelectorAll('.ico')].filter(i=>getComputedStyle(i).display !== 'none');
+        return vis.length === 1 && vis[0].classList.contains('ico-ok')
+          && b.querySelector('.btn-t').textContent.trim() === 'Link copied'})()`),
+      await ev(`[...document.querySelectorAll('#share .ico')]
+        .map(i=>i.getAttribute('class')+':'+getComputedStyle(i).display).join(' | ')`));
+await sleep(1700);
+check("...and goes back to the share glyph afterwards",
+      await ev(`(()=>{const b=document.getElementById('share');
+        return !b.classList.contains('copied')
+          && b.querySelector('.btn-t').textContent.trim() === 'Share'})()`));
 check("...and #fs shows one glyph, not both",
       await ev(`(()=>{const vis=[...document.querySelectorAll('#fs .ico')]
         .filter(i=>getComputedStyle(i).display !== 'none'); return vis.length === 1
@@ -1615,6 +1634,47 @@ await sleep(600);
 check("the overlay covers and shadows nothing, in any view",
       worstDots === 0 && coveredNames.length === 0,
       `worst view covers ${worstDots} dots; labels: ${coveredNames.join(", ") || "none"}`);
+
+// At rest is not the only state. The dot clip is inset OUTWARD by one maximum radius (chart.js's
+// `over`), so a dot whose centre sits just inside the top edge draws a sliver up into the band —
+// under a pinch, under the invisible target. The target cannot be shortened to miss it without
+// going under the 40px floor, so the guarantee is one step weaker and it is this: no dot's CENTRE
+// is ever under the target, because the frame test only draws a dot whose centre is inside the plot
+// rect and that rect starts 4.5px below the target's bottom. A finger aiming at a dot lands on the
+// dot.
+const underTools = () => ev(`(()=>{const t=document.getElementById('chart-tools').getBoundingClientRect();
+  const mid=r=>[(r.left+r.right)/2,(r.top+r.bottom)/2];
+  const box=[...document.querySelectorAll('#plot svg circle.dot')].filter(c=>{const r=c.getBoundingClientRect();
+    return r.left<t.right&&r.right>t.left&&r.top<t.bottom&&r.bottom>t.top});
+  const ctr=box.filter(c=>{const [x,y]=mid(c.getBoundingClientRect());
+    return x>t.left&&x<t.right&&y>t.top&&y<t.bottom});
+  return JSON.stringify({box:box.length, ctr:ctr.length})})()`);
+// The GUARANTEE, not a sample of it. A state-by-state hunt for the bad case is a check that passes
+// by not finding one — zooming the top right pushes dots away from the anchor, zooming the bottom
+// lifted none into that column at k=5.3, and the swarm's y is not under the zoom at all. What holds
+// in every state instead is arithmetic: the frame test only draws a dot whose CENTRE is inside the
+// plot rect, so a target whose bottom is above that rect can never have one under it, at any zoom.
+// One measurement, and it is the one the band exists to make true.
+check("...and its bottom stays above the plot area, so no dot's CENTRE can fall under it at any zoom",
+      await ev(`(()=>{const t=document.getElementById('chart-tools').getBoundingClientRect();
+        return document.querySelector('#plot svg rect.bg').getBoundingClientRect().top - t.bottom >= 0})()`),
+      await ev(`(()=>{const t=document.getElementById('chart-tools').getBoundingClientRect();
+        return (document.querySelector('#plot svg rect.bg').getBoundingClientRect().top - t.bottom)
+          .toFixed(1)+'px of clearance'})()`));
+const zbx = await ev(`(()=>{const b=document.querySelector('#plot svg rect.bg').getBoundingClientRect();
+  return {x:b.x,y:b.y,w:b.width,h:b.height}})()`);
+for (let i = 0; i < 8; i++) {
+  await send("Input.dispatchMouseEvent", { type: "mouseWheel", x: zbx.x + zbx.w * 0.8,
+    y: zbx.y + zbx.h * 0.92, deltaX: 0, deltaY: -300, pointerType: "mouse" });
+  await sleep(120);
+}
+await sleep(500);
+const uz = JSON.parse(await underTools());
+check("...and a real pinch agrees",
+      uz.ctr === 0 && await ev(`Chart.zoomK()`) > 1.5,
+      `k=${(await ev(`Chart.zoomK()`)).toFixed(1)}, ${uz.box} dots reach the band, ${uz.ctr} centres under it`);
+await ev(`Chart.resetZoom()`);
+await sleep(700);
 // And it fits INSIDE the reservation rather than merely happening to miss the dots: the band is the
 // plot group's own translate, read off the DOM, so this goes red the moment Chart.setTopReserve is
 // dropped or the buttons grow — before anything is visibly covered. Zero coverage above is the
@@ -1666,6 +1726,29 @@ await sleep(600);
 check("a chart re-render does not delete the overlay",
       await ev(`document.getElementById('chart-tools').parentNode.id === 'plot'
         && !!document.querySelector('#plot > #chart-tools #share .ico')`));
+// A WINDOW under 640px with a real pointer — the layout neither of the two above can see. This
+// block is `(max-width:640px)`, width only, but the 40px touch floor is
+// `(hover:none) and (pointer:coarse) and (max-width:800px)`: a desktop dragged narrow matches the
+// first and not the second, so the buttons took .btn's base min-height of 36 and dropped the glyph
+// ~4px below the title's line — the derivation in styles.css describing a box the browser was not
+// drawing. Every check above runs under touch emulation, where the button is 40px and this is
+// invisible. Same shape of blind spot as the icon-inflation bug: a state the suite never entered.
+await send("Emulation.setTouchEmulationEnabled", { enabled: false });
+await viewport(600, 900, false);
+await goto(BASE);
+await sleep(700);
+check("a narrow window with a mouse gets the same geometry, not a 36px button",
+      await ev(`(()=>{const t=document.querySelector('#plot svg text.ttl').getBoundingClientRect();
+        return [...document.querySelectorAll('#chart-tools .btn')].every(b=>{
+          const r=b.getBoundingClientRect(), g=b.querySelector('.ico').getBoundingClientRect();
+          return Math.abs(r.height - 40) < 0.5
+            && Math.abs((g.top+g.bottom)/2 - (t.top+t.bottom)/2) <= 1.5})})()`),
+      await ev(`(()=>{const t=document.querySelector('#plot svg text.ttl').getBoundingClientRect(),
+        b=document.getElementById('share'), r=b.getBoundingClientRect(),
+        g=b.querySelector('.ico').getBoundingClientRect();
+        return r.height.toFixed(1)+'px tall, glyph '
+          + ((g.top+g.bottom)/2 - (t.top+t.bottom)/2).toFixed(1)+'px off the title'})()`));
+
 // And on a desktop they go back to being words in the row, one element moved rather than two drawn.
 await viewport(1280, 900, false);
 await sleep(600);

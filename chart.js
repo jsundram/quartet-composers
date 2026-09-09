@@ -735,7 +735,13 @@ window.Chart = (function () {
 
   // ---- render -------------------------------------------------------------
   function build() {
-    d3.select(el).selectAll("svg").remove();
+    // BY REFERENCE, not by query. `selectAll("svg")` is a DESCENDANT query, and #plot also hosts
+    // #chart-tools on a phone (placeChartTools) — so it matched the chart's svg and the three .ico
+    // glyphs inside Share and Full screen, and removed all four. Nothing showed it, because build()
+    // only runs from init() and init() runs before the move; the day anything rebuilds the svg the
+    // icons vanish on phones only, since a desktop keeps the group in .controls. This removes the
+    // one svg this module made, which no overlay can ever be.
+    if (svg) svg.remove();
     svg = d3.select(el).append("svg").attr("role", "img");
     // Everything that MOVES under a zoom is clipped to the plot rectangle. Without this a pinch
     // pushed dots and their labels out into the margins, over the axis ticks and the y-axis title,
@@ -1121,35 +1127,6 @@ window.Chart = (function () {
            seedNames: () => repertoire.names.concat(OUTLIERS),
            // The sentence for the fill swatch, kept beside the list it names (invariant 8).
            repertoireLabel: () => repertoire.noun + ", in birth order",
-           // What the lede needs to describe the picked-out dots WITHOUT hardcoding any of it:
-           // the noun, the birth span of the filled set that is actually visible, and one worked
-           // example. The example is the first RINGED composer — the curated outliers while the
-           // filter keeps them, the derived ones otherwise — because the ring is the extreme the
-           // sentence exists to make concrete: Cambini at rest, Vrebalov under "Women".
-           //
-           // NULL OUTSIDE FAME, because outside it nothing is picked out at all: fillOf, strokeOf,
-           // widthOf and labelColorOf every one fall through to the lifespan encoding for the
-           // other three modes. The lede went on saying "the names picked out are the repertoire,
-           // 1709 to 1906" over a Swarm that picks nothing out (issue 24). The gate is here rather
-           // than in setLede() because this file is the one that knows which channels are
-           // Fame-only; a fifth mode then gets the answer right for free.
-           //
-           // `atRest` answers a DIFFERENT question, for app.js's height reservation only: what
-           // would this sentence be with no filter and in Fame, whatever is on screen right now.
-           // Asking it must not disturb what is drawn, so it re-reads the same arrays with the
-           // mode gate and the visibility test dropped rather than un-filtering anything.
-           //
-           // The REPERTOIRE swap is not one of the things it drops, and the rings have to follow
-           // it. A gender pill both filters and replaces the curated fill (setRepertoire), and
-           // WOMEN_CANON contains none of the three curated outliers — so under "Women" the page
-           // rings three DERIVED composers, and reading outlierIdx here measured "the women's
-           // repertoire, 1805 to 1962; Giuseppe Cambini wrote 149 quartets" — a sentence naming a
-           // dot that filter does not draw, and one the app can never print. Measuring a string
-           // the page never shows is the exact failure splitting ledeClause() out of setLede()
-           // was meant to make impossible; that it wrapped to the same three lines was luck, and
-           // invariant 4 says these names change spelling when the pipeline runs. So the resting
-           // rings are the curated outliers while the curated fill is on screen, and whatever the
-           // swap derived otherwise. Unfiltered, ringIdx is empty and this is the outliers again.
            // Every gender pill value that swaps the claim, so app.js can assert they are reachable.
            repertoireKeys: () => Object.keys(REPERTOIRES),
            resetZoom, zoomed, colorOf, hint, setTopReserve,

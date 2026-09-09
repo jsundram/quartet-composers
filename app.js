@@ -558,7 +558,7 @@ function placeFilters() {
 // still wraps to three lines. Only lifting them out clears it at both widths.
 //
 // They do not float over the DOTS. They sit in the band chart.js already spends on the y-axis
-// title, which the chart widens to fit them — so the cost is 24px of data area rather than any dot
+// title, which the chart widens to fit them — so the cost is 26px of data area rather than any dot
 // being covered, and it is paid out of a box whose outer height is unchanged.
 //
 // Width, not full screen: the words stay wherever there is room for them, and #plot is the target in
@@ -566,16 +566,18 @@ function placeFilters() {
 // the overlay safe is already true of #plot — see the CSS.
 const PHONE = matchMedia("(max-width:640px)");
 
-// 40px of touch target, sitting on the axis title's baseline (8px above the plot area) with the
-// whole target still clear of it. Those three numbers pin the band: the glyph's bottom is the
-// target's bottom, that line is the title's baseline at BAND-8, so the target spans BAND-48 to
-// BAND-8 and needs BAND >= 48 to start at or below the top edge. At 48 the target clears the plot
-// area by exactly the 8px the title sits above it.
+// 40px of touch target, CENTRED on the axis title's line, with the whole target clear of the plot
+// area. Those numbers pin the band, and styles.css carries the derivation: the glyph's centre sits
+// at BAND-12.47, its bottom is the target's bottom, so the target spans 3.5 to 43.5 and BAND has to
+// be 48 for it to start below the top edge and end above the plot.
 //
 // The clearance is not cosmetic. The target is invisible, so anything it overlaps is a dot that
 // silently stops being tappable — at BAND 46 the target's bottom landed ON the plot area and shadowed
-// 12 dots in the swarm, whose blob reaches the top of its box. See setTopReserve() in chart.js for
-// why the chart is TOLD this rather than reading the breakpoint itself.
+// 12 dots in the swarm, whose blob reaches the top of its box. 4.5px is what it clears the plot area
+// by, not the 8px the title sits above it, and that is the whole margin: a dot's clip is inset
+// outward by a radius, so the sliver of one at the very top edge can still reach under the target
+// under a pinch. Never its centre — see styles.css. Lowering BAND again spends that margin twice.
+// See setTopReserve() in chart.js for why the chart is TOLD this rather than reading the breakpoint.
 const TOOLS_BAND = 48;
 
 function placeChartTools() {
@@ -653,12 +655,22 @@ async function share() {
   try {
     if (navigator.share) { await navigator.share(payload); return; }
     await navigator.clipboard.writeText(location.href);
-    label(btn, "Link copied");
-    setTimeout(() => label(btn, "Share"), 1600);
+    copied(btn);
   } catch {
-    label(btn, "Link copied");            // clipboard blocked: the URL bar already shows the link
-    setTimeout(() => label(btn, "Share"), 1600);
+    copied(btn);                          // clipboard blocked: the URL bar already shows the link
   }
+}
+
+// The confirmation, in both halves of the button, because below 640px the half that carried it is
+// clipped: .btn-t is the accessible NAME there, not the face, so swapping its text wrote "Link
+// copied" where nobody could see it. The glyph has to acknowledge as well. It is not a phone-only
+// gap — navigator.share returns before either branch on a real phone, and the two branches that
+// reach here are exactly the ones that run where it is missing: a desktop dragged under 640px gets
+// the icon layout from a width-only media query and the clipboard path from its own capabilities.
+function copied(btn) {
+  label(btn, "Link copied");
+  btn.classList.add("copied");
+  setTimeout(() => { label(btn, "Share"); btn.classList.remove("copied") }, 1600);
 }
 
 // ---- filters ---------------------------------------------------------------
@@ -713,13 +725,23 @@ function genderMatches() {
 
 // The three filters, asked as one question. Read from the same places applyFilters() intersects, so
 // a fourth filter that forgets to appear here leaves the button dark while it is active.
+// TRIMMED, like Table.matches() itself, or the two answers disagree: a lone space (one stray tap
+// on a phone, or a word deleted back to its leading space) filters nothing and leaves #count at
+// "884 composers" while this lit the button accent-filled.
 function anyFilter() {
-  return !!$("q").value || !!Histogram.getRange() || !!gender;
+  return !!$("q").value.trim() || !!Histogram.getRange() || !!gender;
 }
 
 // All three, search included: the name is plural and a typed query is a filter. A button that sat
 // lit while a search was active and then did not clear it would be worse than the inconsistency it
 // replaces — the search box keeps its own × for clearing just the text.
+//
+// It does NOT focus the search box afterwards, though #clear does. #clear sits INSIDE the search
+// row, so the focus it moves is already on screen; this button is in .controls, a card below
+// #filters, where focus() defaults to preventScroll:false — pressing it at the chart yanked the
+// viewport back up and opened the soft keyboard over the box. In full screen it failed the other
+// way round: `body.fs #filters .tablehead` hides #q, so the call was a no-op. Nothing is left to
+// reset, so the button disabling itself out of the tab order is the honest end state.
 //
 // Exactly ONE applyFilters() runs, which is what the branch is for. Histogram.clear() moves the
 // brush to null, and d3-brush emits "end" for a programmatic move, so it comes back through
@@ -730,7 +752,6 @@ function resetFilters() {
   setGender("", false);
   if (Histogram.getRange()) Histogram.clear();
   else applyFilters(true);
-  $("q").focus();
 }
 
 function setGender(g, apply = true) {

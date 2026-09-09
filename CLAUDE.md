@@ -220,7 +220,7 @@ two audits a human grades. No test framework, and nothing to install:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 228 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 233 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
@@ -314,7 +314,13 @@ would not have worked.
   Issue 35 deleted the category instead. There is one permanent `Reset filters` button in
   `.controls` beside `Reset zoom`, it clears all three filters, and it is `disabled` at rest and
   accent-filled when live — a state change that moves no box, which is why `applyFilters()` may
-  update it ABOVE the `settled` guard and light it on the drag's first frame. `ui.test.mjs` 4m5
+  update it ABOVE the `settled` guard and light it on the drag's first frame. Being the page's one
+  answer to "is anything filtered?" is what makes `anyFilter()` read the query the way
+  `Table.matches()` does, TRIMMED: a lone space filters nothing, and the button lit over a `#count`
+  still reading 884 answers its own question wrong. It does not focus the search box afterwards,
+  though `#clear` does — `#clear` sits inside the search row, while this one is a card below it,
+  where `focus()` scrolls the viewport back up and opens the soft keyboard over a box the reader had
+  left. Nothing is left to reset, so disabling itself out of the tab order is the honest end. `ui.test.mjs` 4m5
   asserts the whole row is unmoved through a brush drag and under all three filters at once, under
   TOUCH emulation — without it a 390px box is a narrow desktop, buttons measure 28px not 40px, and
   the numbers are the wrong ones. Two lessons from #31 outlived its fix and are worth keeping: the
@@ -410,8 +416,10 @@ would not have worked.
   state and `share()` holds a timeout on its own label. Everything that makes the overlay safe is
   already true of `#plot`: it is `position:relative` and already hosts `#flag`, d3-zoom binds to the
   `svg` rather than to `#plot` so the buttons take taps without eating a pan, and `chart.js`'s
-  rebuild removes `svg` elements specifically rather than every child. Four things a change here
-  must keep. The words stay in the DOM, visually hidden rather than `display:none`, because they are
+  rebuild removes the one svg it made BY REFERENCE. That last one was a claim before it was true:
+  `selectAll("svg")` is a DESCENDANT query and matched the three `.ico` glyphs as well, and nothing
+  showed it because `build()` only runs from `init()`, which runs before the move. Four things a
+  change here must keep. The words stay in the DOM, visually hidden rather than `display:none`, because they are
   still the buttons' accessible NAMES. The label is written into that `.btn-t` span and never onto
   the button — `share()` and `setFull()` used to set `textContent` directly, which now deletes the
   icon beside it. The print rule names `#chart-tools` separately from `.controls`, because on a
@@ -436,19 +444,36 @@ would not have worked.
   than the letters do. The offsets follow from that and are not nudges — the title's box centre is
   4.47px above its baseline and the baseline is 8px above the plot area (chart.js draws `text.ttl`
   at `y:-8`), so the glyph's centre lands at `BAND - 12.47` and the 40px target, whose bottom is the
-  glyph's bottom, starts 3.5px down. The band is 48 because the target must also stay CLEAR of the
-  plot area: it is invisible, so a dot it overlaps silently stops being TAPPABLE, which is worse
-  than being hidden because nothing on screen explains it — at 46 it shadowed 12 dots in the swarm.
-  The suite counts coverage against the whole button for that reason, and measures the alignment
-  against the title's own box rather than against the constants here, so a change of font, size or
-  that `y:-8` fails instead of drifting.
+  glyph's bottom, starts 3.5px down — spanning 3.5 to 43.5, and clearing the plot area by 4.5px.
+  The band is 48 because the target must stay CLEAR of that area: it is invisible, so a dot it
+  overlaps silently stops being TAPPABLE, which is worse than being hidden because nothing on screen
+  explains it — at 46 it shadowed 12 dots in the swarm. **Clearing the plot area is not clearing
+  every pixel a dot can occupy**, and the 4.5px is the whole margin: `chart.js` insets the dot clip
+  OUTWARD by one maximum radius (~11px on a phone), so under a pinch the sliver of a dot at the very
+  top edge reaches under the target. Its CENTRE cannot — the frame test only draws a dot whose
+  centre is inside the plot rect — so the dot is still tappable where a finger aims, and that is the
+  guarantee, one step weaker than the resting one. Shortening the target to miss the sliver would
+  put it under the 40px floor issue 31 was fought over. The suite counts coverage against the whole
+  button for that reason, asserts the centre rule at a NON-IDENTITY transform, and measures the
+  alignment against the title's own box rather than against the constants here, so a change of font,
+  size or that `y:-8` fails instead of drifting. The 40px height is stated in the 640px block rather
+  than inherited from the touch-target rule, which asks a different question
+  (`(hover:none) and (pointer:coarse)`): a desktop window dragged narrow matched one and not the
+  other, took `.btn`'s 36px, and the derivation above stopped describing the box being drawn.
   One more thing moving them INTO `#plot` broke: `#plot svg{ width:100% }` means THE CHART, and as a
   descendant selector it caught the icons too and stretched an 18px glyph to 38px — 95% of its
   button — with a 3.2px stroke, `body.fs #plot svg{ height:100% }` doing it again in full screen.
   Both are `> svg` now, `.ico` carries its own `width`/`flex:none` (a width ATTRIBUTE loses to any
   stylesheet), and a check measures the glyph against its button. Note the shape of it: a desktop
   can never show this, because the buttons are still in the controls row there — the same reason
-  the tap-target scan could not see a control that hides itself.
+  the tap-target scan could not see a control that hides itself. The suite now enters both states
+  the phone hides — a narrow window with a real pointer, and a wide one.
+  One consequence of the icon layout reaches `app.js`: below 640px `.btn-t` is the accessible NAME
+  and not the face, so `share()`'s "Link copied" swap wrote the confirmation where nobody could see
+  it. The glyph acknowledges too (`.copied` swaps the arrow for a check), off the same one call, so
+  the two halves cannot disagree. It is not phone-only: `navigator.share` returns before either
+  fallback on a real phone, and the branches that reach the swap are exactly the ones that run where
+  it is missing — including a desktop under 640px, which gets this layout from a width-only query.
 - **The `hidden` ATTRIBUTE is only `display:none` in the UA sheet**, so ANY author `display` on the
   same element beats it — silently, since the element stays hidden to a screen reader and to
   `.hidden` in JS while being drawn. Giving `.btn` a `display` for its icon did exactly that: the
