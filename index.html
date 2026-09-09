@@ -104,7 +104,11 @@
       <!-- The range is drawn ON the axis now, under its own end points (histogram.js). This keeps
            the same words for a screen reader, which cannot read text inside a role="img". -->
       <span id="hist-read" class="sr-only"></span>
-      <button type="button" id="hist-clear" class="btn" hidden>Clear</button>
+      <!-- The accessible name says what it clears; the visible word cannot, because "Clear views"
+           wraps the filter row at 360px. On a phone this button sits on the gender pills' line
+           (styles.css), where the visual cue is its right edge lining up with the brush's — which
+           is no cue at all to a screen reader. -->
+      <button type="button" id="hist-clear" class="btn" aria-label="Clear readership filter" hidden>Clear</button>
 
       <!-- Buttons, not a <select>: three states that are all worth one press, and pressed state is
            the only readout the filter needs. The values are Wikidata's own P21 labels, so the
