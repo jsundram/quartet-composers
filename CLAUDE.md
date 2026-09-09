@@ -220,7 +220,7 @@ two audits a human grades. No test framework, and nothing to install:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 239 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 240 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
@@ -440,6 +440,13 @@ would not have worked.
   function of the aspect ratio, so the dots' area gives up the pixels and the card is the size it
   was. `ui.test.mjs` 7c2 asserts zero coverage across all four views AND that the buttons fit inside
   the reservation, because the second is the cause and the first only the symptom.
+  One more thing moving them INTO `#plot` broke: `#plot svg{ width:100% }` means THE CHART, and as a
+  descendant selector it caught the icons too and stretched an 18px glyph to 38px — 95% of its
+  button — with a 3.2px stroke, `body.fs #plot svg{ height:100% }` doing it again in full screen.
+  Both are `> svg` now, `.ico` carries its own `width`/`flex:none` (a width ATTRIBUTE loses to any
+  stylesheet), and a check measures the glyph against its button. Note the shape of it: a desktop
+  can never show this, because the buttons are still in the controls row there — the same reason
+  the tap-target scan could not see a control that hides itself.
 - **The `hidden` ATTRIBUTE is only `display:none` in the UA sheet**, so ANY author `display` on the
   same element beats it — silently, since the element stays hidden to a screen reader and to
   `.hidden` in JS while being drawn. Giving `.btn` a `display` for its icon did exactly that: the

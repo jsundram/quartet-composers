@@ -1684,6 +1684,23 @@ check("...at the touch floor, and inside the plot",
 // (1,2,0) and out-specifies a bare `#fs .ico-out` (1,1,0), so the state rules have to carry the
 // group's id too — the same specificity trap that left #hist-clear under the touch floor in #31,
 // one selector along.
+// The glyph's SIZE, not just its presence. `#plot svg{width:100%}` means THE CHART, and moving
+// these buttons into #plot made it a descendant selector over their icons too: an 18px glyph
+// rendered at 38x38 — 95% of the button — with a 3.2px stroke, and `body.fs #plot svg{height:100%}`
+// did it again in full screen. Desktop could never show it, because there the buttons are still in
+// the controls row and the rule does not reach them. Measured against the BUTTON, so this stays
+// meaningful if either size is retuned.
+check("the glyphs are icon-sized, not stretched to fill the button",
+      await ev(`[...document.querySelectorAll('#chart-tools .ico')]
+        .filter(i=>getComputedStyle(i).display !== 'none')
+        .every(i=>{const g=i.getBoundingClientRect(),
+                         b=i.closest('.btn').getBoundingClientRect();
+          return g.width >= 14 && g.width <= 22 && g.width / b.width < 0.6})`),
+      await ev(`[...document.querySelectorAll('#chart-tools .ico')]
+        .filter(i=>getComputedStyle(i).display !== 'none')
+        .map(i=>{const g=i.getBoundingClientRect(), b=i.closest('.btn').getBoundingClientRect();
+          return i.closest('.btn').id+' '+g.width.toFixed(0)+'px ('
+            + (g.width/b.width*100).toFixed(0)+'% of button)'}).join(', ')`));
 check("...and #fs shows one glyph, not both",
       await ev(`(()=>{const vis=[...document.querySelectorAll('#fs .ico')]
         .filter(i=>getComputedStyle(i).display !== 'none'); return vis.length === 1
