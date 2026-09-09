@@ -220,7 +220,7 @@ two audits a human grades. No test framework, and nothing to install:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 241 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 242 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
@@ -431,12 +431,12 @@ would not have worked.
   the button — `share()` and `setFull()` used to set `textContent` directly, which now deletes the
   icon beside it. The print rule names `#chart-tools` separately from `.controls`, because on a
   phone it is no longer inside it. And they sit in the AXIS-TITLE BAND, over no dot in any view:
-  `placeChartTools()` asks `Chart.setTopReserve(46)` and `measure()` widens `m.top` from 22 to fit a
+  `placeChartTools()` asks `Chart.setTopReserve(48)` and `measure()` widens `m.top` from 22 to fit a
   touch target. Every corner was measured first and every one covers something — dots the group
   would sit on, summed over the four views at 390: top-left 11, top-right 90, bottom-right 239,
   bottom-left 3. **Top right is the trap**: it reads as empty in Fame and is exactly where the SWARM
   piles up, 90 dots and the "Rachmaninoff" label, which is what judging a shared overlay from one
-  view gets you. The band costs 24px of DATA height and no page height — the plot's outer box is a
+  view gets you. The band costs 26px of DATA height and no page height — the plot's outer box is a
   function of the aspect ratio, so the dots' area gives up the pixels and the card is the size it
   was. `ui.test.mjs` 7c2 asserts zero coverage across all four views AND that the buttons fit inside
   the reservation, because the second is the cause and the first only the symptom.
@@ -444,8 +444,17 @@ would not have worked.
   `var(--muted)` like every other `.btn` label and like the axis title beside them. That is the
   platform shape for a control sitting on content, and a `.btn` pill moved onto the chart is not:
   40px of visible chrome around a 16px mark reads as furniture next to an 11px axis title. The hit
-  target is felt and not seen, so the suite taps 3px in from a CORNER — about 12px clear of the
-  glyph — rather than at the centre, which would pass on a 16px button.
+  target is felt and not seen, so the suite taps 3px in from a CORNER — 22.8px clear of the glyph —
+  rather than at the centre, which would pass on a 16px button.
+  **They sit ON the axis title's baseline**, bottom-aligned to the visible underside of "readers /
+  month", and the band's height is what that costs: the glyph's bottom IS the target's bottom, that
+  line is the baseline at `BAND - 8` (the same `-8` chart.js draws `text.ttl` at), so the target
+  spans `BAND-48` to `BAND-8` and 48 is the smallest band that both starts inside the box and keeps
+  the target clear of the plot area. That clearance is not cosmetic — the target is invisible, so a
+  dot it overlaps silently stops being TAPPABLE, which is worse than being hidden because nothing on
+  screen explains it. At 46 it shadowed 12 dots in the swarm. The suite counts coverage against the
+  whole button for that reason, and checks the alignment against the title's real baseline through
+  `getScreenCTM`, never against the numbers here.
   One more thing moving them INTO `#plot` broke: `#plot svg{ width:100% }` means THE CHART, and as a
   descendant selector it caught the icons too and stretched an 18px glyph to 38px — 95% of its
   button — with a 3.2px stroke, `body.fs #plot svg{ height:100% }` doing it again in full screen.

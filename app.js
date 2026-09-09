@@ -566,10 +566,17 @@ function placeFilters() {
 // the overlay safe is already true of #plot — see the CSS.
 const PHONE = matchMedia("(max-width:640px)");
 
-// 40px of touch target plus 3px of clearance top and bottom. The band chart.js already draws the
-// y-axis title in is 22px, so it asks for the difference rather than the buttons hanging into the
-// dots — see setTopReserve() there for why the chart is TOLD and does not read the breakpoint.
-const TOOLS_BAND = 46;
+// 40px of touch target, sitting on the axis title's baseline (8px above the plot area) with the
+// whole target still clear of it. Those three numbers pin the band: the glyph's bottom is the
+// target's bottom, that line is the title's baseline at BAND-8, so the target spans BAND-48 to
+// BAND-8 and needs BAND >= 48 to start at or below the top edge. At 48 the target clears the plot
+// area by exactly the 8px the title sits above it.
+//
+// The clearance is not cosmetic. The target is invisible, so anything it overlaps is a dot that
+// silently stops being tappable — at BAND 46 the target's bottom landed ON the plot area and shadowed
+// 12 dots in the swarm, whose blob reaches the top of its box. See setTopReserve() in chart.js for
+// why the chart is TOLD this rather than reading the breakpoint itself.
+const TOOLS_BAND = 48;
 
 function placeChartTools() {
   const tools = $("chart-tools"), viz = $("viz");

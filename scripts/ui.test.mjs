@@ -1701,6 +1701,26 @@ check("the glyphs are icon-sized, not stretched to fill the button",
         .map(i=>{const g=i.getBoundingClientRect(), b=i.closest('.btn').getBoundingClientRect();
           return i.closest('.btn').id+' '+g.width.toFixed(0)+'px ('
             + (g.width/b.width*100).toFixed(0)+'% of button)'}).join(', ')`));
+// Sitting ON the axis title's line, not floating above it. Measured against the title's real
+// BASELINE — the visible bottom edge of "readers / month", which has no descenders — read through
+// getScreenCTM rather than from its bounding box, whose bottom carries the font's descent metrics
+// and is 2px lower than any ink. Checked in the views that HAVE a title; the swarm has none.
+let worstBaseline = 0;
+for (const m of ["fame", "scatter", "lens"]) {
+  await ev(`document.querySelector('.controls .seg button[data-mode="${m}"]').click()`);
+  await sleep(700);
+  worstBaseline = Math.max(worstBaseline, Math.abs(await ev(`(()=>{
+    const t=document.querySelector('#plot svg text.ttl');
+    const svg=document.querySelector('#plot > svg');
+    const p=svg.createSVGPoint(); p.x=+t.getAttribute('x'); p.y=+t.getAttribute('y');
+    const base=p.matrixTransform(t.getScreenCTM()).y;
+    const g=document.querySelector('#share .ico').getBoundingClientRect();
+    return g.bottom - base})()`)));
+}
+await ev(`document.querySelector('.controls .seg button[data-mode="fame"]').click()`);
+await sleep(600);
+check("the glyphs sit on the axis title's baseline", worstBaseline <= 1.5,
+      `worst gap ${worstBaseline.toFixed(1)}px between glyph bottom and title baseline`);
 check("...drawn as a bare glyph, not a pill moved onto the chart",
       await ev(`[...document.querySelectorAll('#chart-tools .btn')].every(b=>{
         const c=getComputedStyle(b);
@@ -1737,7 +1757,10 @@ for (const m of ["fame", "scatter", "swarm", "lens"]) {
 }
 await ev(`document.querySelector('.controls .seg button[data-mode="fame"]').click()`);
 await sleep(600);
-check("the overlay covers no dot and no label, in any view",
+// Counted against the whole BUTTON, not the glyph: the target is invisible, so a dot it overlaps is
+// not covered — it silently stops being tappable, which is worse than being hidden because nothing
+// on screen explains it. That is what sets the band's height (see TOOLS_BAND in app.js).
+check("the overlay covers and shadows nothing, in any view",
       worstDots === 0 && coveredNames.length === 0,
       `worst view covers ${worstDots} dots; labels: ${coveredNames.join(", ") || "none"}`);
 // And it fits INSIDE the reservation rather than merely happening to miss the dots: the band is the
