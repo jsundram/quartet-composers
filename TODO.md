@@ -606,21 +606,26 @@ Two traps worth remembering, both of which cost a debugging round here:
   noting how it hid: on a desktop the buttons are still in the controls row, so the rule never
   reaches them and the bug is invisible in exactly the place a change is usually eyeballed.
 
-### The lede's reserved height still moves the page — **known defect** — [#36](https://github.com/jsundram/quartet-composers/issues/36)
-Found while building #35 and NOT caused by it — it reproduces byte-identically on the commit before.
-`reserveLede()` reserves the height of the RESTING sentence, and the gender pill changes what
-"resting" means (`Chart.setRepertoire()` swaps `CANON` for `WOMEN_CANON`), so the reservation is
-correct at every instant and still moves the page when the claim itself gets shorter. Measured at
-390x844: the pill alone is harmless and the brush alone is harmless, but Women PLUS a brush range
-takes `.lede` from 122px to 102px and lifts `#gender` and `#plot` 20px — including the pills the
-reader may have just pressed, which is the trap #27 and #29 both answer elsewhere.
+### ~~The lede's reserved height still moves the page~~ — done by DELETION, 2026-09-09, [#36](https://github.com/jsundram/quartet-composers/issues/36)
+Not fixed — the sentence it was about is gone. `reserveLede()` reserved the height of the RESTING
+sentence, and the gender pill changed what "resting" meant (`Chart.setRepertoire()` swaps `CANON`
+for `WOMEN_CANON`), so the reservation was correct at every instant and still moved the page 20px
+when the claim itself got shorter. Every option on the issue traded one cost for another: reserve
+the tallest claim and hold a blank band open, or accept the step.
 
-`ui.test.mjs` 4m3 cannot see it: it drives the search box only, and search alone does not shorten
-the sentence. 4m5 measures the filter row RELATIVE to `#filters` for this reason — the defect is one
-component up and rolling it in would make that section red for something it does not own.
-The issue carries three options; it wants a decision before code, because "reserve the tallest claim
-any pill can produce" trades the step for a blank band, which is exactly what reserving the RESTING
-sentence was written to avoid.
+The fourth option was not on the issue and is the one taken — **stop making the claim**. The lede is
+one static line now, "Everyone on Wikipedia's List of String Quartet Composers, visualized." That
+deleted `setLede()`, `ledeClause()`, `reserveLede()`, its `ResizeObserver`, `Chart.emphasisStats()`
+and three sections of `ui.test.mjs`, and it took [#27](https://github.com/jsundram/quartet-composers/issues/27)'s
+mechanism with it — a paragraph that cannot change length cannot collapse. `ui.test.mjs` 4m5 also
+went back to measuring ABSOLUTE tops, having needed an offset from `#filters` purely to stay clear
+of this defect.
+
+Nothing was lost, and 4m checks that rather than asserting it: the legend still names the
+highlighted set, the axis titles and the per-mode hint still name the axes, and `setProv()` still
+says readership is English-only and what that undercounts. The one thing that did go is the
+editorial framing "familiarity to English speakers, not importance" — the substantive half of it is
+in the footnote, and the page states its own case elsewhere.
 
 ### ~~The readership brush shows its Clear button mid-drag~~ — done, 2026-09-08, [#31](https://github.com/jsundram/quartet-composers/issues/31)
 The rule [#29](https://github.com/jsundram/quartet-composers/issues/29) settled — nothing a finger

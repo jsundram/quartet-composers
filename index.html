@@ -66,26 +66,18 @@
     <button id="theme" type="button" class="btn spacer">Theme: Auto</button>
   </header>
 
+  <!-- STATIC, and short on purpose. This used to carry a clause built from the chart — which set
+       of dots is picked out, its birth span, a worked example — and that one sentence dragged
+       reserveLede(), a ResizeObserver and three test sections behind it, because a claim that can
+       change length moves everything under it (issues 27, 35, 36). None of it was load-bearing:
+       the legend already names the highlighted set, the axis titles and the per-mode hint already
+       name the axes, and the provenance footnote already says readership is English-only and what
+       that misses. CLAUDE.md's rule is to build a claim only when the page states it nowhere else;
+       here it does, so this is the cut half of that rule, not an exception to it. -->
   <p class="lede">
     Everyone on Wikipedia's
     <a href="https://en.wikipedia.org/wiki/List_of_string_quartet_composers">List of String Quartet
-    Composers</a>.
-    <!-- NO AXIS CLAUSE HERE, deliberately. This used to read "Across is how many quartets they
-         wrote, up is how much their English Wikipedia article is read" -- the FAME view's axes,
-         typed once and printed in all four views, so the page contradicted itself between here
-         and the hint under the chart: across is birth year in Timeline and Swarm, and up means
-         nothing at all in Swarm. It is cut rather than derived per mode because the axes are
-         already stated twice on screen, correctly, by whichever view is drawn -- the axis titles
-         inside the plot and the per-mode HINTS in chart.js. A third statement of the same fact is
-         only the copy that goes stale. See issue 24. -->
-    <!-- BUILT FROM THE DATA, never typed here. This sentence used to hardcode "the repertoire,
-         1709 to 1906" and "149 quartets ... about 200 times a month": three claims about the
-         dataset, none of them checked by anything, one of them already rounded wrong (Cambini's
-         median is 216) and one of them false the moment a filter changed which names are picked
-         out. Same rule as the search placeholder and #count -- see setLede() in app.js. -->
-    <span id="lede-picked"></span>
-    Readership is familiarity to English speakers, not importance — tap any dot or row for the
-    numbers.
+    Composers</a>, visualized.
   </p>
 
   <!-- ONE filter row, above everything it scopes. The search and the readership brush both

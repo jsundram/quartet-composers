@@ -785,10 +785,7 @@ function applyFilters(settled) {
     // third live write that has a BOX belongs below the guard with this one.
     // The ring is derived from the filtered group, so the key that explains it and the row chips
     // that repeat it both move when the filter does. Table.render() repaints the chips anyway.
-    // The lede names the same two things the key does, so it moves with them or it contradicts
-    // the picture it is introducing.
     renderLegend();
-    setLede();
     Table.render(visible);
     // A pinned composer that a filter just excluded would leave a detail panel describing someone
     // invisible in both views. Drop the pin rather than the coherence.
@@ -796,86 +793,6 @@ function applyFilters(settled) {
     else Table.select(selected, false);
     writeHash();
   }
-}
-
-// The lede's one sentence about WHICH dots are picked out, written from the chart rather than
-// typed into index.html. Three claims used to be hardcoded there — the name of the curated set,
-// its birth span, and a worked example — and all three are things the data decides: a re-scrape
-// moves the span, and a filter changes the set entirely, which is how the page came to say "the
-// repertoire, 1709 to 1906" over nine women born 1805 to 1962.
-//
-// The view count is rounded like every other MEDIAN on the page (invariant 9): the figure is a
-// smoothed estimate and any one month runs ~12% off it, so printing 216 would claim a precision
-// the number does not have. It uses "about" instead of atLeast()'s "+" because this is a sentence
-// — "read about 210+ times a month" is not English — and the two say the same thing, since twoSig
-// floors either way.
-function setLede() {
-  $("lede-picked").textContent = ledeClause(Chart.emphasisStats());
-  reserveLede();
-}
-
-// The sentence itself, from one set of stats — split out because reserveLede() below writes the
-// RESTING one into the same span to measure it, and two spellings of this template would reserve
-// a height for a sentence the page does not print.
-function ledeClause(st) {
-  if (!st) return "";
-  // "The one name picked out is X" was a fill-shaped claim about BOTH channels, and it was false
-  // wherever a ring survived alongside it — at #r=751-4501 it named Boccherini while three derived
-  // rings were on screen and the key was describing both. Naming the SET it is the last member of
-  // says the true thing and leaves the ring to the clause after the semicolon, which is the same
-  // division of labour the full sentence already had: the span describes the fill, the example is
-  // a ringed composer offered as an aside.
-  const subject = st.only
-    ? `Only ${st.only} is left from ${st.noun}`
-    : `The names picked out are ${st.noun}, ${st.from} to ${st.to}`;
-  const ex = st.example;
-  return ex
-    ? `${subject}; ${ex.name} wrote ${ex.quartets} quartet${ex.quartets === 1 ? "" : "s"} and is `
-      + `read about ${Histogram.fmt(twoSig(ex.views, -1))} times a month.`
-    : `${subject}.`;
-}
-
-// The clause is one to three lines depending on the viewport, and it EMPTIES whenever the view
-// picks nothing out — every mode but Fame, and any filter no curated composer survives. The
-// paragraph then collapses and everything below it moves UP: 40.6px at 390 and at 1280 alike,
-// whether a search empties the clause or a view pill does, which lifts the pill you just tapped
-// out from under a second tap at the same spot (issue 27). Same complaint the full-screen strip's
-// fixed height and .compact's reserved box answer, one component down the page.
-//
-// So the box is reserved — MEASURED, not typed. A min-height in styles.css would have to name the
-// tallest state, which is a function of the VIEWPORT (122px at 390 wide, 82px at 1280, the same
-// sentence) and of the DATA (it names a composer and two figures) — that is the drift setLede()
-// exists to prevent, typed into CSS. Measuring the RESTING sentence at the current width claims
-// neither: the box is exactly the paragraph the reader arrived at, so no blank band is held open
-// that the page did not already have.
-//
-// min-height rather than height, because the resting sentence is not PROVABLY the longest: under a
-// filter the example comes from a derived ring, whose name and figures are not Cambini's. Every
-// filter state measured wraps to the same three lines on a phone, so that is a guard, not a case,
-// and growing by a line beats clipping the sentence. The swap is synchronous — nothing paints
-// between writing the resting text into the span and writing back what is shown.
-//
-// It settles the plot's TOP, not its HEIGHT: each view sizes its own plot, so everything under the
-// chart still moves by up to 61px on a phone and 150px at 1280 when the view changes. That is an
-// encoding rather than a collapse and it stays; what moved is the switcher, which now sits ABOVE
-// the plot so no control is placed by the box it resizes (issue 29, index.html).
-let ledeW = -1;                        // the width the reservation was last measured at
-function reserveLede() {
-  const p = document.querySelector(".lede"), el = $("lede-picked");
-  // Not laid out: full screen sets .lede display:none, so there is nothing to measure and the box
-  // we already reserved stays on the element for the windowed layout to come back to. But it is no
-  // longer a MEASUREMENT of anything — the claim can change while the paragraph is hidden — so the
-  // width it was taken at is invalidated too, or the observer's guard reads "same width, nothing to
-  // do" on the way out and keeps a reservation for a sentence the page has stopped making. At 360
-  // that is a 122px box under a 142px paragraph: enter full screen, press Women, come back.
-  if (!p.clientWidth) { ledeW = -1; return; }
-  const shown = el.textContent;
-  el.textContent = ledeClause(Chart.emphasisStats(true));   // true: the sentence AT REST
-  p.style.minHeight = "";              // measure the SENTENCE, not the last reservation
-  const h = p.getBoundingClientRect().height;
-  el.textContent = shown;
-  p.style.minHeight = Math.ceil(h) + "px";
-  ledeW = p.clientWidth;
 }
 
 // ---- provenance ------------------------------------------------------------
@@ -1106,13 +1023,6 @@ function wire() {
     raf = requestAnimationFrame(() => { Chart.resize(); Histogram.resize(); });
   }).observe($("plot"));
 
-  // The lede's reservation is measured at one width, so a rotation or a window drag re-wraps the
-  // sentence and invalidates it. Guarded on the WIDTH rather than re-measuring on every callback:
-  // setting min-height changes the paragraph's height and re-enters this observer, and measuring
-  // again there is a loop.
-  const lede = document.querySelector(".lede");
-  new ResizeObserver(() => { if (lede.clientWidth !== ledeW) reserveLede(); }).observe(lede);
-
   // Theme: chart.js and the legend BAKE colors into SVG/inline styles, which a CSS variable swap
   // cannot reach. theme.js clears the color cache before calling us, so re-reading here is safe.
   Theme.subscribe(() => {
@@ -1133,10 +1043,6 @@ function setMode(mode) {
   document.querySelectorAll(".controls .seg button").forEach(o => o.setAttribute("aria-pressed", String(o.dataset.mode === mode)));
   Chart.setMode(mode);
   renderLegend();                    // the views encode different things and need different keys
-  // ...and the lede introduces the same emphasis the key explains, so it moves with it or it goes
-  // on describing the view you just left. Only Fame picks any names out, so outside it the
-  // sentence is not reworded, it is unmade (Chart.emphasisStats returns null).
-  setLede();
   // The chips are painted from the view's encoding, but a full Table.render() empties tbody and
   // rebuilds ~880 rows -- which resets the scroll box to the top and destroys the focused row
   // under anyone who tabbed into the table. Only the colours change, so only repaint those.

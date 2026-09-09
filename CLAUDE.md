@@ -220,7 +220,7 @@ two audits a human grades. No test framework, and nothing to install:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 242 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 228 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
@@ -279,9 +279,8 @@ implementation of it. See `mocks/README.md`.
 
 ## Where to pick up
 
-`TODO.md` holds the open work with the reasoning behind each item, including two known defects (the
-readership brush has no keyboard path, and the lede's reserved height still moves the page when the
-gender pill and the brush are combined) and three things deliberately NOT being done, with why. Read
+`TODO.md` holds the open work with the reasoning behind each item, including one known defect (the
+readership brush has no keyboard path) and three things deliberately NOT being done, with why. Read
 it before starting something; it exists so a cold session doesn't re-derive a decision that was
 already made on evidence — or re-derive one badly, which the issue-31 entry records an instance of:
 a layout fix prescribed from a description of the bug rather than from a measurement of it, which
@@ -353,45 +352,31 @@ would not have worked.
   provenance line count the 884 rows the table actually holds. They are not inconsistent — they
   are answering different questions, and the provenance line is where the difference is named.
   README's 884s describe the dataset and the pipeline, not the plot, and stay.
-- **Prose the app can FALSIFY is built or cut; only prose it cannot is typed.** The rule was
-  "states a number or a range" until issue #24 found the third case, and the lede had one of each.
-  It used to hardcode "the repertoire, 1709 to 1906" and "Cambini wrote 149 quartets and is read
-  about 200 times a month" — three claims about the dataset that nothing checked. The median was
-  216, so the rounded figure was already wrong, and the first two went false the moment a filter
-  changed which names are picked out (nine women born 1805–1962, still captioned 1709 to 1906).
-  `setLede()` in `app.js` writes that sentence from `Chart.emphasisStats()`, beside `#count`, the
-  search placeholder and `setProv()`, which already worked this way. A generated sentence cannot
-  drift at all, which beats catching drift with a lint. Two edges it has to handle: one surviving
-  curated composer is NAMED, because "1732 to 1732" is not a range, and none leaves the claim
-  unmade rather than made about nobody.
-  The third case is a claim with no number in it that the app falsifies anyway — about the VIEW
-  rather than about the data. "Across is how many quartets they wrote, up is how much their
-  article is read" was typed, and true in Fame only: across is birth year in Timeline and Swarm,
-  up means nothing at all in Swarm, and the per-mode `HINTS` under the chart said so about 600
-  pixels below. **It is CUT, not derived**: the axes are already stated twice on screen by
-  whichever view is drawn — the axis titles in `chart.js` and that hint — so a third statement
-  could only ever be the copy that goes stale. Build a claim when it has no other statement on the
-  page; cut it when it does.
-  The same view-shaped bug ran one clause over, in the BUILT half, and is why `setMode()` now
-  calls `setLede()`: emphasis is Fame-only (`fillOf`, `strokeOf`, `widthOf` and `labelColorOf` all
-  fall through to the lifespan encoding), so in the other three views there are no names picked
-  out to introduce. `Chart.emphasisStats()` returns null outside Fame — the gate is in `chart.js`
-  because that is the file that knows which channels are Fame-only, and a fifth mode then gets the
-  answer for free. Outside Fame the sentence is not reworded, it is UNMADE.
-  **A clause that can be unmade has to leave its box behind.** Empty, the paragraph collapsed and
-  everything under it rose 40px — on a phone that lifted the view pill you had just pressed out
-  from under a second press (issue #27), the same churn the full-screen strip's fixed height and
-  `.compact`'s reserved box answer one component down the page. `reserveLede()` in `app.js` writes
-  the RESTING sentence into the span, measures the paragraph at the current width, writes the shown
-  text back and sets that as an inline `min-height`; a `ResizeObserver` on `.lede` re-measures when
-  the width changes, guarded on the WIDTH because setting `min-height` re-enters it. The height is
-  MEASURED and never typed for the same reason the sentence is: it is a function of the viewport
-  (122px at 390, 82px at 1280) and of the data, so a number in `styles.css` would be exactly the
-  drift `setLede()` exists to prevent. Reserving the RESTING sentence rather than the tallest
-  possible one is what keeps it from holding open a blank band the page never had, and
-  `Chart.emphasisStats(true)` is how it asks what that sentence is without disturbing what is
-  drawn. A second built sentence that can empty needs the same treatment, and `ledeClause()` is
-  split out of `setLede()` so the string that is measured is the string that is printed.
+- **Prose the app can FALSIFY is built or cut; only prose it cannot is typed — and CUT is the
+  first branch to try.** The rule was "states a number or a range" until issue #24 found the third
+  case: a claim with no number in it that the app falsifies anyway, about the VIEW rather than the
+  data. "Across is how many quartets they wrote, up is how much their article is read" was typed,
+  and true in Fame only — across is birth year in Timeline and Swarm, up means nothing at all in
+  Swarm. It was cut rather than derived per mode, because the axes are already stated twice on
+  screen by whichever view is drawn (the axis titles in `chart.js` and the per-mode `HINTS`), so a
+  third statement could only ever be the copy that goes stale.
+  **Issue #35 applied the same test to the built half and it failed too.** The lede carried a
+  sentence generated from `Chart.emphasisStats()` — which set is picked out, its birth span, a
+  worked example — and it was correct at every instant. What it cost was the machinery a claim that
+  can change LENGTH needs: it emptied outside Fame and under any filter no curated composer
+  survived, so the paragraph collapsed and everything below it rose 40px, lifting the pill you had
+  just pressed (#27). That bought `reserveLede()`, a width-guarded `ResizeObserver`, a `ledeClause()`
+  split so the measured string was the printed one, three sections of `ui.test.mjs` — and a
+  residual 20px shift it never did fix (#36), because the gender pill changes which sentence
+  "resting" means. All of it is gone. The lede is now one static line, and every claim it made is
+  still on the page in the component that owns it: the legend names the highlighted set, the axis
+  titles and the hint name the axes, `setProv()` says readership is English-only and what that
+  misses. `ui.test.mjs` 4m checks those three rather than the sentence, so cutting the prose cannot
+  quietly cut the information.
+  **The lesson is the ordering.** Before building a mechanism to make prose behave, ask whether the
+  prose should exist — a page that states a thing twice does not need the second one to be clever,
+  it needs it deleted. `#count`, the search placeholder and `setProv()` stay built because each is
+  the ONLY statement of what it says, and none of them can empty.
 - **The provenance line is built, not assigned.** `setProv()` in `app.js` linkifies every Wikidata
   property id it prints (`P569` -> its definition page), because an id is jargon a reader cannot
   check from the page. It links the TEXT rather than storing anchors in `composers.json`: that file
