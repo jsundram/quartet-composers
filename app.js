@@ -682,7 +682,6 @@ function applyFilters(settled) {
   const q = $("q").value;
   visible = intersect(intersect(Table.matches(q), Histogram.matches()), genderMatches());
   $("clear").hidden = !q;
-  $("hist-clear").hidden = !Histogram.getRange();
   $("hist-read").textContent = Histogram.label();
   // `settled` travels with it: the chart closes its frame in on what the filter kept, and that
   // must happen once at the end of a brush drag, not on every frame of one.
@@ -691,6 +690,22 @@ function applyFilters(settled) {
   const n = visible ? visible.size : ROWS.length;
   $("count").textContent = visible ? `${n} of ${ROWS.length}` : `${ROWS.length} composers`;
   if (settled !== false) {
+    // Inside the guard, not above it: appearing on the first frame of a brush drag makes this
+    // button a box that the press it is reacting to resizes. It shared line one of `.filterbar`
+    // with the "Readership" label, so unhiding it took that line from a 17.4px label to a 40px
+    // button and dropped the brush under the finger by 22.6px, with the gender pills and the view
+    // switcher going with it (#31). Nothing WRAPPED — below 640px the row is already three lines,
+    // pinned by `order` — which is why the fix on the CSS side was to give the button the pills'
+    // line rather than to reserve its width; styles.css carries that half. Waiting for the gesture
+    // costs nothing: the only caller that passes false is Histogram's own `onChange` mid-drag, and
+    // the `#r=` deep link boots through applyFilters(true), which the guard passes.
+    //
+    // Its two siblings ABOVE the guard are safe for reasons worth stating, since the split is the
+    // first thing a reader will question here. `#hist-read` is `.sr-only`, so Histogram.label()
+    // writes into a box with no layout; and `#count` only ever goes from the longest string it has
+    // ("884 composers") to a shorter one ("181 of 884"), so `.tablehead` cannot gain a line. A
+    // third live write that has a BOX belongs below the guard with this one.
+    $("hist-clear").hidden = !Histogram.getRange();
     // The ring is derived from the filtered group, so the key that explains it and the row chips
     // that repeat it both move when the filter does. Table.render() repaints the chips anyway.
     // The lede names the same two things the key does, so it moves with them or it contradicts

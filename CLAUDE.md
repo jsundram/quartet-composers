@@ -209,7 +209,7 @@ audits a human grades. No test framework, and nothing to install:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 214 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 223 behavioral checks against a real headless Chrome over CDP. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
@@ -268,11 +268,12 @@ implementation of it. See `mocks/README.md`.
 
 ## Where to pick up
 
-`TODO.md` holds the open work with the reasoning behind each item, including two known defects (the
-readership brush has no keyboard path, and it shows its Clear button mid-drag) and two things
-deliberately NOT being done, with why. Read it
-before starting something; it exists so a cold session doesn't re-derive a decision that was already
-made on evidence.
+`TODO.md` holds the open work with the reasoning behind each item, including one known defect (the
+readership brush has no keyboard path) and three things deliberately NOT being done, with why. Read
+it before starting something; it exists so a cold session doesn't re-derive a decision that was
+already made on evidence — or re-derive one badly, which the issue-31 entry records an instance of:
+a layout fix prescribed from a description of the bug rather than from a measurement of it, which
+would not have worked.
 
 ## Conventions
 
@@ -294,11 +295,19 @@ made on evidence.
   `#plot` is `flex:1` there, sized by the viewport rather than by the view, so there is nothing to
   absorb and every pixel above the chart is a pixel of chart. It costs 94px of a phone's first
   screen, which is what the old ordering was buying (issue 29). `placeDetail()`'s phone anchor
-  moved with the row — it inserts before `.legend`, or the panel lands above the chart. One control
-  still breaks the rule, one row up: the readership brush shows its Clear button on the first frame
-  of a drag, which wraps `.filterbar` on a phone and drops the brush 10.6px under the finger.
-  `TODO.md` records it beside the issue 29 entry, with the measurement and why neither fix is
-  obviously right.
+  moved with the row — it inserts before `.legend`, or the panel lands above the chart. The rule
+  reaches one row up too, where it took two changes rather than one (issue 31). WHEN the readership
+  brush's Clear button appears: `applyFilters()` unhides it INSIDE the `settled !== false` guard,
+  not above it, so it arrives when the gesture ends and not on the drag's first frame. WHERE it
+  appears: `#hist-clear{ order:6 }` below 640px gives it the gender pills' line, which is already
+  42px tall, instead of line one beside the `Readership` label — where showing it took that line
+  from a 17.4px label to a 40px button and dropped the brush, the pills and the plot by 22.6px.
+  Nothing ever WRAPPED (below 640px `#hist` is `flex:1 0 100%`, so the three lines are pinned by
+  `order`, not by width), which is why reserving the button's width — the fix `TODO.md` first
+  prescribed — would have changed nothing; that entry keeps the measurement as a record of getting
+  it wrong from a description. `ui.test.mjs` 4m5 now asserts every box in and under that row is
+  identical with the button shown and hidden, mid-drag and on release, under TOUCH emulation —
+  without it a 390px box is a narrow desktop and the button measures 28px instead of 40px.
 - **The table and the chart show short names; the detail panel shows the full title.**
   `names.js` is the only place that takes a canonical Wikipedia name apart, and it is a heuristic
   — see `SURNAME` there. It derives BOTH forms from one shared-surname map, so the two can never

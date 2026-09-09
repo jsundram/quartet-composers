@@ -1378,6 +1378,95 @@ for (const [w, h, mobile] of [[390, 844, true], [1280, 900, false]]) {
 }
 await viewport(1100, 1500);
 
+// --- 4m5. ...and neither does the brush, whose Clear button used to appear on the first frame ---
+// The last exception to the rule 4m4 settled, one row UP. Two separate defects met on this one
+// button (issue 31), and the section checks both because either alone still moves the page:
+//
+//   WHEN it appears — applyFilters() unhid it ABOVE the `settled !== false` guard, i.e. on the
+//   first "brush" event of a drag, so the control the finger was resting on moved mid-gesture.
+//   WHERE it appears — at order 0 it shared line one with the "Readership" label, and showing it
+//   took that line from a 17.4px label to a 40px button, dropping the whole row, the brush, the
+//   pills and the plot by 22.6px. Nothing WRAPPED and no line was added: `#hist` is `flex:1 0
+//   100%`, so below 640px the row is already three lines pinned by `order`, not by width. That is
+//   why reserving the button's width would have fixed nothing — line one had 200px spare — and
+//   why the button now takes the pills' line (order:6), which is already 42px tall.
+//
+// So the assertion is the strong one: EVERY box in and under the filter row measures identical
+// with the button shown and hidden, mid-drag and on release alike. 4m4 cannot see any of it —
+// those loops read `.controls .seg` across the four VIEWS, and the brush is not a view.
+//
+// With TOUCH EMULATION, for the reason section 7 states: setDeviceMetricsOverride alone leaves
+// (pointer:coarse) FALSE, so a 390px box is a narrow desktop and the button measures 28px there
+// instead of the 40px a real phone gets. Measured at 28 the step this section is about is 10.6px;
+// the honest number is 22.6px, and only the emulated device reports it.
+await viewport(390, 844, true);
+await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
+await goto(BASE);
+await sleep(700);
+// Everything the button's box could push: the brush itself, the two filters below it, and the
+// plot. A check on `#hist` alone passed a layout that moved the pills under a second tap.
+const rowTops = () => ev(`JSON.stringify(['#hist','#gender','.controls .seg','#plot']
+  .map(s=>+document.querySelector(s).getBoundingClientRect().top.toFixed(1)))`);
+const clearHidden = () => ev(`document.getElementById('hist-clear').hidden`);
+const drift = (a, b) => Math.max(...JSON.parse(a).map((v, i) => Math.abs(v - JSON.parse(b)[i])));
+const hb2 = await ev(`(()=>{const r=document.querySelector('#hist svg').getBoundingClientRect();
+  return {x:r.x,y:r.y,w:r.width,h:r.height}})()`);
+const rest5 = await rowTops();
+await mouse("mousePressed", hb2.x + hb2.w * 0.60, hb2.y + hb2.h * 0.4);
+await mouse("mouseMoved",   hb2.x + hb2.w * 0.78, hb2.y + hb2.h * 0.4);
+await sleep(250);
+const mid5 = await rowTops(), midHidden = await clearHidden();
+await mouse("mouseMoved",   hb2.x + hb2.w * 0.92, hb2.y + hb2.h * 0.4);
+await sleep(250);
+const mid5b = await rowTops();
+await mouse("mouseReleased", hb2.x + hb2.w * 0.96, hb2.y + hb2.h * 0.4);
+await sleep(500);
+const rel5 = await rowTops();
+check("a real touch device is what this section is measuring",
+      await ev(`matchMedia('(pointer:coarse)').matches`) === true
+      && await ev(`document.getElementById('hist-clear').getBoundingClientRect().height`) >= 40,
+      `Clear is ${await ev(`document.getElementById('hist-clear').getBoundingClientRect().height`)}px tall`);
+check("dragging the brush moves nothing in or under the filter row",
+      Math.max(drift(rest5, mid5), drift(rest5, mid5b)) < 1.5,
+      `tops ${rest5} -> ${mid5} mid-drag`);
+check("...because Clear stays hidden until the gesture ends", midHidden === true,
+      `hidden mid-drag ${midHidden}, on release ${await clearHidden()}`);
+// The second half. Before, this was the ACCEPTED residue — the finger has left the control, so a
+// step here is the cheap one — and TODO.md priced reserving the button's width against it. It
+// turned out the width was never the constraint (see the header), so the button moved to the
+// pills' line instead and there is no residue left to accept.
+check("...and arriving costs the page nothing either", drift(rest5, rel5) < 1.5,
+      `tops ${rest5} -> ${rel5} with Clear shown`);
+check("...but it does arrive, or the range cannot be cleared", (await clearHidden()) === false);
+// It has to land on the pills' line, not beside its own label, and flush with the brush it clears
+// — that alignment is the only thing on screen saying which control it belongs to, since the word
+// cannot say so ("Clear views" wraps this row at 360) and it now sits beside the gender pills,
+// which it does NOT clear. The accessible name carries what the alignment cannot.
+check("Clear sits on the pills' line, flush with the brush's right edge",
+      await ev(`(()=>{const c=document.getElementById('hist-clear').getBoundingClientRect();
+        const g=document.getElementById('gender').getBoundingClientRect();
+        const h=document.getElementById('hist').getBoundingClientRect();
+        return Math.abs(c.top-g.top) < 4 && Math.abs(c.right-h.right) < 1.5})()`),
+      await ev(`(()=>{const c=document.getElementById('hist-clear').getBoundingClientRect();
+        const h=document.getElementById('hist').getBoundingClientRect();
+        return 'clear right '+c.right.toFixed(1)+' vs brush right '+h.right.toFixed(1)})()`));
+check("...and says what it clears to a screen reader",
+      (await ev(`document.getElementById('hist-clear').getAttribute('aria-label')`) || "")
+        .toLowerCase().includes("readership"),
+      await ev(`document.getElementById('hist-clear').getAttribute('aria-label')`));
+await ev(`document.getElementById('hist-clear').click()`);
+await sleep(400);
+
+// The objection that kept the unhide above the guard: a `#r=` deep link must still boot with the
+// button shown. It does — boot calls applyFilters(TRUE) after Histogram.setRange(), and the guard
+// is `settled !== false`. Nothing in the app passes false except the brush's own mid-drag onChange.
+await goto(BASE + "#r=751-4501");
+await sleep(800);
+check("a #r= deep link still boots with Clear shown", (await clearHidden()) === false,
+      `range ${await ev(`document.getElementById('hist-read').textContent`)}`);
+await send("Emulation.setTouchEmulationEnabled", { enabled: false, maxTouchPoints: 0 });
+await viewport(1100, 1500);
+
 // --- 5. sorting ---------------------------------------------------------------
 await goto(BASE);
 await ev(`[...document.querySelectorAll('thead th button')].find(b=>b.textContent==='Quartets').click()`);
@@ -1418,9 +1507,25 @@ check("the phone viewport really reports a touch pointer",
 check("no horizontal overflow at 390px",
       await ev(`document.documentElement.scrollWidth <= 390`),
       "scrollWidth=" + await ev(`document.documentElement.scrollWidth`));
-const small = await ev(`[...document.querySelectorAll('.seg button,.btn')]
-  .filter(b=>b.offsetParent && b.getBoundingClientRect().height < 36).length`);
-check("control tap targets >= 36px tall", small === 0, `${small} too small`);
+// offsetParent is null while an element is `hidden`, so this scan only ever sees the controls that
+// are on screen RIGHT NOW — and at BASE with no range applied, the readership Clear button is not.
+// It was 28px for as long as this check has existed, 8px under the assertion and 12px under the
+// floor the phone block enforces, because `#hist-clear`'s ID outranks `.btn` whatever the order
+// (the same specificity trap styles.css documents for `.seg.sm`). So the scan runs TWICE: once at
+// rest, and once with a filter applied, which is the only way a control that hides itself is
+// audited at all. A third state that hides a control needs a third pass here.
+const tapTargets = async () => ev(`JSON.stringify([...document.querySelectorAll('.seg button,.btn')]
+  .filter(b=>b.offsetParent && b.getBoundingClientRect().height < 36)
+  .map(b=>(b.id||b.textContent.trim())+'='+b.getBoundingClientRect().height.toFixed(1)))`);
+const smallRest = await tapTargets();
+check("control tap targets >= 36px tall", smallRest === "[]", `too small: ${smallRest}`);
+await ev(`(()=>{ Histogram.setRange([751, 4501]); applyFilters(true) })()`);
+await sleep(400);
+const smallFiltered = await tapTargets();
+check("...including the ones only a filter puts on screen", smallFiltered === "[]",
+      `with a range applied, too small: ${smallFiltered}`);
+await ev(`Histogram.clear()`);
+await sleep(400);
 const cols = await ev(`document.querySelectorAll('tbody tr:first-child td:not(.wide-only)').length`);
 check("phone table drops to 4 columns", cols === 4, "cols=" + cols);
 check("table does not overflow its box at 390px",

@@ -505,42 +505,66 @@ here because it belongs to `checks.yml` rather than to a layout PR, and because 
 first: whether a stack bumping one generation per PR (v31 -> v32 -> v33) or per push is the rule
 being enforced.
 
-### The readership brush shows its Clear button mid-drag, which wraps the filter row — [#31](https://github.com/jsundram/quartet-composers/issues/31)
+### ~~The readership brush shows its Clear button mid-drag~~ — done, 2026-09-08, [#31](https://github.com/jsundram/quartet-composers/issues/31)
 The rule [#29](https://github.com/jsundram/quartet-composers/issues/29) settled — nothing a finger
-rests on may be placed by a box the same press resizes — has one exception left, and it is the row
-directly above the one that issue was about. `applyFilters()` sets
-`$("hist-clear").hidden = !Histogram.getRange()` BEFORE the `settled !== false` guard, so the Clear
-button appears on the first frame of a brush drag rather than at the end of the gesture. On a phone
-`.filterbar` wraps and that button costs the row a line. Measured in place at 390x844, tops before
--> after the button appears:
+rests on may be placed by a box the same press resizes — had one exception left, and it was the row
+directly above the one that issue was about. It turned out to be TWO defects meeting on one button,
+and fixing either alone still moved the page.
 
-| | before | after |
-|---|---|---|
-| `#hist` | 318.8 | 329.4 |
-| `#gender` | 381.8 | 392.4 |
-| `.controls .seg` | 455.8 | 466.4 |
-| `#plot` | 549.8 | 560.4 |
+**WHEN it appeared.** `applyFilters()` set `$("hist-clear").hidden = !Histogram.getRange()` BEFORE
+the `settled !== false` guard, so the button arrived on the first frame of a brush drag rather than
+at the end of the gesture. The line moved inside the guard. That does NOT cost the `#r=` boot,
+which was the first objection to it: boot calls `applyFilters(true)` after `Histogram.setRange()`,
+and `settled !== false` passes `true`. `applyFilters(false)` has exactly one source in the app —
+`Histogram.init`'s `onChange` — and inside `histogram.js` `done=false` comes only from
+`.on("brush", ...)`; `.on("end", ...)` passes `true` on both branches.
 
-So the brush — the control the finger is on — drops 10.6px mid-gesture, and pressing its Clear
-lifts the gender pills and the view switcher back by the same amount. Nothing at 1280, where the
-row does not wrap.
+**WHERE it appeared**, which is the half this entry originally got wrong and is worth reading if
+you are about to prescribe a layout fix from a description rather than from a measurement.
 
-**Not done, and not urgent**: it is a tenth of what #29 moved and well inside a 36px target, and
-the 4m4 checks cannot see it because they read `.controls .seg` across the four VIEWS and the brush
-is not a view.
+> The first version of this entry said `.filterbar` WRAPS when the button appears and that the fix
+> was to reserve the button's WIDTH. Both are false. Below 640px the row is already three lines —
+> `.filterbar #hist{ flex:1 0 100%; order:3 }`, with `#gender-label`/`#gender` at order 4/5 — so
+> the wrap points are pinned by `order`, not by available width. At order 0 the button simply
+> landed on line one beside the `Readership` label, and the whole shift was that line going from a
+> 17.4px `<label>` to a button. Line one had ~200px spare, so reserving width would have changed
+> nothing at all. Nothing wraps, and no line is ever added.
 
-**The cheap fix is cheaper than this entry first claimed.** Moving that one line inside the
-`settled` branch does NOT cost the `#r=` boot: boot calls `applyFilters(true)` after
-`Histogram.setRange(link.r)`, and the guard is `settled !== false`, which `true` passes. Measured
-with the line moved — `#r=751-4501` boots with the button shown, and a drag holds `#hist` at 318.8
-throughout instead of dropping it 10.6px on the first frame. The brush's own `onChange` is the only
-source of `false` anywhere, which is exactly the gesture the button should keep quiet through.
+Which also means the honest cost was never 10.6px. That figure was measured on a NARROW DESKTOP:
+`setDeviceMetricsOverride` leaves `(pointer:coarse)` false, and the button is 28px there. On a real
+touch device it is 40px (see below), and the step is **22.6px** — measured at 390 and at 360, both
+`moved=[0, 22.6, 22.6, 22.6, 22.6]` for `#hist`, `#gender`, `.controls` and `#plot`.
 
-What it leaves is one re-wrap at the END of the drag (318.8 -> 329.4 on release). That is the
-cheaper half — the gesture is over — but it is why the other option still exists: reserving the
-button's width means the row never wraps at all, at the cost of that width on every phone for a
-button that is usually absent. Do the one-liner first and see whether the release step earns the
-width.
+**The fix is `#hist-clear{ order:6; margin-left:auto }` below 640px**: the button takes the gender
+pills' third line, which is already 42px tall, so a 40px button costs it nothing. Measured at 390,
+360, 430, 640, 700 and 1280, touch and not, every box in and under the filter row is IDENTICAL with
+the button shown and hidden — no step mid-drag and none on release either. There is no residue left
+to accept, so the "reserve the width" trade this entry used to defer is gone rather than deferred.
+
+Its one real cost is copy, and it was known going in: `styles.css` already records that with the
+readout gone this button ends up beside the word "Gender", where it reads as if it clears that.
+`margin-left:auto` parks it at the far right, which puts its right edge exactly on the brush's
+(359px at 390 wide) — the only positional cue saying which control it belongs to. The word cannot
+carry it: "Clear views" wraps the row at 360. So the ACCESSIBLE name does
+(`aria-label="Clear readership filter"`), which alignment can never give a screen reader, and which
+also improves the wide row where the same adjacency has always existed.
+
+### ~~`#hist-clear` was 28px on a real touch device~~ — done, 2026-09-08, with [#31](https://github.com/jsundram/quartet-composers/issues/31)
+12px under the 40px floor `@media (hover:none) and (pointer:coarse) and (max-width:800px)` exists to
+enforce, because `#hist-clear{ min-height:28px }` is an ID and outranks `.btn` whatever the order —
+the same specificity trap `styles.css` already documents for `.seg.sm`, which DID opt back in while
+this button never did. Fixed by naming the ID in that rule.
+
+It survived because the suite could not see it. The tap-target scan filters on `offsetParent`,
+which is null while an element is `hidden`, and it ran at `BASE` with no range applied — so the one
+`.btn` on the page that is hidden at rest was the only one never audited, 8px under its own
+assertion. The scan now runs a second time with a filter applied. **A third state that hides a
+control needs a third pass there**, which is the general shape of the hole rather than this
+instance of it.
+
+Worth knowing that the two fixes are coupled in the direction that would have bitten: raising the
+button to 40px WITHOUT moving it more than doubles the step it causes, 10.6px to 22.6px. Taking the
+accessibility fix on its own would have made the layout defect worse.
 
 ### The Fame view drops birth year entirely
 Which is the thing the mocked-up "canon path" would have added: joining the repertoire in birth order

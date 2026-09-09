@@ -138,6 +138,11 @@ body.fs #filters .tablehead{ display:none }
 #gender-label{ margin-left:6px }
 #hist{ flex:1 1 auto; min-width:0; margin-right:2px; touch-action:none }   /* touch-action:none so d3-brush owns the drag */
 #hist svg{ display:block; width:100%; height:auto; overflow:visible }
+/* 28px because the row's own scale is small (see .seg.sm above). The phone block below raises it
+   to the touch floor, and has to name this ID to do it: an ID outranks .btn whatever the order,
+   which is the same specificity trap documented for .seg.sm one rule up. It sat 12px under the
+   floor until #31, unseen because the tap-target scan filters on offsetParent and ran with no
+   range applied — the one .btn hidden at rest was the one never audited. */
 #hist-clear{ min-height:28px; padding:0 10px; font-size:12px }
 /* d3-brush chrome: keep the unselected area readable and give the handles a visible grip. */
 #hist .selection{ fill:var(--accent); fill-opacity:.10; stroke:var(--accent); stroke-opacity:.55 }
@@ -360,7 +365,8 @@ body.fs .grid{ display:block }
 /* Phone-specific sizing. Targets REAL touch devices, not just a narrow desktop window. */
 @media (hover:none) and (pointer:coarse) and (max-width:800px){
   .scroll{ max-height:56vh }
-  .seg button, .seg.sm button, .btn{ min-height:40px }   /* keep tap targets at the 44px-ish floor */
+  /* keep tap targets at the 44px-ish floor. #hist-clear is named because an ID outranks .btn. */
+  .seg button, .seg.sm button, .btn, #hist-clear{ min-height:40px }
   #q{ min-height:42px }
 }
 
@@ -377,6 +383,22 @@ body.fs .grid{ display:block }
      against and `auto` would have shoved the label away from its own buttons. */
   #gender-label{ order:4 }
   #gender{ order:5; margin-left:0 }
+  /* The Clear button takes that third line too, at its far end, because it is the ONE control here
+     whose box appears and disappears under the reader's finger. Left at order 0 it shared line one
+     with the "Readership" label, and showing it took that line from a 17.4px label to a 40px button
+     — the whole row, the brush, the pills and the plot all dropped 22.6px, on the frame the brush
+     was released. Nothing wraps and no line is added either way (#hist is flex:1 0 100%, so the
+     three lines are pinned by `order`, not by width), which is why reserving its WIDTH would have
+     changed nothing: line one had 200px spare. The pills' line is already 42px tall, so a 40px
+     button costs it nothing and every box on the page measures identical with the button shown and
+     hidden — see ui.test.mjs 4m5.
+     margin-left:auto is doing two jobs. It parks the button at the far right, away from the pills
+     it does NOT clear (the adjacency #gender-label's margin answers on the wide row, arriving here
+     by a different door), and that lands its right edge exactly on the brush's — 359px at 390 wide
+     — which is the only positional cue left saying which control it belongs to. Its accessible name
+     says so outright, since alignment is not available to a screen reader and the visible word
+     cannot grow: "Clear views" wraps the row at 360. */
+  #hist-clear{ order:6; margin-left:auto }
   .wide-only{ display:none }
   tbody td{ padding:9px 8px }
   thead th button{ padding:10px 8px }
