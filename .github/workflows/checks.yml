@@ -78,6 +78,27 @@ jobs:
       - name: the prose lint's own tests (scripts/prose-lint.test.py)
         run: python3 scripts/prose-lint.test.py
 
+  # The browser suite. It was left out for years on the grounds that CI has no browser, which
+  # turns out not to be true of ubuntu-latest — it ships Google Chrome, and ui-test.sh's
+  # find_chrome already probes `google-chrome`. The only real blocker was node: the script needs
+  # >= 22 for a global WebSocket and the sw job pins 20, so this asks for its own.
+  #
+  # It still SKIPS with exit 0 if no browser is found, so this job can never fail for the reason
+  # the old comment assumed. If it proves flaky against a real browser, delete the job — the
+  # suite is designed to be run by hand and says so.
+  ui:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: which browser, if any
+        run: command -v google-chrome chromium chromium-browser || echo "none on PATH"
+      - name: behavioural checks (scripts/ui-test.sh)
+        run: scripts/ui-test.sh
+
   # The branch gates. A separate job so its failure reads as "this branch is unproven" rather than
   # as a broken service worker, and because both steps want the full history the sw job also asks
   # for. Pull requests only: a push to main has no base to compare against.
