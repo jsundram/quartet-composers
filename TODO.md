@@ -797,8 +797,8 @@ than the commit gate.
 
 ## Testing
 
-### `ui-test.sh` scores 231/240 under CI's Linux headless Chrome
-Not a browser problem — the premise that CI has no browser is simply false: `ubuntu-latest` ships
+### ~~`ui-test.sh` scores 231/240 under CI's Linux headless Chrome~~ — mostly done, #50
+Never a browser problem — the premise that CI has no browser is simply false: `ubuntu-latest` ships
 `/usr/bin/google-chrome`, `/usr/bin/chromium` and `/usr/bin/chromium-browser`, and `find_chrome`
 picks the first up without help. Measured on #43 with a temporary `ui` job (since removed): the
 suite runs to completion and 231 of the 240 checks pass. Two things had to be fixed to get that
@@ -807,26 +807,38 @@ far and both are still in `ui-test.sh`, because they are worth having anywhere: 
 prints `chrome.log` instead of expiring into a bare `ECONNREFUSED` from node with the log already
 deleted by the EXIT trap.
 
-**Eight of the nine failures are one cause**: `@media (hover:hover) and (pointer:fine)`
-(`styles.css:267`). Linux headless does not satisfy it, so the hover previews never fire and the
-`min-height` reservation the panel depends on is never applied — hence `lens draws its boundary
-circle`, `lens magnifies dots under the focus`, the three `hover previews into…` checks, and
-`pinning does not shove it either` (legend top 760 -> 1038, i.e. exactly the shove the reservation
-exists to prevent). The fix is `Emulation.setEmulatedMedia` with
-`features: [{name:"hover",value:"hover"},{name:"pointer",value:"fine"}]` — the suite already calls
-that API for the print check, and already emulates touch elsewhere, so the machinery is there.
-Note the shape of it before doing so: those checks exist because a POINTER exists, and forcing the
-feature makes them assert about an emulated one. That is the right trade for catching regressions,
-but it is a claim about a media query rather than about a mouse, and the comment should say so.
+**Eight of the nine were one cause and are fixed — but not by the fix this entry prescribed.**
+The cause was right: `@media (hover:hover) and (pointer:fine)` (`styles.css:267`), which a headless
+Linux Chrome does not satisfy, so the hover previews never fire and the panel's `min-height`
+reservation is never applied. The prescription was wrong, and wrong in the way this repo cares
+about — silently. `Emulation.setEmulatedMedia` accepts `features:[{name:"hover",…},{name:"pointer",…}]`,
+returns an empty success, and CHANGES NOTHING: Blink's media-feature overrides cover
+prefers-color-scheme and its neighbours, not the pointer ones (measured on Chromium 141, both
+headless and headful; `prefers-color-scheme` in the same call does take). `--blink-settings=`
+`primaryPointerType=4,availablePointerTypes=4,primaryHoverType=2,availableHoverTypes=2` DOES work
+at startup and is still the wrong answer: the first `setTouchEmulationEnabled` restores to the
+platform value rather than the flagged one when it is switched off, and it does so for every page
+in the browser, so one phone section poisons every desktop section after it. A suite that
+interleaves them cannot use it.
+What works is giving the machine a pointer instead of arguing with the page about one:
+`ui-test.sh` launches Chrome under **`xvfb-run`** when there is one, X reports a fine pointer and
+hover, and a touch toggle now restores TO that. `240/241` on this container, and the eight are
+back. The suite asserts which of the two it got — `the desktop viewport really reports a fine
+pointer`, section 2 — rather than leaving eight later checks to imply it, which is what turned a
+platform difference into eight bug reports against the app.
 
-**The ninth is a font metric**: `table does not overflow its box at 390px — 335 vs 326`. macOS and
-the runner do not have the same default sans, so a column measures 9px wider there. Emulating hover
-will not touch it. Either pin a font for the measurement or widen the assertion to a tolerance —
-but measure first rather than picking a number, which is the lesson issue 31 already paid for.
+**The ninth is a font metric and is still open**: `table does not overflow its box at 390px — 335
+vs 326`. macOS and a Linux runner do not have the same default sans (`system-ui` is DejaVu Sans
+here, which is wider than SF or Roboto), so the four phone columns measure 9px wider. The pointer
+fix does not touch it. Either pin a font for the measurement or widen the assertion to a
+tolerance — but measure the widest plausible font first rather than picking a number, which is the
+lesson issue 31 already paid for. It is the one check a Linux run still fails, and it is a genuine
+cross-platform difference rather than a harness artefact, which is why it was not folded into the
+rest.
 
-Worth doing because every check in that suite exists because something was actually broken, and
-they only run when somebody remembers to run them. Not urgent, and not free: it is nine checks and
-two mechanisms, on a suite whose value is that it tests the real thing.
+**Not addressed here: running the suite in CI.** It now passes everywhere except that one font
+check, so the remaining blocker is that check and not the browser. Worth doing once it is settled;
+until then the suite still only runs when somebody remembers to.
 
 ## Deliberately not doing
 
