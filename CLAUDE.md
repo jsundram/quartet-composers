@@ -226,7 +226,7 @@ human grades. No test framework, and nothing to install:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 241 behavioral checks against a real Chrome over CDP, the
+- `scripts/ui-test.sh` — 242 behavioral checks against a real Chrome over CDP, the
   last of which is the suite asserting its OWN stated size against both docs — some checks run in
   loops, so the literal `check(` count is not the number it reports and no offline count is exact.
   It is the one total `prose-lint.py` cannot take, and this is where it is known. It starts
@@ -253,12 +253,17 @@ human grades. No test framework, and nothing to install:
   **And every CDP call has a watchdog.** `send()` rejects after 60s, the socket closing rejects
   everything pending, and both print the checks that had already run — a dropped reply used to end
   the run as node's bare "unsettled top-level await" with zero lines of output, which is how one
-  oversized screenshot read as a random hang. That screenshot is the other half: print un-scrolls
-  the table, so the page is 884 rows and ~35,000px tall, and asking for it at deviceScaleFactor 2
-  made this Chromium drop the page target. `shot()` takes a `clip` now and the print one clips its
-  HEIGHT, to the 30th row: everything print changes is above the fold and the rest is the same row
-  850 more times. The scale is left at the dsf 2 every other shot here uses, because a human opens
-  these to look at them.
+  oversized screenshot read as a random hang. That screenshot is the other half, and its lesson is
+  **height spends width**. Print un-scrolls the table, so the page is 884 rows and ~35,000px tall,
+  and asking for it at deviceScaleFactor 2 made this Chromium drop the page target. The first fix
+  halved the SCALE, which was wrong: the screenshots are deleted unless `KEEP=1`, so what they are
+  for is the one look a failure gets, and whoever takes it reads a copy resized to fit a long-edge
+  cap and a visual-token budget. That resize is driven by the LONG EDGE, so the full-page shot
+  lands 94px wide at either scale — fewer megapixels bought nothing. `shot()` takes a `clip` now
+  and the print one clips its HEIGHT, to the 30th row: everything print changes is above the fold
+  and the rest is the same row 850 more times. `ui.test.mjs` 9b pins the property that bought —
+  every PNG the run wrote still resolves at 1:1 or better after that resize, measured off the
+  IHDR — because a comment claiming it could never go red.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
   `git diff --cached`); the meta-length and stated-count halves read the working tree and run in
   CI. `check_counts()` knows BOTH live totals — the roster (884) and what the chart can plot
