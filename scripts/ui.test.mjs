@@ -48,6 +48,29 @@ const send = (method, params = {}) => new Promise(res => {
   const i = ++id; pending.set(i, res); ws.send(JSON.stringify({ id: i, method, params }));
 });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+// A wait here is a POLL, not a budget (issue 48). The suite used to sleep ~100 of its ~110 seconds
+// — 116 fixed waits, most of them 1.7–2x the longest animation the app has, following DOM work that
+// animates nothing at all — and a budget is wrong in the other direction too: a cold CI runner can
+// miss 700ms. `settle` re-asks the page every 25ms until `expr` is truthy and returns what it got.
+// On timeout it returns the LAST value rather than throwing, so the check that follows fails with
+// its own message instead of this one's, and every check after it still runs.
+async function settle(expr, timeout = 4000) {
+  const t0 = Date.now(); let v;
+  while (!(v = await ev(expr)) && Date.now() - t0 < timeout) await sleep(25);
+  return v;
+}
+// The one thing a poll cannot see is a NON-event — "nothing moved", "hover does not pin" — so
+// those keep a fixed wait, and it is this one: a frame past chart.js's 420ms zoom tween, which is
+// the longest thing the app animates. Anything longer was waiting for nothing.
+const TWEEN = 450;
+// Whatever the app defers by requestAnimationFrame has run: setFull's resize, and the
+// ResizeObserver's, which is scheduled from a frame's layout step and so lands one frame later
+// than a plain rAF registered before it — hence a frame, a task, and a frame.
+const laidOut = () => ev(`new Promise(r => requestAnimationFrame(() => setTimeout(() => requestAnimationFrame(r))))`);
+// No d3 transition is in flight on the chart. d3 keeps its schedule on the node and deletes the
+// property when the last one ends, so this is the zoom tween's own "done" rather than a guess at
+// it, and it is what the fit-the-filter checks below wait on.
+const idle = () => settle(`!document.querySelector('#plot svg').__transition`);
 // NB every expression here is a TEMPLATE LITERAL, so a backslash is consumed before the browser
 // ever sees it: `/\s+/` arrives as `/s+/` and `/\d/` as `/d/`. Both are still valid regexes, so
 // nothing throws — the check just quietly matches the wrong thing or nothing at all, and passes.
@@ -56,6 +79,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 // see the shape that works.
 async function ev(expr) {
   const r = await send("Runtime.evaluate", { expression: expr, returnByValue: true, awaitPromise: true });
+  if (r.error) throw new Error(r.error.message + " :: " + expr);
   if (r.result?.exceptionDetails) throw new Error(r.result.exceptionDetails.text + " :: " + expr);
   return r.result.result.value;
 }
@@ -79,8 +103,14 @@ async function goto(url) {
   // the app boots from and there is nothing to race. Do not "simplify" this back to one navigate.
   await send("Page.navigate", { url: "about:blank" });
   await send("Page.navigate", { url });
-  for (let i = 0; i < 100; i++) { if (await ev("document.readyState === 'complete'")) break; await sleep(60); }
-  await sleep(700);
+  // Booted means DRAWN. The dots and the rows are the last synchronous thing start() produces, and
+  // laidOut() on top covers the ResizeObserver's deferred re-layout; anything later — the
+  // sparkline, a zoom tween — is polled for by the section that needs it. Polled rather than
+  // budgeted, and not thrown on: a page that never draws (section 8 offline) should fail the
+  // checks written for it, not abort the run.
+  await settle(`document.querySelectorAll('#plot svg circle.dot').length > 0
+    && document.querySelectorAll('tbody tr').length > 0`, 10000);
+  await laidOut();
   // Cheap proof the navigation actually happened. Nothing asserts the fragment SURVIVED, because
   // the app is allowed to rewrite it — it strips a value it rejects — and the sections that care
   // check the state it produced instead.
@@ -118,7 +148,7 @@ const box = await ev(`(()=>{const r=document.querySelector('#plot svg').getBound
 const before = await ev(`(()=>{const o={};document.querySelectorAll('#plot svg circle.dot')
   .forEach((e,i)=>o[i]=+e.getAttribute('r'));return o})()`);
 await mouse("mouseMoved", box.x + box.w * 0.55, box.y + box.h * 0.72);
-await sleep(400);
+await settle(`document.querySelector('#plot svg circle.lens-edge')?.style.display === ''`);
 check("lens draws its boundary circle", await ev(`document.querySelectorAll('#plot svg circle.lens-edge').length === 1 &&
                  document.querySelector('#plot svg circle.lens-edge').style.display !== 'none'`));
 const after = await ev(`(()=>{const o={};document.querySelectorAll('#plot svg circle.dot')
@@ -141,7 +171,7 @@ const dot = await ev(`(()=>{const s=document.querySelector('#plot svg');const r=
 // what the hash and the detail panel use.
 const top = (await ev(`document.querySelector('tbody tr td').title`)).trim();
 await mouse("mouseMoved", dot.x, dot.y);
-await sleep(300);
+await settle(`document.getElementById('flag').classList.contains('on')`);
 check("hover shows the name flag", await ev(`document.getElementById('flag').classList.contains('on')`),
       await ev(`document.getElementById('flag').textContent`));
 check("hover previews into the detail panel",
@@ -150,7 +180,7 @@ check("hover does NOT pin (no ring yet)", await ev(`!location.hash.includes('c='
 
 // --- 3. click pins ------------------------------------------------------------
 await mouse("mousePressed", dot.x, dot.y); await mouse("mouseReleased", dot.x, dot.y);
-await sleep(400);
+await settle(`location.hash.includes('c=')`);
 check("click pins to the URL",
       (await ev(`decodeURIComponent(location.hash).split("+").join(" ")`)).includes("c=" + top),
       await ev(`decodeURIComponent(location.hash)`));
@@ -173,7 +203,8 @@ check("document did NOT scroll on select", await ev(`window.scrollY === 0`), "sc
 // --- 3b. the readership sparkline ---------------------------------------------
 // readership.json is fetched AFTER the first paint and is not a boot dep, so the panel is
 // correct before it lands and grows the line when it does. Everything here waits for that.
-await sleep(600);
+const sparkLine = `document.querySelectorAll('#detail svg.spark path.spark-line').length`;
+await settle(sparkLine + " >= 1");
 check("the panel draws a readership sparkline",
       await ev(`document.querySelectorAll('#detail svg.spark path.spark-line').length >= 1`),
       "spark paths=" + await ev(`document.querySelectorAll('#detail svg.spark path.spark-line').length`));
@@ -197,7 +228,7 @@ check("no peak marker on a line whose caption does not name one",
 // Saariaho died in June 2023 and her article went from ~2,000 readers a month to 42,195. That is
 // what the spike branch is for, and it is the case a 12-month window structurally cannot show.
 await goto(BASE + "#c=" + encodeURIComponent("Kaija Saariaho"));
-await sleep(900);
+await settle(`!!document.querySelector('#detail .spark-cap')`);
 check("a real spike is captioned by its peak month and how far above typical it stood",
       /^peak [A-Z][a-z]{2} \d{4} — [\d,]+, [\d.]+× typical$/.test(await capOf()), await capOf());
 check("a captioned peak gets a marker on the line",
@@ -217,7 +248,8 @@ const sbox = await ev(`(()=>{const r=document.querySelector('#detail svg.spark')
   return {x:r.x,y:r.y,w:r.width,h:r.height}})()`);
 const capH = await ev(`document.querySelector('#detail .spark-cap').getBoundingClientRect().height`);
 await mouse("mouseMoved", sbox.x + sbox.w * 0.72, sbox.y + sbox.h / 2);
-await sleep(150);
+const readout = `document.querySelector('#detail .spark-cap').textContent.includes(' · ')`;
+await settle(readout);
 check("hovering the sparkline reads out that month and its count",
       /^[A-Z][a-z]{2} \d{4} · [\d,]+$/.test(await capOf()), await capOf());
 check("the hovered month is marked on the line",
@@ -225,28 +257,29 @@ check("the hovered month is marked on the line",
 check("the readout does not change the panel's height",
       Math.abs(await ev(`document.querySelector('#detail .spark-cap').getBoundingClientRect().height`) - capH) < 1);
 await mouse("mouseMoved", sbox.x - 40, sbox.y - 40);
-await sleep(150);
+const summary = `document.querySelector('#detail .spark-cap').textContent.startsWith('peak')`;
+await settle(summary);
 check("leaving the sparkline puts the summary back",
       (await capOf()).startsWith("peak"), await capOf());
 
 // The keyboard gets the same readout, not a second mechanism. This is a READ-ONLY value stepper,
 // which is why arrow keys are right here and wrong for the readership brush (see TODO).
 await ev(`document.querySelector('#detail svg.spark').focus()`);
-await sleep(150);
+await settle(readout);
 check("focusing the sparkline starts the readout at the peak",
       (await capOf()).startsWith("Jun 2023"), await capOf());
-const whoBefore = await ev(`document.querySelector('#detail h2').textContent`);
+const whoBefore = await ev(`document.querySelector('#detail h2').textContent`), atPeak = await capOf();
 await key("ArrowLeft"); await key("ArrowLeft"); await key("ArrowLeft");
-await sleep(150);
+await settle(`document.querySelector('#detail .spark-cap').textContent !== ${JSON.stringify(atPeak)}`);
 check("arrow keys step a month, not a composer",
       /^[A-Z][a-z]{2} \d{4} · [\d,]+$/.test(await capOf())
       && await ev(`document.querySelector('#detail h2').textContent`) === whoBefore,
       await capOf() + " | still " + await ev(`document.querySelector('#detail h2').textContent`));
 await key("Home");
-await sleep(150);
+await settle(`document.querySelector('#detail .spark-cap').textContent.startsWith('Jul 2015')`);
 check("Home reads the first month on the axis", (await capOf()).startsWith("Jul 2015"), await capOf());
 await ev(`document.querySelector('#detail svg.spark').blur()`);
-await sleep(150);
+await settle(summary);
 
 // --- 3d. the arithmetic edges, forced ------------------------------------------
 // Not reachable in today's readership.json — five series contain a zero month, none has a zero
@@ -281,12 +314,11 @@ check("an all-zero series draws no sparkline rather than an invisible one", allZ
       "spark nodes = " + allZero);
 await ev(`(()=>{ const name = document.querySelector('#detail h2').textContent;
   HIST.series[name] = window.__realSeries; renderDetail(selected, false); return true })()`);
-await sleep(150);
 
 // An article that did not exist in 2015 has nulls, and a null is a BREAK, not a zero — drawing it
 // as zero would claim nobody read a page that was not there. John Verrall's article starts in 2025.
 await goto(BASE + "#c=" + encodeURIComponent("John Verrall"));
-await sleep(900);
+await settle(sparkLine + " >= 1");
 check("a composer whose article is younger than the axis starts partway across",
       await ev(`(()=>{const p=document.querySelector('#detail path.spark-line');
         return p && +p.getAttribute('d').slice(1).split(",")[0] > 100})()`),
@@ -301,21 +333,27 @@ check("the blank stretch before a young article is named, not left to read as ze
 // The sparkline is the ONE drawn thing in this app whose colours are NOT baked into the SVG by
 // JS — it is plain inline SVG in the document, so a CSS variable reaches it and Theme.subscribe
 // has nothing to re-bake. That is a decision (see the note in styles.css), so it gets a check.
-const sparkLight = await ev(`getComputedStyle(document.querySelector('#detail path.spark-line')).stroke`);
-await ev(`Theme.set('dark')`); await sleep(300);
-const sparkDark = await ev(`getComputedStyle(document.querySelector('#detail path.spark-line')).stroke`);
+const sparkStroke = `getComputedStyle(document.querySelector('#detail path.spark-line')).stroke`;
+const sparkLight = await ev(sparkStroke);
+await ev(`Theme.set('dark')`);
+await settle(`${sparkStroke} !== ${JSON.stringify(sparkLight)}`);
+const sparkDark = await ev(sparkStroke);
 check("the sparkline follows the theme with no colour baked into the SVG",
       sparkLight !== sparkDark
       && !(await ev(`document.querySelector('#detail path.spark-line').hasAttribute('stroke')`)),
       `${sparkLight} -> ${sparkDark}`);
-await ev(`Theme.set('auto')`); await sleep(200);
+await ev(`Theme.set('auto')`);
+await settle(`${sparkStroke} === ${JSON.stringify(sparkLight)}`);
 
 // --- 4. search filters both views --------------------------------------------
+// The filters are synchronous — an input event has rebuilt the table by the time the dispatch
+// returns — so the polls in this section settle on their first ask. They are polls anyway: the
+// check reads the state it was written for, not a clock.
+const rowCount = `document.querySelectorAll('tbody tr').length`;
 await goto(BASE);
-await sleep(400);
 await ev(`(()=>{const q=document.getElementById('q'); q.value='haydn';
   q.dispatchEvent(new Event('input',{bubbles:true}));})()`);
-await sleep(300);
+await settle(rowCount + " === 2");
 check("search filters the table", await ev(`document.querySelectorAll('tbody tr').length`) === 2,
       "rows=" + await ev(`document.querySelectorAll('tbody tr').length`));
 check("search dims non-matching dots", await ev(`[...document.querySelectorAll('#plot svg circle.dot')]
@@ -336,7 +374,7 @@ const hb = await ev(`(()=>{const r=document.querySelector('#hist svg').getBoundi
 await mouse("mousePressed", hb.x + hb.w * 0.62, hb.y + hb.h * 0.4);
 await mouse("mouseMoved",   hb.x + hb.w * 0.85, hb.y + hb.h * 0.4);
 await mouse("mouseReleased", hb.x + hb.w * 0.99, hb.y + hb.h * 0.4);
-await sleep(500);
+await settle(`${rowCount} < ${totalRows}`);
 const filtered = await ev(`document.querySelectorAll('tbody tr').length`);
 check("brushing filters the table to the readable tail", filtered > 0 && filtered < totalRows / 2,
       `${filtered} of ${totalRows}`);
@@ -376,15 +414,14 @@ check("every gender pill is fully inside the filter row",
 // The two filters must INTERSECT, not replace one another.
 await ev(`(()=>{const q=document.getElementById('q'); q.value='quartet';
   q.dispatchEvent(new Event('input',{bubbles:true}));})()`);
-await sleep(300);
+await settle(`${rowCount} <= ${filtered}`);
 const both = await ev(`document.querySelectorAll('tbody tr').length`);
 check("search and brush combine rather than override", both <= filtered, `${both} <= ${filtered}`);
 await ev(`(()=>{const q=document.getElementById('q'); q.value='';
   q.dispatchEvent(new Event('input',{bubbles:true}));})()`);
-await sleep(200);
 
 await ev(`document.getElementById('reset-filters').click()`);
-await sleep(400);
+await settle(`${rowCount} === ${totalRows}`);
 check("Reset filters restores every row",
       await ev(`document.querySelectorAll('tbody tr').length`) === totalRows);
 check("...and drops the range from the URL", !(await ev(`location.hash`)).includes("r="));
@@ -396,7 +433,7 @@ check("...and drops the range from the URL", !(await ev(`location.hash`)).includ
 await mouse("mousePressed", hb.x + hb.w * 0.45, hb.y + hb.h * 0.4);
 await mouse("mouseMoved",   hb.x + hb.w * 0.60, hb.y + hb.h * 0.4);
 await mouse("mouseReleased", hb.x + hb.w * 0.72, hb.y + hb.h * 0.4);
-await sleep(400);
+await settle(`document.querySelectorAll('#hist .grips path').length === 2`);
 // Identified by POSITION, not by DOM order. The join is keyed by side, so which node d3 creates
 // first is not part of the contract — and a check that assumed it went red on a reorder that
 // changed nothing on screen, which is a test failing for its own reasons rather than the code's.
@@ -436,7 +473,7 @@ const eh = await ev(`(()=>{const r=document.querySelector('#hist .handle--e').ge
 await mouse("mousePressed", eh.cx, eh.cy);
 await mouse("mouseMoved",   eh.cx - 40, eh.cy);
 await mouse("mouseReleased", eh.cx - 60, eh.cy);
-await sleep(400);
+await settle(`JSON.stringify(Histogram.getRange()) !== ${JSON.stringify(JSON.stringify(r0))}`);
 const r1 = await ev(`Histogram.getRange()`);
 // Both halves of the message are guarded. An unguarded r0[0] here throws a TypeError while BUILDING
 // the failure text, which aborts the run and silently skips every check below — the same
@@ -446,7 +483,7 @@ check("dragging a grip resizes that end and leaves the other one alone",
       !!r0 && !!r1 && Math.abs(r1[0] - r0[0]) < r0[0] * 1e-6 && r1[1] < r0[1] * 0.9,
       `${span(r0)} -> ${span(r1)}`);
 await ev(`document.getElementById('reset-filters').click()`);
-await sleep(400);
+await settle(`document.getElementById('reset-filters').disabled`);
 
 // --- 4c. the frame holds: nothing escapes the plot rectangle under a zoom ----------------------
 // Pinned to the timeline view: it is the one with the birth-year domain and the size legend these
@@ -493,7 +530,7 @@ for (let i = 0; i < 6; i++) {
     y: frame.by + frame.bh / 2, deltaX: 0, deltaY: -120, pointerType: "mouse" });
   await sleep(80);
 }
-await sleep(300);
+await settle(`!document.getElementById('reset').disabled`);
 const outside = await ev(`(()=>{const s=document.querySelector('#plot svg');
   const b=s.querySelector('rect.bg').getBoundingClientRect();
   return [...s.querySelectorAll('circle.dot')].filter(c=>{const r=c.getBoundingClientRect();
@@ -644,7 +681,7 @@ const pinned = await ev(`(()=>{const seeds=new Set(Chart.seedNames());
   const r=[...document.querySelectorAll('tbody tr')]
     .find(r=>!seeds.has(r.querySelector('td').title));
   r.click(); return r.querySelector('td').title})()`);
-await sleep(400);
+await settle(`location.hash.includes('c=')`);
 const labelsAfter = await ev(`[...document.querySelectorAll('#plot svg text')]
   .filter(t => t.getAttribute('font-size') === '10.5').map(t => t.textContent)`);
 check("pinning an unnamed composer does not delete someone else's label",
@@ -683,7 +720,7 @@ for (let i = 0; i < 6; i++) {
     y: pbox.y + pbox.h / 2, deltaX: 0, deltaY: -120, pointerType: "mouse" });
   await sleep(80);
 }
-await sleep(400);
+await settle(`Chart.zoomK() > 1`);
 const zoomLabels = await ev(`[...document.querySelectorAll('#plot svg text')]
   .filter(t=>new Set(ROWS.map(d=>Names.short(d.name))).has(t.textContent)).length`);
 check("zooming the Fame view reveals more names", zoomLabels > restLabels,
@@ -693,7 +730,7 @@ check("the names it reveals are ones the seed never had",
         return [...document.querySelectorAll('#plot svg text')].map(t=>t.textContent)
           .filter(t=>new Set(ROWS.map(d=>Names.short(d.name))).has(t)).some(n=>!seed.has(n))})()`));
 await ev(`document.getElementById('reset').click()`);
-await sleep(600);
+await idle();
 check("and the resting picture is still just the seed",
       await ev(`(()=>{const seed=new Set(Chart.seedNames().map(Names.short));
         return [...document.querySelectorAll('#plot svg text')].map(t=>t.textContent)
@@ -775,7 +812,6 @@ check("every surname override still names a composer",
       (await ev(`Names.staleOverrides()`)).length === 0,
       "stale: " + JSON.stringify(await ev(`Names.staleOverrides()`)));
 await ev(`[...document.querySelectorAll('thead th button')].find(b=>b.textContent==='Composer').click()`);
-await sleep(200);
 check("sorting by Composer sorts by surname",
       await ev(`(()=>{const t=[...document.querySelectorAll('tbody tr td:first-child')]
         .slice(0,3).map(c=>c.textContent.trim());
@@ -863,7 +899,7 @@ const allRows = await ev(`document.querySelectorAll('tbody tr').length`);
 check("the gender filter lives in the one filter row, not in a card",
       await ev(`!!document.getElementById('filters').querySelector('#gender')`));
 await ev(`document.querySelector('#gender button[data-g="female"]').click()`);
-await sleep(700);          // the frame closes in on the filter over 420ms; these read the settled state
+await idle();              // the frame closes in on the filter over 420ms; these read the settled state
 const women = await ev(`document.querySelectorAll('tbody tr').length`);
 check("filtering to women filters the table", women > 100 && women < allRows / 2,
       `${women} of ${allRows}`);
@@ -942,7 +978,7 @@ check("every stated gender is reachable by a pill",
 // `women + men < allRows` instead goes vacuous the moment the data has no null claim; the
 // partition holds at zero and still catches nulls filed under "male".
 await ev(`document.querySelector('#gender button[data-g="male"]').click()`);
-await sleep(300);
+await settle(`${rowCount} !== ${women}`);
 const men = await ev(`document.querySelectorAll('tbody tr').length`);
 const noClaim = await ev(`ROWS.filter(d => d.gender == null).length`);
 check("the gender pills partition the roster — a null claim is in neither",
@@ -952,14 +988,13 @@ check("the gender pills partition the roster — a null claim is in neither",
 // Intersection, not replacement — the same contract the search box and the brush hold to.
 await ev(`(()=>{const q=document.getElementById('q'); q.value='haydn';
   q.dispatchEvent(new Event('input',{bubbles:true}));})()`);
-await sleep(300);
+await settle(`${rowCount} < 3`);
 check("gender and search combine rather than override",
       await ev(`document.querySelectorAll('tbody tr').length`) < 3, "haydn ∩ men");
 await ev(`(()=>{const q=document.getElementById('q'); q.value='';
   q.dispatchEvent(new Event('input',{bubbles:true}));})()`);
-await sleep(200);
 await ev(`document.querySelector('#gender button[data-g=""]').click()`);
-await sleep(300);
+await settle(`${rowCount} === ${allRows}`);
 check("clearing to All restores every row",
       await ev(`document.querySelectorAll('tbody tr').length`) === allRows);
 check("clearing drops the filter from the URL", !(await ev(`location.hash`)).includes("g="));
@@ -989,7 +1024,7 @@ await goto(BASE);
 check("nothing is fitted until something is filtered", await ev(`Chart.zoomK()`) === 1,
       "k=" + await ev(`Chart.zoomK()`));
 await ev(`document.querySelector('#gender button[data-g="female"]').click()`);
-await sleep(700);
+await idle();
 const fitK = await ev(`Chart.zoomK()`);
 check("filtering closes the frame in on what it kept", fitK > 1.2, "k=" + fitK);
 // One scale for both axes, so it is the TIGHTER one that ends up filling its side of the box and
@@ -1024,16 +1059,16 @@ for (let i = 0; i < 4; i++) {
     y: fbox.y + fbox.h / 2, deltaX: 0, deltaY: -120, pointerType: "mouse" });
   await sleep(80);
 }
-await sleep(300);
+await settle(`!document.getElementById('reset').disabled`);
 check("pinching a filtered view still lights the reset button",
       !(await ev(`document.getElementById('reset').disabled`)),
       "k=" + await ev(`Chart.zoomK()`));
 await ev(`document.getElementById('reset').click()`);
-await sleep(700);
+await idle();
 check("reset returns to the filter's frame, not to the whole field",
       Math.abs(await ev(`Chart.zoomK()`) - fitK) < 0.01, "k=" + await ev(`Chart.zoomK()`));
 await ev(`document.querySelector('#gender button[data-g=""]').click()`);
-await sleep(700);
+await idle();
 check("clearing the filter opens the frame back out", await ev(`Chart.zoomK()`) === 1,
       "k=" + await ev(`Chart.zoomK()`));
 
@@ -1046,7 +1081,7 @@ check("clearing the filter opens the frame back out", await ev(`Chart.zoomK()`) 
 const searchFor = q => ev(`(()=>{const el=document.getElementById('q'); el.value=${JSON.stringify(q)};
   el.dispatchEvent(new Event('input',{bubbles:true}));})()`);
 await searchFor("mozart");
-await sleep(700);
+await idle();
 check("searching one composer does not zoom the chart", await ev(`Chart.zoomK()`) === 1,
       "k=" + await ev(`Chart.zoomK()`));
 const upDots = `[...document.querySelectorAll('#plot svg circle.dot')]
@@ -1055,17 +1090,17 @@ check("and the one match is still emphasised against the field",
       await ev(upDots) === 1, "emphasised dots=" + await ev(upDots));
 // Two dots have a real box and still are not a picture; three Haydns would not be either.
 await searchFor("haydn");
-await sleep(700);
+await idle();
 check("nor does a two-composer search", await ev(`Chart.zoomK()`) === 1,
       "k=" + await ev(`Chart.zoomK()`));
 // The threshold is a floor on a degenerate box, NOT a retreat from fitting filters: a search with
 // a group behind it still gets the frame closed in on it.
 await searchFor("anton");
-await sleep(700);
+await idle();
 check("a search that keeps a group still fits the frame", await ev(`Chart.zoomK()`) > 1.2,
       "k=" + await ev(`Chart.zoomK()`));
 await searchFor("");
-await sleep(700);
+await idle();
 check("clearing the search opens the frame back out", await ev(`Chart.zoomK()`) === 1,
       "k=" + await ev(`Chart.zoomK()`));
 // Skipping the fit means the FULL EXTENT, not wherever the reader had pinched to. It is the one
@@ -1080,19 +1115,18 @@ for (let i = 0; i < 8; i++) {
     y: zbox.y + zbox.h / 2, deltaX: 0, deltaY: -300, pointerType: "mouse" });
   await sleep(120);
 }
-await sleep(400);
+await settle(`Chart.zoomK() > 2`);
 const pinched = await ev(`Chart.zoomK()`);
 await searchFor("mozart");
-await sleep(700);
+await idle();
 check("a search from a pinched view returns to the full field, not to the pinch",
       pinched > 2 && await ev(`Chart.zoomK()`) === 1,
       `pinched to k=${pinched}, then k=${await ev(`Chart.zoomK()`)}`);
 await searchFor("");
-await sleep(700);
 // Each view fits its own filter: the same composers occupy a different box in a timeline than in
 // a log-log readership cloud, so a view switch recomputes the frame instead of carrying it over.
 await goto(BASE + "#g=female&v=scatter");
-await sleep(700);
+await idle();
 const scatterK = await ev(`Chart.zoomK()`);
 // A modest fit, and that is the point: the women span nearly the whole birth-year range, so the
 // timeline has little to close in on where the readership cloud had a great deal.
@@ -1117,7 +1151,7 @@ check("the resting view rings the curated three and nothing else",
       await ev(`Chart.derivedRings()`) === 0 && restRings.dots === 3,
       `${restRings.dots} rings, ${await ev(`Chart.derivedRings()`)} derived`);
 await ev(`document.querySelector('#gender button[data-g="female"]').click()`);
-await sleep(700);
+await idle();
 const womenRings = await ev(ringsOf);
 check("filtering to the women rings three of THEM", await ev(`Chart.derivedRings()`) === 3,
       "derived=" + await ev(`Chart.derivedRings()`));
@@ -1187,14 +1221,12 @@ check("the table chip follows the derived ring",
 // ring budget is THREE, not three-plus-three, or a filter that changes almost nothing would
 // double the ink.
 await goto(BASE + "#g=male");
-await sleep(700);
 check("a filter that keeps the curated three derives none",
       await ev(`Chart.derivedRings()`) === 0 && (await ev(ringsOf)).dots === 3,
       "derived=" + await ev(`Chart.derivedRings()`));
 // A ring means "stands out from the crowd it is drawn in", so it needs a crowd. Two Haydns are
 // already the whole picture; ringing them would be pointing at everything.
 await goto(BASE + "#q=haydn");
-await sleep(700);
 check("too small a group to have a crowd derives no rings",
       await ev(`Chart.derivedRings()`) === 0, "derived=" + await ev(`Chart.derivedRings()`));
 
@@ -1212,7 +1244,6 @@ const filledOf = `(()=>{const sel=getComputedStyle(document.documentElement)
     const f=c.getAttribute('fill'); return (f===sel||f===rgb) && shown(c)});
   return hit.length})()`;
 await goto(BASE);
-await sleep(700);
 const restFill = await ev(filledOf);
 check("the resting view fills the default repertoire", restFill === 10, "filled=" + restFill);
 // The gate is the whole design: not one of the nine clears 10,000 readers a month, so at rest
@@ -1222,7 +1253,6 @@ check("and none of the women's set is filled at rest",
       await ev(`Chart.seedNames().some(n => n === "Florence Price")`) === false,
       await ev(`JSON.stringify(Chart.seedNames())`));
 await goto(BASE + "#g=female");
-await sleep(700);
 const womenFill = await ev(filledOf);
 check("the Women filter swaps in a curated set of its own", womenFill === 9, "filled=" + womenFill);
 check("and it is the hand-written one, not a ranking",
@@ -1233,7 +1263,6 @@ check("and it is the hand-written one, not a ranking",
       await ev(`JSON.stringify(Chart.seedNames())`));
 // "Men" keeps every name in the default list, so nothing about that view may move.
 await goto(BASE + "#g=male");
-await sleep(700);
 check("filtering to the men changes neither the fill nor the key",
       await ev(filledOf) === 10
       && await ev(`document.getElementById('legend').textContent
@@ -1245,9 +1274,8 @@ check("filtering to the men changes neither the fill nor the key",
 // Those picks were then drawn unchanged in Fame: this exact route put a ring 3.1px from a filled
 // dot. Reachable from a shared link, which is why it is checked as one.
 await goto(BASE + "#v=scatter&g=female");
-await sleep(800);
 await ev(`[...document.querySelectorAll('.controls .seg button')].find(b=>b.dataset.mode==='fame').click()`);
-await sleep(900);
+await settle(`Chart.getMode() === 'fame'`);
 const afterSwitch = await ev(closestOf);
 check("arriving in Fame from another view re-derives the rings for THIS geometry",
       afterSwitch.rings === 3 && afterSwitch.slack > 2 * afterSwitch.r,
@@ -1258,20 +1286,17 @@ check("arriving in Fame from another view re-derives the rings for THIS geometry
 // Shrunk AFTER loading on purpose — loading fresh at this size derives correctly and proves
 // nothing. Pre-fix this measured 5.7px of clearance against a 10.6px bar.
 await goto(BASE + "#g=female");
-await sleep(800);
 await viewport(360, 780, true);
-await sleep(900);
+await laidOut();
 const onPhone = await ev(closestOf);
 check("and resizing to a phone re-derives them for the smaller box",
       onPhone.rings >= 1 && onPhone.fills > 0 && onPhone.slack > 2 * onPhone.r,
       `${onPhone.rings} rings, r=${onPhone.r}; closest pair ${onPhone.gap}px apart, `
       + `${onPhone.slack}px clear, needs ${(2 * onPhone.r).toFixed(1)}`);
 await viewport(1100, 1500);
-await sleep(300);
 // Same staleness contract as the composer names and the P21 values: a curated set keyed to a pill
 // that does not exist can never be shown, and looks maintained while doing nothing.
 await goto(BASE);
-await sleep(500);
 check("every curated set is reachable by a pill",
       await ev(`Chart.repertoireKeys().every(k =>
         [...document.querySelectorAll('#gender button')].some(b => b.dataset.g === k))`),
@@ -1286,7 +1311,6 @@ check("every curated set is reachable by a pill",
 // the readership caveat was later cut from the footnote deliberately rather than moved, so nothing
 // here pretends it survived somewhere else.
 await goto(BASE);
-await sleep(600);
 // Defined here because the sections below still use it and its old home was one of the three this
 // replaced. searchFor() lives up in section 4.
 const pill = m => ev(`document.querySelector('.controls .seg button[data-mode="${m}"]').click()`);
@@ -1311,7 +1335,6 @@ check("the axes are still named by the chart itself",
 const ledeH = () => ev(`document.querySelector('.lede').getBoundingClientRect().height`);
 const ledeRest = await ledeH();
 await goto(BASE + "#g=female&r=751-4501");
-await sleep(800);
 check("no filter changes the lede's height any more",
       Math.abs(await ledeH() - ledeRest) < 0.5,
       `${ledeRest.toFixed(1)} -> ${(await ledeH()).toFixed(1)} under the combination that moved it 20px`);
@@ -1319,7 +1342,6 @@ check("...and it reserves no height of its own to go stale",
       await ev(`!document.querySelector('.lede').style.minHeight`),
       await ev(`JSON.stringify(document.querySelector('.lede').style.minHeight)`));
 await goto(BASE);
-await sleep(600);
 
 // --- 4m4. ...and neither does a view switch, because the switcher is no longer under the plot ---
 // The residue of 4m3 (issue 29). Reserving the lede settled the plot's TOP; its HEIGHT still
@@ -1342,12 +1364,11 @@ const plotHeight = () => ev(`document.getElementById('plot').getBoundingClientRe
 for (const [w, h, mobile] of [[390, 844, true], [1280, 900, false]]) {
   await viewport(w, h, mobile);
   await goto(BASE);
-  await sleep(700);
   const restTop = await segTop(), restH = await plotHeight();
   let worstTop = 0, worstH = 0;
   for (const m of ["scatter", "swarm", "lens", "fame"]) {
     await pill(m);
-    await sleep(500);
+    await laidOut();
     worstTop = Math.max(worstTop, Math.abs(await segTop() - restTop));
     worstH = Math.max(worstH, Math.abs(await plotHeight() - restH));
   }
@@ -1374,7 +1395,6 @@ await viewport(1100, 1500);
 await viewport(390, 844, true);
 await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
 await goto(BASE);
-await sleep(700);
 // Everything a filter control's box could push, and the plot under all of it. A check on one
 // element passed a layout that moved the pills under a second tap.
 const rowTops = () => ev(`JSON.stringify(['#hist','#gender','.controls .seg','#reset-filters','#plot']
@@ -1391,13 +1411,15 @@ check("nothing is filtered at rest, and the button says so",
 // 1. the brush, mid-gesture and on release — the case issue 31 was reported for.
 await mouse("mousePressed", hb2.x + hb2.w * 0.60, hb2.y + hb2.h * 0.4);
 await mouse("mouseMoved",   hb2.x + hb2.w * 0.78, hb2.y + hb2.h * 0.4);
-await sleep(250);
+await settle(`!document.getElementById('reset-filters').disabled`);   // lit on the first frame
+await laidOut();
 const mid5 = await rowTops(), midState = await resetState();
 await mouse("mouseMoved",   hb2.x + hb2.w * 0.92, hb2.y + hb2.h * 0.4);
-await sleep(250);
+await laidOut();
 const mid5b = await rowTops();
 await mouse("mouseReleased", hb2.x + hb2.w * 0.96, hb2.y + hb2.h * 0.4);
-await sleep(500);
+await settle(`${rowCount} < ${allRows}`);
+await sleep(TWEEN);
 check("a real touch device is what this section is measuring",
       await ev(`matchMedia('(pointer:coarse)').matches`) === true
       && await ev(`document.getElementById('reset-filters').getBoundingClientRect().height`) >= 40,
@@ -1422,7 +1444,7 @@ const past = Math.max(1, hb2.x - 30);
 await mouse("mousePressed", hb2.x + hb2.w * 0.4, hb2.y + hb2.h * 0.4);
 await mouse("mouseMoved",   past, hb2.y + hb2.h * 0.4);
 await mouse("mouseReleased", past, hb2.y + hb2.h * 0.4);
-await sleep(500);
+await settle(`document.querySelectorAll('#hist .grips path').length === 2`);
 check("a grip pushed to the end of the axis stays inside the card (390px, in the row's own card)",
       await ev(`(()=>{const g=[...document.querySelectorAll('#hist .grips path')]
           .map(p=>p.getBoundingClientRect()).sort((a,c)=>a.left-c.left)[0];
@@ -1441,16 +1463,16 @@ check("a grip pushed to the end of the axis stays inside the card (390px, in the
 // brush range and lifted the whole page (issue 36). That sentence is gone, so the page genuinely
 // does not move and the check can say so directly.
 await ev(`document.querySelector('#gender button[data-g="female"]').click()`);
-await sleep(500);
 await searchFor("a");
-await sleep(600);
+await sleep(TWEEN);
 const all3 = await rowTops();
 check("all three filters at once still move nothing", drift(rest5, all3) < 1.5,
       `tops ${rest5} -> ${all3} with search + brush + gender`);
 
 // 3. and the button undoes all three, which is what its name promises.
 await ev(`document.getElementById('reset-filters').click()`);
-await sleep(700);
+await settle(`document.getElementById('reset-filters').disabled`);
+await sleep(TWEEN);
 check("Reset filters clears the search, the brush and the pills together",
       await ev(`(()=>{const q=document.getElementById('q').value;
         const g=document.querySelector('#gender button[data-g=""]').getAttribute('aria-pressed');
@@ -1477,7 +1499,6 @@ check("...having rebuilt the table exactly once",
 
 // 4. the deep link that used to be the objection to all of this still boots filtered.
 await goto(BASE + "#r=751-4501");
-await sleep(800);
 check("a #r= deep link boots with Reset filters lit",
       await resetState() === `{"off":false,"lit":true}`, await resetState());
 await send("Emulation.setTouchEmulationEnabled", { enabled: false, maxTouchPoints: 0 });
@@ -1486,12 +1507,10 @@ await viewport(1100, 1500);
 // --- 5. sorting ---------------------------------------------------------------
 await goto(BASE);
 await ev(`[...document.querySelectorAll('thead th button')].find(b=>b.textContent==='Quartets').click()`);
-await sleep(200);
 check("sort by Quartets desc puts Cambini first",
       (await ev(`document.querySelector('tbody tr td').textContent`)).includes("Cambini"),
       await ev(`document.querySelector('tbody tr td').textContent`));
 await ev(`[...document.querySelectorAll('thead th button')].find(b=>b.textContent==='Died').click()`);
-await sleep(200);
 check("sort by Died keeps living composers off the top",
       (await ev(`document.querySelectorAll('tbody tr')[0].children[2].textContent`)) !== "—",
       "first Died cell = " + await ev(`document.querySelectorAll('tbody tr')[0].children[2].textContent`));
@@ -1499,8 +1518,10 @@ check("sort by Died keeps living composers off the top",
 // --- 6. dark mode repaints the JS-baked colors --------------------------------
 // The timeline view, because the lifespan ramp is the legend piece that is baked from the tokens.
 await goto(BASE + "#v=scatter");
-const lightFill = await ev(`document.querySelector('#plot svg circle.dot').getAttribute('fill')`);
-await ev(`Theme.set('dark')`); await sleep(400);
+const dotFill = `document.querySelector('#plot svg circle.dot').getAttribute('fill')`;
+const lightFill = await ev(dotFill);
+await ev(`Theme.set('dark')`);
+await settle(`${dotFill} !== ${JSON.stringify(lightFill)}`);
 const darkFill = await ev(`document.querySelector('#plot svg circle.dot').getAttribute('fill')`);
 check("theme flip re-bakes the dot colors", lightFill !== darkFill, `${lightFill} -> ${darkFill}`);
 check("theme flip re-bakes the legend ramp",
@@ -1516,7 +1537,6 @@ await ev(`Theme.set('auto')`);
 await viewport(390, 844, true);
 await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
 await goto(BASE);
-await sleep(500);
 check("the phone viewport really reports a touch pointer",
       await ev(`matchMedia('(pointer:coarse)').matches && matchMedia('(hover:none)').matches`),
       "setDeviceMetricsOverride alone does NOT: chart.js's TOUCH and the compact panel both key off this");
@@ -1548,12 +1568,12 @@ check("a hidden control is actually not drawn",
       await ev(`[...document.querySelectorAll('[hidden]')]
         .map(e=>(e.id||e.tagName)+':'+getComputedStyle(e).display).join(', ') || 'nothing hidden'`));
 await ev(`(()=>{ Histogram.setRange([751, 4501]); applyFilters(true) })()`);
-await sleep(400);
+await settle(`!document.getElementById('reset-filters').disabled`);
 const smallFiltered = await tapTargets();
 check("...including the ones only a filter puts on screen", smallFiltered === "[]",
       `with a range applied, too small: ${smallFiltered}`);
 await ev(`Histogram.clear()`);
-await sleep(400);
+await settle(`document.getElementById('reset-filters').disabled`);
 const cols = await ev(`document.querySelectorAll('tbody tr:first-child td:not(.wide-only)').length`);
 check("phone table drops to 4 columns", cols === 4, "cols=" + cols);
 check("table does not overflow its box at 390px",
@@ -1576,7 +1596,7 @@ const mdot = await ev(`(()=>{const s=document.querySelector('#plot svg');
 check("the detail panel is hidden until something is pinned",
       await ev(`document.getElementById('detail').offsetParent === null`));
 await mouse("mousePressed", mdot.x, mdot.y); await mouse("mouseReleased", mdot.x, mdot.y);
-await sleep(400);
+await settle(`location.hash.includes('c=')`);
 check("tapping a dot on a phone answers inside the chart card",
       await ev(`document.getElementById('viz').contains(document.getElementById('detail'))`));
 const drop = await ev(`(()=>{const d=document.getElementById('detail').getBoundingClientRect();
@@ -1586,7 +1606,7 @@ check("the answer lands within a finger's reach of the chart", drop >= 0 && drop
 await shot("mobile-detail");
 
 await ev(`document.getElementById('fs').click()`);
-await sleep(600);
+await laidOut();
 check("full screen fills the viewport",
       await ev(`Math.abs(document.getElementById('viz').getBoundingClientRect().height - 844) < 2`),
       "h=" + await ev(`document.getElementById('viz').getBoundingClientRect().height`));
@@ -1631,7 +1651,8 @@ check("the full-screen strip draws no sparkline",
       "spark nodes in strip=" + await ev(`document.querySelectorAll('#detail .spark, #detail .spark-cap').length`));
 await shot("mobile-fs");
 await ev(`[...document.querySelectorAll('#detail .detail-nav button')].find(b=>b.textContent==='Clear').click()`);
-await sleep(400);
+await settle(`!location.hash.includes('c=')`);
+await laidOut();
 check("clearing the pin does not resize the full-screen chart",
       Math.abs(await ev(`document.getElementById('plot').getBoundingClientRect().height`) - plotH) < 1,
       "plot h " + plotH + " -> " + await ev(`document.getElementById('plot').getBoundingClientRect().height`));
@@ -1646,7 +1667,7 @@ const fh = await ev(`(()=>{const r=document.querySelector('#hist svg').getBoundi
 await mouse("mousePressed", fh.x + fh.w * 0.4, fh.y + fh.h * 0.4);
 await mouse("mouseMoved",   Math.max(1, fh.x - 30), fh.y + fh.h * 0.4);
 await mouse("mouseReleased", Math.max(1, fh.x - 30), fh.y + fh.h * 0.4);
-await sleep(500);
+await settle(`document.querySelectorAll('#hist .grips path').length === 2`);
 check("...and a grip at the end of the axis still clears the full-screen edge",
       await ev(`(()=>{const g=[...document.querySelectorAll('#hist .grips path')]
           .map(p=>p.getBoundingClientRect()).sort((a,c)=>a.left-c.left)[0];
@@ -1658,7 +1679,7 @@ check("...and a grip at the end of the axis still clears the full-screen edge",
         return (s.left - g.left).toFixed(1) + "px past the svg, " +
                g.left.toFixed(1) + "px from the screen edge"})()`));
 await ev(`document.getElementById('reset-filters').click()`);
-await sleep(400);
+await settle(`document.getElementById('reset-filters').disabled`);
 await send("Emulation.setTouchEmulationEnabled", { enabled: false });
 
 // --- 7c2. Share and Full screen become icons ON the chart, and stay usable there ---------------
@@ -1678,7 +1699,6 @@ await send("Emulation.setTouchEmulationEnabled", { enabled: false });
 await viewport(390, 844, true);
 await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
 await goto(BASE);
-await sleep(700);
 check("...and it really is a phone this time",
       await ev(`matchMedia('(pointer:coarse)').matches && matchMedia('(hover:none)').matches`));
 check("the chart tools sit on the plot at 390px",
@@ -1727,14 +1747,14 @@ check("the glyphs are icon-sized, not stretched to fill the button",
 let worstCentre = 0;
 for (const m of ["fame", "scatter", "lens"]) {
   await ev(`document.querySelector('.controls .seg button[data-mode="${m}"]').click()`);
-  await sleep(700);
+  await laidOut();
   worstCentre = Math.max(worstCentre, Math.abs(await ev(`(()=>{
     const t=document.querySelector('#plot svg text.ttl').getBoundingClientRect();
     const g=document.querySelector('#share .ico').getBoundingClientRect();
     return (g.top+g.bottom)/2 - (t.top+t.bottom)/2})()`)));
 }
 await ev(`document.querySelector('.controls .seg button[data-mode="fame"]').click()`);
-await sleep(600);
+await laidOut();
 check("the glyphs are centred on the axis title's line", worstCentre <= 1.5,
       `worst offset ${worstCentre.toFixed(1)}px between glyph centre and title centre`);
 check("...drawn as a bare glyph, not a pill moved onto the chart",
@@ -1749,7 +1769,7 @@ check("...drawn as a bare glyph, not a pill moved onto the chart",
 // on copied() — which is the point: the label they used to swap is `clip-path:inset(50%)` in this
 // layout, so the button acknowledged a copy nowhere a reader could see it.
 await ev(`document.getElementById('share').click()`);
-await sleep(200);
+await settle(`document.getElementById('share').classList.contains('copied')`);
 check("Share acknowledges a copy with the glyph, not just the clipped label",
       await ev(`(()=>{const b=document.getElementById('share');
         const vis=[...b.querySelectorAll('.ico')].filter(i=>getComputedStyle(i).display !== 'none');
@@ -1757,7 +1777,7 @@ check("Share acknowledges a copy with the glyph, not just the clipped label",
           && b.querySelector('.btn-t').textContent.trim() === 'Link copied'})()`),
       await ev(`[...document.querySelectorAll('#share .ico')]
         .map(i=>i.getAttribute('class')+':'+getComputedStyle(i).display).join(' | ')`));
-await sleep(1700);
+await settle(`!document.getElementById('share').classList.contains('copied')`);   // app.js reverts it after 1600ms
 check("...and goes back to the share glyph afterwards",
       await ev(`(()=>{const b=document.getElementById('share');
         return !b.classList.contains('copied')
@@ -1784,13 +1804,13 @@ const covered = () => ev(`(()=>{const t=document.getElementById('chart-tools').g
 let worstDots = 0, coveredNames = [];
 for (const m of ["fame", "scatter", "swarm", "lens"]) {
   await ev(`document.querySelector('.controls .seg button[data-mode="${m}"]').click()`);
-  await sleep(700);
+  await laidOut();
   const c = JSON.parse(await covered());
   worstDots = Math.max(worstDots, c.dots);
   coveredNames.push(...c.names.map(n => `${m}:${n}`));
 }
 await ev(`document.querySelector('.controls .seg button[data-mode="fame"]').click()`);
-await sleep(600);
+await laidOut();
 // Counted against the whole BUTTON, not the glyph: the target is invisible, so a dot it overlaps is
 // not covered — it silently stops being tappable, which is worse than being hidden because nothing
 // on screen explains it. That is what sets the band's height (see TOOLS_BAND in app.js).
@@ -1831,13 +1851,13 @@ for (let i = 0; i < 8; i++) {
     y: zbx.y + zbx.h * 0.92, deltaX: 0, deltaY: -300, pointerType: "mouse" });
   await sleep(120);
 }
-await sleep(500);
+await settle(`Chart.zoomK() > 1.5`);
 const uz = JSON.parse(await underTools());
 check("...and a real pinch agrees",
       uz.ctr === 0 && await ev(`Chart.zoomK()`) > 1.5,
       `k=${(await ev(`Chart.zoomK()`)).toFixed(1)}, ${uz.box} dots reach the band, ${uz.ctr} centres under it`);
 await ev(`Chart.resetZoom()`);
-await sleep(700);
+await idle();
 // And it fits INSIDE the reservation rather than merely happening to miss the dots: the band is the
 // plot group's own translate, read off the DOM, so this goes red the moment Chart.setTopReserve is
 // dropped or the buttons grow — before anything is visibly covered. Zero coverage above is the
@@ -1865,7 +1885,7 @@ const fsBox = await ev(`(()=>{const r=document.getElementById('fs').getBoundingC
           clear:+Math.hypot(g.left-(r.left+3), g.top-(r.top+3)).toFixed(1)}})()`);
 await mouse("mousePressed", fsBox.x, fsBox.y);
 await mouse("mouseReleased", fsBox.x, fsBox.y);
-await sleep(700);
+await settle(`document.body.classList.contains('fs')`);
 check("a tap in the empty part of the hit target fires, not just on the glyph",
       await ev(`document.body.classList.contains('fs')`),
       `tapped ${fsBox.clear}px clear of the glyph`);
@@ -1879,13 +1899,12 @@ check("...and the icon swaps to the exit glyph rather than losing it",
 check("...and they are still on the plot in full screen",
       await ev(`document.getElementById('chart-tools').parentNode.id === 'plot'`));
 await ev(`document.getElementById('fs').click()`);
-await sleep(700);
+await settle(`!document.body.classList.contains('fs')`);
 // setData/setMode rebuild the SVG inside #plot. An overlay that a re-render deletes is the way this
 // breaks silently: the buttons are simply gone the first time the reader changes the view.
 await ev(`document.querySelector('.controls .seg button[data-mode="swarm"]').click()`);
-await sleep(600);
 await ev(`document.querySelector('.controls .seg button[data-mode="fame"]').click()`);
-await sleep(600);
+await settle(`Chart.getMode() === 'fame'`);
 check("a chart re-render does not delete the overlay",
       await ev(`document.getElementById('chart-tools').parentNode.id === 'plot'
         && !!document.querySelector('#plot > #chart-tools #share .ico')`));
@@ -1899,7 +1918,6 @@ check("a chart re-render does not delete the overlay",
 await send("Emulation.setTouchEmulationEnabled", { enabled: false });
 await viewport(600, 900, false);
 await goto(BASE);
-await sleep(700);
 check("a narrow window with a mouse gets the same geometry, not a 36px button",
       await ev(`(()=>{const t=document.querySelector('#plot svg text.ttl').getBoundingClientRect();
         return [...document.querySelectorAll('#chart-tools .btn')].every(b=>{
@@ -1914,7 +1932,7 @@ check("a narrow window with a mouse gets the same geometry, not a 36px button",
 
 // And on a desktop they go back to being words in the row, one element moved rather than two drawn.
 await viewport(1280, 900, false);
-await sleep(600);
+await settle(`document.getElementById('chart-tools').parentNode.classList.contains('controls')`);
 check("on a desktop they are words in the controls row again",
       await ev(`(()=>{const t=document.getElementById('chart-tools');
         return t.parentNode.classList.contains('controls')
@@ -1924,19 +1942,19 @@ check("on a desktop they are words in the controls row again",
 await send("Emulation.setTouchEmulationEnabled", { enabled: false });
 await viewport(390, 844, true);
 await goto(BASE);
-await sleep(700);
 
 // --- 7d. full screen on a real pointer: hover previews into the strip, and nothing moves --------
 await viewport(1280, 900);
 await goto(BASE);
 await ev(`document.getElementById('fs').click()`);
-await sleep(600);
+await laidOut();
 const fsPlotH = await ev(`document.getElementById('plot').getBoundingClientRect().height`);
 const fsDot = await ev(`(()=>{const s=document.querySelector('#plot svg');
   const c=[...s.querySelectorAll('circle.dot')].sort((a,b)=>+b.getAttribute('r')-+a.getAttribute('r'))[0];
   const b=c.getBoundingClientRect(); return {x:b.x+b.width/2, y:b.y+b.height/2}})()`);
 await mouse("mouseMoved", fsDot.x, fsDot.y);
-await sleep(300);
+await settle(`document.getElementById('detail').textContent.includes(${JSON.stringify(top)})`);
+await sleep(TWEEN);
 check("hovering in full screen previews into the strip",
       (await ev(`document.getElementById('detail').textContent`)).includes(top),
       "expected " + top);
@@ -1945,7 +1963,6 @@ check("hovering in full screen does not move the chart",
 check("a hover in full screen still does not pin", await ev(`!location.hash.includes('c=')`));
 await shot("desktop-fs-hover");
 await ev(`document.getElementById('fs').click()`);
-await sleep(400);
 
 // --- 7e. narrow window on a real pointer: the compact panel previews without moving the page ---
 // The one layout where hover and the in-flow compact panel meet. Its box is reserved (styles.css)
@@ -1957,7 +1974,8 @@ const ndot = await ev(`(()=>{const s=document.querySelector('#plot svg');
   const c=[...s.querySelectorAll('circle.dot')].sort((a,b)=>+b.getAttribute('r')-+a.getAttribute('r'))[0];
   const b=c.getBoundingClientRect(); return {x:b.x+b.width/2, y:b.y+b.height/2}})()`);
 await mouse("mouseMoved", ndot.x, ndot.y);
-await sleep(300);
+await settle(`document.getElementById('detail').textContent.includes(${JSON.stringify(top)})`);
+await sleep(TWEEN);
 check("a narrow window previews into the compact panel",
       (await ev(`document.getElementById('detail').textContent`)).includes(top), "expected " + top);
 const afterTop = await ev(`document.querySelector('#viz .legend').getBoundingClientRect().top`);
@@ -1966,7 +1984,8 @@ check("previewing does not shove the rest of the card down", Math.abs(afterTop -
 // Pinning adds the Prev/Next/Clear row, which is the tallest the panel ever gets — the reserved
 // box has to cover THAT, or the page still jumps at the moment you click.
 await mouse("mousePressed", ndot.x, ndot.y); await mouse("mouseReleased", ndot.x, ndot.y);
-await sleep(400);
+await settle(`location.hash.includes('c=')`);
+await sleep(TWEEN);
 const pinnedTop = await ev(`document.querySelector('#viz .legend').getBoundingClientRect().top`);
 check("pinning does not shove it either", Math.abs(pinnedTop - beforeTop) < 2,
       `legend top ${beforeTop.toFixed(0)} -> ${pinnedTop.toFixed(0)}`
@@ -1975,10 +1994,9 @@ check("pinning does not shove it either", Math.abs(pinnedTop - beforeTop) < 2,
 // the reservation is a spike caption — "peak Jun 2023 — 42,195, 18× typical" is half again as long
 // and is what would wrap first — so the box has to cover that one too.
 await goto(BASE + "#c=" + encodeURIComponent("Kaija Saariaho"));
-await sleep(900);
+await settle(`!!document.querySelector('#detail .spark-cap')`);
 const spikeTop = await ev(`document.querySelector('#viz .legend').getBoundingClientRect().top`);
 await goto(BASE);
-await sleep(600);
 check("the reservation covers the LONGEST caption, not just the first one tested",
       Math.abs(spikeTop - (await ev(`document.querySelector('#viz .legend').getBoundingClientRect().top`))) < 2,
       `legend top with a spike caption ${spikeTop.toFixed(0)} vs empty `
@@ -1991,7 +2009,7 @@ await viewport(844, 390, true);
 await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
 await goto(BASE);
 await ev(`document.getElementById('fs').click()`);
-await sleep(600);
+await laidOut();
 const land = await ev(`(()=>{const p=document.getElementById('plot').getBoundingClientRect();
   const d=document.getElementById('detail').getBoundingClientRect();
   return {plot:p.height, strip:d.height, vp:innerHeight}})()`);
@@ -2020,7 +2038,7 @@ for (let i = 0; i < 60; i++) {
   cached = await ev(`(async()=>{const k=(await caches.keys()).filter(n=>n.startsWith('quartets-v'));
     if(!k.length) return 0; return (await (await caches.open(k[0])).keys()).length})()`);
   if (cached >= 12) break;
-  await sleep(300);
+  await sleep(100);
 }
 check("service worker precached the whole shell", cached >= 12, cached + " entries");
 check("sw.js took control", await ev(`!!navigator.serviceWorker.controller`));
@@ -2041,7 +2059,7 @@ await send("Network.emulateNetworkConditions",
 // --- 9. print stylesheet -----------------------------------------------------------------------
 await goto(BASE);
 await send("Emulation.setEmulatedMedia", { media: "print" });
-await sleep(400);
+await settle(`getComputedStyle(document.querySelector('.controls')).display === 'none'`);
 check("print hides the interactive chrome",
       await ev(`getComputedStyle(document.querySelector('.controls')).display === 'none'`));
 check("print un-scrolls the table so every row is on the page",

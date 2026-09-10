@@ -41,7 +41,13 @@ PROFILE="$OUT/profile"
 # avoid, arriving by a different door; take the port before starting.
 pkill -f "remote-debugging-port=$CDP" 2>/dev/null
 pkill -f "http.server $PORT" 2>/dev/null
-sleep 0.5
+# Wait for the port to actually close rather than for half a second: nothing to kill costs nothing,
+# and a browser slow to die is waited for instead of raced (issue 48, the same shape as the
+# readiness loop below).
+for _ in $(seq 40); do
+  curl -sf "http://127.0.0.1:$CDP/json/version" >/dev/null 2>&1 || break
+  sleep 0.1
+done
 
 python3 -m http.server "$PORT" --bind 127.0.0.1 >/dev/null 2>&1 &
 SERVER=$!
