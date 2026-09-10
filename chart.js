@@ -266,9 +266,8 @@ window.Chart = (function () {
   // including the prolific end (Cambini, Ellerton, Krommer) that readership is blind to.
   let prom = new Map();
   // Below this a "prominent" dot is a data hole rather than a composer: prominence is distance
-  // from the centre of the cloud, so an article too new or too quiet to have a real number ranks
-  // high on one it does not have. Such a dot is still drawn and still selectable — it just cannot
-  // win a LABEL.
+  // from the centre, so an article with no real number ranks high on one it does not have. Still
+  // drawn and still selectable — it just cannot win a LABEL.
   const MIN_VIEWS = 5;
 
   function scoreProminence() {

@@ -70,9 +70,8 @@ def john_adams(d):
 
 @case("de la Tombelle: a list title that resolves to no article at all", "do not resolve")
 def redlink(d):
-    # Shipped for the life of the dataset: a redlink on the list page, counted by the pageviews
-    # API. Every other check here passes on it — the row is the right shape and the number is
-    # plausible.
+    # Shipped for the life of the dataset. Every other check here passes on it: the row is the
+    # right shape and the number is plausible.
     t = next(iter(d["people"]))
     d["people"][t]["canonical"] = None
 

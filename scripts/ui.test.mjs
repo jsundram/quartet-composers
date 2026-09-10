@@ -600,9 +600,8 @@ check("the diagonals are trimmed to the plot, not drawn past it",
         const b=s.querySelector('rect.bg'); const w=+b.getAttribute('width'), h=+b.getAttribute('height');
         return [...s.querySelectorAll('line.dg')].every(l=>['x1','x2'].every(a=>+l.getAttribute(a)>=-0.5 && +l.getAttribute(a)<=w+0.5)
           && ['y1','y2'].every(a=>+l.getAttribute(a)>=-0.5 && +l.getAttribute(a)<=h+0.5))})()`));
-// The chart and the readership filter are two pictures of one quantity, so they start at the same
-// place: under ten readers a month is not a readership worth resolving (issue 38). Two constants
-// in two files, which is what makes it worth asserting rather than reading.
+// Two pictures of one quantity, so they start in the same place (issue 38) — and two constants in
+// two files, which is what makes it worth asserting.
 const floors = await ev(`(()=>{
   const y=[...document.querySelectorAll('#plot svg text')]
     .filter(t=>t.getAttribute('text-anchor')==='end' && /^[\\d.]+k?$/.test(t.textContent));
@@ -899,11 +898,9 @@ check("every stated gender is reachable by a pill",
       (await ev(`unfilterableGenders()`)).length === 0,
       "unreachable: " + JSON.stringify(await ev(`unfilterableGenders()`)));
 
-// Unknown is in NEITHER set, so the three counts must PARTITION the roster.
-//
-// This asserted `women + men < allRows`, which is the same rule only while some composer actually
-// HAS a null claim — an inequality that goes vacuous the moment the data has none. The partition
-// holds at zero and still catches what it was for: nulls filed under "male" inflate men.
+// Unknown is in NEITHER set, so the three counts must PARTITION the roster. Asserting
+// `women + men < allRows` instead goes vacuous the moment the data has no null claim; the
+// partition holds at zero and still catches nulls filed under "male".
 await ev(`document.querySelector('#gender button[data-g="male"]').click()`);
 await sleep(300);
 const men = await ev(`document.querySelectorAll('tbody tr').length`);

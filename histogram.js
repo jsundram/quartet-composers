@@ -32,8 +32,7 @@ window.Histogram = (function () {
     rows = r.filter(d => d.views != null);
     const vals = rows.map(d => d.views);
     const hi = d3.max(vals);
-    // Geometric edges from the same floor the chart uses: under ten readers a month is not a
-    // readership worth resolving, and a fixed floor does not move when the roster does.
+    // Geometric edges, from LO rather than the data's own minimum.
     edges = d3.range(BINS + 1).map(i => Math.pow(10, Math.log10(LO) + (Math.log10(hi) - Math.log10(LO)) * i / BINS));
     counts = new Array(BINS).fill(0);
     for (const v of vals) {
@@ -233,8 +232,8 @@ window.Histogram = (function () {
   function matches() {
     if (!range) return null;
     const set = new Set();
-    // At the left edge the low bound means "everything below", or a composer under the floor is
-    // dropped by a brush that covers the whole axis.
+    // At the left edge the low bound means "everything below", or a brush across the whole axis
+    // drops a composer under the floor.
     const lo = range[0] <= edges[0] ? 0 : range[0];
     for (const d of rows) if (d.views >= lo && d.views <= range[1]) set.add(d.i);
     return set;

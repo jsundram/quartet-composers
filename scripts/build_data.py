@@ -102,9 +102,9 @@ def main():
     for e in listing["entries"]:
         title = e["title"]
         p = people.get(title, {})
-        # `canon` may be None (unresolved). `key` identifies the ROW and falls back to the list
-        # title, so two unresolved entries cannot collapse into one `seen` slot; `canon` stays None
-        # so the series lookup finds nothing rather than a stale entry under the raw title.
+        # `canon` may be None (unresolved), so `key` identifies the row instead — two unresolved
+        # entries must not collapse into one `seen` slot — and the series lookup finds nothing
+        # rather than a stale entry filed under the raw title.
         canon = p.get("canonical")
         key = canon or title
         birth, death = p.get("birth", e["birth"]), p.get("death", e["death"])
