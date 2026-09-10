@@ -2059,6 +2059,25 @@ check("...and goes back to the share glyph afterwards",
       await ev(`(()=>{const b=document.getElementById('share');
         return !b.classList.contains('copied')
           && b.querySelector('.btn-t').textContent.trim() === 'Share'})()`));
+// A CLIPBOARD WRITE THAT NEVER SETTLES still has to acknowledge, and it is not a hypothetical:
+// it is what the probe above found this suite's own Linux runner doing — `write: "pending"` four
+// seconds after the press, with `navigator.share` absent, so share() awaited a promise with no
+// rejection to catch and the button promised nothing. Stubbed rather than waited for, because the
+// platform that does it is not the platform this check has to run on: on macOS the real write
+// REJECTS, which the catch has always handled, and a check that only bites under Xvfb would leave
+// the fix unproven everywhere it is developed.
+await ev(`(()=>{ window.__clip = navigator.clipboard;
+  Object.defineProperty(navigator, 'clipboard',
+    { value: { writeText: () => new Promise(() => {}) }, configurable: true });
+  return 0 })()`);
+await ev(`document.getElementById('share').click()`);
+const stalled = await settle(`document.getElementById('share').classList.contains('copied')`);
+check("...and a clipboard write that never settles acknowledges anyway", stalled === true, "",
+      await ev(`[...document.querySelectorAll('#share .ico')]
+        .map(i=>i.getAttribute('class')+':'+getComputedStyle(i).display).join(' | ')`));
+await ev(`(()=>{ Object.defineProperty(navigator, 'clipboard',
+  { value: window.__clip, configurable: true }); return 0 })()`);
+await settle(`!document.getElementById('share').classList.contains('copied')`);
 check("...and #fs shows one glyph, not both",
       await ev(`(()=>{const vis=[...document.querySelectorAll('#fs .ico')]
         .filter(i=>getComputedStyle(i).display !== 'none'); return vis.length === 1

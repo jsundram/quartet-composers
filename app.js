@@ -625,6 +625,11 @@ function label(btn, text) {
   if (t) t.textContent = text; else btn.textContent = text;
 }
 
+// How long a clipboard write may take before the button acknowledges anyway. Past about a second
+// with no feedback the control reads as dead, which is the failure this whole pair of branches is
+// written to avoid; the URL bar is showing the link either way.
+const STALL = 1000;
+
 async function share() {
   const btn = $("share");
   writeHash();
@@ -634,7 +639,13 @@ async function share() {
   // failure. Clipboard is the fallback, and the visible confirmation is the point either way.
   try {
     if (navigator.share) { await navigator.share(payload); return; }
-    await navigator.clipboard.writeText(location.href);
+    // A WRITE THAT NEVER SETTLES IS NOT A REJECTION, and there is no catch for one. Chrome under
+    // a bare X server leaves writeText pending indefinitely rather than resolving or refusing —
+    // measured on this repo's own CI runner, where the button sat unacknowledged with the promise
+    // still pending four seconds after the press. An unraced await here is a Share button that
+    // promises nothing and delivers nothing, on a platform nobody would think to test.
+    await Promise.race([navigator.clipboard.writeText(location.href),
+                        new Promise((_, no) => setTimeout(no, STALL))]);
     copied(btn);
   } catch {
     copied(btn);                          // clipboard blocked: the URL bar already shows the link
