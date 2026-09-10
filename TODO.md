@@ -757,6 +757,39 @@ than the commit gate.
 
 ---
 
+## Testing
+
+### `ui-test.sh` scores 231/240 under CI's Linux headless Chrome
+Not a browser problem — the premise that CI has no browser is simply false: `ubuntu-latest` ships
+`/usr/bin/google-chrome`, `/usr/bin/chromium` and `/usr/bin/chromium-browser`, and `find_chrome`
+picks the first up without help. Measured on #43 with a temporary `ui` job (since removed): the
+suite runs to completion and 231 of the 240 checks pass. Two things had to be fixed to get that
+far and both are still in `ui-test.sh`, because they are worth having anywhere: `--disable-dev-shm-usage`
+(a CI container's `/dev/shm` is ~64MB and Chrome dies reaching past it) and a readiness loop that
+prints `chrome.log` instead of expiring into a bare `ECONNREFUSED` from node with the log already
+deleted by the EXIT trap.
+
+**Eight of the nine failures are one cause**: `@media (hover:hover) and (pointer:fine)`
+(`styles.css:267`). Linux headless does not satisfy it, so the hover previews never fire and the
+`min-height` reservation the panel depends on is never applied — hence `lens draws its boundary
+circle`, `lens magnifies dots under the focus`, the three `hover previews into…` checks, and
+`pinning does not shove it either` (legend top 760 -> 1038, i.e. exactly the shove the reservation
+exists to prevent). The fix is `Emulation.setEmulatedMedia` with
+`features: [{name:"hover",value:"hover"},{name:"pointer",value:"fine"}]` — the suite already calls
+that API for the print check, and already emulates touch elsewhere, so the machinery is there.
+Note the shape of it before doing so: those checks exist because a POINTER exists, and forcing the
+feature makes them assert about an emulated one. That is the right trade for catching regressions,
+but it is a claim about a media query rather than about a mouse, and the comment should say so.
+
+**The ninth is a font metric**: `table does not overflow its box at 390px — 335 vs 326`. macOS and
+the runner do not have the same default sans, so a column measures 9px wider there. Emulating hover
+will not touch it. Either pin a font for the measurement or widen the assertion to a tolerance —
+but measure first rather than picking a number, which is the lesson issue 31 already paid for.
+
+Worth doing because every check in that suite exists because something was actually broken, and
+they only run when somebody remembers to run them. Not urgent, and not free: it is nine checks and
+two mechanisms, on a suite whose value is that it tests the real thing.
+
 ## Deliberately not doing
 
 **Per-language page views.** English Wikipedia readership systematically undercounts non-Anglophone
