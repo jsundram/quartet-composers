@@ -361,8 +361,8 @@ that run, so the denominator does not follow the total above. Of those nine, eig
 missing pointer and are fixed (#50, above); the ninth is a FONT metric — `system-ui` is DejaVu
 Sans on a Linux runner and the four phone columns measure 9px wider than on a Mac, so `table does
 not overflow its box at 390px` reads 335 against 326. It is a real cross-platform difference
-rather than a harness artefact, it is the one check a Linux run still fails, and TODO.md holds it
-open deliberately: measure the widest plausible font before widening either the column budget or
+rather than a harness artefact, it is the one check a Linux run still fails, and it is open as #53
+— which also holds the measurement TODO asked for before anyone widens either the column budget or
 the assertion.
 
 ## Design artifacts

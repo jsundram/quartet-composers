@@ -827,12 +827,14 @@ the only check still failing. The suite asserts which of the two it got — `the
 pointer`, section 2 — rather than leaving eight later checks to imply it, which is what turned a
 platform difference into eight bug reports against the app.
 
-**The ninth is a font metric and is still open**: `table does not overflow its box at 390px — 335
+**The ninth is a font metric and is still open — now #53**: `table does not overflow its box at 390px — 335
 vs 326`. macOS and a Linux runner do not have the same default sans (`system-ui` is DejaVu Sans
 here, which is wider than SF or Roboto), so the four phone columns measure 9px wider. The pointer
 fix does not touch it. Either pin a font for the measurement or widen the assertion to a
 tolerance — but measure the widest plausible font first rather than picking a number, which is the
-lesson issue 31 already paid for. It is the one check a Linux run still fails, and it is a genuine
+lesson issue 31 already paid for. #53 carries that measurement: the four phone headers total 198px
+in DejaVu Sans against 178px in Arial metrics, so the spread between faces is twice the 9px
+overflow, and the columns are sized by the header words rather than by any composer's name. It is the one check a Linux run still fails, and it is a genuine
 cross-platform difference rather than a harness artefact, which is why it was not folded into the
 rest.
 
