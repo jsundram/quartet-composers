@@ -834,24 +834,31 @@ interleaves them cannot use it.
 What works is giving the machine a pointer instead of arguing with the page about one:
 `ui-test.sh` launches Chrome under **`xvfb-run`** when there is one, X reports a fine pointer and
 hover, and a touch toggle now restores TO that. The eight are back, and the font metric below is
-the only check still failing. The suite asserts which of the two it got — `the desktop viewport really reports a fine
+fixed too, so nothing on that list is still failing. The suite asserts which of the two it got — `the desktop viewport really reports a fine
 pointer`, section 2 — rather than leaving eight later checks to imply it, which is what turned a
 platform difference into eight bug reports against the app.
 
-**The ninth is a font metric and is still open — now #53**: `table does not overflow its box at 390px — 335
-vs 326`. macOS and a Linux runner do not have the same default sans (`system-ui` is DejaVu Sans
-here, which is wider than SF or Roboto), so the four phone columns measure 9px wider. The pointer
-fix does not touch it. Either pin a font for the measurement or widen the assertion to a
-tolerance — but measure the widest plausible font first rather than picking a number, which is the
-lesson issue 31 already paid for. #53 carries that measurement: the four phone headers total 198px
-in DejaVu Sans against 178px in Arial metrics, so the spread between faces is twice the 9px
-overflow, and the columns are sized by the header words rather than by any composer's name. It is the one check a Linux run still fails, and it is a genuine
-cross-platform difference rather than a harness artefact, which is why it was not folded into the
-rest.
+**The ninth was a font metric and is FIXED** (#53): `table does not overflow its box at 390px —
+335 vs 326`. Neither option this entry offered survived the measuring it asked for. Pinning a face
+asserts about a layout no reader has — and a bundled webfont, the option nobody wrote down, is that
+same claim plus a precache entry, since the table still has to fit whatever face is drawn before it
+loads. A tolerance blunts a check whose real bug is a column pushed off the edge.
+What the measurement found is that the layout was the defect: ~6px of margin at 390px in the
+narrowest face on hand, none in the widest — and at 360px, the common Android width, it overflowed
+in EVERY face including the Mac's own SF (310 vs 296, Views clipped mid-number, sort arrow halved).
+The 390px check had been passing on the one width where the narrowest font happens to clear.
+So the fix gave back the width that was carrying nothing: the header word "Quartets" over a
+three-digit column (`short` in `table.js`, drawn as "Qts" with the full word kept as the sort
+button's accessible name) and the phone cell gutters, 8px to 6px. The check now asserts 390 AND
+360, because one width in the runner's own font is measuring the font.
+Measured on macOS across the faces installed here; a Linux run is inference, not a reading — the
+widest face available for the test clears 390px by ~49px and 360px by ~19px, where DejaVu was 9px
+short.
 
-**Not addressed here: running the suite in CI.** It now passes everywhere except that one font
-check, so the remaining blocker is that check and not the browser. Worth doing once it is settled;
-until then the suite still only runs when somebody remembers to.
+**Not addressed here: running the suite in CI.** Both blockers this entry named are now gone —
+the browser was never missing, and the font check was a real layout defect rather than a platform
+quirk — so what is left is the decision to add the job, plus `xvfb-run` in it. Until somebody
+does, the suite still only runs when somebody remembers to.
 
 ## Deliberately not doing
 

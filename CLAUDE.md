@@ -226,7 +226,7 @@ human grades. No test framework, and nothing to install:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 245 behavioral checks against a real Chrome over CDP, the
+- `scripts/ui-test.sh` — 247 behavioral checks against a real Chrome over CDP, the
   last of which is the suite asserting its OWN stated size against both docs — some checks run in
   loops, so the literal `check(` count is not the number it reports and no offline count is exact.
   It is the one total `prose-lint.py` cannot take, and this is where it is known. It starts
@@ -477,6 +477,17 @@ would not have worked.
   readership alongside the names — as a PARALLEL array, for the reason `build_data.py` carries
   canonical titles in one (invariant 4) — and why `make-og-svg.py`'s `short_names()` now takes
   rows rather than names: Joseph Haydn is one of the card's six labels.
+- **The phone table has to fit in a font you do not choose.** `system-ui` is SF on a Mac, Segoe on
+  Windows and DejaVu on most Linux — and DejaVu is wide enough that the four phone columns
+  overflowed 390px outright (#53), which is how the suite came to fail on a Linux runner and
+  nowhere else. Two things were paying width for nothing and now do not: a header WORD wider than
+  any value beneath it (`short` in `table.js`'s `COLS` — "Qts" is drawn, "Quartets" stays as the
+  sort button's accessible name in a second span, the same visually-hidden split `#chart-tools`
+  uses) and the cell gutters. The lesson is in what the measurement found on the way: at 360px, the
+  common Android width, the old table overflowed in EVERY face including SF, so the 390px check was
+  passing on the one width where the narrowest font happened to clear. `ui.test.mjs` asserts BOTH
+  widths for that reason — a fit measured in the runner's own font is measuring the font. A new
+  column, or a longer header, has to be measured the same way rather than eyeballed on a Mac.
 - **A number printed beside the chart counts the PLOTTABLE rows.** The empty detail panel said
   "884 composers, born 1582–1989" next to an x axis starting at 1709 — the 94 rows with no stated
   quartet count are in the table only, and three of them are the roster's earliest births.

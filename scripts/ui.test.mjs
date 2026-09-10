@@ -1024,7 +1024,7 @@ check("a compound surname is not split in half",
 check("every surname override still names a composer",
       (await ev(`Names.staleOverrides()`)).length === 0,
       "stale: " + JSON.stringify(await ev(`Names.staleOverrides()`)));
-await ev(`[...document.querySelectorAll('thead th button')].find(b=>b.textContent==='Composer').click()`);
+await ev(`document.querySelector('th.c-name button').click()`);
 check("sorting by Composer sorts by surname",
       await ev(`(()=>{const t=[...document.querySelectorAll('tbody tr td:first-child')]
         .slice(0,3).map(c=>c.textContent.trim());
@@ -1715,11 +1715,13 @@ await viewport(1100, 1500);
 
 // --- 5. sorting ---------------------------------------------------------------
 await goto(BASE);
-await ev(`[...document.querySelectorAll('thead th button')].find(b=>b.textContent==='Quartets').click()`);
+// By COLUMN, not by header text: one header abbreviates below 640px (table.js's `short`), so its
+// text is not a stable handle and matching it exactly threw here the moment "Qts" arrived.
+await ev(`document.querySelector('th.c-quartets button').click()`);
 check("sort by Quartets desc puts Cambini first",
       (await ev(`document.querySelector('tbody tr td').textContent`)).includes("Cambini"),
       await ev(`document.querySelector('tbody tr td').textContent`));
-await ev(`[...document.querySelectorAll('thead th button')].find(b=>b.textContent==='Died').click()`);
+await ev(`document.querySelector('th.c-death button').click()`);
 check("sort by Died keeps living composers off the top",
       (await ev(`document.querySelectorAll('tbody tr')[0].children[2].textContent`)) !== "—",
       "first Died cell = " + await ev(`document.querySelectorAll('tbody tr')[0].children[2].textContent`));
@@ -1785,9 +1787,42 @@ await ev(`Histogram.clear()`);
 await settle(`document.getElementById('reset-filters').disabled`);
 const cols = await ev(`document.querySelectorAll('tbody tr:first-child td:not(.wide-only)').length`);
 check("phone table drops to 4 columns", cols === 4, "cols=" + cols);
-check("table does not overflow its box at 390px",
-      await ev(`(()=>{const b=document.querySelector('.scroll');return b.scrollWidth <= b.clientWidth+1})()`),
-      await ev(`(()=>{const b=document.querySelector('.scroll');return b.scrollWidth+' vs '+b.clientWidth})()`));
+// Both widths, and 360 is the one with teeth. The 390 assertion passed on macOS and failed on a
+// Linux runner (#53) for one reason: the fit had ~15px of slack in SF and none in DejaVu, which is
+// what system-ui resolves to there — so it was measuring the runner's font, not the layout. 360 is
+// the common Android width and the shipped table missed it in EVERY face, SF included (310 vs 296,
+// Views clipped mid-number). A phone check pinned to the one width where the narrowest font
+// happens to clear is a coin toss; two widths is what makes the padding and the abbreviated header
+// provable rather than merely un-failed.
+for (const w of [390, 360]) {
+  await viewport(w, 844, true);
+  await relaid();
+  check(`table does not overflow its box at ${w}px`,
+        await ev(`(()=>{const b=document.querySelector('.scroll');return b.scrollWidth <= b.clientWidth+1})()`),
+        await ev(`(()=>{const b=document.querySelector('.scroll');return b.scrollWidth+' vs '+b.clientWidth})()`));
+}
+// The abbreviation is a WIDTH fix, so it may not cost the column its name: the sort button still
+// has to announce "Quartets" at the width where "Qts" is what is drawn.
+check("the abbreviated phone header keeps its full accessible name",
+      await ev(`(()=>{const b=[...document.querySelectorAll('thead th button')]
+        .find(x=>x.textContent.includes('Qts'));
+        if(!b) return false;
+        const full=b.querySelector('.th-full'), short=b.querySelector('.th-short');
+        return full.textContent === 'Quartets'
+          && getComputedStyle(full).display !== 'none'
+          && full.getBoundingClientRect().width <= 2
+          && getComputedStyle(short).display !== 'none'
+          && short.getAttribute('aria-hidden') === 'true'})()`),
+      "", await ev(`(()=>{const b=[...document.querySelectorAll('thead th button')]
+        .find(x=>x.textContent.includes('Qts'));
+        if(!b) return 'no abbreviated header at all';
+        const full=b.querySelector('.th-full'), short=b.querySelector('.th-short');
+        return 'full=' + JSON.stringify(full && full.textContent)
+          + ' drawn ' + (full ? getComputedStyle(full).display + '/' +
+              full.getBoundingClientRect().width.toFixed(1) + 'px' : '-')
+          + ', short aria-hidden=' + (short && short.getAttribute('aria-hidden'))})()`));
+await viewport(390, 844, true);
+await relaid();
 check("y-axis tick labels are not clipped",
       await ev(`(()=>{const t=[...document.querySelectorAll('#plot svg text')].find(e=>e.textContent==='100');
         if(!t) return false; const s=document.querySelector('#plot svg').getBoundingClientRect();
