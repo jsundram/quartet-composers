@@ -45,16 +45,29 @@ sleep 0.5
 
 python3 -m http.server "$PORT" --bind 127.0.0.1 >/dev/null 2>&1 &
 SERVER=$!
-"$CHROME" --headless --disable-gpu --no-sandbox --hide-scrollbars \
+# --disable-dev-shm-usage because a CI container's /dev/shm is typically 64MB and Chrome dies
+# reaching past it, with the only symptom being a debug port that never opens.
+"$CHROME" --headless --disable-gpu --no-sandbox --hide-scrollbars --disable-dev-shm-usage \
   --remote-debugging-port="$CDP" --user-data-dir="$PROFILE" about:blank >"$OUT/chrome.log" 2>&1 &
 BROWSER=$!
 cleanup() { kill "$SERVER" "$BROWSER" 2>/dev/null; [ "${KEEP:-}" = "1" ] || rm -rf "$OUT"; }
 trap cleanup EXIT
 
-for _ in $(seq 40); do
-  curl -sf "http://127.0.0.1:$CDP/json/version" >/dev/null 2>&1 && break
+# 30s, not 10: a cold CI runner is slower than a warm laptop, and the old budget expired into a
+# bare ECONNREFUSED from node with chrome.log already deleted by the EXIT trap — a failure that
+# says only "the port is shut", never why. Say why.
+READY=""
+for _ in $(seq 120); do
+  curl -sf "http://127.0.0.1:$CDP/json/version" >/dev/null 2>&1 && { READY=1; break; }
   sleep 0.25
 done
+if [ -z "$READY" ]; then
+  echo "ui-test: chrome never opened its debug port on $CDP after 30s — this is a FAILURE,"
+  echo "         not the no-browser skip. Using: $CHROME"
+  echo "--- chrome.log ---"
+  cat "$OUT/chrome.log" 2>/dev/null || echo "(no chrome.log)"
+  exit 1
+fi
 
 node scripts/ui.test.mjs "$CDP" "$OUT" "http://127.0.0.1:$PORT"
 rc=$?
