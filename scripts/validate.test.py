@@ -68,6 +68,16 @@ def john_adams(d):
     d["composers"]["rows"][0][6] *= 30
 
 
+@case("de la Tombelle: a list title that resolves to no article at all", "do not resolve")
+def redlink(d):
+    # The real one shipped for the life of the dataset. The list page linked a redlink, the
+    # canonical fell back to it, and the pageviews API answered for a page nobody had written —
+    # one stray hit in one month read as a median readership of 1 against a real 90. Every other
+    # check here passes on it: the row is the right shape and the number is plausible.
+    t = next(iter(d["people"]))
+    d["people"][t]["canonical"] = None
+
+
 @case("Tania Leon: a death year that cannot be true", "future")
 def tania(d):
     t = next(iter(d["people"]))

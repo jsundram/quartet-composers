@@ -150,9 +150,10 @@ from names or pronouns** for the composers who have no claim: `null` is a fact h
 is for an unstated quartet count. A value outside the label map ships as its raw QID rather than
 as a null — a stated fact filed under "not stated" is the one outcome that is wrong about someone
 rather than merely incomplete — and `validate.py` fails on it, so the fix is a label, not a
-mystery. 276 of the 884 are women, 219 of them plottable; one composer (Fernand de la Tombelle,
-the single row with no Wikidata item at all) has no claim and is in neither filter, which the
-provenance line says out loud.
+mystery. 276 of the 884 are women, 219 of them plottable; a composer with no claim at all is in
+neither filter, and the provenance line states how many there are rather than letting silence read
+as none — a count that was one until the pipeline stopped counting a redlink (see below), and that
+the line now has a branch for at zero.
 
 The honest name for (d) is **English Wikipedia readership**, not popularity — a Czech or Russian
 composer's readers are largely on their own language's Wikipedia, which this does not count. The
@@ -179,8 +180,8 @@ matched to the same human.
 
 ```sh
 python3 scripts/validate.py       # THE DATA GATE — see below; run it after every rebuild
-python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (25 + a clean pass)
-python3 scripts/fetch_views.test.py  # the page-view cache's invariants, network stubbed (16 cases)
+python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (26 + a clean pass)
+python3 scripts/fetch_views.test.py  # the page-view cache's invariants, network stubbed (17 cases)
 python3 scripts/pagemoves.test.py # the page-move rule, offline (9 cases)
 scripts/ui-test.sh           # 237 behavioural checks in a real headless Chrome (lens, tap-to-pin,
                              #   the three filters, theme repaint, 390px layout, offline, print) — no deps

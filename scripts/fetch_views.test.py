@@ -104,6 +104,33 @@ def transport_failure(fv):
         out["series"]["A"],)
 
 
+@case("a title that resolved to NOTHING is never asked for")
+def unresolved_is_not_asked(fv):
+    # The one defect this file could not have caught, because it is upstream of every invariant in
+    # it: a list title nobody has written an article for. fetch_wikidata.py used to hand back the
+    # raw title as its canonical, so the request went out, and the pageviews API answers for a page
+    # that does not exist -- with a 200 and a number nobody can tell from a real one. That is
+    # invariant 5's rule stated exactly: never ask for an unresolved title. A null canonical is how
+    # the resolver now says it has no title to give, and the only correct number of requests is
+    # zero, because there is no answer that would be right.
+    with open(fv.PEOPLE, "w", encoding="utf-8") as f:
+        json.dump({"A": {"canonical": "A"}, "B": {"canonical": None}}, f)
+    asked = []
+    def stub(title, months):
+        asked.append(title)
+        return {m: ANSWER[m] for m in months}
+    fv.fetch = stub
+    _, out, _log = run(fv, WINDOW)
+    assert "B" not in asked, (
+        "asked the pageviews API for a title that resolves to no article: %r. It will answer, "
+        "which is the whole problem." % (asked,))
+    assert "B" not in out["series"], (
+        "wrote a series for an unresolved title: %r. Absent means 'there is nothing to count'; a "
+        "number here would read as a readership forever." % (out["series"].get("B"),))
+    assert out["series"]["A"] == [99, 99, 99], (
+        "the resolvable title was collateral: %r" % (out["series"]["A"],))
+
+
 @case("and the rerun the failure message promises actually refetches it")
 def rerun_picks_it_up(fv):
     def flaky(title, months):

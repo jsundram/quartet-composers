@@ -479,6 +479,30 @@ def check_names(rows, people):
             "not from raw page text: %s" % (len(orphans), ", ".join(orphans[:6])))
 
 
+def check_resolved(people):
+    """A list title that resolves to nothing must not ship a readership.
+
+    THE FAILURE LEAVES NO TRACE DOWNSTREAM, which is why it needs a check of its own rather than a
+    count in a print. The list page is edited by hand and can name a page nobody has written —
+    "[[Fernand de la Tombelle]]", lowercase "la", where the article is at "Fernand de La
+    Tombelle". Resolution failed, the canonical fell back to the raw title, and the pageviews API
+    answered for the redlink exactly the way invariant 5 says it does: with a 200. One stray hit,
+    in one month out of 134, became a median readership of 1 against a real 90.
+
+    Nothing else here could have caught it. The row had the right number of fields, the series was
+    aligned to the axis, the median really was the median of the values present, and 1 view a
+    month is plausible for a name nobody has heard of — it is only wrong against a page that was
+    never being counted.
+    """
+    if not people:
+        return
+    bad = sorted(t for t, p in people.items() if not p.get("canonical"))
+    if bad:
+        err("%d list title(s) do not resolve to a Wikipedia page, so nothing can be counted for "
+            "them: %s. Add the real title to TITLE_FIXES in scripts/fetch_wikidata.py and rerun "
+            "the pipeline." % (len(bad), ", ".join(bad[:6])))
+
+
 # --------------------------------------------------------------- drift
 def check_drift(rows, prev):
     """Compare against the previous commit. This is the John Adams check.
@@ -563,6 +587,7 @@ def main():
         check_history(rows, meta, load("readership.json", required=False), pv)
         check_moves(pv)
         check_names(rows, people)
+        check_resolved(people)
         if not args.no_drift:
             check_drift(rows, baseline_rows(args.baseline))
 

@@ -263,10 +263,15 @@ window.Chart = (function () {
   // about this chart. Against the full roster it recovers eight of the thirteen curated names,
   // including the prolific end (Cambini, Ellerton, Krommer) that readership is blind to.
   let prom = new Map();
-  // Below this a "prominent" dot is a data hole rather than a composer: Fernand de la Tombelle
-  // sits at 1 quartet and 1 view/month because he is the one row with no Wikidata item at all,
-  // and he outranks Shostakovich on distance alone. He is still drawn, and still selectable — he
-  // just cannot win a label on the strength of a number nobody has.
+  // Below this a "prominent" dot is a data hole rather than a composer: prominence is distance
+  // from the centre of the cloud, so a readership nobody actually has scores high on it. The case
+  // it was written for was Fernand de La Tombelle, who sat at 1 quartet and 1 view/month and
+  // outranked Shostakovich on distance alone — not because he is obscure, but because the list
+  // page linked a redlink and the pageviews API answered for a page nobody had written (repaired;
+  // TITLE_FIXES in scripts/fetch_wikidata.py). The floor stays, because the repair fixes that one
+  // article and not the class: an article too new or too quiet to have a number still gets ranked
+  // on one it does not have. Such a dot is still drawn and still selectable — it just cannot win
+  // a LABEL on the strength of a number nobody has.
   const MIN_VIEWS = 5;
 
   function scoreProminence() {

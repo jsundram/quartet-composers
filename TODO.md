@@ -31,7 +31,9 @@ screen reader. Either state the count in the label or drop the claim.
 ### ~~Gender is not in the data~~ — done, 2026-09-05, [#1](https://github.com/jsundram/quartet-composers/issues/1)
 P21 ships as the eighth positional field. The probe held up exactly: 276 women of 884 (31%), 219
 of them plottable, births 1745–1989, and one composer with no claim at all (Fernand de la
-Tombelle, who has no Wikidata item either).
+Tombelle, who has no Wikidata item either). That last one turned out not to be a composer without
+a claim but a redlink without an article — see "One composer is sized by a single month of page
+views" below; the count is zero now, and `setProv()` has a branch for it.
 
 Both open questions were answered **filter**, not encoding, and for the same reason: a filter here
 is ALREADY a highlight. Nothing is removed — `opacityOf()` drops the rest to 0.07 — so "show me
@@ -108,13 +110,28 @@ Arrangements, fragments, incomplete works, "for string quartet and X" — the pa
 and so, therefore, is this dataset. Worth deciding a policy and stating it in the UI, or accepting
 the inconsistency explicitly rather than by default.
 
-### One composer is sized by a single month of page views
-`Fernand de la Tombelle` has no Wikidata item — dates come from page prose only — and his article
-has exactly ONE month of view data (2026-08) out of the 134 the cache now holds. So his median,
-min and max are all that same number, and his dot is sized by precisely the weather invariant 9
-exists to smooth away. He is also the one composer with no sparkline: `sparkline()` needs two
-points to draw a line. Harmless at one row out of 884, but it is the row where the pipeline's
-guarantees don't hold, and worth deciding whether one month should count as a measurement at all.
+### ~~One composer is sized by a single month of page views~~ — done, 2026-09-10
+The premise was wrong in a way worth writing down, because the entry itself repeated the mistake.
+`Fernand de la Tombelle` was not a real composer with one month of data; **there is no such
+article**. The list page links a redlink — lowercase `la`, where the article is at `Fernand de La
+Tombelle` — so he was the one row of 884 that resolved to nothing, the canonical fell back to the
+raw title, and `fetch_views.py` asked the pageviews API for a page nobody has written. That
+request SUCCEEDS, which is the whole of invariant 5, and it returned a single stray hit on the
+redlink (2026-04, not 2026-08 — this entry got that wrong too, from reading the shipped median
+rather than the series). One view became a twelve-month median of 1 against a real **89**.
+
+Nothing downstream could have seen it. The row had the right number of fields, the series was
+aligned to the axis, the median really was the median of the values present, and one view a month
+is plausible for a name nobody has heard of. It was only wrong against a page that was never being
+counted — which is why the repair is three things and not one: `TITLE_FIXES` in
+`fetch_wikidata.py` records the real title, that script no longer writes `canon or t` (a title that
+did not resolve now has NO canonical, so `fetch_views.py` does not ask for it), and
+`validate.py`'s `check_resolved()` refuses to ship a roster with an unresolved title at all. He now
+has all 134 months, a sparkline, a P21 claim, and an ordinary readership near the roster's 25th
+percentile.
+
+The general lesson is the one invariant 5 already states and this row evaded: asking the RIGHT
+title is only half of it — the other half is noticing when there is no title to ask.
 
 ### ~~Readership was counted under whatever the article is called TODAY~~ — done, 2026-09-08, [#23](https://github.com/jsundram/quartet-composers/issues/23)
 The pageviews API counts the string that was REQUESTED, so an article that was renamed inside the
