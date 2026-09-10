@@ -200,7 +200,17 @@ await send("Page.enable"); await send("Runtime.enable"); await send("Log.enable"
 
 const BASE = (ORIGIN || "http://127.0.0.1:8765") + "/";
 const results = [];
-const check = (name, cond, extra = "") => results.push(`${cond ? "ok  " : "FAIL"} ${name}${extra ? " — " + extra : ""}`);
+// `extra` prints either way, which is right for a MEASUREMENT — "34 dots grew >1.5x" reads
+// correctly under `ok` and `FAIL` alike, and that is what almost every call site passes. It is
+// wrong for a DIAGNOSIS, and there are exactly two of those: the checks with no measurement to
+// report, because the number IS the assertion. Both printed their own failure text on a GREEN run
+// before this slot existed (#52 review, twice — the second one after the first was hand-folded,
+// which is why this is a mechanism and not another ternary). `fail` is appended only when the
+// check actually failed, so the third diagnosis has somewhere to go.
+const check = (name, cond, extra = "", fail = "") => {
+  const note = cond ? extra : (fail || extra);
+  results.push(`${cond ? "ok  " : "FAIL"} ${name}${note ? " — " + note : ""}`);
+};
 
 // Every exit goes through here, so a run that DIES still prints the checks that had already run
 // and the section it got to. `ev` has always thrown on an evaluation error too, and that took the
@@ -247,14 +257,13 @@ await goto(BASE);
 // Chrome reports no pointer at all, so `ui-test.sh` runs the browser on an Xvfb display to give
 // it a real one, and this is where that either arrived or did not. It is the mirror of "the phone
 // viewport really reports a touch pointer" in section 7.
-// `check` appends `extra` on a pass as well as a fail, and every other call site passes a
-// MEASUREMENT, which reads correctly either way. This one passes a diagnosis, so it has to be
-// withheld on success — an `ok` line reading "no fine pointer" is the exact misreading the check
-// exists to prevent, printed in the place a reader looks for the answer.
-const fine = await ev(`matchMedia('(hover:hover) and (pointer:fine)').matches`);
-check("the desktop viewport really reports a fine pointer", fine,
-      fine ? "" : "no fine pointer: chart.js's TOUCH is true, so nothing below hovers, and "
-      + "styles.css never reserves the panel's height. On Linux the browser is headless, or is "
+// A diagnosis, not a measurement, so it goes in `check`'s `fail` slot: an `ok` line reading "no
+// fine pointer" is the exact misreading this check exists to prevent, printed where a reader
+// looks for the answer.
+check("the desktop viewport really reports a fine pointer",
+      await ev(`matchMedia('(hover:hover) and (pointer:fine)').matches`), "",
+      "no fine pointer: chart.js's TOUCH is true, so nothing below hovers, and styles.css never "
+      + "reserves the panel's height. On Linux the browser is headless, or is "
       + "chrome-headless-shell, which reports none even under a display — see ui-test.sh");
 const dot = await ev(`(()=>{const s=document.querySelector('#plot svg');const r=s.getBoundingClientRect();
   const c=[...s.querySelectorAll('circle.dot')].sort((a,b)=>+b.getAttribute('r')-+a.getAttribute('r'))[0];
@@ -2197,8 +2206,10 @@ await send("Emulation.setEmulatedMedia", { media: "" });
     for (const m of src.matchAll(/(\d+)\s+behaviou?ral checks/g)) stated.push([f, +m[1]]);
   }
   const wrong = stated.filter(([, n]) => n !== total);
+  // The other diagnosis: on a pass `wrong` is empty, so this text was `"" + " — it is 242"` and
+  // every green run printed "the docs state this suite's real size —  — it is 242".
   check("the docs state this suite's real size",
-        stated.length >= 2 && wrong.length === 0,
+        stated.length >= 2 && wrong.length === 0, "",
         stated.length < 2
           ? `only ${stated.length} doc(s) state it — a claim that stops matching proves nothing`
           : wrong.map(([f, n]) => `${f} says ${n}`).join(", ") + ` — it is ${total}`);
