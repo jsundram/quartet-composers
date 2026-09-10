@@ -822,8 +822,8 @@ in the browser, so one phone section poisons every desktop section after it. A s
 interleaves them cannot use it.
 What works is giving the machine a pointer instead of arguing with the page about one:
 `ui-test.sh` launches Chrome under **`xvfb-run`** when there is one, X reports a fine pointer and
-hover, and a touch toggle now restores TO that. `240/241` on this container, and the eight are
-back. The suite asserts which of the two it got — `the desktop viewport really reports a fine
+hover, and a touch toggle now restores TO that. The eight are back, and the font metric below is
+the only check still failing. The suite asserts which of the two it got — `the desktop viewport really reports a fine
 pointer`, section 2 — rather than leaving eight later checks to imply it, which is what turned a
 platform difference into eight bug reports against the app.
 

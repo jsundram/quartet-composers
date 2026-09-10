@@ -66,21 +66,50 @@ SERVER=$!
 # emulator restores TO. So: Xvfb where there is one, plain headless where there is not, and the
 # suite asserts which it got rather than assuming.
 LAUNCH=("$CHROME" --headless)
-if [ "$(uname)" != "Darwin" ] && command -v xvfb-run >/dev/null 2>&1; then
-  # A screen bigger than any viewport the suite sets, so nothing is clamped by it. Every section
-  # overrides the viewport anyway; this is only the window Chrome opens in.
-  LAUNCH=(xvfb-run -a --server-args="-screen 0 1920x1600x24" "$CHROME")
-elif [ "$(uname)" != "Darwin" ]; then
+XVFB=""
+# A DISPLAY IS NO USE TO A BINARY THAT CANNOT OPEN ONE. `chrome-headless-shell` is the old
+# headless build and never makes an X connection, so it reports no pointer under Xvfb exactly as
+# it does without — and `find_chrome` PREFERS it, because Playwright's cache is the first glob.
+# Running it under the wrapper anyway is the worst of the three outcomes because it is the silent
+# one: the warning below is suppressed (xvfb-run is installed), the fix looks to be in effect, and
+# section 2 then fails saying the browser is headless while it is running under a display.
+case "$CHROME" in
+  *chrome-headless-shell|*headless_shell) HEADFUL="" ;;
+  *)                                      HEADFUL=1  ;;
+esac
+if [ "$(uname)" = "Darwin" ]; then
+  : # macOS reports (hover:hover) and (pointer:fine) unconditionally; there is nothing to arrange.
+elif [ -z "$HEADFUL" ]; then
+  echo "ui-test: ${CHROME##*/} is the old headless binary and reports no pointer even under a"
+  echo "         display, so the hover checks will fail. Point find_chrome at a full Chrome or"
+  echo "         Chromium to run them."
+elif ! command -v xvfb-run >/dev/null 2>&1; then
   echo "ui-test: no xvfb-run — running headless, where this platform reports NO pointer."
   echo "         Expect 'the desktop viewport really reports a fine pointer' and the hover checks"
   echo "         that depend on it to fail. Install xvfb to run them."
+else
+  XVFB=1
+  # A screen bigger than any viewport the suite sets, so nothing is clamped by it. Every section
+  # overrides the viewport anyway; this is only the window Chrome opens in.
+  # -f puts the X authority file in $OUT, which this script already owns and removes. Without it
+  # xvfb-run mktemps a directory of its own and deletes it only from an EXIT trap that a signalled
+  # shell never runs, so every run left one behind.
+  LAUNCH=(xvfb-run -a -f "$OUT/Xauthority" --server-args="-screen 0 1920x1600x24" "$CHROME")
 fi
 # --disable-dev-shm-usage because a CI container's /dev/shm is typically 64MB and Chrome dies
 # reaching past it, with the only symptom being a debug port that never opens.
+#
+# `set -m` gives the wrapper its own process group, which is the only handle cleanup has on the X
+# server: xvfb-run is /bin/sh, an untrapped SIGTERM kills a shell WITHOUT running its EXIT trap,
+# and Xvfb's own name carries no $CDP for the pkill to match. Killing the wrapper alone therefore
+# left one X server and one /tmp/.X<n>-lock per run — and `-a` hides that by picking the next free
+# display, so it accumulated on a laptop or a long-lived runner without anything going red.
+[ -n "$XVFB" ] && set -m
 "${LAUNCH[@]}" --disable-gpu --no-sandbox --hide-scrollbars --disable-dev-shm-usage \
   --no-first-run --no-default-browser-check --disable-search-engine-choice-screen \
   --remote-debugging-port="$CDP" --user-data-dir="$PROFILE" about:blank >"$OUT/chrome.log" 2>&1 &
 BROWSER=$!
+set +m
 # A FAILING RUN IS THE ONE WHOSE PICTURES YOU WANT, and it was the one throwing them away: this
 # deleted $OUT unless KEEP=1, so the screenshots and chrome.log survived only when you had already
 # guessed you would need them — and you guess that after the run, not before. Nothing in the suite
@@ -92,7 +121,9 @@ BROWSER=$!
 # the leftover browser the pkill above exists to clear, arriving one run early.
 rc=0
 cleanup() {
-  kill "$SERVER" "$BROWSER" 2>/dev/null
+  kill "$SERVER" 2>/dev/null
+  if [ -n "$XVFB" ]; then kill -- -"$BROWSER" 2>/dev/null   # the wrapper AND the Xvfb beside it
+  else                    kill "$BROWSER" 2>/dev/null; fi
   pkill -f "remote-debugging-port=$CDP" 2>/dev/null
   if [ "${KEEP:-}" = "1" ] || [ "$rc" -ne 0 ]; then echo "screenshots: $OUT"
   else rm -rf "$OUT"; fi

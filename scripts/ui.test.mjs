@@ -52,7 +52,15 @@ ws.addEventListener("message", e => {
 // page target and closed the socket with 1006 (#50). The clip below fixes that particular ask; the
 // watchdog is what turns any future one into a sentence instead of silence.
 const CDP_TIMEOUT = 60000;
+let closed = null;
 const send = (method, params = {}) => new Promise((res, rej) => {
+  // Most of a run is spent BETWEEN calls — the 25ms poll inside settle(), the TWEEN wait, writing
+  // a PNG — and a socket that dies in one of those gaps leaves `pending` empty, so the handler
+  // below has nothing to reject. `send()` on a CLOSED WebSocket then neither throws nor delivers:
+  // per spec it discards the frame and returns, so the call would wait out the full timeout and
+  // report the generic message a minute later, having thrown away the close code that explains
+  // it. The flag is what makes the two entrances agree.
+  if (closed) return rej(new Error(closed));
   const i = ++id;
   const t = setTimeout(() => { pending.delete(i); rej(new Error(`CDP ${method} did not answer in ${CDP_TIMEOUT}ms`)); }, CDP_TIMEOUT);
   pending.set(i, { resolve: m => { clearTimeout(t); res(m); }, reject: e => { clearTimeout(t); rej(e); } });
@@ -63,9 +71,10 @@ const send = (method, params = {}) => new Promise((res, rej) => {
 // ever coming. Rejecting rather than resolving matters — a resolve would hand the caller
 // `undefined` and the check after it would fail on a dereference, blaming the app.
 ws.addEventListener("close", e => {
+  closed = `DevTools socket closed (code ${e.code}) mid-run`;
   const waiting = [...pending.values()];
   pending.clear();
-  for (const r of waiting) r.reject(new Error(`DevTools socket closed (code ${e.code}) mid-run`));
+  for (const r of waiting) r.reject(new Error(closed));
 });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 // A wait here is a POLL, not a budget (issue 48). The suite used to sleep ~100 of its ~110 seconds
@@ -238,10 +247,15 @@ await goto(BASE);
 // Chrome reports no pointer at all, so `ui-test.sh` runs the browser on an Xvfb display to give
 // it a real one, and this is where that either arrived or did not. It is the mirror of "the phone
 // viewport really reports a touch pointer" in section 7.
-check("the desktop viewport really reports a fine pointer",
-      await ev(`matchMedia('(hover:hover) and (pointer:fine)').matches`),
-      "no fine pointer: chart.js's TOUCH is true, so nothing below hovers, and styles.css never "
-      + "reserves the panel's height. On Linux this means the browser is headless — see ui-test.sh");
+// `check` appends `extra` on a pass as well as a fail, and every other call site passes a
+// MEASUREMENT, which reads correctly either way. This one passes a diagnosis, so it has to be
+// withheld on success — an `ok` line reading "no fine pointer" is the exact misreading the check
+// exists to prevent, printed in the place a reader looks for the answer.
+const fine = await ev(`matchMedia('(hover:hover) and (pointer:fine)').matches`);
+check("the desktop viewport really reports a fine pointer", fine,
+      fine ? "" : "no fine pointer: chart.js's TOUCH is true, so nothing below hovers, and "
+      + "styles.css never reserves the panel's height. On Linux the browser is headless, or is "
+      + "chrome-headless-shell, which reports none even under a display — see ui-test.sh");
 const dot = await ev(`(()=>{const s=document.querySelector('#plot svg');const r=s.getBoundingClientRect();
   const c=[...s.querySelectorAll('circle.dot')].sort((a,b)=>+b.getAttribute('r')-+a.getAttribute('r'))[0];
   const b=c.getBoundingClientRect(); return {x:b.x+b.width/2, y:b.y+b.height/2}})()`);
