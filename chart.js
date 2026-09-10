@@ -49,6 +49,7 @@ window.Chart = (function () {
   // Floor at 10: under ten readers a month is not a readership worth resolving, and a fixed floor
   // does not move when the roster does (issue 38).
   const VY_DOMAIN = [10, 260000];       // readers/mo
+  const FUZZ = 1e-6;                    // px, for comparisons against a rescaled edge
   const VY_TICKS = [1, 10, 100, 1000, 10000, 100000];
   const RATIOS = [1, 10, 100, 1000, 10000];   // the readers-per-quartet diagonals
 
@@ -531,7 +532,10 @@ window.Chart = (function () {
   // On screen for real: a zoom pans dots clean out of the plot, and one whose centre has left it
   // must not be painted, hit-tested or labelled. Reads the CURRENT layout, so it is only valid
   // after layout() has run.
-  const inFrame = p => p.x >= 0 && p.x <= w && p.y >= 0 && p.y <= h;
+  // Tolerant at the edges for the reason inDom() is: a dot sitting exactly ON the frame — a
+  // composer pinned to the readership floor — comes back a fraction outside it once the transform
+  // has been through a pixel inversion, and silently stops being painted, hit-tested and labelled.
+  const inFrame = p => p.x >= -FUZZ && p.x <= w + FUZZ && p.y >= -FUZZ && p.y <= h + FUZZ;
 
   // ---- labels -------------------------------------------------------------
   // Greedy, most-viewed first, first-come-first-served on space. This is what makes the STATIC

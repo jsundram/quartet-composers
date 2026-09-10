@@ -28,8 +28,11 @@ VALIDATE = os.path.join(HERE, "validate.py")
 CASES = []
 
 
-def case(name, expect):
+def case(name, expect, strict=False):
     """Register a mutation. `expect` is a substring the failure message must contain.
+
+    `strict` runs the gate with --strict, which is how a WARNING is asserted: a warn() leaves the
+    exit code 0, so without it the case reads as "validate PASSED a corrupted dataset".
 
     An `expect` beginning with "!" inverts it: that substring must NOT appear. Every case here was
     a positive one — break the data, expect an error — which is the right shape for a check that
@@ -47,7 +50,7 @@ def case(name, expect):
     construction — the message cannot be reworded without reddening the positive case first.
     """
     def deco(fn):
-        CASES.append((name, expect, fn))
+        CASES.append((name, expect, fn, strict))
         return fn
     return deco
 
@@ -68,7 +71,8 @@ def john_adams(d):
     d["composers"]["rows"][0][6] *= 30
 
 
-@case("de la Tombelle: a list title that resolves to no article at all", "do not resolve")
+@case("de la Tombelle: a list title that resolves to no article at all", "do not resolve",
+      strict=True)
 def redlink(d):
     # Shipped for the life of the dataset. Every other check here passes on it: the row is the
     # right shape and the number is plausible.
@@ -310,7 +314,7 @@ def invented_gender(d):
             break
 
 
-def run_case(name, expect, mutate):
+def run_case(name, expect, mutate, strict=False):
     with tempfile.TemporaryDirectory() as tmp:
         os.makedirs(os.path.join(tmp, "data"))
         for rel in ["composers.json", "readership.json",
@@ -341,7 +345,8 @@ def run_case(name, expect, mutate):
         json.dump(d["pageviews"], open(os.path.join(tmp, "data/pageviews.json"), "w", encoding="utf-8"))
         json.dump(d["history"], open(os.path.join(tmp, "readership.json"), "w", encoding="utf-8"))
 
-        out = subprocess.run([sys.executable, VALIDATE, "--root", tmp, "--baseline", base],
+        out = subprocess.run([sys.executable, VALIDATE, "--root", tmp, "--baseline", base]
+                             + (["--strict"] if strict else []),
                              capture_output=True, text=True)
         blob = out.stdout + out.stderr
         if expect.startswith("!"):
@@ -372,8 +377,8 @@ def main():
     # partner — widen "still carries a count" to "still carries a count at the boundary" and this
     # fires. That is the safe direction (a loud refusal to run, fixed the same day, rather than a
     # silent pass), but it is a trap worth knowing about: change both halves together.
-    pins = {e for _n, e, _f in CASES if not e.startswith("!")}
-    orphans = [(n, e[1:]) for n, e, _f in CASES if e.startswith("!") and e[1:] not in pins]
+    pins = {e for _n, e, _f, _s in CASES if not e.startswith("!")}
+    orphans = [(n, e[1:]) for n, e, _f, _s in CASES if e.startswith("!") and e[1:] not in pins]
     if orphans:
         for n, e in orphans:
             print("  FAIL - %s\n       nothing positive requires %r, so its absence proves nothing"
@@ -388,8 +393,8 @@ def main():
     if not ok:
         print("       %s" % (out.stdout + out.stderr).strip()[:300])
 
-    for name, expect, fn in CASES:
-        good, why = run_case(name, expect, fn)
+    for name, expect, fn, strict in CASES:
+        good, why = run_case(name, expect, fn, strict)
         print("  %s - %s" % ("ok  " if good else "FAIL", name))
         if not good:
             print("       %s" % why)
