@@ -859,8 +859,8 @@ to. The stand-in was accurate rather than merely convenient — predicted ~49px 
 purpose: it describes how the number was ARRIVED at, and the next person changing that layout will
 be on a Mac too.
 
-**Not addressed here: running the suite in CI — but it is now only a job away, and the job is
-specified.** Both blockers this entry named are gone: the browser was never missing, and the font
+**Not addressed here: running the suite in CI — but it is now only a job away, the job is
+specified, and it is filed as #56.** Both blockers this entry named are gone: the browser was never missing, and the font
 check was a real layout defect rather than a platform quirk. A Linux run of the whole suite is
 green (above), so what is left is a `ui` job in `checks.yml`, deliberately kept out of #53 so a
 workflow change is reviewable on its own. Three things it needs, one of which is not obvious:
