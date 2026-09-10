@@ -1768,14 +1768,13 @@ check("the phone viewport really reports a touch pointer",
 // Clear button was the one control not on screen there — 28px for as long as this check existed,
 // 8px under the assertion, because an ID selector outranks `.btn` whatever the order (the same
 // specificity trap styles.css documents for `.seg.sm`). That button is gone (issue 35) and nothing
-// on the page hides itself any more, but the scan still runs TWICE, once at rest and once filtered:
-// it costs a second pass and it is the only thing standing between a future state-dependent control
-// and the same blind spot. A third such state needs a third pass here.
+// on the page hides itself any more, but the scan still runs in every state that could hide one:
+// filtered here, and at rest at BOTH phone widths in the loop below. It costs a pass each and it is
+// the only thing standing between a future state-dependent control and the same blind spot. A new
+// such state needs another pass.
 const tapTargets = async () => ev(`JSON.stringify([...document.querySelectorAll('.seg button,.btn')]
   .filter(b=>b.offsetParent && b.getBoundingClientRect().height < 36)
   .map(b=>(b.id||b.textContent.trim())+'='+b.getBoundingClientRect().height.toFixed(1)))`);
-const smallRest = await tapTargets();
-check("control tap targets >= 36px tall", smallRest === "[]", `too small: ${smallRest}`);
 // The `hidden` attribute is only display:none in the UA sheet, so any author `display` on the same
 // element beats it — and the element goes on being hidden to a screen reader and to `.hidden` in JS
 // while being drawn. Giving .btn a display for its icon did exactly that (issue 35): the search
@@ -1790,12 +1789,10 @@ check("a hidden control is actually not drawn",
 await ev(`(()=>{ Histogram.setRange([751, 4501]); applyFilters(true) })()`);
 await settle(`!document.getElementById('reset-filters').disabled`);
 const smallFiltered = await tapTargets();
-check("...including the ones only a filter puts on screen", smallFiltered === "[]",
+check("control tap targets >= 36px tall with a filter applied", smallFiltered === "[]",
       `with a range applied, too small: ${smallFiltered}`);
 await ev(`Histogram.clear()`);
 await settle(`document.getElementById('reset-filters').disabled`);
-const cols = await ev(`document.querySelectorAll('tbody tr:first-child td:not(.wide-only)').length`);
-check("phone table drops to 4 columns", cols === 4, "cols=" + cols);
 // Both widths, and 360 is the one with teeth. The 390 assertion passed on macOS and failed on a
 // Linux runner (#53) for one reason: the fit had ~15px of slack in SF and none in DejaVu, which is
 // what system-ui resolves to there — so it was measuring the runner's font, not the layout. 360 is
@@ -1803,19 +1800,29 @@ check("phone table drops to 4 columns", cols === 4, "cols=" + cols);
 // Views clipped mid-number). A phone check pinned to the one width where the narrowest font
 // happens to clear is a coin toss; two widths is what makes the padding and the abbreviated header
 // provable rather than merely un-failed.
+// EVERY phone check that has a width in it runs at both, not just the table's own box. 390 is an
+// iPhone; 360 is what most Android phones report, it is the width styles.css sizes the chart-tools
+// group for ("96px at 360 for an 86px group"), and until #53 nothing here had ever looked at it —
+// which is how a table that overflowed in every face at 360 sat behind a green suite. A width the
+// suite declares supported has to be a width the suite MEASURES: the page must not scroll
+// sideways, the table must fit its box, the columns must drop to four, the scroll affordance must
+// still be there, and nothing a finger lands on may shrink under the touch floor.
 for (const w of [390, 360]) {
   await viewport(w, 844, true);
   await relaid();
-  // The DOCUMENT-level guard belongs in this loop too, and used to run at 390 only. Declaring 360
-  // a supported width while asserting nothing but the table's own box there leaves the page free
-  // to scroll sideways on the phone this section is about: `.controls` is already two lines at
-  // 390, and `#filters`, `#hist` and the legend all live at that width as well.
   check(`no horizontal overflow at ${w}px`,
         await ev(`document.documentElement.scrollWidth <= ${w}`),
         "scrollWidth=" + await ev(`document.documentElement.scrollWidth`));
   check(`table does not overflow its box at ${w}px`,
         await ev(`(()=>{const b=document.querySelector('.scroll');return b.scrollWidth <= b.clientWidth+1})()`),
         await ev(`(()=>{const b=document.querySelector('.scroll');return b.scrollWidth+' vs '+b.clientWidth})()`));
+  const cols = await ev(`document.querySelectorAll('tbody tr:first-child td:not(.wide-only)').length`);
+  check(`phone table drops to 4 columns at ${w}px`, cols === 4, "cols=" + cols);
+  check(`the table box advertises that it scrolls at ${w}px`,
+        await ev(`(()=>{const b=document.querySelector('.scroll'), s=getComputedStyle(b);
+          return b.scrollHeight > b.clientHeight + 50 && s.backgroundImage.split('gradient').length > 2})()`));
+  const smallRest = await tapTargets();
+  check(`control tap targets >= 36px tall at ${w}px`, smallRest === "[]", `too small: ${smallRest}`);
 }
 // The abbreviation is a WIDTH fix and may not cost the column its name — in EITHER direction.
 // Hiding "Qts" from the accessibility tree and keeping only "Quartets" was the first shape here,
@@ -1836,9 +1843,6 @@ check("y-axis tick labels are not clipped",
       await ev(`(()=>{const t=[...document.querySelectorAll('#plot svg text')].find(e=>e.textContent==='100');
         if(!t) return false; const s=document.querySelector('#plot svg').getBoundingClientRect();
         return t.getBoundingClientRect().left >= s.left - 0.5})()`));
-check("the table box advertises that it scrolls",
-      await ev(`(()=>{const b=document.querySelector('.scroll'), s=getComputedStyle(b);
-        return b.scrollHeight > b.clientHeight + 50 && s.backgroundImage.split('gradient').length > 2})()`));
 await shot("mobile");
 
 // A phone has no room for a detail COLUMN, so app.js moves the panel into the chart card. The bug
@@ -2058,22 +2062,33 @@ const covered = () => ev(`(()=>{const t=document.getElementById('chart-tools').g
     .filter(t2=>hit(t2.getBoundingClientRect())).map(t2=>t2.textContent.trim())
     .filter(s=>s && !/^[0-9.,k]+$/.test(s) && !/quartet|year|→|↑|readers/i.test(s));
   return JSON.stringify({dots:dots.length, names})})()`);
-let worstDots = 0, coveredNames = [];
-for (const m of ["fame", "scatter", "swarm", "lens"]) {
-  await ev(`document.querySelector('.controls .seg button[data-mode="${m}"]').click()`);
-  await laidOut();
-  const c = JSON.parse(await covered());
-  worstDots = Math.max(worstDots, c.dots);
-  coveredNames.push(...c.names.map(n => `${m}:${n}`));
+// And at BOTH phone widths, because 360 is the one styles.css did the arithmetic for and never
+// measured: "the title ends by x=202 in the worst case, leaving 96px at 360 for an 86px group".
+// That is a 10px margin computed by hand at the width nothing checked — the same shape as #53's
+// table, one component over. 390 has room to spare, so it cannot fail for the reason 360 would.
+let worstDots = 0, coveredNames = [], worstWidth = 0;
+for (const w of [390, 360]) {
+  await viewport(w, 844, true);
+  await relaid();
+  for (const m of ["fame", "scatter", "swarm", "lens"]) {
+    await ev(`document.querySelector('.controls .seg button[data-mode="${m}"]').click()`);
+    await laidOut();
+    const c = JSON.parse(await covered());
+    if (c.dots > worstDots) { worstDots = c.dots; worstWidth = w; }
+    coveredNames.push(...c.names.map(n => `${w}px ${m}:${n}`));
+  }
 }
+await viewport(390, 844, true);
+await relaid();
 await ev(`document.querySelector('.controls .seg button[data-mode="fame"]').click()`);
 await laidOut();
 // Counted against the whole BUTTON, not the glyph: the target is invisible, so a dot it overlaps is
 // not covered — it silently stops being tappable, which is worse than being hidden because nothing
 // on screen explains it. That is what sets the band's height (see TOOLS_BAND in app.js).
-check("the overlay covers and shadows nothing, in any view",
+check("the overlay covers and shadows nothing, in any view or phone width",
       worstDots === 0 && coveredNames.length === 0,
-      `worst view covers ${worstDots} dots; labels: ${coveredNames.join(", ") || "none"}`);
+      `worst view covers ${worstDots} dots${worstDots ? ` at ${worstWidth}px` : ""}; ` +
+      `labels: ${coveredNames.join(", ") || "none"}`);
 
 // At rest is not the only state. The dot clip is inset OUTWARD by one maximum radius (chart.js's
 // `over`), so a dot whose centre sits just inside the top edge draws a sliver up into the band —
