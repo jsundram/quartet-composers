@@ -264,6 +264,15 @@ human grades. No test framework, and nothing to install:
   and the rest is the same row 850 more times. `ui.test.mjs` 9b pins the property that bought —
   every PNG the run wrote still resolves at 1:1 or better after that resize, measured off the
   IHDR — because a comment claiming it could never go red.
+  **No check reads a PIXEL, deliberately.** The DOM is the better oracle and every check here
+  asserts against it; a screenshot hash or baseline would go red for two reasons that are not
+  bugs — `system-ui` resolves to a different face per platform (it is the one check a Linux run
+  still fails) and `refresh.py` tops the data up monthly by design, moving every dot. So the PNGs
+  are evidence for whoever reads a failure, and what they needed was to still EXIST then:
+  `ui-test.sh` deleted `$OUT` unless `KEEP=1`, which is a guess made before a run about a need
+  that arises after it, so a failing run destroyed its own evidence. It now keeps the directory
+  whenever the suite fails — including when Chrome never opened, so `chrome.log` outlives the
+  scrollback — and prints the path either way. A clean run still cleans up.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
   `git diff --cached`); the meta-length and stated-count halves read the working tree and run in
   CI. `check_counts()` knows BOTH live totals — the roster (884) and what the chart can plot
