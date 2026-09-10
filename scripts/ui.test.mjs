@@ -1994,11 +1994,12 @@ await send("Emulation.setEmulatedMedia", { media: "" });
 
 // --- 8. THE SUITE'S OWN STATED SIZE ---------------------------------------------------------
 // The docs quote this total, and it is the one count in the repo that cannot be taken offline:
-// 235 literal `check(` calls produce a different number at runtime, because some are in loops.
+// some checks are registered in loops, so the literal `check(` count is not what this reports.
 // So `scripts/prose-lint.py` deliberately does not pin it and this does, where the real total is
 // known — the same pin-it-where-the-file-settles-it rule og-lint.py uses for manifest.json.
-// README said 195 against a real 239 for four months before this check existed; the drift was
-// spotted during #23, deferred to a follow-up, and never done.
+// README carried a stale size for months before this check existed; the drift was spotted during
+// #23, deferred to a follow-up, and never done. Quoting the literal count here went stale inside
+// the branch that added this check, which is why neither number is written down any more.
 {
   const total = results.length + 1;   // +1: this check is about to be pushed
   const stated = [];

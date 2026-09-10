@@ -66,11 +66,16 @@ COVERS = [
     (("sw.js",),                      ["node scripts/sw.test.mjs"]),
     (("app.js", "chart.js", "table.js", "histogram.js", "names.js", "theme.js",
       "styles.css", "index.html"),    ["BROWSER:scripts/ui-test.sh"]),
+    # The gates cover themselves. Without this the next change to this very file would never be
+    # ablated against the suite written for it, which is the failure the whole PR is about.
+    (("scripts/ablate.py", "scripts/fix-lint.py"),
+                                      ["python3 scripts/fix-lint.test.py"]),
 ]
 
 # Everything else that is load-bearing but has no suite. Listed so `--list` can say so out loud.
 UNCOVERED = ("scripts/build_data.py", "scripts/scrape_list.py", "scripts/fetch_wikidata.py",
-             "scripts/make-og-svg.py", "scripts/og-lint.py", "scripts/refresh.py", "ping.js")
+             "scripts/make-og-svg.py", "scripts/og-lint.py", "scripts/refresh.py",
+             "scripts/prose-lint.py", "manifest.json", "ping.js")
 
 # WHAT COUNTS AS SOURCE lives here and nowhere else, because fix-lint.py asks the same question
 # and two copies of a classification drift into disagreeing — the lesson #23 round 3 spent a
@@ -91,6 +96,14 @@ TESTS = re.compile(r"^scripts/.*(\.test\.(py|mjs)|ui-test\.sh)$")
 # The detail carries measured numbers that differ between two runs of the same suite, so a set
 # difference over whole lines would report noise as signal.
 FAILED = re.compile(r"^\s*FAIL\s*[-–]?\s+(.*?)\s*(?:—|$)")
+# Evidence that a suite actually executed: every one here prints `ok`/`FAIL` lines per check.
+RAN = re.compile(r"^\s*(ok|FAIL)\b", re.M)
+
+
+def flat_tail(out, n=90):
+    """The last non-empty line, for saying WHY a suite produced nothing."""
+    lines = [l.strip() for l in out.splitlines() if l.strip()]
+    return lines[-1][:n] if lines else ""
 
 
 def sh(*a, **kw):
@@ -119,7 +132,10 @@ def changed(base):
     for line in d.stdout.splitlines():
         parts = line.split("\t")
         if len(parts) >= 2:
-            out.append((parts[0][0], parts[-1]))
+            # For R/C the format is `R050<TAB>old<TAB>new`, so the LAST field is the path that
+            # exists at HEAD and the middle one is the path that exists at base. Taking only the
+            # last silently produced `git checkout <base> -- <new path>`, which cannot resolve.
+            out.append((parts[0][0], parts[-1], parts[1] if len(parts) >= 3 else parts[-1]))
     return (mb, out), None
 
 
@@ -158,8 +174,12 @@ def plan(files, base_mb=None):
     # asks whether a test catches a CHANGE, and for a wholly new file the question is empty: a
     # test that references it cannot pass without it. So added files are dropped here, and a
     # branch that adds only new files is reported as having nothing to ablate rather than failing.
-    src = [f for st, f in files if SOURCE.match(f) and st != "A"]
-    added = [f for st, f in files if SOURCE.match(f) and st == "A"]
+    # A RENAME is the same question one step further out: at its HEAD path there is no base
+    # version either, and `git checkout <base> -- <new path>` simply fails. It used to fail
+    # SILENTLY, so nothing was reverted, the suite passed on an unmodified tree, and the branch
+    # was told its tests prove nothing. Dropped and reported, like an add.
+    src = [f for st, f, _o in files if SOURCE.match(f) and st not in ("A", "R", "C")]
+    added = [(st, f) for st, f, _o in files if SOURCE.match(f) and st in ("A", "R", "C")]
     if "sw.js" in src and base_mb and only_a_version_bump(base_mb):
         src = [f for f in src if f != "sw.js"]
     suites, uncovered = [], []
@@ -169,26 +189,60 @@ def plan(files, base_mb=None):
             for c in hit:
                 if c not in suites:
                     suites.append(c)
-        elif f in UNCOVERED:
+        else:
+            # Default to UNCOVERED rather than requiring membership. Four SOURCE files were in
+            # neither table and so passed in total silence, which is the opposite of what the
+            # docstring promises. UNCOVERED is documentation now; this branch is the guarantee.
             uncovered.append(f)
     return src, suites, uncovered, added
 
 
+def at(ref, path):
+    """Does `path` exist at `ref`?"""
+    return sh("git", "cat-file", "-e", f"{ref}:{path}").returncode == 0
+
+
+def restore(source_files):
+    """Put every ablated file back the way HEAD has it. Returns the paths it could NOT restore.
+
+    ONE PER FILE, and the return code is checked. It used to be a single
+    `git checkout HEAD -- <every file>`, and git validates the whole pathspec list before it
+    touches anything: one path absent at HEAD — which is exactly what a branch that DELETES a
+    source file produces — aborted the entire command, so NOTHING was restored. The tree was then
+    left holding base content, staged, and a commit at that moment would have silently shipped the
+    un-fixed file. A file absent at HEAD is removed rather than checked out, because "as HEAD has
+    it" for a deleted file means gone.
+    """
+    failed = []
+    for f in source_files:
+        if at("HEAD", f):
+            if sh("git", "checkout", "HEAD", "--", f).returncode != 0:
+                failed.append(f)
+        elif os.path.exists(os.path.join(ROOT, f)):
+            if sh("git", "rm", "-f", "-q", "--", f).returncode != 0:
+                failed.append(f)
+    return failed
+
+
 def ablate(base_mb, source_files, suites):
     """Revert source to base, keep tests, run each suite, restore. Returns per-suite verdicts."""
-    # Every file here exists at base — plan() drops the added ones — so a plain checkout both
-    # ways is the whole dance.
     try:
         for f in source_files:
-            sh("git", "checkout", base_mb, "--", f)
+            if at(base_mb, f):
+                sh("git", "checkout", base_mb, "--", f)
         verdicts = []
         for cmd in suites:
             code, out = run(cmd)
             verdicts.append((cmd, code, fails(out), out))
         return verdicts
     finally:
-        if source_files:
-            sh("git", "checkout", "HEAD", "--", *source_files)
+        broken = restore(source_files)
+        if broken:
+            # Loud, and not swallowed by whatever verdict was being computed: the tree is the
+            # user's, and leaving it mangled is worse than any finding this script can report.
+            print("\n  ablate: COULD NOT RESTORE " + ", ".join(broken)
+                  + "\n   - your working tree still holds base content for those files."
+                  + "\n   - recover with: git checkout HEAD -- " + " ".join(broken), flush=True)
 
 
 def main():
@@ -220,10 +274,10 @@ def main():
 
     if not src:
         if added_src:
-            print("  ablate: every source file this branch changed is NEW, so there is no "
-                  "before-state to ablate against:")
-            for f in added_src:
-                print(f"     {f}  (added)")
+            print("  ablate: every source file this branch changed is NEW at its path, so there "
+                  "is no before-state to ablate against:")
+            for st, f in added_src:
+                print(f"     {f}  ({'renamed' if st in ('R', 'C') else 'added'})")
             return 0
         print("  ablate: no source changes on this branch — nothing to prove")
         return 0
@@ -262,21 +316,40 @@ def main():
             print(f"   - no suite covers {f}")
         return 0
 
-    dirty = sh("git", "status", "--porcelain").stdout.strip()
+    # TRACKED changes only. `git checkout <ref> -- <path>` can never touch an untracked file, so
+    # counting them refused a local run over a stray scratch note while the stated reason — that
+    # restoring would take uncommitted work with it — was only ever about tracked files.
+    dirty = sh("git", "status", "--porcelain", "--untracked-files=no").stdout.strip()
     if dirty:
         print("  ablate: the working tree is dirty, and this rewrites source files in place.")
         print("   - commit or stash first; restoring would otherwise take your changes with it")
         return 2
 
-    before = {}
-    for cmd in runnable:
+    # A suite that produced no ok/FAIL lines at all did not RUN — `ui-test.sh` prints
+    # "no Chromium found — skipping (this is not a failure)" and exits 0, so on a machine with no
+    # browser the baseline and the ablated run are identical empty passes, and the verdict fell
+    # through to "its tests still PASS" — telling an author without a browser that their test
+    # proves nothing, from the very command README tells them to run.
+    before, skipped = {}, []
+    for cmd in list(runnable):
         code, out = run(cmd)
+        if not RAN.search(out):
+            skipped.append((cmd, flat_tail(out)))
+            runnable.remove(cmd)
+            continue
         before[cmd] = fails(out)
         if before[cmd]:
             print(f"  ablate: {cmd} is ALREADY red before ablating — fix that first")
             for n in sorted(before[cmd]):
                 print(f"     FAIL {n}")
             return 2
+
+    for cmd, why in skipped:
+        print(f"   - not runnable here, so it can prove nothing: {cmd}"
+              + (f"  ({why})" if why else ""))
+    if not runnable:
+        print("  ablate: no suite that covers this branch could actually run.")
+        return 0
 
     # ONE suite going red is proof. A branch that touches histogram.js and validate.py is proven
     # by whichever suite covers the part that changed behaviour; demanding that EVERY covered

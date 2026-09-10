@@ -61,6 +61,13 @@ def main():
 
     src = [f for f in files if SOURCE.match(f)]
     tests = [f for f in files if TESTS.match(f)]
+    # The SAME exemption ablate.py applies, imported rather than restated, or the two gates give
+    # opposite verdicts on one branch. The monthly refresh branch that refresh.yml pushes changes
+    # composers.json, readership.json and data/, bumps V in sw.js, touches no test and carries no
+    # trailer — so src was ["sw.js"] and this failed it while ablate.py exempted it. Latent only
+    # because a GITHUB_TOKEN PR does not trigger checks.yml; any human-opened regeneration hits it.
+    if "sw.js" in src and ablate.only_a_version_bump(mb):
+        src = [f for f in src if f != "sw.js"]
     if not src or tests:
         return 0
 

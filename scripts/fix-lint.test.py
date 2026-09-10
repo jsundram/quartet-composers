@@ -263,6 +263,96 @@ with tempfile.TemporaryDirectory() as tmp:
     case("...and says the file is new rather than claiming it was proven",
          "is NEW" in out and "(added)" in out, True)
 
+    # --- ablate: A BRANCH THAT DELETES A SOURCE FILE (the High finding on #43) --------------------
+    # Restoring was one `git checkout HEAD -- <every file>`, and git validates the whole pathspec
+    # list before touching anything: the deleted file is absent at HEAD, so the command aborted and
+    # NOTHING was restored -- the tree left holding base content, STAGED, where a commit would have
+    # silently shipped the un-fixed file. This is the case the old "tree is clean afterwards" check
+    # could not see, because it only ever built a modify-only branch.
+    repo = new_repo(tmp)
+    write(repo, "histogram.js", "// doomed\n")
+    write(repo, "suite.py", SUITE)
+    commit(repo, "a suite and a file to delete")
+    git(repo, "checkout", "-q", "-b", "b11")
+    git(repo, "rm", "-q", "histogram.js")
+    write(repo, "app.js", "// FIXED\n")
+    write(repo, "scripts/thing.test.py", "x\n")
+    commit(repo, "delete one source file and fix another")
+    code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
+                    "--cmd", f"{sys.executable} suite.py")
+    case("a branch that DELETES a source file still proves itself", code, 0)
+    case("...and the tree is restored, not left holding base content",
+         git(repo, "status", "--porcelain").strip(), "")
+    case("...and app.js keeps the branch's fix",
+         "FIXED" in open(os.path.join(repo, "app.js")).read(), True)
+    case("...and the deleted file stays deleted",
+         os.path.exists(os.path.join(repo, "histogram.js")), False)
+
+    # --- ablate: A RENAMED SOURCE FILE ------------------------------------------------------------
+    # `git diff --name-status` reports `R050<TAB>old<TAB>new`, so taking the last field gave the
+    # HEAD path, which does not exist at base. The checkout failed silently, nothing was ablated,
+    # the suite passed on an unmodified tree and the branch was told its tests prove nothing.
+    repo = new_repo(tmp)
+    body = "".join(f"// line {i}\n" for i in range(40))
+    write(repo, "table.js", body)
+    write(repo, "suite.py", SUITE)
+    commit(repo, "a suite and a file to rename")
+    git(repo, "checkout", "-q", "-b", "b12")
+    git(repo, "mv", "table.js", "chart.js")
+    # One line changed out of forty, or git scores the similarity too low to call it a rename at
+    # all and records D+A instead -- which is a different code path and not what this covers.
+    write(repo, "chart.js", body.replace("// line 7\n", "// line 7 FIXED\n"))
+    write(repo, "scripts/thing.test.py", "x\n")
+    commit(repo, "rename a source file")
+    code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
+                    "--cmd", f"{sys.executable} suite.py")
+    case("a renamed source file is not judged as an unproven fix", code, 0)
+    case("...and is reported as renamed rather than silently skipped",
+         "renamed" in out, True, out.splitlines()[0][:60] if out else "")
+
+    # --- ablate: A SUITE THAT DID NOT RUN IS NOT A SUITE THAT PASSED ------------------------------
+    # ui-test.sh prints "no Chromium found -- skipping (this is not a failure)" and exits 0, so on
+    # a machine with no browser the baseline and the ablated run were identical empty passes and
+    # the verdict fell through to "its tests still PASS" -- telling an author without a browser
+    # that their test proves nothing, from the command README tells them to run.
+    repo = new_repo(tmp)
+    write(repo, "suite.py", 'print("suite: skipping, nothing to run here")')
+    commit(repo, "a suite that skips")
+    git(repo, "checkout", "-q", "-b", "b13")
+    write(repo, "app.js", "// FIXED\n")
+    write(repo, "scripts/thing.test.py", "x\n")
+    commit(repo, "fix it")
+    code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
+                    "--cmd", f"{sys.executable} suite.py")
+    case("a suite that produced no ok/FAIL lines is not counted as a pass", code, 0)
+    case("...and says it could prove nothing", "prove nothing" in out, True)
+
+    # --- ablate: A SOURCE FILE NO SUITE COVERS IS NAMED ------------------------------------------
+    # Four SOURCE files were in neither COVERS nor UNCOVERED and so passed in total silence, with
+    # "no CI-runnable suite covers this branch's source." printed over an empty list.
+    repo = new_repo(tmp)
+    git(repo, "checkout", "-q", "-b", "b14")
+    write(repo, "manifest.json", '{"name":"x"}\n')
+    write(repo, "scripts/thing.test.py", "x\n")
+    commit(repo, "touch a source file nothing covers")
+    code, out = run(repo, os.path.join(repo, "scripts/ablate.py"))
+    case("a source file no suite covers is NAMED, not passed in silence",
+         (code, "manifest.json" in out), (0, True))
+
+    # --- fix-lint: THE V EXEMPTION IS SHARED -----------------------------------------------------
+    # refresh.yml's monthly branch changes the data files, bumps V, touches no test and carries no
+    # trailer. fix-lint failed it while ablate.py exempted the identical branch.
+    repo = new_repo(tmp)
+    write(repo, "sw.js", 'const V = "quartets-v32";\nconst SHELL = ["./"];\n')
+    write(repo, "composers.json", '{"rows":[]}\n')
+    commit(repo, "add sw.js and data")
+    git(repo, "checkout", "-q", "-b", "b15")
+    write(repo, "sw.js", 'const V = "quartets-v33";\nconst SHELL = ["./"];\n')
+    write(repo, "composers.json", '{"rows":[1]}\n')
+    commit(repo, "monthly top-up")
+    code, out = run(repo, os.path.join(repo, "scripts/fix-lint.py"))
+    case("fix-lint applies the same V exemption ablate.py does", code, 0, out[:70])
+
     # --- THIS SUITE'S OWN STATED SIZE -------------------------------------------------------------
     # Counted at RUNTIME, not by grepping for `case(`: these cases are inline rather than
     # registered, so a static count reads 23 against a real 25 — which is the very defect
@@ -274,8 +364,12 @@ with tempfile.TemporaryDirectory() as tmp:
         for m in re.finditer(r"fix-lint\.test\.py.*?\((\d+) cases\)|covers both in\s+([\w-]+)\s+cases",
                              src, re.S):
             stated.append((f, m.group(1) or m.group(2)))
-    words = {"twenty-three": 23, "twenty-four": 24, "twenty-five": 25, "twenty-six": 26,
-             "twenty-seven": 27, "twenty-eight": 28, "twenty-nine": 29, "thirty": 30}
+    # Spelled out, because CLAUDE.md writes numbers as words. Built rather than listed, so the
+    # next case added cannot land on a word this map happens not to carry and report -1.
+    ones = ["", "-one", "-two", "-three", "-four", "-five", "-six", "-seven", "-eight", "-nine"]
+    words = {f"{t}{o}": b + i
+             for t, b in (("twenty", 20), ("thirty", 30), ("forty", 40), ("fifty", 50))
+             for i, o in enumerate(ones)}
     nums = [(f, int(v) if v.isdigit() else words.get(v, -1)) for f, v in stated]
     case("both docs state this suite's real size", len(nums) >= 2 and all(n == total for _f, n in nums),
          True, ", ".join(f"{f} says {n}" for f, n in nums) + f" — it is {total}")

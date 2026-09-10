@@ -8,9 +8,9 @@ CLAUDE.md's own rule is that prose the app can falsify is built or cut. It has b
 what the page prints and never to what the docs say, and the docs have drifted three times that
 this catches on the day it was written:
 
-  - README.md said the UI suite runs 195 behavioural checks; it runs 239. That exact drift
-    (then 170 against 195) was spotted during #23, deferred to a follow-up in fd7be6f, and never
-    done — which is the whole argument for a gate over a convention.
+  - README.md stated a UI-suite size that was two rewrites out of date. That exact drift was
+    spotted during #23, deferred to a follow-up in fd7be6f, and never done — which is the whole
+    argument for a gate over a convention.
   - CLAUDE.md invariant 13 said 58 names carry a character NFD cannot decompose. Eight do.
     113 carry any non-ASCII character, so no reading of the sentence lands on 58.
 
@@ -37,9 +37,11 @@ reworded would silently retire its own check. So every claim must be FOUND and t
 Rewording is fine — update the pattern in the same commit, which is the point at which somebody
 is looking at the number anyway.
 
-The UI suite's own count is NOT here: 235 static `check(` calls produce 239 at runtime, so it
-cannot be counted offline. `scripts/ui-test.sh` asserts it instead, where the real total is
-known — the same pin-it-where-the-file-settles-it rule og-lint.py uses for manifest.json.
+The UI suite's own count is NOT here: some of its checks run in loops, so the literal `check(`
+count is not the number it reports and no offline count is exact. `scripts/ui.test.mjs` asserts it
+instead, at runtime where the real total is known — the same pin-it-where-the-file-settles-it rule
+og-lint.py uses for manifest.json. (Quoting the two numbers here went stale within this very
+branch, which is the Conventions rule about mechanical facts in comments, self-demonstrating.)
 
     python3 scripts/prose-lint.py
 """
@@ -70,8 +72,9 @@ def js_list(src, name):
 def cases(path):
     """len(CASES) by IMPORTING the suite, not by counting decorators.
 
-    Counting them statically is the very mistake this file exists to catch — ui.test.mjs has 235
-    literal `check(` calls and runs 239. A subprocess keeps the import's side effects out of here.
+    Counting them statically is the very mistake this file exists to catch: ui.test.mjs registers
+    some of its checks in loops, so its literal call count is not what it reports. A subprocess
+    keeps the import's side effects out of here.
     """
     code = ("import importlib.util,sys;"
             "spec=importlib.util.spec_from_file_location('m',%r);"
@@ -79,6 +82,17 @@ def cases(path):
             "print(len(m.CASES))" % os.path.join(ROOT, path))
     r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, cwd=ROOT)
     return int(r.stdout.strip()) if r.returncode == 0 and r.stdout.strip().isdigit() else None
+
+
+def fold_count(names, keys):
+    """How many names carry a character NFD cannot decompose — what FOLD exists for.
+
+    Lowercased first, because table.js folds AFTER `s.toLowerCase()` and the FOLD keys are all
+    lowercase. Matching the raw name missed an "Øystein", which would have reported a live 8 where
+    nine names need FOLD and then "corrected" invariant 13 to a wrong number — the exact defect
+    this file exists to prevent, in the file that prevents it, and unable to go red.
+    """
+    return sum(1 for n in names if any(c in keys for c in n.lower()))
 
 
 def live():
@@ -94,19 +108,18 @@ def live():
         "curated": (js_list(chart, "CANON") or 0) + (js_list(chart, "OUTLIERS") or 0),
         "all_curated": sum(js_list(chart, n) or 0
                            for n in ("CANON", "OUTLIERS", "WOMEN_CANON")),
-        # Names carrying a character NFD leaves intact — what invariant 13's FOLD map is FOR.
-        "fold_names": sum(1 for r in rows
-                          if any(c in fold_keys for c in r[0])),
+        "fold_names": fold_count([r[0] for r in rows], fold_keys),
         "moved": sum(1 for v in moves.values() if v),
         "testing_bullets": len(re.findall(
             r"^- ", read("CLAUDE.md").split("## Testing", 1)[1].split("\n## ", 1)[0], re.M)),
         "fetch_views_cases": cases("scripts/fetch_views.test.py"),
         "pagemoves_cases": cases("scripts/pagemoves.test.py"),
         "validate_cases": cases("scripts/validate.test.py"),
-        # No loops in that file, so the literal call count IS the case count. fix-lint.test.py
-        # is NOT counted this way: its cases are inline rather than registered, a static count
-        # came out 23 against a real 25, and getting that wrong here is the exact defect this
-        # file exists to catch. It asserts its own size instead, the way ui.test.mjs does.
+        # No loops in that file, so the literal call count IS the case count. fix-lint.test.py is
+        # NOT counted this way even though its literal count happens to be exact today: its cases
+        # are inline rather than registered, so nothing stops the next one going inside a loop and
+        # making this silently wrong. It asserts its own size at runtime instead, like
+        # ui.test.mjs — the count that cannot drift rather than the one that happens to agree.
         "sw_lint_cases": len(re.findall(r"^\s*case\(", read("scripts/sw-lint.test.py"), re.M)),
         "roster": len(rows),
         "plotted": sum(1 for r in rows if r[3] is not None),
@@ -130,6 +143,8 @@ CLAIMS = [
     # loose enough to match a quotation reports the documentation of a bug as the bug.
     ("CLAUDE.md", "fold_names", r"Lutosławski\"\.\s+(\d+)\s+names carry such\s+characters",
      "names needing FOLD"),
+    ("README.md", "validate_cases", r"validate\.test\.py.*?\((\d+) \+ a clean pass\)",
+     "validate.test.py's cases"),
     ("README.md", "fetch_views_cases", r"fetch_views\.test\.py.*?\((\d+) cases\)",
      "fetch_views.test.py's cases"),
     ("README.md", "pagemoves_cases", r"pagemoves\.test\.py.*?\((\d+) cases\)",

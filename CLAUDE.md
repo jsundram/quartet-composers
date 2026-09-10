@@ -224,9 +224,9 @@ human grades. No test framework, and nothing to install:
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
 - `scripts/ui-test.sh` — 240 behavioral checks against a real headless Chrome over CDP, the
-  last of which is the suite asserting its OWN stated size against both docs — 235 literal
-  `check(` calls produce 240 at runtime, so it is the one count `prose-lint.py` cannot take
-  offline and this is where the real total is known. It starts
+  last of which is the suite asserting its OWN stated size against both docs — some checks run in
+  loops, so the literal `check(` count is not the number it reports and no offline count is exact.
+  It is the one total `prose-lint.py` cannot take, and this is where it is known. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
@@ -283,7 +283,7 @@ human grades. No test framework, and nothing to install:
   is told its ablation is owed locally rather than passing quietly. One `No-test: <reason>` trailer
   on any commit in the range skips BOTH, so an untested source change is a sentence somebody wrote
   on purpose and a reviewer can read, not a silence. `scripts/fix-lint.test.py` covers both in
-  twenty-six cases that each build a throwaway repo with real branches.
+  thirty-six cases that each build a throwaway repo with real branches.
 - `python3 scripts/prose-lint.py` — **every number in README.md and CLAUDE.md that the repo can
   COMPUTE**, checked against the live value: the curated list sizes in `chart.js`, each suite's
   `len(CASES)` by importing it, the recorded page-move chains, the `FOLD` characters and the names
@@ -294,6 +294,10 @@ human grades. No test framework, and nothing to install:
   is a failure and not a pass, which is round 5 of #23's lesson one file over: a check that can go
   vacuous proves nothing. What it deliberately does not pin is anything with two readings — the
   entry count above, or which of 884 and 790 a sentence means.
+  `scripts/prose-lint.test.py` covers `fold_count`, which is the one part of it a reader cannot
+  check by eye: it duplicates a rule written in another language in `table.js` (fold AFTER
+  lowercasing), and its failure mode is a plausible number written into invariant 13 as a
+  correction, by the one file whose job is stopping that.
 - `scripts/audit_counts.py` — not automated: it prints parsed quartet counts beside the sentence
   they came from so a human can grade them. Run it after touching `scrape_list.py`.
 - `scripts/audit_redirects.py` — not automated either, and for the same reason: it answers a POLICY

@@ -188,7 +188,8 @@ node scripts/sw.test.mjs     # 24 tests of the service worker's fetch handler
 python3 scripts/sw-lint.py   # precache contract: V bumped, SHELL paths exist, no cross-origin
 python3 scripts/og-lint.py   # share card size (a card over ~250 KB previews as a grey box)
 python3 scripts/prose-lint.py # every number in these docs the repo can compute, vs the live value
-python3 scripts/fix-lint.test.py # the two branch gates below, on throwaway repos (26 cases)
+python3 scripts/prose-lint.test.py # its fold counter, which mirrors table.js (7 cases)
+python3 scripts/fix-lint.test.py # the two branch gates below, on throwaway repos (36 cases)
 
 # The branch gates. They compare a branch against what it will merge into, so they need a base ref
 # and run on pull requests in CI; by hand, point them at main.
@@ -202,7 +203,7 @@ branch's tests, and requires a named check to go red — a test that still passe
 is meant to prove does not prove it. A `No-test: <reason>` trailer on any commit skips both gates
 when there is genuinely nothing to assert.
 
-`validate.py`, `validate.test.py`, `fetch_views.test.py`, `pagemoves.test.py`, `sw.test.mjs`, `sw-lint.py`, `prose-lint.py`, `fix-lint.py`, `ablate.py` and `fix-lint.test.py` all run in CI; `ui-test.sh` needs
+`validate.py`, `validate.test.py`, `fetch_views.test.py`, `pagemoves.test.py`, `sw.test.mjs`, `sw-lint.py`, `prose-lint.py`, `prose-lint.test.py`, `fix-lint.py`, `ablate.py` and `fix-lint.test.py` all run in CI; `ui-test.sh` needs
 a browser, so it's a local check and skips with exit 0 rather than failing if there isn't one.
 
 ### Why there's a data gate
