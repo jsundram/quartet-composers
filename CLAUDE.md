@@ -591,22 +591,31 @@ would not have worked.
   rebuild removes the one svg it made BY REFERENCE. That last one was a claim before it was true:
   `selectAll("svg")` is a DESCENDANT query and matched the three `.ico` glyphs as well, and nothing
   showed it because `build()` only runs from `init()`, which runs before the move.
-  **The breakpoint is 1100px, and it is a MEASUREMENT of that row rather than a device.** It was
-  640 while this was read as a phone fix, but the row is two lines from 641 up as well: 82px up to
-  1054 and 38px from 1056, so lifting the two buttons out is worth 44px of page height at every
-  width below that — a 1024 laptop included. Above it the words cost nothing, because the row is
-  one line either way, while the band below would spend 26px of DATA height to buy no page height
-  at all; so up there the words stay, which is also the only place a reader is asked to learn a
-  glyph and is not. The number is 1100 and not the 1056 the row actually wraps at because `share()`
-  swaps the label to "Link copied", which is wider than "Share" and pushes the same wrap out to
-  1092: a breakpoint between the two would have let a PRESS on Share wrap the row and drop the plot
-  44px under the cursor that just pressed it — the rule the chart's controls already follow one row
-  down, arriving one row up. Those widths are one machine's font metrics, so the number is defended
-  by a check rather than by arithmetic: `ui.test.mjs` presses Share at 1101, the first width that
-  draws the words, and fails if the row grows. `app.js`'s `ICONS` media query and the `(max-width:1100px)` block in `styles.css` are the
-  two halves of it: the first decides WHERE the group is, the second what it LOOKS like, and the
-  two disagreeing is a word button parked over the dots. `chart.js` reads neither — it is TOLD, via
-  `Chart.setTopReserve()`, which is why moving the breakpoint changed nothing in that file.
+  **The condition is a MEASUREMENT of that row rather than a device, and it is TWO intervals.** It
+  was `(max-width:640px)` while this was read as a phone fix, but the row is two lines well past a
+  phone. What decides it is the CARD, not the viewport, and the two are not monotonic in each other:
+  the `(min-width:900px)` two-column grid takes 194px off the card. Measured with the words in the
+  row, stepping 4px — 641-743 wraps (card 582-681), **744-899 fits** (682-837), 900-1055 wraps
+  (524-679), 1056+ fits (680+). So the words belong in two bands and the icons in the other two, and
+  `ICONS` in `app.js` is `(max-width:799px), (min-width:900px) and (max-width:1100px)`. A single
+  `(max-width:1100px)` was the first answer and it was wrong in a 120px band: 780-899 would have
+  spent 26px of DATA height to buy no page height at all, which is the exact trade this rule refuses
+  at the top end. The numbers are 799 and 1100 rather than the 743 and 1055 the row wraps at because
+  `share()` swaps the label to "Link copied", which is wider than "Share" and moves both edges out
+  (to 780 and 1092); both sit clear of the measured edge on the ICON side, because the two errors are
+  not equal — words where they do not fit means a PRESS on Share wraps the row and drops the plot
+  44px under the cursor that just pressed it, while icons where words would have fitted costs the
+  26px and nothing else. Those widths are one machine's font metrics, so they are defended by checks
+  rather than by arithmetic: `ui.test.mjs` presses Share at 800 and at 1101 — the first width in each
+  band that draws the words — and fails if the row grows.
+  **`app.js` holds the only copy of it.** `styles.css` scopes the icon look to `#plot > #chart-tools`,
+  so the looks follow the DOM rather than re-deciding the width, and the two cannot disagree. They
+  could when that look lived in a width query: the CSS answered on width alone, so every state where
+  `placeChartTools()` had not run yet drew the icon look in the controls row — a cold boot before
+  `app.js`, and permanently on `start()`'s error path, which bails before the move and left two bare
+  glyphs with clipped labels and no click handlers sitting in the row. `chart.js` reads neither — it
+  is TOLD, via `Chart.setTopReserve()`, which is why moving the breakpoint changed nothing in that
+  file.
   Four things a change here must keep. The words stay in the DOM, visually hidden rather than `display:none`, because they are
   still the buttons' accessible NAMES. The label is written into that `.btn-t` span and never onto
   the button — `share()` and `setFull()` used to set `textContent` directly, which now deletes the
@@ -648,11 +657,11 @@ would not have worked.
   when the breakpoint moved, because zero coverage on a 390px box does not imply zero on a laptop —
   the dots are laid out again on a card twice as wide, and the swarm spreads to fill it. It is
   still zero in every view, and the suite now asserts it at 1024 as well as at 390. The 40px height
-  is stated in the 1100px block rather than inherited from the touch-target rule, which asks a
+  is stated with the overlay rather than inherited from the touch-target rule, which asks a
   different question (`(hover:none) and (pointer:coarse)`): a desktop window dragged narrow matched
   one and not the other, took `.btn`'s 36px, and the derivation above stopped describing the box
-  being drawn. Every laptop in this range answers no to that query, so the block having its own
-  height is now the common case rather than the edge one.
+  being drawn. Most of the windows that draw this layout answer no to that query, so stating it is
+  what makes the geometry a property of the overlay rather than of the input device.
   One more thing moving them INTO `#plot` broke: `#plot svg{ width:100% }` means THE CHART, and as a
   descendant selector it caught the icons too and stretched an 18px glyph to 38px — 95% of its
   button — with a 3.2px stroke, `body.fs #plot svg{ height:100% }` doing it again in full screen.
@@ -679,7 +688,9 @@ would not have worked.
   pointer cannot, and up to 1100px that pointer is usually a mouse — so both buttons carry a
   `title`, and `label()` writes it with the span in one call rather than the markup carrying it
   alone. `#fs`'s name changes with its state, and a tooltip still reading "Full screen" over the
-  exit glyph would be worse than none.
+  exit glyph would be worse than none. It is written at every width, including where the word beside
+  it is visible and the tooltip only repeats it: scoping it would mean asking `app.js` which layout
+  it is in, which is a second copy of a breakpoint that now lives in exactly one place.
 - **The readership brush's handles are crossfilter's grips, and the rect underneath is the hit
   area.** d3-brush's `.handle` is `handleSize` wide by the extent PLUS `handleSize` tall, so
   painting it drew a 20x62 slab of accent above the bars and down through the tick labels — the hit

@@ -635,19 +635,36 @@ for every desktop. It is not: the row is two lines from 641 to 1054 as well, so 
 44px of page height on a 1024 laptop for the same reason they are at 390. Re-measured, `.controls`
 height by viewport width, words in the row:
 
-| | 390 | 700 | 900 | 1024 | 1054 | 1056 | 1280 |
-|---|---|---|---|---|---|---|---|
-| words in the row | 82 (2) | 82 (2) | 82 (2) | 82 (2) | 82 (2) | 38 (1) | 38 (1) |
-| icons on the canvas | 82 (2) | 38 (1) | 38 (1) | 38 (1) | 38 (1) | 38 (1) | 38 (1) |
+| | 390 | 700 | **800** | **860** | 900 | 1024 | 1054 | 1056 | 1280 |
+|---|---|---|---|---|---|---|---|---|---|
+| words in the row | 82 (2) | 82 (2) | **38 (1)** | **38 (1)** | 82 (2) | 82 (2) | 82 (2) | 38 (1) | 38 (1) |
+| icons on the canvas | 82 (2) | 38 (1) | 38 (1) | 38 (1) | 38 (1) | 38 (1) | 38 (1) | 38 (1) | 38 (1) |
 
 Above the wrap point the words cost nothing and the band would cost 26px of data height for no page
-height at all, so that is where they stay. The breakpoint is **1100 and not 1056** because `share()`
-swaps the label to "Link copied", which is wider than "Share" and moves the same wrap out to 1092 —
-a breakpoint between the two would have let a PRESS on Share wrap the row and drop the plot 44px
-under the cursor that just pressed it, which is the rule the controls row already follows one row
-down. Those widths are this machine's font metrics (the 90px in the older table is another
-machine's), so the number is defended by a check rather than by arithmetic: `ui.test.mjs` presses
-Share at 1101, the first width that draws the words, and fails if the row grows.
+height at all, so that is where they stay.
+
+**The first answer was a single `(max-width:1100px)`, and code review caught that it is wrong in a
+120px band** — the two bold columns. The row's width is not monotonic in the viewport's: what
+decides it is the CARD, and the `(min-width:900px)` two-column grid takes 194px off that. Stepping
+4px with the words in the row: 641-743 wraps (card 582-681), **744-899 fits** (682-837), 900-1055
+wraps (524-679), 1056+ fits (680+). So the words belong in TWO bands, `ICONS` is
+`(max-width:799px), (min-width:900px) and (max-width:1100px)`, and 780-899 no longer spends 26px of
+data height to buy nothing. The edges are 799 and 1100 rather than the 743 and 1055 the row wraps at
+because `share()` swaps the label to "Link copied", which is wider than "Share" and moves both out
+(to 780 and 1092) — a breakpoint inside either gap would have let a PRESS on Share wrap the row and
+drop the plot 44px under the cursor that just pressed it, which is the rule the controls row already
+follows one row down. Both sit clear on the ICON side, because the two errors are not equal: that
+shift against 26px of data height. Those widths are this machine's font metrics (the 90px in the
+older table is another machine's), so they are defended by checks rather than by arithmetic:
+`ui.test.mjs` presses Share at 800 and at 1101, the first width in each band that draws the words,
+and fails if the row grows.
+
+The same review found the second half of it. The icon LOOK lived in that width query too, so the
+CSS and `placeChartTools()` answered the same question independently — and every state where the JS
+had not run yet drew the icon look in the row: a cold boot before `app.js`, and permanently on
+`start()`'s error path, which bails before the move. Two bare glyphs with clipped labels and no
+click handlers, above an error paragraph. The look is now scoped to `#plot > #chart-tools`, so it
+follows the DOM and `app.js` holds the only copy of the breakpoint.
 
 Two things the wider breakpoint buys beyond the pixels. The icon layout is no longer invisible on
 the machine the code is written on — every bug in this group so far (the stretched glyph, the

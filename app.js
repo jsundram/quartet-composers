@@ -538,9 +538,8 @@ function placeFilters() {
 // the row is not enough on its own; at 360 it still wraps to three lines. Only lifting them out
 // clears it at both widths.
 //
-// The row is two lines up to 1054, not just on a phone, so this is not a phone rule and stopped
-// pretending to be one. styles.css carries the measurement and why the breakpoint is 1100 rather
-// than the 1056 the row itself wraps at — share()'s "Link copied" is wider than "Share".
+// The row is two lines well past a phone, so this stopped pretending to be a phone rule — see the
+// measurement on ICONS below.
 //
 // They do not float over the DOTS. They sit in the band chart.js already spends on the y-axis
 // title, which the chart widens to fit them — so the cost is 26px of data area rather than any dot
@@ -550,10 +549,30 @@ function placeFilters() {
 // both layouts (in full screen it is flex:1, so the band is still the band). Everything that makes
 // the overlay safe is already true of #plot — see the CSS.
 //
-// Must stay in step with the `(max-width:1100px)` block in styles.css: this decides WHERE the group
-// is, that decides what it LOOKS like, and the two disagreeing is a word button parked over the
-// dots or a bare glyph sitting in the controls row.
-const ICONS = matchMedia("(max-width:1100px)");
+// THE ONLY COPY OF THIS BREAKPOINT. styles.css scopes the icon look to `#plot > #chart-tools`, so
+// the looks follow the DOM rather than re-deciding the width, and a disagreement between the two —
+// a word button parked over the dots, or a bare glyph in the controls row — has nowhere to come
+// from. It had somewhere before: the CSS answered on width alone, so every state where this had not
+// run yet drew the icon look in the row.
+//
+// TWO intervals, because the row's width is not monotonic in the viewport's. What decides the row is
+// the CARD, and the two-column grid at 900px takes 194px off it. Measured with the words in the row,
+// stepping 4px:
+//
+//     641- 743   card  582- 681   two lines
+//     744- 899   card  682- 837   ONE line (780 up, once share()'s "Link copied" is allowed for)
+//     900-1055   card  524- 679   two lines
+//     1056+      card  680+       ONE line (1092 up, same allowance)
+//
+// So the words fit in two bands and the icons are right in the other two. "Link copied" is the
+// widest state the row ever has, and it is the one that matters: a row that wraps on the PRESS drops
+// the plot 44px under the cursor that just pressed it, which is the rule the chart's controls
+// already follow one row down (see index.html). Both numbers here sit clear of the measured edge on
+// the ICON side, because the two errors are not equal — words where they do not fit is that shift,
+// while icons where words would have fitted costs 26px of data height and nothing else.
+// Those widths are one machine's font metrics, so ui.test.mjs presses Share at 800 and at 1101 —
+// the first width in each band that draws the words — and fails if the row grows.
+const ICONS = matchMedia("(max-width:799px), (min-width:900px) and (max-width:1100px)");
 
 // 40px of touch target, CENTRED on the axis title's line, with the whole target clear of the plot
 // area. Those numbers pin the band, and styles.css carries the derivation: the glyph's centre sits
@@ -631,10 +650,15 @@ function readHash() {
 // in the icon layout, where the icon is the visible half.
 //
 // The `title` goes with it. In the icon layout the span is clipped, so on a real pointer the
-// tooltip is the only NAME a reader can get at — and it is the one thing the words were still
-// buying up to 1100px. Written here rather than left in the markup because #fs's label changes
-// with its state: a tooltip that still said "Full screen" over the exit glyph would be worse than
-// none. One call, so the two can never disagree.
+// tooltip is the only NAME a reader can get at — and that name is the one thing the words were
+// still buying where the row had room for them. Written here rather than left in the markup
+// because #fs's label changes with its state: a tooltip that still said "Full screen" over the
+// exit glyph would be worse than none. One call, so the two can never disagree.
+//
+// Unconditionally, including where the word beside it is visible and the tooltip only repeats it.
+// That is the cheaper of the two errors: scoping it to the clipped layout means asking this code
+// which layout it is in, which is a second copy of a breakpoint that now lives in exactly one
+// place — and a native tooltip echoing a visible label is what a browser does anyway.
 function label(btn, text) {
   const t = btn.querySelector(".btn-t");
   if (!t) { btn.textContent = text; return; }
