@@ -19,8 +19,8 @@ window.Table = (function () {
   // a header word sets the column when it is wider than any value under it, and "Quartets" over
   // three digits was buying ~30px it never used. That is most of the phone table's overflow —
   // in a wide UI face (DejaVu, which is what system-ui resolves to on Linux) the four columns
-  // did not fit 390px at all, and in every face they still do not fit 360. The full word stays
-  // as the button's accessible NAME; styles.css swaps which span is drawn.
+  // did not fit 390px at all, and in no measured face did they fit 360. styles.css swaps which
+  // span is drawn; the accessible name keeps both, for the reason below.
   const COLS = [
     { key: "name",     label: "Composer",  num: false, phone: true },
     { key: "birth",    label: "Born",      num: true,  phone: true },
@@ -84,17 +84,20 @@ window.Table = (function () {
       const b = document.createElement("button");
       b.type = "button";
       if (c.short) {
-        // Two spans rather than one swapped string: the full word must stay in the a11y tree at
-        // every width (it is the sort button's name), and the abbreviation must stay out of it,
-        // or a screen reader reads the column "Quartets Qts".
+        // Two spans rather than one swapped string, and the DRAWN one comes first and stays in the
+        // accessibility tree: WCAG 2.5.3 asks the accessible name to contain the visible label, and
+        // "Qts" is not inside "Quartets". Hiding the abbreviation from the tree — the first thing
+        // tried here — reads fine to a screen reader and breaks SPEECH INPUT, where a reader who
+        // can see "Qts" says "click Qts" and voice control matches against a name that does not
+        // contain it. So the name is the visible label plus the word it stands for, in that order,
+        // and on a wide screen the abbreviation is display:none and drops out of the name entirely.
+        const abbr = document.createElement("span");
+        abbr.className = "th-short";
+        abbr.textContent = c.short;
         const full = document.createElement("span");
         full.className = "th-full";
         full.textContent = c.label;
-        const abbr = document.createElement("span");
-        abbr.className = "th-short";
-        abbr.setAttribute("aria-hidden", "true");
-        abbr.textContent = c.short;
-        b.append(full, abbr);
+        b.append(abbr, full);
       } else {
         b.textContent = c.label;
       }
