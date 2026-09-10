@@ -2214,13 +2214,14 @@ await settle(`Chart.getMode() === 'fame'`);
 check("a chart re-render does not delete the overlay",
       await ev(`document.getElementById('chart-tools').parentNode.id === 'plot'
         && !!document.querySelector('#plot > #chart-tools #share .ico')`));
-// A WINDOW under 640px with a real pointer — the layout neither of the two above can see. This
-// block is `(max-width:640px)`, width only, but the 40px touch floor is
-// `(hover:none) and (pointer:coarse) and (max-width:800px)`: a desktop dragged narrow matches the
-// first and not the second, so the buttons took .btn's base min-height of 36 and dropped the glyph
-// ~4px below the title's line — the derivation in styles.css describing a box the browser was not
-// drawing. Every check above runs under touch emulation, where the button is 40px and this is
-// invisible. Same shape of blind spot as the icon-inflation bug: a state the suite never entered.
+// A NARROW WINDOW WITH A REAL POINTER — the layout neither of the two above can see. The overlay's
+// geometry is scoped to `#plot > #chart-tools` and asks about no device at all, but the 40px touch
+// floor is `(hover:none) and (pointer:coarse) and (max-width:800px)`: this window matches the
+// layout and not the floor, and when the geometry was stated only by the floor the buttons took
+// .btn's base min-height of 36 and dropped the glyph ~4px below the title's line — the derivation
+// in styles.css describing a box the browser was not drawing. Every check above runs under touch
+// emulation, where the button is 40px and this is invisible. Same shape of blind spot as the
+// icon-inflation bug: a state the suite never entered.
 await send("Emulation.setTouchEmulationEnabled", { enabled: false });
 await viewport(600, 900, false);
 await goto(BASE);
@@ -2235,6 +2236,25 @@ check("a narrow window with a mouse gets the same geometry, not a 36px button",
         g=b.querySelector('.ico').getBoundingClientRect();
         return r.height.toFixed(1)+'px tall, glyph '
           + ((g.top+g.bottom)/2 - (t.top+t.bottom)/2).toFixed(1)+'px off the title'})()`));
+
+// THE LOOK FOLLOWS THE PARENT, NOT THE WIDTH. app.js places the group and styles.css scopes the
+// icon look to `#plot > #chart-tools`, so a group still in the row is a word button at any width.
+// While that look lived in a width query the two answers were independent, and every state where
+// placeChartTools() had not run yet drew the icon look in the controls row — a cold boot before
+// app.js, and permanently on start()'s error path, which bails before the move and would have left
+// two bare glyphs with clipped labels and no handlers in the row. Moving the node by hand is the
+// one way to enter that state deliberately, since the real one needs a failed fetch.
+{
+  await ev(`document.querySelector('.controls').appendChild(document.getElementById('chart-tools'))`);
+  const inRow = await ev(`(()=>{const s=document.querySelector('#share .ico'), t=document.querySelector('#share .btn-t');
+    return {ico:getComputedStyle(s).display, clipped:getComputedStyle(t).clipPath,
+            h:+document.getElementById('share').getBoundingClientRect().height.toFixed(1)}})()`);
+  check("a group left in the row is a word button, whatever the width says",
+        inRow.ico === "none" && inRow.clipped === "none" && inRow.h > 30,
+        "", `glyph display:${inRow.ico}, label clip-path:${inRow.clipped}, ${inRow.h}px tall`);
+  await ev(`document.getElementById('plot').appendChild(document.getElementById('chart-tools'))`);
+  await laidOut();
+}
 
 // A LAPTOP. The breakpoint is 1100 because the controls row is two lines up to 1054 — not because
 // of a device — so every window from 641 up now draws this overlay, on a card twice the phone's
@@ -2285,6 +2305,22 @@ const rowCopied = await rowH(), copiedTxt = await ev(`document.querySelector('#s
 check("at the first width that shows the words, pressing Share does not wrap the row",
       rowRest <= 40 && rowCopied === rowRest && copiedTxt === "Link copied",
       `row ${rowRest}px at rest, ${rowCopied}px showing "${copiedTxt}"`);
+// THE OTHER BAND. The card is not monotonic in the viewport — the two-column grid at 900px takes
+// 194px off it — so the row fits the words again between 780 and 899, and the icons are wrong
+// there for exactly the reason they are wrong above 1100: no page height saved, 26px of data
+// height spent. 800 is the first width app.js draws the words at in that band, so this is the same
+// press the 1101 check makes, at the other edge of the same rule.
+await viewport(800, 900, false);
+await goto(BASE);
+await settle(`document.getElementById('chart-tools').parentNode.classList.contains('controls')`);
+const bandRest = await rowH();
+await ev(`document.getElementById('share').click()`);
+await settle(`document.querySelector('#share .btn-t').textContent === 'Link copied'`);
+const bandCopied = await rowH(), bandTxt = await ev(`document.querySelector('#share .btn-t').textContent`);
+check("the words are back in the row below the grid's own breakpoint, and stay on one line",
+      bandRest <= 40 && bandCopied === bandRest && bandTxt === "Link copied",
+      `row ${bandRest}px at rest, ${bandCopied}px showing "${bandTxt}"`);
+
 // Back to the width 7d assumes, rather than leaving it at the boundary this check needed.
 await viewport(1280, 900, false);
 await relaid();

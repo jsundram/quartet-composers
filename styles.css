@@ -189,6 +189,93 @@ body.fs #filters .tablehead{ display:none }
 #plot > svg{ display:block; width:100%; height:auto; overflow:hidden }
 .hint{ font-size:12px; color:var(--muted); margin-top:8px }
 
+/* --- the chart's own two buttons, when they are ON the chart ------------------------------- */
+/* Scoped to the PARENT, not to a width. app.js decides where the group lives (placeChartTools, and
+   the media query it reads is the only copy of that breakpoint); this decides what it looks like
+   once it is there, so the two can no longer disagree. They could: while this block was
+   `@media (max-width:1100px)` the two answers were independent, and every state where JS had not
+   placed the group yet drew the icon look in the controls row — a cold boot before app.js runs,
+   and permanently on the error path, where start() bails before placeChartTools() and left two
+   bare glyphs with clipped labels and no click handlers sitting in the row. In the row it is a
+   .btn with a word, wherever the row is, because none of this reaches it there. */
+/* app.js moves the group into #plot (placeChartTools); everything that makes that safe is
+   already here — #plot is position:relative and already hosts an absolutely-positioned overlay in
+   #flag, d3-zoom binds to the SVG rather than to #plot so these take taps without eating a pan or
+   a pinch, and chart.js's rebuild removes the one svg it made BY REFERENCE — a `selectAll("svg")`
+   there is a descendant query and took these glyphs with it.
+   The words are not display:none'd but visually hidden, because they are still the buttons'
+   accessible NAMES — an icon-only control with no name is unusable to a screen reader, and these
+   two are the ones a reader is least able to guess from a glyph out of context. */
+/* IN THE AXIS-TITLE BAND, not over the data. Every corner was measured across all four views
+   first, and every one of them covers something: dots the 86x40 group would sit on, summed over
+   Fame/Timeline/Swarm/Lens at 390 — top-left 11, top-right 90, bottom-right 239, bottom-left 3.
+   Re-measured at 700, 900 and 1024 when this stopped being a phone rule: still zero, in every
+   view. A wider card does not make the corner safe by itself — the swarm spreads to fill it —
+   it is the band that does, and the band is asked for wherever the group is on the plot.
+   Top right reads as empty in Fame and is exactly where the SWARM piles up (90 dots and the
+   "Rachmaninoff" label), which is the trap in judging a shared overlay from one view.
+   The band is the answer instead: chart.js already spends 22px above the plot on the y-axis
+   title, and app.js asks it for 48 so a touch target fits with clearance. The title starts at the
+   left and ends by x=202 in the worst case (Fame's is the longest), leaving 96px at 360 for an
+   86px group — so it goes at the band's right end, and nothing is covered in any view.
+   What it costs is 26px of DATA height, not page height: the plot's outer box is a function of
+   the aspect ratio, so the band takes its room from the dots' area and the card is the size it
+   was. Nothing is drawn translucent, because nothing is drawn behind the glyph at all. */
+/* CENTRED on the axis title's line, not sitting on its baseline: bottom-aligned to the baseline
+   was tried first and read a touch high, because a 16px glyph beside 11px text carries more
+   visual mass below its own middle than the letters do.
+   The 3.5px is derived, not nudged: the title's box centre sits 4.47px above its baseline, the
+   baseline is 8px above the plot area (chart.js draws text.ttl at `y:-8`), so the glyph's centre
+   wants to be at TOOLS_BAND-12.47 and a 40px target whose bottom is the glyph's bottom starts at
+   48-44.47. ui.test.mjs measures the real thing and would fail if the title's metrics moved.
+   So the target spans 3.5 to 43.5 and clears the plot AREA by 4.5px — which is not the same as
+   clearing every pixel a dot can occupy. chart.js insets the dot clip OUTWARD by one maximum
+   radius (~11px on a phone), so a dot whose centre sits just inside the top edge draws a sliver
+   up into 37..48. At rest nothing is up there and the coverage check reads zero; under a pinch
+   that sliver can land under the target. Its CENTRE never can — the frame test only draws a dot
+   whose centre is inside the plot rect, which starts 4.5px below the target — so the dot stays
+   tappable where a finger aims, and 7c2 asserts exactly that at a non-identity transform. The
+   alternative was a target under 33.5px, which is the touch floor issue 31 was fought over. */
+#plot > #chart-tools{ position:absolute; top:3.5px; right:6px; z-index:2; gap:6px }
+/* A bare glyph in an invisible 40px hit area — the platform shape for a control that sits on
+   content, not a .btn pill moved onto the chart. The disc and border are what made these read as
+   furniture: 40px of chrome around a 16px mark, three times the height of the 11px axis title
+   beside them. Removed, so what is drawn IS the glyph and the touch target is only felt.
+   Muted like every other .btn label and like the axis title, so they belong to the chart's
+   chrome; --ink on press, which is the whole feedback a control with no box can give.
+   The 40px HEIGHT is stated here rather than inherited from the touch-target rule, which is
+   `(hover:none) and (pointer:coarse) and (max-width:800px)` and asks a different question — one
+   that most of the windows drawing this layout answer NO to. When this lived in a width query the
+   two diverged silently: a desktop dragged narrow matched the layout and not the touch floor, took
+   .btn's base min-height of 36, and put the glyph's centre 4px above the title's — the derivation
+   above describing a box the browser was not drawing. Stating it is what makes the geometry a
+   property of the overlay rather than of the input device. */
+#plot > #chart-tools .btn{
+  width:40px; height:40px; padding:0; justify-content:center; align-items:flex-end;
+  background:none; border:0; border-radius:0; color:var(--muted);
+}
+#plot > #chart-tools .btn:active{ color:var(--ink) }
+#plot > #chart-tools .btn .ico{ display:block }
+/* The copy confirmation the clipped label cannot give (share() in app.js). Both selectors carry
+   #share for the specificity reason spelled out below: the rule above is (2,2,0). */
+#plot > #chart-tools #share .ico-ok{ display:none }
+#plot > #chart-tools #share.copied .ico-share{ display:none }
+#plot > #chart-tools #share.copied .ico-ok{ display:block; color:var(--accent) }
+#plot > #chart-tools .btn .btn-t{
+  position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip-path:inset(50%); white-space:nowrap;
+}
+/* One button, two meanings, so it carries both glyphs and shows the one that matches its state —
+   the same source of truth (aria-pressed) the label swap already used.
+   Carrying the full prefix is not tidiness: the rule above it is `#plot > #chart-tools .btn .ico`
+   at (2,2,0), which out-specifies a bare `#fs .ico-out` at (1,1,0). Written that way both glyphs
+   showed at once and the 40px box held two 18px icons. Every selector in this group gained the
+   same `#plot >` when it left the media query, so the order between them is what it always was.
+   Same specificity trap that kept #hist-clear under the touch floor in issue 31, one selector
+   along. */
+#plot > #chart-tools #fs .ico-out, #plot > #chart-tools #fs[aria-pressed="true"] .ico-in{ display:none }
+#plot > #chart-tools #fs[aria-pressed="true"] .ico-out{ display:block }
+
 /* Name flag that tracks the cursor on a real pointer. Never shown on touch — there the tap
    goes straight to the persistent detail panel, so there is no hover bubble to double-fire. */
 #flag{
@@ -404,94 +491,6 @@ body.fs .grid{ display:block }
   .scroll{ max-height:56vh }
   .seg button, .seg.sm button, .btn{ min-height:40px }   /* keep tap targets at the 44px-ish floor */
   #q{ min-height:42px }
-}
-
-/* Share and Full screen leave the controls row wherever the row does not fit on one line with them
-   in it. 1100px is MEASURED, not a device: the row is 82px (two lines) up to 1054 and 38px (one)
-   from 1056 — so taking the two buttons out is worth 44px of page height everywhere below that —
-   and share() swaps the label to "Link copied", which is wider than "Share" and pushes the same
-   wrap point out to 1092. A breakpoint between the two would have let a PRESS on Share wrap the
-   row and drop the plot 44px under the cursor that just pressed it, which is the rule the chart's
-   controls already follow one row down (see index.html). 1100 is the round number clear of both.
-   Above it the words cost nothing — the row is one line either way — and the band below would be
-   26px of chart height bought for no page height at all, so up there the words stay.
-   This was `(max-width:640px)` when the icons were a phone answer to a three-line row. The row is
-   two lines from 641 to 1054 as well; the reasoning never was about phones. */
-@media (max-width:1100px){
-  /* app.js moves the group into #plot (placeChartTools); everything that makes that safe is
-     already here — #plot is position:relative and already hosts an absolutely-positioned overlay in
-     #flag, d3-zoom binds to the SVG rather than to #plot so these take taps without eating a pan or
-     a pinch, and chart.js's rebuild removes the one svg it made BY REFERENCE — a `selectAll("svg")`
-     there is a descendant query and took these glyphs with it.
-     The words are not display:none'd but visually hidden, because they are still the buttons'
-     accessible NAMES — an icon-only control with no name is unusable to a screen reader, and these
-     two are the ones a reader is least able to guess from a glyph out of context. */
-  /* IN THE AXIS-TITLE BAND, not over the data. Every corner was measured across all four views
-     first, and every one of them covers something: dots the 86x40 group would sit on, summed over
-     Fame/Timeline/Swarm/Lens at 390 — top-left 11, top-right 90, bottom-right 239, bottom-left 3.
-     Re-measured at 700, 900 and 1024 when this stopped being a phone rule: still zero, in every
-     view. A wider card does not make the corner safe by itself — the swarm spreads to fill it —
-     it is the band that does, and the band is asked for at every width this block covers.
-     Top right reads as empty in Fame and is exactly where the SWARM piles up (90 dots and the
-     "Rachmaninoff" label), which is the trap in judging a shared overlay from one view.
-     The band is the answer instead: chart.js already spends 22px above the plot on the y-axis
-     title, and app.js asks it for 48 so a touch target fits with clearance. The title starts at the
-     left and ends by x=202 in the worst case (Fame's is the longest), leaving 96px at 360 for an
-     86px group — so it goes at the band's right end, and nothing is covered in any view.
-     What it costs is 26px of DATA height, not page height: the plot's outer box is a function of
-     the aspect ratio, so the band takes its room from the dots' area and the card is the size it
-     was. Nothing is drawn translucent, because nothing is drawn behind the glyph at all. */
-  /* CENTRED on the axis title's line, not sitting on its baseline: bottom-aligned to the baseline
-     was tried first and read a touch high, because a 16px glyph beside 11px text carries more
-     visual mass below its own middle than the letters do.
-     The 3.5px is derived, not nudged: the title's box centre sits 4.47px above its baseline, the
-     baseline is 8px above the plot area (chart.js draws text.ttl at `y:-8`), so the glyph's centre
-     wants to be at TOOLS_BAND-12.47 and a 40px target whose bottom is the glyph's bottom starts at
-     48-44.47. ui.test.mjs measures the real thing and would fail if the title's metrics moved.
-     So the target spans 3.5 to 43.5 and clears the plot AREA by 4.5px — which is not the same as
-     clearing every pixel a dot can occupy. chart.js insets the dot clip OUTWARD by one maximum
-     radius (~11px on a phone), so a dot whose centre sits just inside the top edge draws a sliver
-     up into 37..48. At rest nothing is up there and the coverage check reads zero; under a pinch
-     that sliver can land under the target. Its CENTRE never can — the frame test only draws a dot
-     whose centre is inside the plot rect, which starts 4.5px below the target — so the dot stays
-     tappable where a finger aims, and 7c2 asserts exactly that at a non-identity transform. The
-     alternative was a target under 33.5px, which is the touch floor issue 31 was fought over. */
-  #plot > #chart-tools{ position:absolute; top:3.5px; right:6px; z-index:2; gap:6px }
-  /* A bare glyph in an invisible 40px hit area — the platform shape for a control that sits on
-     content, not a .btn pill moved onto the chart. The disc and border are what made these read as
-     furniture: 40px of chrome around a 16px mark, three times the height of the 11px axis title
-     beside them. Removed, so what is drawn IS the glyph and the touch target is only felt.
-     Muted like every other .btn label and like the axis title, so they belong to the chart's
-     chrome; --ink on press, which is the whole feedback a control with no box can give.
-     The 40px HEIGHT is stated here rather than inherited from the touch-target rule, which is
-     `(hover:none) and (pointer:coarse) and (max-width:800px)` — a different question from this
-     block's width-only one, and one no laptop in this range answers yes to. A window dragged under
-     the breakpoint matches this and not that, took .btn's base min-height of 36, and put the
-     glyph's centre 4px above the title's: the derivation above would have been describing a box
-     the browser was not drawing. */
-  #chart-tools .btn{
-    width:40px; height:40px; padding:0; justify-content:center; align-items:flex-end;
-    background:none; border:0; border-radius:0; color:var(--muted);
-  }
-  #chart-tools .btn:active{ color:var(--ink) }
-  #chart-tools .btn .ico{ display:block }
-  /* The copy confirmation the clipped label cannot give (share() in app.js). Both selectors carry
-     #share for the specificity reason spelled out below: `#chart-tools .btn .ico` is (1,2,0). */
-  #chart-tools #share .ico-ok{ display:none }
-  #chart-tools #share.copied .ico-share{ display:none }
-  #chart-tools #share.copied .ico-ok{ display:block; color:var(--accent) }
-  #chart-tools .btn .btn-t{
-    position:absolute; width:1px; height:1px; padding:0; margin:-1px;
-    overflow:hidden; clip-path:inset(50%); white-space:nowrap;
-  }
-  /* One button, two meanings, so it carries both glyphs and shows the one that matches its state —
-     the same source of truth (aria-pressed) the label swap already used.
-     Scoped through #chart-tools, and that is not tidiness: the rule above it is `#chart-tools .btn
-     .ico` at (1,2,0), which out-specifies a bare `#fs .ico-out` at (1,1,0). Written that way both
-     glyphs showed at once and the 40px box held two 18px icons. Same specificity trap that kept
-     #hist-clear under the touch floor in issue 31, one selector along. */
-  #chart-tools #fs .ico-out, #chart-tools #fs[aria-pressed="true"] .ico-in{ display:none }
-  #chart-tools #fs[aria-pressed="true"] .ico-out{ display:block }
 }
 
 /* Six columns don't fit a phone: the name wraps to three lines and Quartets scrolls off. Drop the
