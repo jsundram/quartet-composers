@@ -262,7 +262,7 @@ def main():
     # them hid the second in the first.
     print("\ntitles that do not resolve to a Wikipedia page: %d" % len(unresolved))
     for t in unresolved:
-        print("   %-40s <- add it to TITLE_FIXES, or validate.py will fail" % t)
+        print("   %-40s <- add it to TITLE_FIXES, or it ships with no readership" % t)
     print("no Wikidata dates: %d" % len(no_wd))
     print("date disagreements page vs Wikidata (Wikidata wins): %d" % len(disagree))
     for kind, t, page, wd_ in disagree[:12]:

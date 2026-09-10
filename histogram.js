@@ -233,8 +233,9 @@ window.Histogram = (function () {
     if (!range) return null;
     const set = new Set();
     // At the left edge the low bound means "everything below", or a brush across the whole axis
-    // drops a composer under the floor.
-    const lo = range[0] <= edges[0] ? 0 : range[0];
+    // drops a composer under the floor. Tolerant, not exact: x.invert() of the left pixel comes
+    // back a hair ABOVE edges[0], so `<=` alone never fires.
+    const lo = range[0] <= edges[0] * (1 + 1e-9) ? 0 : range[0];
     for (const d of rows) if (d.views >= lo && d.views <= range[1]) set.add(d.i);
     return set;
   }

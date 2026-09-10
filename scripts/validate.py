@@ -486,14 +486,19 @@ def check_resolved(people):
     series is aligned, the median really is the median of what is there, and a tiny count is
     plausible for an obscure name. It is only wrong against a page that was never being counted
     (invariant 5; TITLE_FIXES in fetch_wikidata.py).
+
+    WARN, not err, for invariant 4's reason one stage over: the row now degrades cleanly — no
+    canonical means nothing is fetched and nothing is invented, so it ships table-only like the 94
+    with no quartet count. Failing would stop refresh.py bumping V, and one redlinked name added
+    upstream would hold the whole roster's monthly top-up hostage. --strict still fails on it.
     """
     if not people:
         return
     bad = sorted(t for t, p in people.items() if not p.get("canonical"))
     if bad:
-        err("%d list title(s) do not resolve to a Wikipedia page, so nothing can be counted for "
-            "them: %s. Add the real title to TITLE_FIXES in scripts/fetch_wikidata.py and rerun "
-            "the pipeline." % (len(bad), ", ".join(bad[:6])))
+        warn("%d list title(s) do not resolve to a Wikipedia page, so they ship with no readership "
+             "at all: %s. Add the real title to TITLE_FIXES in scripts/fetch_wikidata.py, or leave "
+             "it if the article genuinely does not exist." % (len(bad), ", ".join(bad[:6])))
 
 
 # --------------------------------------------------------------- drift
