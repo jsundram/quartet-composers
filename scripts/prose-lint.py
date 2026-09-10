@@ -84,6 +84,17 @@ def cases(path):
     return int(r.stdout.strip()) if r.returncode == 0 and r.stdout.strip().isdigit() else None
 
 
+def fold_keys():
+    """The FOLD map's keys, READ out of table.js rather than copied.
+
+    sw.test.mjs reads BOOT out of sw.js for this reason: a second copy drifts, and here the drift
+    would be silent in the worst direction — a test asserting the folding rule against a set of
+    characters the app no longer folds.
+    """
+    m = re.search(r"FOLD\s*=\s*\{(.*?)\}", read("table.js"), re.S)
+    return re.findall(r'"([^"])"\s*:', m.group(1)) if m else []
+
+
 def fold_count(names, keys):
     """How many names carry a character NFD cannot decompose — what FOLD exists for.
 
@@ -98,8 +109,7 @@ def fold_count(names, keys):
 def live():
     chart = read("chart.js")
     rows = json.loads(read("composers.json"))["rows"]
-    fold = re.search(r"FOLD\s*=\s*\{(.*?)\}", read("table.js"), re.S)
-    fold_keys = re.findall(r'"([^"])"\s*:', fold.group(1)) if fold else []
+    keys = fold_keys()
     moves = json.loads(read("data/pageviews.json")).get("moves", {})
     return {
         "CANON": js_list(chart, "CANON"),
@@ -108,7 +118,7 @@ def live():
         "curated": (js_list(chart, "CANON") or 0) + (js_list(chart, "OUTLIERS") or 0),
         "all_curated": sum(js_list(chart, n) or 0
                            for n in ("CANON", "OUTLIERS", "WOMEN_CANON")),
-        "fold_names": fold_count([r[0] for r in rows], fold_keys),
+        "fold_names": fold_count([r[0] for r in rows], keys),
         "moved": sum(1 for v in moves.values() if v),
         "testing_bullets": len(re.findall(
             r"^- ", read("CLAUDE.md").split("## Testing", 1)[1].split("\n## ", 1)[0], re.M)),
@@ -121,6 +131,7 @@ def live():
         # making this silently wrong. It asserts its own size at runtime instead, like
         # ui.test.mjs — the count that cannot drift rather than the one that happens to agree.
         "sw_lint_cases": len(re.findall(r"^\s*case\(", read("scripts/sw-lint.test.py"), re.M)),
+        "prose_lint_cases": len(re.findall(r"^case\(", read("scripts/prose-lint.test.py"), re.M)),
         "roster": len(rows),
         "plotted": sum(1 for r in rows if r[3] is not None),
     }
@@ -143,6 +154,8 @@ CLAIMS = [
     # loose enough to match a quotation reports the documentation of a bug as the bug.
     ("CLAUDE.md", "fold_names", r"Lutosławski\"\.\s+(\d+)\s+names carry such\s+characters",
      "names needing FOLD"),
+    ("README.md", "prose_lint_cases", r"prose-lint\.test\.py.*?\((\d+) cases\)",
+     "prose-lint.test.py's cases"),
     ("README.md", "validate_cases", r"validate\.test\.py.*?\((\d+) \+ a clean pass\)",
      "validate.test.py's cases"),
     ("README.md", "fetch_views_cases", r"fetch_views\.test\.py.*?\((\d+) cases\)",
@@ -193,8 +206,7 @@ def main():
 
     # Invariant 13 spells the folded characters out. A stale LIST is the same defect as a stale
     # count and reads more authoritatively, being a quotation of the code.
-    fold = re.search(r"FOLD\s*=\s*\{(.*?)\}", read("table.js"), re.S)
-    keys = set(re.findall(r'"([^"])"\s*:', fold.group(1))) if fold else set()
+    keys = set(fold_keys())
     m = re.search(r"\*\*Search folds `([^`]+)` before NFD\*\*", read("CLAUDE.md"))
     if not m:
         bad.append("CLAUDE.md: invariant 13's folded-character list no longer matches its pattern")

@@ -70,12 +70,17 @@ COVERS = [
     # ablated against the suite written for it, which is the failure the whole PR is about.
     (("scripts/ablate.py", "scripts/fix-lint.py"),
                                       ["python3 scripts/fix-lint.test.py"]),
+    (("scripts/prose-lint.py",),      ["python3 scripts/prose-lint.test.py"]),
 ]
 
-# Everything else that is load-bearing but has no suite. Listed so `--list` can say so out loud.
+# Load-bearing source that genuinely has no suite. plan() no longer READS this — anything unmapped
+# defaults to reported — so it would be pure decoration, and decoration is what let prose-lint.py
+# sit here through the very commit that gave it a suite. It is an ASSERTION now, checked by
+# unsuited() below: a name here that has a test file beside it, or that COVERS already maps, is a
+# stale claim that this file has nothing to prove, which is exactly the silence the gate is for.
 UNCOVERED = ("scripts/build_data.py", "scripts/scrape_list.py", "scripts/fetch_wikidata.py",
              "scripts/make-og-svg.py", "scripts/og-lint.py", "scripts/refresh.py",
-             "scripts/prose-lint.py", "manifest.json", "ping.js")
+             "manifest.json", "ping.js")
 
 # WHAT COUNTS AS SOURCE lives here and nowhere else, because fix-lint.py asks the same question
 # and two copies of a classification drift into disagreeing — the lesson #23 round 3 spent a
@@ -106,6 +111,18 @@ def flat_tail(out, n=90):
     return lines[-1][:n] if lines else ""
 
 
+def unsuited():
+    """Names in UNCOVERED that are no longer uncovered. Empty is the invariant."""
+    mapped = {f for pats, _ in COVERS for f in pats}
+    bad = []
+    for f in UNCOVERED:
+        if f in mapped:
+            bad.append(f"{f} is in UNCOVERED and in COVERS")
+        elif f.endswith(".py") and os.path.exists(os.path.join(ROOT, f[:-3] + ".test.py")):
+            bad.append(f"{f} is in UNCOVERED but {f[:-3]}.test.py exists — map it in COVERS")
+    return bad
+
+
 def sh(*a, **kw):
     return subprocess.run(a, capture_output=True, text=True, cwd=ROOT, **kw)
 
@@ -125,7 +142,11 @@ def changed(base):
         return None, (f'no merge base between HEAD and "{base}" — with a shallow checkout there '
                       f"is nothing to compare against; fetch-depth 0 in CI")
     mb = mb.stdout.strip()
-    d = sh("git", "diff", "--name-status", mb, "HEAD")
+    # -M05% because the DEFAULT threshold is the bug: a rename git scores below 50% arrives as
+    # D + A instead, and those two entries ablate the OLD path while the new one keeps the fix —
+    # a suite that then passes, reported as "your tests prove nothing". Finding the rename is what
+    # lets it be ablated properly below.
+    d = sh("git", "diff", "--name-status", "-M05%", mb, "HEAD")
     if d.returncode != 0:
         return None, f"could not diff {mb[:8]}..HEAD"
     out = []
@@ -174,12 +195,14 @@ def plan(files, base_mb=None):
     # asks whether a test catches a CHANGE, and for a wholly new file the question is empty: a
     # test that references it cannot pass without it. So added files are dropped here, and a
     # branch that adds only new files is reported as having nothing to ablate rather than failing.
-    # A RENAME is the same question one step further out: at its HEAD path there is no base
-    # version either, and `git checkout <base> -- <new path>` simply fails. It used to fail
-    # SILENTLY, so nothing was reverted, the suite passed on an unmodified tree, and the branch
-    # was told its tests prove nothing. Dropped and reported, like an add.
-    src = [f for st, f, _o in files if SOURCE.match(f) and st not in ("A", "R", "C")]
-    added = [(st, f) for st, f, _o in files if SOURCE.match(f) and st in ("A", "R", "C")]
+    # A RENAME is NOT the same question: the base content exists, it just lives at the old path.
+    # `git checkout <base> -- <new path>` cannot find it and used to fail silently, so nothing was
+    # reverted and a passing suite was reported as proving nothing. Carrying the old path lets the
+    # file actually be ablated — `git show <base>:<old>` written to the new path — instead of
+    # exempted, so a rename that also carries a fix is held to the same standard as any edit.
+    src = [f for st, f, _o in files if SOURCE.match(f) and st != "A"]
+    renamed_from = {f: o for st, f, o in files if st in ("R", "C") and SOURCE.match(f)}
+    added = [(st, f) for st, f, _o in files if SOURCE.match(f) and st == "A"]
     if "sw.js" in src and base_mb and only_a_version_bump(base_mb):
         src = [f for f in src if f != "sw.js"]
     suites, uncovered = [], []
@@ -194,7 +217,7 @@ def plan(files, base_mb=None):
             # neither table and so passed in total silence, which is the opposite of what the
             # docstring promises. UNCOVERED is documentation now; this branch is the guarantee.
             uncovered.append(f)
-    return src, suites, uncovered, added
+    return src, suites, uncovered, added, renamed_from
 
 
 def at(ref, path):
@@ -224,11 +247,21 @@ def restore(source_files):
     return failed
 
 
-def ablate(base_mb, source_files, suites):
+def ablate(base_mb, source_files, suites, renamed=None):
     """Revert source to base, keep tests, run each suite, restore. Returns per-suite verdicts."""
+    renamed = renamed or {}
     try:
         for f in source_files:
-            if at(base_mb, f):
+            old = renamed.get(f)
+            if old:
+                # The base version of a renamed file is at its OLD path, so there is nothing to
+                # `checkout` onto the new one — write the blob instead. restore() puts it back
+                # from HEAD like any other file.
+                blob = sh("git", "show", f"{base_mb}:{old}")
+                if blob.returncode == 0:
+                    with open(os.path.join(ROOT, f), "w") as fh:
+                        fh.write(blob.stdout)
+            elif at(base_mb, f):
                 sh("git", "checkout", base_mb, "--", f)
         verdicts = []
         for cmd in suites:
@@ -265,19 +298,27 @@ def main():
             return 2
         cmd = sys.argv[j + 1]
 
+    stale = unsuited()
+    if stale:
+        print("  ablate: UNCOVERED is out of date, so a covered file would be reported as "
+              "having no suite:")
+        for b in stale:
+            print(f"   - {b}")
+        return 2
+
     got, err = changed(base)
     if err:
         print(f"  ablate:\n   - {err}")
         return 2
     base_mb, files = got
-    src, suites, uncovered, added_src = plan(files, base_mb)
+    src, suites, uncovered, added_src, renamed = plan(files, base_mb)
 
     if not src:
         if added_src:
-            print("  ablate: every source file this branch changed is NEW at its path, so there "
-                  "is no before-state to ablate against:")
-            for st, f in added_src:
-                print(f"     {f}  ({'renamed' if st in ('R', 'C') else 'added'})")
+            print("  ablate: every source file this branch changed is NEW, so there is no "
+                  "before-state to ablate against:")
+            for _st, f in added_src:
+                print(f"     {f}  (added)")
             return 0
         print("  ablate: no source changes on this branch — nothing to prove")
         return 0
@@ -330,10 +371,22 @@ def main():
     # browser the baseline and the ablated run are identical empty passes, and the verdict fell
     # through to "its tests still PASS" — telling an author without a browser that their test
     # proves nothing, from the very command README tells them to run.
+    #
+    # THE EXIT CODE IS HALF OF THAT TEST. Silence with code 0 is a deliberate skip; silence with a
+    # NONZERO code is a suite that crashed — an import error, a missing dependency, a syntax
+    # error — and treating it as "not runnable here" let a broken suite pass the gate, which is a
+    # louder version of the hole this whole script exists to close. The ablated side already
+    # separates the two; the baseline was throwing `code` away.
     before, skipped = {}, []
     for cmd in list(runnable):
         code, out = run(cmd)
         if not RAN.search(out):
+            if code != 0:
+                print(f"  ablate: {cmd} is BROKEN before ablating — it exited {code} without "
+                      f"printing a single ok or FAIL line, so it never ran")
+                if flat_tail(out):
+                    print(f"     {flat_tail(out, 200)}")
+                return 2
             skipped.append((cmd, flat_tail(out)))
             runnable.remove(cmd)
             continue
@@ -355,7 +408,7 @@ def main():
     # by whichever suite covers the part that changed behaviour; demanding that EVERY covered
     # suite redden would ask for a test of the thing that did not change.
     proved, problems = False, []
-    for cmd, code, after, out in ablate(base_mb, src, runnable):
+    for cmd, code, after, out in ablate(base_mb, src, runnable, renamed):
         new = after - before[cmd]
         if new:
             proved = True
@@ -382,6 +435,17 @@ def main():
         return 0
 
     print("\n  ablate:")
+    if added_src:
+        # A file ADDED cannot be ablated, so a verdict of "your tests prove nothing" may be about
+        # a change this script never reverted. The sharp case is a rename git scored at 0%: it
+        # arrives as D + A at ANY -M threshold, indistinguishable from an unrelated delete plus
+        # add, so the old path is ablated while the new one keeps the fix and the suite passes.
+        # Naming the un-ablatable files turns a confidently wrong verdict into an accurate one.
+        print("   NOTE: these files are new at their path and were NOT ablated, so the verdict "
+              "below\n   may be about a change that was never reverted "
+              "(a wholly-rewritten rename arrives this way):")
+        for _st, f in added_src:
+            print(f"     {f}")
     for cmd, msg, out in problems:
         print(f"   - {cmd}: {msg}")
         if out:
