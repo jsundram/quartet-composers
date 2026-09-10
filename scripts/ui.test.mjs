@@ -107,13 +107,19 @@ async function shot(name, params = {}) {
   const r = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true, ...params });
   writeFileSync(`${OUTDIR}/${name}.png`, Buffer.from(r.result.data, "base64"));
 }
-// A full-page shot of a tall page at the suite's deviceScaleFactor of 2 can exceed what Chromium
-// will rasterise, and it does not say so — it drops the page target (#50). `clip.scale` divides
-// the device scale factor back out, so the PNG is the page's CSS size: half the width, a quarter
-// of the pixels, and nothing in this file asserts on any of these images. Diagnostics, not data.
-const HALF = async () => ({ scale: 0.5, x: 0, y: 0,
+// Print un-scrolls the table, so the page is 884 rows tall — ~35,000px, which at the suite's
+// deviceScaleFactor of 2 is a 179-megapixel ask that this Chromium answers by dropping the page
+// target (#50). Clip the HEIGHT rather than the scale: everything print CHANGES is above the
+// fold — the hidden chrome, the white card, and the table running on past where its scroll box
+// used to end — and the rest is the same row 850 more times. So the shot runs to the Nth row,
+// which is far enough below a 46vh box to be unambiguous and reads the row height off the page
+// rather than assuming one. Scale stays 1, i.e. the dsf 2 every other screenshot here is taken
+// at: a human opens these to look at them, and half scale would make this the one that is soft.
+const printClip = async (rows = 30) => ({ scale: 1, x: 0, y: 0,
   width: await ev(`document.documentElement.clientWidth`),
-  height: await ev(`document.documentElement.scrollHeight`) });
+  height: await ev(`(()=>{const r = document.querySelectorAll('tbody tr')[${rows}];
+    return r ? Math.ceil(r.getBoundingClientRect().bottom + scrollY)
+             : document.documentElement.scrollHeight})()`) });
 async function goto(url) {
   // A navigation that changes only the FRAGMENT is same-document: the app never re-runs, so
   // goto(BASE + "#v=scatter") from BASE quietly left the previous section's view in place and the
@@ -2131,7 +2137,7 @@ check("print hides the interactive chrome",
       await ev(`getComputedStyle(document.querySelector('.controls')).display === 'none'`));
 check("print un-scrolls the table so every row is on the page",
       await ev(`getComputedStyle(document.querySelector('.scroll')).overflow === 'visible'`));
-await shot("print", { clip: await HALF() });
+await shot("print", { clip: await printClip() });
 await send("Emulation.setEmulatedMedia", { media: "" });
 
 // --- 8. THE SUITE'S OWN STATED SIZE ---------------------------------------------------------
