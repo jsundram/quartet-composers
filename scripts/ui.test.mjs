@@ -103,18 +103,25 @@ async function ev(expr) {
   if (r.result?.exceptionDetails) throw new Error(r.result.exceptionDetails.text + " :: " + expr);
   return r.result.result.value;
 }
+const shots = [];
 async function shot(name, params = {}) {
   const r = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true, ...params });
-  writeFileSync(`${OUTDIR}/${name}.png`, Buffer.from(r.result.data, "base64"));
+  const png = Buffer.from(r.result.data, "base64");
+  writeFileSync(`${OUTDIR}/${name}.png`, png);
+  // Off the IHDR rather than off the request, so a clip that did not do what it meant to is still
+  // measured by what landed on disk. 9b reads these.
+  shots.push({ name, w: png.readUInt32BE(16), h: png.readUInt32BE(20) });
 }
-// Print un-scrolls the table, so the page is 884 rows tall — ~35,000px, which at the suite's
-// deviceScaleFactor of 2 is a 179-megapixel ask that this Chromium answers by dropping the page
-// target (#50). Clip the HEIGHT rather than the scale: everything print CHANGES is above the
-// fold — the hidden chrome, the white card, and the table running on past where its scroll box
-// used to end — and the rest is the same row 850 more times. So the shot runs to the Nth row,
-// which is far enough below a 46vh box to be unambiguous and reads the row height off the page
-// rather than assuming one. Scale stays 1, i.e. the dsf 2 every other screenshot here is taken
-// at: a human opens these to look at them, and half scale would make this the one that is soft.
+// Print un-scrolls the table, so the page is 884 rows tall — ~35,000px, which at DSF is a
+// 179-megapixel ask that this Chromium answers by dropping the page target (#50).
+// Clip the HEIGHT, and NOT the scale, which was the first answer and the wrong one. Whoever reads
+// these is reading a resized copy (see 9b): fewer megapixels buys nothing, because the long edge
+// is what the resize is driven by, and a taller capture therefore spends WIDTH. Full-page at half
+// scale is 1280x34,936 and lands 94px wide — the same 94px as full scale. What makes the shot
+// readable is that it is SHORT, so it runs to the Nth row and stops. Everything print changes is
+// above the fold — the hidden chrome, the white card, and the table running on past where its
+// scroll box used to end — and the rest is the same row 850 more times. The row is measured on
+// the page rather than assumed, so a font change carries the clip with it.
 const printClip = async (rows = 30) => ({ scale: 1, x: 0, y: 0,
   width: await ev(`document.documentElement.clientWidth`),
   height: await ev(`(()=>{const r = document.querySelectorAll('tbody tr')[${rows}];
@@ -175,8 +182,9 @@ async function key(k) {
 // `TOUCH`, and styles.css reserves the panel behind it. `ui-test.sh` answers it where it can be
 // answered, by running the browser on an Xvfb display, and section 2 asserts the answer arrived
 // rather than trusting it (#50).
+const DSF = 2;
 async function viewport(w, h, mobile = false) {
-  await send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 2, mobile });
+  await send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: DSF, mobile });
 }
 
 await send("Page.enable"); await send("Runtime.enable"); await send("Log.enable");
@@ -2139,6 +2147,25 @@ check("print un-scrolls the table so every row is on the page",
       await ev(`getComputedStyle(document.querySelector('.scroll')).overflow === 'visible'`));
 await shot("print", { clip: await printClip() });
 await send("Emulation.setEmulatedMedia", { media: "" });
+
+// --- 9b. AND THE SCREENSHOTS' OWN RESOLUTION --------------------------------------------------
+// Nothing asserts on the PNGs and the directory is deleted unless KEEP=1, so what they are FOR is
+// the one look at the page a failure gets — read, increasingly, by a model rather than by eyes.
+// An image handed to one is resampled to fit a long-edge cap AND a visual-token budget, at the
+// largest size satisfying both, so height spends width: the full-page print shot this issue began
+// with is 1280x34,936 and arrives 94px wide, 368 tokens of a page nothing can read, at any capture
+// scale. That is why "make it fewer megapixels" was the wrong fix and clipping the height was the
+// right one, and this is the property the clip bought, pinned so it cannot drift back.
+// It does NOT catch #50's hang — that shot never returns to be measured. It catches the same
+// mistake where the capture SUCCEEDS and only the picture is lost, which is every other machine.
+{
+  const PATCH = 28, LONG = 2576, TOKENS = 4784;   // the high-resolution tier's two limits
+  const at = ({ w, h }) => DSF * Math.min(1, LONG / Math.max(w, h), Math.sqrt(TOKENS * PATCH ** 2 / (w * h)));
+  const worst = shots.reduce((a, b) => at(b) < at(a) ? b : a);
+  check("every screenshot survives an image resize at 1:1 or better", at(worst) >= 1,
+        `${worst.name} is ${worst.w}x${worst.h} and resolves at ${at(worst).toFixed(2)} image pixels `
+        + `per CSS pixel, against a floor of 1 — ${shots.length} shots measured`);
+}
 
 // --- 8. THE SUITE'S OWN STATED SIZE ---------------------------------------------------------
 // The docs quote this total, and it is the one count in the repo that cannot be taken offline:
