@@ -17,11 +17,13 @@ CDP=${CDP:-9333}
 OUT=$(mktemp -d)
 
 find_chrome() {
-  local c
+  local c pw="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
+  # The full Chromium before chrome-headless-shell: only the full build takes a pointer from
+  # Xvfb (see below), and Playwright installs either.
   for c in \
-    "${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"/chromium-*/chrome-linux/chrome \
-    "$HOME/.cache/ms-playwright"/chromium_headless_shell-*/chrome-headless-shell-*/chrome-headless-shell \
-    "$HOME/.cache/ms-playwright"/chromium-*/chrome-*/"Google Chrome for Testing.app"/Contents/MacOS/"Google Chrome for Testing" \
+    "$pw"/chromium-*/chrome-linux/chrome \
+    "$pw"/chromium_headless_shell-*/chrome-headless-shell-*/chrome-headless-shell \
+    "$pw"/chromium-*/chrome-*/"Google Chrome for Testing.app"/Contents/MacOS/"Google Chrome for Testing" \
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
     "$(command -v chromium || true)" "$(command -v chromium-browser || true)" \
     "$(command -v google-chrome || true)"
