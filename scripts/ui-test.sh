@@ -2,19 +2,44 @@
 # Run scripts/ui.test.mjs against a real headless Chrome. Starts a server and a browser, runs the
 # checks, tears both down. Screenshots land in a temp dir and the path is printed at the end.
 #
-#     scripts/ui-test.sh            # quiet
-#     KEEP=1 scripts/ui-test.sh     # keep the screenshots dir open for inspection
+#     scripts/ui-test.sh                     # quiet
+#     KEEP=1 scripts/ui-test.sh              # keep the screenshots dir open for inspection
+#     REQUIRE_BROWSER=1 scripts/ui-test.sh   # a platform it cannot run on is a FAILURE (CI)
+#     OUT=<dir> scripts/ui-test.sh           # put the screenshots somewhere known in advance
 #
 # Needs node >= 22 (global WebSocket) and a Chromium. It SKIPS with exit 0 when no browser is
 # installed, so it never fails a machine that simply doesn't have one — the service-worker suite
 # (scripts/sw.test.mjs) is the one that must always run. On Linux it also wants `xvfb-run`; see
 # the pointer note below for what fails without it.
+#
+# THAT SKIP IS RIGHT FOR A LAPTOP AND WRONG FOR A RUNNER, so `REQUIRE_BROWSER=1` turns it — and
+# the two pointer warnings below — into failures. A CI job that quietly loses its Chrome would
+# otherwise go GREEN having tested nothing, which is the one failure mode a green suite cannot
+# tell you about. `.github/workflows/checks.yml` sets it in both jobs that reach here, including
+# the ablate one, which arrives through ablate.py and can pass nothing but the environment.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
 PORT=${PORT:-8765}
 CDP=${CDP:-9333}
-OUT=$(mktemp -d)
+# Overridable because CI has to know the path BEFORE the run in order to upload what a failure
+# left there — `actions/upload-artifact` takes a path, not the one this script prints at the end.
+# A DIRECTORY THIS SCRIPT DID NOT CREATE IS NEVER DELETED: cleanup below does `rm -rf "$OUT"`, and
+# `OUT=$HOME scripts/ui-test.sh` must not be a way to lose a home directory. So an inherited one is
+# only ever written into, and the caller who named it owns clearing it.
+if [ -n "${OUT:-}" ]; then OWN=""; mkdir -p "$OUT"
+else                       OUT=$(mktemp -d); OWN=1; fi
+
+# The three ways this platform can be unable to answer the question the suite is asking: no
+# browser at all, the old headless shell (no pointer even under a display), and no X server (no
+# pointer either). Each is a warning on a laptop and a failure under REQUIRE_BROWSER — see the
+# header. Called before the EXIT trap is installed, so exiting here has nothing to tear down.
+required_or_warn() {
+  [ -n "${REQUIRE_BROWSER:-}" ] || return 0
+  echo "ui-test: REQUIRE_BROWSER is set, so a platform this suite cannot run correctly on is a"
+  echo "         FAILURE here rather than a warning. Nothing above is a bug in the app."
+  exit 1
+}
 
 find_chrome() {
   local c pw="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
@@ -33,7 +58,11 @@ find_chrome() {
   return 1
 }
 
-CHROME=$(find_chrome) || { echo "ui-test: no Chromium found — skipping (this is not a failure)"; exit 0; }
+CHROME=$(find_chrome) || {
+  echo "ui-test: no Chromium found — skipping (this is not a failure)"
+  required_or_warn
+  exit 0
+}
 
 # A FRESH profile every run. sw.js serves the shell cache-first, so a reused profile keeps running
 # the PREVIOUS edit's JS until V is bumped — you would be testing code you already changed.
@@ -86,10 +115,12 @@ elif [ -z "$HEADFUL" ]; then
   echo "ui-test: ${CHROME##*/} is the old headless binary and reports no pointer even under a"
   echo "         display, so the hover checks will fail. Point find_chrome at a full Chrome or"
   echo "         Chromium to run them."
+  required_or_warn
 elif ! command -v xvfb-run >/dev/null 2>&1; then
   echo "ui-test: no xvfb-run — running headless, where this platform reports NO pointer."
   echo "         Expect 'the desktop viewport really reports a fine pointer' and the hover checks"
   echo "         that depend on it to fail. Install xvfb to run them."
+  required_or_warn
 else
   XVFB=1
   # A screen bigger than any viewport the suite sets, so nothing is clamped by it. Every section
@@ -128,7 +159,7 @@ cleanup() {
   if [ -n "$XVFB" ]; then kill -- -"$BROWSER" 2>/dev/null   # the wrapper AND the Xvfb beside it
   else                    kill "$BROWSER" 2>/dev/null; fi
   pkill -f "remote-debugging-port=$CDP" 2>/dev/null
-  if [ "${KEEP:-}" = "1" ] || [ "$rc" -ne 0 ]; then echo "screenshots: $OUT"
+  if [ "${KEEP:-}" = "1" ] || [ "$rc" -ne 0 ] || [ -z "$OWN" ]; then echo "screenshots: $OUT"
   else rm -rf "$OUT"; fi
 }
 trap cleanup EXIT

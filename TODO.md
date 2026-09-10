@@ -808,7 +808,7 @@ than the commit gate.
 
 ## Testing
 
-### ~~`ui-test.sh` scores 231/240 under CI's Linux headless Chrome~~ — mostly done, #50
+### ~~`ui-test.sh` scores 231/240 under CI's Linux headless Chrome~~ — done, 2026-09-10, [#50](https://github.com/jsundram/quartet-composers/issues/50), [#53](https://github.com/jsundram/quartet-composers/issues/53), [#56](https://github.com/jsundram/quartet-composers/issues/56)
 Never a browser problem — the premise that CI has no browser is simply false: `ubuntu-latest` ships
 `/usr/bin/google-chrome`, `/usr/bin/chromium` and `/usr/bin/chromium-browser`, and `find_chrome`
 picks the first up without help. Measured on #43 with a temporary `ui` job (since removed): the
@@ -859,19 +859,26 @@ to. The stand-in was accurate rather than merely convenient — predicted ~49px 
 purpose: it describes how the number was ARRIVED at, and the next person changing that layout will
 be on a Mac too.
 
-**Not addressed here: running the suite in CI — but it is now only a job away, the job is
-specified, and it is filed as #56.** Both blockers this entry named are gone: the browser was never missing, and the font
-check was a real layout defect rather than a platform quirk. A Linux run of the whole suite is
-green (above), so what is left is a `ui` job in `checks.yml`, deliberately kept out of #53 so a
-workflow change is reviewable on its own. Three things it needs, one of which is not obvious:
-**node 22**, because `ui.test.mjs`'s entire CDP client is the global `WebSocket` that node 20 does
-not have — and all three existing jobs pin 20, so copying one is the way to get an immediate
-failure that looks like a browser problem; `xvfb-run`, for the pointer (#50); and the FULL Chrome
-rather than `chrome-headless-shell`, which `find_chrome` prefers from a Playwright cache and which
-reports no pointer even under a display. The prize is bigger than the suite: with a browser on the
-runner, `ablate.py --with-ui` becomes runnable there, and the branch gate stops printing
-"no CI-runnable suite covers this branch's source" for exactly the branches that change what the
-page LOOKS like — #53's own ablation was owed locally and run by hand.
+**And the suite now RUNS in CI** (#56), in a `ui` job of its own — deliberately split out of #53
+so a workflow change could be reviewed on its own. Both blockers this entry named were gone by
+then: the browser was never missing, and the font check was a real layout defect rather than a
+platform quirk. Three things the job needed, one of them not obvious. **node 22**, because
+`ui.test.mjs`'s entire CDP client is the global `WebSocket` that node 20 does not have — and of
+the three jobs already in `checks.yml` the two that set node up at all (`sw` and `gates`) pinned
+20, while `data` has no `setup-node` step, so copying one was the way to get an immediate failure
+that looks like a browser problem and is not. **`xvfb-run`**, for the pointer (#50). And the FULL
+Chrome rather than `chrome-headless-shell`, which `find_chrome` prefers from a Playwright cache
+and which reports no pointer even under a display — a bare `ubuntu-latest` has no such cache, so
+that one is a hazard only if a Playwright install is ever added to the job.
+The fourth thing was not on the list and is the one worth remembering: `ui-test.sh` exits **0**
+when it finds no browser, which is deliberate for laptops and means a job that quietly loses its
+Chrome goes green having tested nothing. `REQUIRE_BROWSER=1` turns that skip, and both pointer
+warnings, into a failure; the job sets it, and so does the ablate step, which reaches the suite
+through `ablate.py` and can pass nothing but the environment.
+The prize was bigger than the suite: `ablate.py --with-ui` runs on the runner now, so the gates
+job has stopped printing "no CI-runnable suite covers this branch's source" for exactly the
+branches that change what the page LOOKS like. #55's own ablation was owed locally and run by
+hand; it went red in the right two places, and nothing in CI could have known that.
 
 ## Deliberately not doing
 
