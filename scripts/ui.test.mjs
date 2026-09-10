@@ -194,13 +194,22 @@ async function key(k) {
 const DSF = 2;
 async function viewport(w, h, mobile = false) {
   await send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: DSF, mobile });
+  // The ack does not say the renderer has applied it, and Runtime.evaluate reaches the main
+  // thread by another route — so a box measured straight after can be the OLD one, and a poll that
+  // compares two stale values agrees and returns. innerWidth is the value that changes exactly
+  // when the resize has landed, so wait for it here, where the viewport is known.
+  await settle(`innerWidth === ${w} && innerHeight === ${h}`);
 }
-// The chart has been laid out for the box it is in NOW. chart.js's resize() writes the measured
-// width back onto the svg, so the two agree only once the ResizeObserver has run — which is what
-// a viewport change has to wait for when no boot follows it.
-const relaid = () => settle(`(()=>{const s=document.querySelector('#plot > svg');
-  return !!s && Math.abs(+s.getAttribute('width')
-    - Math.round(document.getElementById('plot').getBoundingClientRect().width)) < 1})()`).then(laidOut);
+// The chart has been laid out for the box it is in NOW, in BOTH dimensions: chart.js's resize()
+// writes the measured width and height back onto the svg, so the attributes agree with the box
+// only once the ResizeObserver has run. Height is the one a view switch moves — measure() picks
+// an aspect ratio per mode and the width stays — so a width-only predicate is true before that
+// relayout, and view() would be waiting for nothing. viewport() has already waited for the box to
+// be the new one, so the agreement here is with a value that changed.
+const relaid = () => settle(`(()=>{const s=document.querySelector('#plot > svg'),
+    b=document.getElementById('plot').getBoundingClientRect();
+  return !!s && Math.abs(+s.getAttribute('width') - Math.round(b.width)) < 1.5
+             && Math.abs(+s.getAttribute('height') - Math.round(b.height)) < 1.5})()`).then(laidOut);
 // A view switch through its pill, the way a reader does it. setMode() rebuilds synchronously, but
 // the plot's height is a function of the view (issue 29), so the ResizeObserver lays it out again
 // a frame later, and a filtered view tweens to its own fit.
@@ -214,11 +223,16 @@ async function view(m) {
 // not merely for a caption, which whoever was pinned before already had. The pointer goes off the
 // chart first: on a real pointer a hover left over a dot previews over the pin, and the panel
 // would go on describing the composer under the mouse.
+// A name here is a canonical Wikipedia title and changes spelling when the pipeline runs
+// (invariant 4), so a miss is one red check that names the row — not a TypeError inside ev()
+// that ends the run with two hundred checks never reached.
 async function pin(name) {
   await mouse("mouseMoved", 1, 1);
-  await ev(`[...document.querySelectorAll('tbody tr')]
-    .find(r => r.querySelector('td').title === ${JSON.stringify(name)}).click()`);
-  await settle(`document.querySelector('#detail h2')?.textContent === ${JSON.stringify(name)}`);
+  const row = await ev(`(()=>{const r=[...document.querySelectorAll('tbody tr')]
+    .find(r => r.querySelector('td').title === ${JSON.stringify(name)}); if (r) r.click(); return !!r})()`);
+  check(`${name} is still a row in the table`, row, "",
+        "no row carries that title — renamed by the pipeline? every check pinning it fails from here");
+  if (row) await settle(`document.querySelector('#detail h2')?.textContent === ${JSON.stringify(name)}`);
 }
 // One wheel event carrying the whole delta, not a loop of small ones with a pacer between them.
 // d3-zoom scales by a power of two in deltaY about the pointer and recomputes the translate from
