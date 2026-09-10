@@ -637,7 +637,12 @@ would not have worked.
   One consequence of the icon layout reaches `app.js`: below 640px `.btn-t` is the accessible NAME
   and not the face, so `share()`'s "Link copied" swap wrote the confirmation where nobody could see
   it. The glyph acknowledges too (`.copied` swaps the arrow for a check), off the same one call, so
-  the two halves cannot disagree. It is not phone-only: `navigator.share` returns before either
+  the two halves cannot disagree. Both are raced against `STALL`, because a clipboard write that
+  never SETTLES is not a rejection and the catch beside it can never fire — Chrome under a bare X
+  server leaves `writeText` pending indefinitely, which is a Share button that promises nothing and
+  delivers nothing. The suite stubs that promise rather than waiting for a platform that does it,
+  since on macOS the real write rejects and a check written around the Linux behaviour would leave
+  the fix unproven on every machine it is developed on. It is not phone-only: `navigator.share` returns before either
   fallback on a real phone, and the branches that reach the swap are exactly the ones that run where
   it is missing — including a desktop under 640px, which gets this layout from a width-only query.
 - **The readership brush's handles are crossfilter's grips, and the rect underneath is the hit
