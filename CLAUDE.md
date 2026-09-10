@@ -110,10 +110,11 @@ plain static assets. Read README.md first for what the app is.
    AXIS and hue is emphasis; the lifespan ramp and the size key would be labelling channels that
    carry nothing, so `renderLegend()` branches on the mode and `setMode()` re-renders both the
    legend and the table (the row chips are painted from `Chart.colorOf`, which follows the view).
-   The RING also changes meaning under a filter (see below), so `renderLegend()` branches on
-   `Chart.derivedRings()` too and `applyFilters()` re-renders it on every settled change. A key
-   that still said "the outliers at either end" while ringing women the curated set never
-   contained would be labelling the wrong channel.
+   The RING also changes meaning under a filter (see below). It is no longer CAPTIONED — the key
+   named the crowd it was talking about ("the outliers at either end" against "the ones that stand
+   out in this group") and that sentence is gone, so the wrong-channel failure is now prevented by
+   having no words to get wrong rather than by keeping two of them correct. `renderLegend()` still
+   re-renders on every settled change, because the swatches it does draw follow the view.
 
 9. **Readership is a measure, not a tally — round it everywhere except the table.** It is the
    median of the last TWELVE monthly page-view counts (`STAT_MONTHS` in `build_data.py`) — up to
@@ -223,7 +224,7 @@ human grades. No test framework, and nothing to install:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 240 behavioral checks against a real headless Chrome over CDP, the
+- `scripts/ui-test.sh` — 237 behavioral checks against a real headless Chrome over CDP, the
   last of which is the suite asserting its OWN stated size against both docs — some checks run in
   loops, so the literal `check(` count is not the number it reports and no offline count is exact.
   It is the one total `prose-lint.py` cannot take, and this is where it is known. It starts
@@ -437,11 +438,13 @@ would not have worked.
   just pressed (#27). That bought `reserveLede()`, a width-guarded `ResizeObserver`, a `ledeClause()`
   split so the measured string was the printed one, three sections of `ui.test.mjs` — and a
   residual 20px shift it never did fix (#36), because the gender pill changes which sentence
-  "resting" means. All of it is gone. The lede is now one static line, and every claim it made is
-  still on the page in the component that owns it: the legend names the highlighted set, the axis
-  titles and the hint name the axes, `setProv()` says readership is English-only and what that
-  misses. `ui.test.mjs` 4m checks those three rather than the sentence, so cutting the prose cannot
-  quietly cut the information.
+  "resting" means. All of it is gone. The lede is now one static line. Two of the claims it made
+  are still on the page in the component that owns it — the legend names the highlighted set, the
+  axis titles and the hint name the axes — and `ui.test.mjs` 4m checks those two rather than the
+  sentence, so cutting the prose cannot quietly cut the information. The third, `setProv()`'s
+  English-only caveat, was later cut outright: the footnote had grown into an essay, and a caveat
+  nobody reads is not a caveat. That is the same judgement one level down, and it is why 4m checks
+  two things now and not three — a check kept alive over deleted prose is the vacuous kind.
   **The lesson is the ordering.** Before building a mechanism to make prose behave, ask whether the
   prose should exist — a page that states a thing twice does not need the second one to be clever,
   it needs it deleted. `#count`, the search placeholder and `setProv()` stay built because each is
@@ -633,9 +636,12 @@ would not have worked.
   hand-written list (`WOMEN_CANON`, nine) rather than a computed one, swapped in by
   `Chart.setRepertoire()` when the pill changes and reachable no other way. Two consequences worth
   knowing. The `--sel` fill and the sentence naming it are ONE claim, so `REPERTOIRES` carries both
-  and `renderLegend()` prints `Chart.repertoireLabel()` — "the repertoire" over nine women the
-  repertoire never held is the wrong-channel failure of invariant 8, one channel over from the
-  ring's. And the gate is the point: not one of the nine clears 10,000 readers a month (Price tops
+  and `renderLegend()` prints `Chart.repertoireLabel()`. Both lists now answer to the same neutral
+  noun ("the notables"), which is the other way out of invariant 8's wrong-channel trap: "the
+  repertoire" over nine women the repertoire never held was the failure, and a noun that claims
+  nothing about repertoire cannot make it. The pairing still has to hold — the suite reads the
+  label off `Chart.repertoireLabel()` rather than quoting it, so rewording the noun is free and
+  printing a different one than the chart is using is not. And the gate is the point: not one of the nine clears 10,000 readers a month (Price tops
   them at 8,001 against `CANON`'s median of 58,023), so at rest they would be nine filled dots low
   in the densest part of a 790-dot cloud, captioned as the set that holds Mozart. The resting view,
   "Men", and the share card are therefore byte-identical to what they were — `make-og-svg.py` draws

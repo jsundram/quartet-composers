@@ -432,7 +432,6 @@ function renderLegend() {
   if (Chart.getMode() === "fame") {
     const who = document.createElement("div");
     who.innerHTML =
-      `<span class="lab">Named on the chart</span>` +
       `<div class="swatches">` +
         `<span class="sw"><i style="background:${g("--sel")}"></i>` +
         // The FILL follows the filter now too, so the key that names it has to come from the same
@@ -440,22 +439,12 @@ function renderLegend() {
         // caption nine women as the set that contains Mozart.
         `${Chart.repertoireLabel()}</span>` +
         `<span class="sw"><i style="box-shadow:inset 0 0 0 2px ${g("--accent")}"></i>` +
-        // The ring follows the filter (chart.js's refreshEmphasis), so the key has to say which
-        // crowd it is talking about. Claiming "the outliers at either end" while ringing
-        // women the curated set never contained would be labelling the wrong channel.
-        `${Chart.derivedRings() ? "the ones that stand out in this group"
-                                : "the outliers at either end"}</span>` +
+        `some standouts</span>` +
         `<span class="sw"><i style="background:${g("--muted")};opacity:.3"></i>` +
-        `the other ${Chart.famePlotted() - Chart.namedCount()} composers</span>` +
+        `the rest</span>` +
       `</div>`;
     el.appendChild(who);
 
-    const dia = document.createElement("div");
-    dia.innerHTML =
-      `<span class="lab">Diagonals</span>` +
-      `<div class="swatches"><span class="sw">readers per quartet — higher above a line is ` +
-      `more read for what they wrote</span></div>`;
-    el.appendChild(dia);
     return;
   }
 
@@ -500,15 +489,6 @@ function renderLegend() {
     `<span class="sr-only">Circle area shows monthly readers; the keys drawn are `
       + `${KEYS.map(lab).join(", ")}.</span>`;
   el.appendChild(size);
-
-  const other = document.createElement("div");
-  other.innerHTML =
-    `<span class="lab">Also</span>` +
-    `<div class="swatches">` +
-      `<span class="sw"><i style="box-shadow:inset 0 0 0 1.5px ${g("--c-living")}"></i>` +
-      `still living — final lifespan unknown, so no color</span>` +
-    `</div>`;
-  el.appendChild(other);
 }
 
 // ---- where the detail panel lives -------------------------------------------
@@ -828,21 +808,39 @@ function applyFilters(settled) {
 // innerHTML: the text is assembled from the data file, and data never becomes markup here.
 const WD_PROP = /\bP[1-9]\d{0,6}\b/g;
 
-function setProv(text) {
+// A part is either a STRING, scanned for property ids as above, or an explicit {text, href,
+// title} anchor. Parts rather than a markup syntax in the string: the rule one paragraph up is
+// that data never becomes markup here, and a line that parsed brackets would be parsing a string
+// assembled from composers.json. It also keeps the two kinds of link honest about which is
+// derived — the property links are found by pattern and cannot be forgotten, the list link is
+// written once at the call site because there is exactly one of it.
+function setProv(...parts) {
   const el = $("prov");
   el.textContent = "";
+  for (const part of parts) {
+    if (typeof part === "string") linkifyProps(el, part);
+    else el.appendChild(anchor(part.text, part.href, part.title));
+  }
+}
+
+function anchor(text, href, title) {
+  const a = document.createElement("a");
+  a.href = href;
+  a.target = "_blank";
+  a.rel = "noopener";
+  a.title = title;
+  a.textContent = text;
+  return a;
+}
+
+function linkifyProps(el, text) {
   let at = 0;
   for (const m of text.matchAll(WD_PROP)) {
     if (m.index > at) el.appendChild(document.createTextNode(text.slice(at, m.index)));
-    const a = document.createElement("a");
-    a.href = "https://www.wikidata.org/wiki/Property:" + m[0];
-    a.target = "_blank";
-    a.rel = "noopener";
     // The id is the link text, so the sentence reads exactly as it did — and the title says what
     // the link is for, because "P569" is not a promise a reader can evaluate before clicking.
-    a.title = "Wikidata property " + m[0] + " — what this value means and where it comes from";
-    a.textContent = m[0];
-    el.appendChild(a);
+    el.appendChild(anchor(m[0], "https://www.wikidata.org/wiki/Property:" + m[0],
+                          "Wikidata property " + m[0] + " — what this value means and where it comes from"));
     at = m.index + m[0].length;
   }
   el.appendChild(document.createTextNode(text.slice(at)));
@@ -966,24 +964,26 @@ async function start() {
   // readership MEANS and the legend says which channel carries it, so neither is repeated here —
   // this paragraph used to restate both, and to say the word "median" twice in one clause.
   const mm = META.views_months || [];
-  const unknownGender = ROWS.filter(d => d.gender == null).length;
   const span = mm.length ? `, ${mm[0]} to ${mm[mm.length - 1]}` : "";
-  const rev = META.list_revid ? ` (revision ${META.list_revid})` : "";
+  // The list link points at the REVISION, not at the live page: every number in this sentence was
+  // scraped from that one document, and today's list is a different one. Built from list_source
+  // rather than written out, so a pipeline that renames or moves the list carries the link with it.
+  const rev = META.list_revid;
+  const listUrl = META.list_source + (rev ? `?oldid=${rev}` : "");
   setProv(
-    `${ROWS.length} composers from Wikipedia's list${rev}; ${Chart.plottedStats().n} state a quartet `
+    `${ROWS.length} composers from `,
+    { text: `Wikipedia's List of String Quartet Composers${rev ? `, v${rev}` : ""}`,
+      href: listUrl,
+      title: "The list this page was built from, as it stood at that revision" },
+    `; ${Chart.plottedStats().n} state a quartet `
     + `count and are plotted, the rest appear in the table only. Dates are ${META.dates_source}. `
     + `Readership is the ${META.views_stat} of the composer's English Wikipedia article${span} — `
-    + `twelve rather than one because a single month runs about 12% off typical, and English only `
-    + `because the pageviews API counts per title, so a composer read mostly in another language `
-    + `is undercounted. A lifespan written "83+" is the composer's age today. `
+    + `A lifespan written "83+" is the composer's age today. `
     // Whose statement this is, said plainly. The other two channels name a source because they
     // are measurements; this one names a source because it is about a person, and the page has no
     // business asserting it on its own account. The unknown count is stated for the same reason
     // the quartet nulls are: the filter cannot reach those rows, and silence would read as none.
-    + `Gender is ${META.gender_source} as Wikidata records it, reported here rather than claimed `
-    + `by this page and never inferred from a name; ${unknownGender} `
-    + `composer${unknownGender === 1 ? " has" : "s have"} no such claim and `
-    + `${unknownGender === 1 ? "is" : "are"} in neither filter. `
+    + `Gender is from ${META.gender_source}. `
     + `Built ${META.generated}.`);
 
   wire();

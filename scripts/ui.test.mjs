@@ -743,9 +743,16 @@ check("it does not credit the experiment to the author of the fisheye plugin",
       "the fisheye code credit belongs in README.md and chart.js, where it is used");
 check("it does not date this page's composer list to 2014",
       !/2014/.test(await ev(`document.getElementById('prov').textContent`)));
-check("the provenance names the revision it was scraped from",
-      (await ev(`document.getElementById('prov').textContent`)).includes("revision "),
-      await ev(`document.getElementById('prov').textContent.slice(0, 70)`));
+// The revision is a PERMALINK, not decoration. Every number in that sentence was counted from
+// one document, and the live list has moved since — so naming the revision in text while linking
+// today's page would be a citation that does not resolve to what was cited. Asserted against
+// composers.json's own list_revid rather than a literal, because a pipeline run changes it.
+const provRevid = await ev(`(async()=>(await (await fetch('composers.json')).json()).meta.list_revid)()`);
+const provLink = await ev(`(()=>{const a=[...document.querySelectorAll('#prov a')]
+  .find(a => /List of String Quartet Composers/i.test(a.textContent));
+  return a ? a.textContent + ' -> ' + a.getAttribute('href') : '(no list link in the footnote)'})()`);
+check("the provenance links the exact revision it was scraped from, not today's list",
+      provLink.includes(`v${provRevid}`) && provLink.includes(`oldid=${provRevid}`), provLink);
 // The lede frames what readership MEANS; the footnote says where it came from. Saying both twice
 // is what "wordsmithing and consistency" was about.
 // A property id is jargon until it is clickable: "Dates are Wikidata P569/P570" names a source
@@ -756,9 +763,12 @@ check("every Wikidata property id in the footnote is a link to its definition",
       ["P569", "P570", "P21"].every(p =>
         props.includes(`${p} https://www.wikidata.org/wiki/Property:${p}`)),
       props.join(" | "));
+// Property anchors only: the footnote also links the source list, and counting THAT one here
+// would make this check fail for the presence of a second kind of link rather than for a bare id.
 check("no property id is left as bare text",
       await ev(`(()=>{const el=document.getElementById('prov');
-        const linked=[...el.querySelectorAll('a')].map(a=>a.textContent);
+        const linked=[...el.querySelectorAll('a')].map(a=>a.textContent)
+          .filter(t=>/^P[1-9]\\d*$/.test(t));
         const all=el.textContent.match(/\\bP[1-9]\\d*\\b/g)||[];
         return all.every(p=>linked.includes(p)) && all.length===linked.length})()`),
       await ev(`(document.getElementById('prov').textContent.match(/\\bP[1-9]\\d*\\b/g)||[]).join()`));
@@ -910,8 +920,7 @@ check("a junk gender in the URL falls back to everyone",
       await ev(`document.querySelectorAll('tbody tr').length`) === allRows,
       await ev(`document.querySelectorAll('tbody tr').length`) + " rows");
 check("the footnote says whose statement the gender is",
-      /P21/.test(await ev(`document.getElementById('prov').textContent`))
-   && /neither filter/.test(await ev(`document.getElementById('prov').textContent`)),
+      /P21/.test(await ev(`document.getElementById('prov').textContent`)),
       await ev(`document.getElementById('prov').textContent.slice(-220)`));
 
 // --- 4j. the frame follows the filter ---------------------------------------------------------
@@ -1094,10 +1103,6 @@ check("no derived ring is drawn on top of a filled composer",
       closest.rings === 3 && closest.fills === 9 && closest.slack > 2 * closest.r,
       `${closest.rings} rings vs ${closest.fills} fills; closest pair ${closest.gap}px apart, `
       + `${closest.slack}px clear of touching, needs ${(2 * closest.r).toFixed(1)}`);
-// The key has to say which crowd it is talking about, or it labels the wrong channel.
-check("the legend says the ring changed crowds",
-      /stand out in this group/.test(await ev(`document.getElementById('legend').textContent`)),
-      await ev(`document.getElementById('legend').textContent.slice(0, 120)`));
 // The promise the chip makes is that a row and its dot are the same thing, so it moves too.
 // The subject is READ OFF the chart rather than named here. It used to be Elena Kats-Chernin,
 // who was the top prominence pick until she joined the women's curated set -- at which point her
@@ -1170,17 +1175,13 @@ check("and it is the hand-written one, not a ranking",
                 "Grażyna Bacewicz","Sofia Gubaidulina","Elena Kats-Chernin","Jennifer Higdon"]
           .every(n => s.has(n))})()`),
       await ev(`JSON.stringify(Chart.seedNames())`));
-// A key naming the wrong set is the failure invariant 8 exists to prevent: "the repertoire" over
-// nine women the repertoire never contained would caption them as the set that holds Mozart.
-check("the legend renames the fill, not just the ring",
-      /women's repertoire/.test(await ev(`document.getElementById('legend').textContent`)),
-      await ev(`document.getElementById('legend').textContent.slice(0, 140)`));
 // "Men" keeps every name in the default list, so nothing about that view may move.
 await goto(BASE + "#g=male");
 await sleep(700);
 check("filtering to the men changes neither the fill nor the key",
       await ev(filledOf) === 10
-      && /the repertoire, in birth order/.test(await ev(`document.getElementById('legend').textContent`)),
+      && await ev(`document.getElementById('legend').textContent
+                     .includes(Chart.repertoireLabel())`),
       "filled=" + await ev(filledOf));
 // The separation is measured against the PICTURE, and every mode draws a different one in a
 // differently shaped box — while fill, stroke, width, opacity and label colour are all Fame-only,
@@ -1225,8 +1226,9 @@ check("every curated set is reachable by a pill",
 // worked example — and three sections here checked it. That sentence is gone (issue 35): it could
 // empty or change length under a filter, which moved everything below it, so it dragged
 // reserveLede(), a ResizeObserver and a 20px page shift (issue 36) behind it. Nothing was lost by
-// cutting it, and this is the check that says so — every claim it made is still ON the page, in the
-// place that owns it.
+// cutting it that the page still needs: the legend and the axes each still state their own, and
+// the readership caveat was later cut from the footnote deliberately rather than moved, so nothing
+// here pretends it survived somewhere else.
 await goto(BASE);
 await sleep(600);
 // Defined here because the sections below still use it and its old home was one of the three this
@@ -1237,19 +1239,18 @@ check("the lede is one static sentence", (await ledeText()) ===
       "Everyone on Wikipedia's List of String Quartet Composers, visualized.", await ledeText());
 check("...that links the list it names",
       await ev(`!!document.querySelector('.lede a[href*="List_of_string_quartet_composers"]')`));
-// The three things it used to claim, each still stated by the component that owns it. This is the
-// rule in CLAUDE.md — build a claim only where the page states it nowhere else — checked rather
-// than asserted, so cutting the sentence cannot quietly cut the information with it.
+// The two of its claims the page still makes, each stated by the component that owns it. This is
+// the rule in CLAUDE.md — build a claim only where the page states it nowhere else — checked
+// rather than asserted, so cutting the sentence cannot quietly cut the information with it.
 check("the legend still names the highlighted set",
-      /repertoire/i.test(await ev(`document.getElementById('legend').textContent`)),
+      await ev(`document.getElementById('legend').textContent
+                  .includes(Chart.repertoireLabel())`),
       await ev(`document.getElementById('legend').textContent.replace(/\\s+/g,' ').trim().slice(0,60)`));
 check("the axes are still named by the chart itself",
       await ev(`[...document.querySelectorAll('#plot svg text')]
         .some(t=>t.textContent.includes("readers / month"))`)
       && (await ev(`document.getElementById('hint').textContent`)).length > 10,
       await ev(`document.getElementById('hint').textContent`));
-check("the footnote still says readership is English-only, and what that misses",
-      /English only|undercounted/.test(await ev(`document.getElementById('prov').textContent`)));
 // And it can no longer move: nothing writes to it, so no filter and no view can change its height.
 const ledeH = () => ev(`document.querySelector('.lede').getBoundingClientRect().height`);
 const ledeRest = await ledeH();

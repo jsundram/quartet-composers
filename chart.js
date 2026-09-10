@@ -97,8 +97,8 @@ window.Chart = (function () {
   // `noun` is separate from the legend's phrasing because two sentences need it in two shapes —
   // the key says "<noun>, in birth order", the lede says "<noun>, 1709 to 1906". One noun, so
   // they cannot come to disagree about what the filled dots ARE.
-  const REPERTOIRES = { female: { names: WOMEN_CANON, noun: "the women's repertoire" } };
-  const DEFAULT_REPERTOIRE = { names: CANON, noun: "the repertoire" };
+  const REPERTOIRES = { female: { names: WOMEN_CANON, noun: "the notables" } };
+  const DEFAULT_REPERTOIRE = { names: CANON, noun: "the notables" };
   let repertoire = DEFAULT_REPERTOIRE;
   // Sets, not arrays: isCanon/named are called per DOT per FRAME from layout() and from all four
   // paint functions -- about 4,000 calls a frame in the Fame view, and an Array.includes scan
@@ -1102,14 +1102,10 @@ window.Chart = (function () {
   function getMode() { return mode; }
 
   const HINTS = {
-    fame: "Across is how many quartets a composer wrote; up is how much their English Wikipedia "
-        + "article is read. The diagonals are readers per quartet, so how far a dot sits ABOVE "
-        + "one is the whole point: Mozart and Beethoven are read about ten thousand times a "
-        + "month per quartet they wrote, Cambini about once. Drag to pan, scroll or pinch to "
-        + "zoom, tap a dot for the rest. Filter, and the frame closes in on what you kept and "
-        + "the ring moves to the three that stand out in THAT group.",
-    scatter: "Fixed axes. Drag to pan, scroll or pinch to zoom, tap or click a dot to pin it. Ties are nudged by up to half a year so overlapping composers stay separately clickable.",
-    swarm: "Composers pushed apart until nothing overlaps. Vertical position means nothing here — the quartet count is dropped, and size (views) and color (lifespan) are unchanged. Read it as a timeline of how crowded each generation was. Drag or pinch to spread it further.",
+    fame: "Views vs Quartets written. Drag to pan, scroll or pinch to "
+        + "zoom, tap a dot for more info and to pin it.",
+    scatter: "Fixed axes. Drag to pan, scroll or pinch to zoom, tap or click a dot to pin it.",
+    swarm: "A timeline of how crowded each generation was. Drag or pinch to spread it further.",
     lens: "A circular magnifier over a fixed chart: the axes never move. Move the pointer (or drag on a touch screen) to aim it; tap to pin a composer.",
   };
   function hint() { return HINTS[mode]; }
@@ -1126,7 +1122,7 @@ window.Chart = (function () {
            // rather than naming composers.
            seedNames: () => repertoire.names.concat(OUTLIERS),
            // The sentence for the fill swatch, kept beside the list it names (invariant 8).
-           repertoireLabel: () => repertoire.noun + ", in birth order",
+           repertoireLabel: () => repertoire.noun,
            // Every gender pill value that swaps the claim, so app.js can assert they are reachable.
            repertoireKeys: () => Object.keys(REPERTOIRES),
            resetZoom, zoomed, colorOf, hint, setTopReserve,
@@ -1135,14 +1131,10 @@ window.Chart = (function () {
            // rendering of it.
            zoomK: () => transform.k,
            lifeDomain: () => LIFE_DOMAIN.slice(),
-           // How many dots the Fame view actually emphasises, and how many it can place at
-           // all (it needs a view count as well as a quartet count). The legend used to hardcode
-           // 13 and subtract it from plotted(), which is a different denominator.
-           namedCount: () => emphSet.size,
-           // How many of the rings the current filter derived, so the legend can say what the
-           // ring MEANS right now instead of always claiming the curated three.
+           // How many of the rings the current filter derived. Nothing on the page reads it now
+           // that the legend has stopped captioning the ring; the suite asks it to tell a derived
+           // set from the curated one.
            derivedRings: () => ringIdx.length,
-           famePlotted: () => rows.filter(d => d.quartets != null && d.views != null).length,
            // What the chart can actually place — the table shows more (see isVisible). The birth
            // extent is the PLOTTABLE one and the living count is of those same rows, because the
            // empty detail panel describes the dots: it read "884 composers, born 1582-1989" over

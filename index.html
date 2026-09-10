@@ -22,8 +22,8 @@
 <link rel="icon" type="image/png" href="./assets/icon-192.png">
 <link rel="apple-touch-icon" href="./assets/icon-180.png">
 
-<title>String Quartet Composers: who wrote them, who is read</title>
-<meta name="description" content="Every composer on Wikipedia's list of string quartet composers, plotted by how much they wrote against how much they are read. Sortable, searchable table.">
+<title>The String Quartet Composers: Who, When, How Many?</title>
+<meta name="description" content="Every composer on Wikipedia's list of string quartet composers, plotted by productivity and fame. Sortable, searchable table.">
 
 <!-- Link previews. og:image is an ABSOLUTE https URL to a compressed 1200x630 PNG:
      iMessage/WhatsApp/Slack reject relative paths and won't render SVG.
@@ -36,12 +36,12 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="String Quartet Composers">
 <meta property="og:title" content="String Quartet Composers">
-<meta property="og:description" content="790 quartet composers: their production volume and their renown. Search, sort, discover, understand">
+<meta property="og:description" content="790 quartet composers: their production volume and their fame. Search, sort, discover, understand">
 <meta property="og:url" content="https://jsundram.github.io/quartet-composers/">
 <meta property="og:image" content="https://jsundram.github.io/quartet-composers/assets/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="A log-log scatter of string quartet composers, quartets written against monthly English Wikipedia readers, with Mozart, Beethoven, Haydn, Boccherini and Bartók picked out above the readers-per-quartet diagonals and Cambini far below them.">
+<meta property="og:image:alt" content="A scatter plot of string quartet composers, quartets written against monthly English Wikipedia readers, with Mozart, Beethoven, Haydn, Boccherini and Bartók highlighted.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="String Quartet Composers">
 <meta name="twitter:description" content="790 quartet composers: their production volume and their renown. Search, sort, discover, understand">
@@ -66,14 +66,8 @@
     <button id="theme" type="button" class="btn spacer">Theme: Auto</button>
   </header>
 
-  <!-- STATIC, and short on purpose. This used to carry a clause built from the chart — which set
-       of dots is picked out, its birth span, a worked example — and that one sentence dragged
-       reserveLede(), a ResizeObserver and three test sections behind it, because a claim that can
-       change length moves everything under it (issues 27, 35, 36). None of it was load-bearing:
-       the legend already names the highlighted set, the axis titles and the per-mode hint already
-       name the axes, and the provenance footnote already says readership is English-only and what
-       that misses. CLAUDE.md's rule is to build a claim only when the page states it nowhere else;
-       here it does, so this is the cut half of that rule, not an exception to it. -->
+  <!-- STATIC, and short on purpose. 
+        Text about data easily goes stale. (see issues 27, 35, 36 ... ). -->
   <p class="lede">
     Everyone on Wikipedia's
     <a href="https://en.wikipedia.org/wiki/List_of_string_quartet_composers">List of String Quartet
@@ -219,10 +213,10 @@
          actually used, in README.md and in chart.js's lens. -->
     <p>A remake of a
        <a href="http://viz.runningwithdata.com/quartet_composers/index.html">2014 experiment</a>
-       that warped both axes at once with a cartesian fisheye; the Lens view here is that idea
-       with the axes held still.</p>
+       that tried to show how important Haydn and Boccherini are and used a cartesian fisheye interaction. 
+       The Lens view here is a simpler version of that idea. </p>
     <p><a href="https://github.com/jsundram/quartet-composers">Source on GitHub</a> ·
-       <a href="https://twitter.com/jsundram" rel="author">Jason Sundram</a></p>
+       <a href="https://github.com/jsundram" rel="author">Jason Sundram</a></p>
   </footer>
 </main>
 
