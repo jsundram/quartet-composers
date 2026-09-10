@@ -14,12 +14,19 @@ window.Table = (function () {
   // via the class). Six columns do not fit 390px: the composer name wraps to three lines and
   // Quartets — the one the chart is about — scrolls off the right edge. Died and Lived are the
   // two to lose, because both are one tap away in the detail panel and neither is why you came.
+  //
+  // `short` is the phone HEADER, and it is the column's width that asks for it, not its meaning:
+  // a header word sets the column when it is wider than any value under it, and "Quartets" over
+  // three digits was buying ~30px it never used. That is most of the phone table's overflow —
+  // in a wide UI face (DejaVu, which is what system-ui resolves to on Linux) the four columns
+  // did not fit 390px at all, and in every face they still do not fit 360. The full word stays
+  // as the button's accessible NAME; styles.css swaps which span is drawn.
   const COLS = [
     { key: "name",     label: "Composer",  num: false, phone: true },
     { key: "birth",    label: "Born",      num: true,  phone: true },
     { key: "death",    label: "Died",      num: true,  phone: false },
     { key: "lifespan", label: "Lived",     num: true,  phone: false },
-    { key: "quartets", label: "Quartets",  num: true,  phone: true },
+    { key: "quartets", label: "Quartets",  num: true,  phone: true, short: "Qts" },
     { key: "views",    label: "Views",     num: true,  phone: true },
   ];
   const fmt = new Intl.NumberFormat();
@@ -76,7 +83,21 @@ window.Table = (function () {
       if (sortKey === c.key) th.setAttribute("aria-sort", sortDir === 1 ? "ascending" : "descending");
       const b = document.createElement("button");
       b.type = "button";
-      b.textContent = c.label;
+      if (c.short) {
+        // Two spans rather than one swapped string: the full word must stay in the a11y tree at
+        // every width (it is the sort button's name), and the abbreviation must stay out of it,
+        // or a screen reader reads the column "Quartets Qts".
+        const full = document.createElement("span");
+        full.className = "th-full";
+        full.textContent = c.label;
+        const abbr = document.createElement("span");
+        abbr.className = "th-short";
+        abbr.setAttribute("aria-hidden", "true");
+        abbr.textContent = c.short;
+        b.append(full, abbr);
+      } else {
+        b.textContent = c.label;
+      }
       // Numbers want largest-first on the first click; names want A-Z. Getting this backwards
       // makes every numeric column open on the least interesting end of the data.
       b.onclick = () => {
