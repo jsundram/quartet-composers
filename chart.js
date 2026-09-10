@@ -46,7 +46,26 @@ window.Chart = (function () {
   // views ask "when, and how much"; this one asks "and did it land".
   const QX_DOMAIN = [0.85, 200];        // quartets written; largest stated is 149
   const QX_TICKS = [1, 2, 3, 5, 10, 20, 30, 50, 100];
-  const VY_DOMAIN = [0.85, 260000];     // readers/mo; 1 .. 186,772 today
+  const VY_TOP = 260000;                // readers/mo; the most-read article is 186,772 today
+  // THE FLOOR FOLLOWS THE DATA. It was a hardcoded 0.85 — a decade starting at 1 — and that decade
+  // held exactly one composer, who turned out not to be a composer: the list page linked a redlink
+  // and the pageviews API was answering for it. Repairing him did not fix the axis, because a
+  // fixed floor is a guess about the roster either way, and the guess was 23% of the height spent
+  // below the least-read composer on a stretch where no dot can be drawn (issue 38).
+  //
+  // Derived instead of moved to 10, which is what the issue asked for. A hardcoded 10 buys the
+  // space and takes on the other failure: a composer who really is read three times a month plots
+  // BELOW the frame, where inFrame() drops them from the paint, the hit test and the labels
+  // silently — worse than being cramped, because nothing on screen says a row is missing. Snapping
+  // to the decade at or below the lowest dot cannot do either, and it cannot go stale: at a roster
+  // whose least-read composer is back in the first decade this returns 0.85 exactly, so it is the
+  // old constant plus a rule. The 0.85 is that constant's own padding, kept so the lowest dot sits
+  // just above the axis rather than on it.
+  //
+  // X_DOMAIN is derived the same way (see setData) and snapped for the same reason: round numbers
+  // keep the ticks round. make-og-svg.py duplicates this, per invariant 14.
+  const decadeFloor = v => Math.pow(10, Math.floor(Math.log10(v))) * 0.85;
+  let VY_DOMAIN = [0.85, VY_TOP];
   const VY_TICKS = [1, 10, 100, 1000, 10000, 100000];
   const RATIOS = [1, 10, 100, 1000, 10000];   // the readers-per-quartet diagonals
 
@@ -180,6 +199,10 @@ window.Chart = (function () {
     if (yrs.length) {
       X_DOMAIN = [Math.floor((d3.min(yrs) - 8) / 50) * 50, Math.ceil((d3.max(yrs) + 8) / 50) * 50];
     }
+    // Only the dots this view can PLACE: a composer with no quartet count has no x here, and one
+    // with no readership has no y, so neither can pull the floor down to a decade nothing occupies.
+    const vv = rows.filter(d => plottable(d) && d.views > 0).map(d => d.views);
+    if (vv.length) VY_DOMAIN = [decadeFloor(d3.min(vv)), VY_TOP];
     swarmY = null;
     restingT = null;
     scoreProminence();
