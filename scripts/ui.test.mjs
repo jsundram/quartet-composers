@@ -195,6 +195,109 @@ const DSF = 2;
 async function viewport(w, h, mobile = false) {
   await send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: DSF, mobile });
 }
+// The chart has been laid out for the box it is in NOW. chart.js's resize() writes the measured
+// width back onto the svg, so the two agree only once the ResizeObserver has run — which is what
+// a viewport change has to wait for when no boot follows it.
+const relaid = () => settle(`(()=>{const s=document.querySelector('#plot > svg');
+  return !!s && Math.abs(+s.getAttribute('width')
+    - Math.round(document.getElementById('plot').getBoundingClientRect().width)) < 1})()`).then(laidOut);
+// A view switch through its pill, the way a reader does it. setMode() rebuilds synchronously, but
+// the plot's height is a function of the view (issue 29), so the ResizeObserver lays it out again
+// a frame later, and a filtered view tweens to its own fit.
+const pill = m => ev(`document.querySelector('.controls .seg button[data-mode="${m}"]').click()`);
+async function view(m) {
+  await pill(m);
+  await settle(`Chart.getMode() === ${JSON.stringify(m)}`);
+  await idle(); await relaid();
+}
+// Pins through the table row, as 4e does, and waits for the panel to be about THAT composer —
+// not merely for a caption, which whoever was pinned before already had. The pointer goes off the
+// chart first: on a real pointer a hover left over a dot previews over the pin, and the panel
+// would go on describing the composer under the mouse.
+async function pin(name) {
+  await mouse("mouseMoved", 1, 1);
+  await ev(`[...document.querySelectorAll('tbody tr')]
+    .find(r => r.querySelector('td').title === ${JSON.stringify(name)}).click()`);
+  await settle(`document.querySelector('#detail h2')?.textContent === ${JSON.stringify(name)}`);
+}
+// One wheel event carrying the whole delta, not a loop of small ones with a pacer between them.
+// d3-zoom scales by a power of two in deltaY about the pointer and recomputes the translate from
+// the gesture's FIRST anchor on every event, so six clicks of -120 and one click of -720 land on
+// the same transform; the loops were paying ~100ms an event for nothing the result could show.
+// Two things those loops were quietly absorbing are explicit here. The pointer is moved onto the
+// spot first, because a wheel at a position the pointer never visited is not a gesture a reader
+// can make. And the event is CHECKED for, not assumed: under emulation this Chromium drops a
+// synthetic wheel now and then — both of two, 80ms apart, in one run — and a loop of eight could
+// lose one and still pass, so an event that moves nothing is sent again, at most three times, and
+// the run prints how often it had to. That tally is the harness confessing, never the app.
+let resentWheels = 0;
+async function wheel(x, y, dy) {
+  await mouse("mouseMoved", x, y);
+  const k0 = await ev(`Chart.zoomK()`);
+  for (let i = 0; i < 3; i++) {
+    await send("Input.dispatchMouseEvent", { type: "mouseWheel", x, y, deltaX: 0, deltaY: dy, pointerType: "mouse" });
+    if (await settle(`Chart.zoomK() !== ${k0}`, 400)) return;
+    resentWheels++;
+  }
+}
+// A boot is a CLAIM, not a reset (issue 48). Most of the 53 navigations this file used to make
+// were a way back to a known state — a full boot, the most expensive thing here, to clear a pill
+// or a pin, or to press one. Where the URL is what is under test (a bare URL opens on Fame, an
+// old #v=readers link still resolves, a #g=, #r= or #c= deep link arrives applied, an offline
+// reload paints) the boot stays. Where a section only needed a clean slate, rest() gets there
+// through the app's own controls and then CHECKS it arrived, reading every piece of state a boot
+// would have cleared. If anything is still out of place it boots after all — and writes down
+// where, so a check at the end of the file can name every reset that did not land. A reset that
+// quietly reboots would hide the app failing to reset, which is the one thing this must not do.
+//
+// What an in-place reset cannot change is chart.js's TOUCH, read once at boot: so a section that
+// flips touch emulation still boots, and one that only needs another viewport asks for it and
+// waits for the re-layout (relaid()).
+const AT_REST = `(()=>{const th=document.querySelector('thead th[aria-sort]');
+  return JSON.stringify({mode:Chart.getMode(), k:Chart.zoomK(),
+    zoomed:!document.getElementById('reset').disabled,
+    filtered:!document.getElementById('reset-filters').disabled,
+    rows:document.querySelectorAll('tbody tr').length === ROWS.length,
+    hash:location.hash, pinned:selected != null, hovered:hovered != null,
+    flag:document.getElementById('flag').classList.contains('on'),
+    fs:document.body.classList.contains('fs'), theme:Theme.get(),
+    sort:th ? th.textContent.trim() + ':' + th.getAttribute('aria-sort') : '', y:scrollY})})()`;
+const RESTING = JSON.stringify({ mode: "fame", k: 1, zoomed: false, filtered: false, rows: true,
+  hash: "", pinned: false, hovered: false, flag: false, fs: false, theme: "auto",
+  sort: "Views:descending", y: 0 });
+const missedRests = [];
+async function rest() {
+  const from = (new Error().stack.split("\n")[2] || "").match(/:(\d+):\d+\)?$/)?.[1] ?? "?";
+  await mouse("mouseMoved", 1, 1);                     // off the chart: a hover preview is state too
+  // In three steps with the chart allowed to settle between them, because two of the app's own
+  // moves collide: setFull() re-lays the chart out a frame later, and resize() keeps whatever
+  // transform it finds — so a reset-zoom tween still in flight when that frame lands is pinned
+  // mid-tween, at k=1.05 with the reset button lit, and nothing ever finishes it. (Section 7
+  // leaves the page exactly there: a filter's un-fit tween cut short by the full-screen press.)
+  if (await ev(`document.body.classList.contains('fs')`)) {
+    await ev(`document.getElementById('fs').click()`);
+    await relaid();
+  }
+  await ev(`(()=>{
+    if (Theme.get() !== 'auto') Theme.set('auto');
+    if (!document.getElementById('reset-filters').disabled) document.getElementById('reset-filters').click();
+    if (selected != null) show(null, false);
+    if (Chart.getMode() !== 'fame') document.querySelector('.controls .seg button[data-mode="fame"]').click();
+  })()`);
+  await idle(); await relaid();                        // the un-fit tween, the view's re-layout
+  await ev(`(()=>{
+    if (!document.getElementById('reset').disabled) document.getElementById('reset').click();
+    const th = document.querySelector('thead th[aria-sort]');
+    if (!th || th.textContent.trim() !== 'Views' || th.getAttribute('aria-sort') !== 'descending')
+      [...document.querySelectorAll('thead th button')].find(b => b.textContent === 'Views').click();
+    document.activeElement?.blur();
+    scrollTo(0, 0);
+  })()`);
+  await idle();
+  if (await settle(`${AT_REST} === ${JSON.stringify(RESTING)}`)) return;
+  missedRests.push(`line ${from}: ${await ev(AT_REST)}`);
+  await goto(BASE);
+}
 
 await send("Page.enable"); await send("Runtime.enable"); await send("Log.enable");
 
@@ -219,6 +322,7 @@ function report(died) {
   console.log(results.join("\n"));
   if (died) console.log(`\nDIED after ${results.length} checks: ${died}`);
   console.log(logs.length ? "\nPAGE ERRORS:\n" + logs.join("\n") : "\nno page errors");
+  if (resentWheels) console.log(`${resentWheels} wheel event(s) went nowhere and were re-sent`);
   process.exit(died || logs.length || results.some(r => r.startsWith("FAIL")) ? 1 : 0);
 }
 // A rejected TOP-LEVEL await lands on `uncaughtException`, not on `unhandledRejection` — node
@@ -250,7 +354,7 @@ check("lens leaves dots outside its radius alone", same > 150, same + " unchange
 await shot("lens-active");
 
 // --- 2. hover flag on a real pointer -----------------------------------------
-await goto(BASE);
+await rest();
 // The premise of this section, of 7c2, 7d and 7e, and of the panel's reserved height — asserted
 // once, up front, rather than left to be inferred from a scatter of later checks failing at a
 // layout the app is right to be drawing. There is no CDP override for this (see viewport()): a headless Linux
@@ -421,7 +525,7 @@ await ev(`(()=>{ const name = document.querySelector('#detail h2').textContent;
 
 // An article that did not exist in 2015 has nulls, and a null is a BREAK, not a zero — drawing it
 // as zero would claim nobody read a page that was not there. John Verrall's article starts in 2025.
-await goto(BASE + "#c=" + encodeURIComponent("John Verrall"));
+await pin("John Verrall");
 await settle(sparkLine + " >= 1");
 check("a composer whose article is younger than the axis starts partway across",
       await ev(`(()=>{const p=document.querySelector('#detail path.spark-line');
@@ -454,7 +558,7 @@ await settle(`${sparkStroke} === ${JSON.stringify(sparkLight)}`);
 // returns — so the polls in this section settle on their first ask. They are polls anyway: the
 // check reads the state it was written for, not a clock.
 const rowCount = `document.querySelectorAll('tbody tr').length`;
-await goto(BASE);
+await rest();
 await ev(`(()=>{const q=document.getElementById('q'); q.value='haydn';
   q.dispatchEvent(new Event('input',{bubbles:true}));})()`);
 await settle(rowCount + " === 2");
@@ -466,7 +570,7 @@ check("search is in the URL", (await ev(`location.hash`)).includes("q=haydn"));
 check("filtered-out pin was dropped", !(await ev(`location.hash`)).includes("c="));
 
 // --- 4b. the readership histogram filter -------------------------------------------------------
-await goto(BASE);
+await rest();
 const totalRows = await ev(`document.querySelectorAll('tbody tr').length`);
 check("histogram drew its bars", await ev(`document.querySelectorAll('#hist svg g rect').length >= 20`),
       "bars=" + await ev(`document.querySelectorAll('#hist svg rect').length`));
@@ -592,7 +696,7 @@ await settle(`document.getElementById('reset-filters').disabled`);
 // --- 4c. the frame holds: nothing escapes the plot rectangle under a zoom ----------------------
 // Pinned to the timeline view: it is the one with the birth-year domain and the size legend these
 // checks are about. The default view is now Fame (section 4e).
-await goto(BASE + "#v=scatter");
+await view("scatter");
 const frame = await ev(`(()=>{const s=document.querySelector('#plot svg');
   const b=s.querySelector('rect.bg').getBoundingClientRect(); const r=s.getBoundingClientRect();
   return {bx:b.x,by:b.y,bw:b.width,bh:b.height,sx:r.x,sy:r.y,sw:r.width,sh:r.height}})()`);
@@ -629,11 +733,7 @@ check("the bottom row of dots is not shaved by the frame", shaved.ok,
 // Zoom in hard at the middle. d3-zoom clamps the PAN so the plot stays covered, which means dots
 // outside the zoomed window are laid out past the frame — the clip is what keeps them from being
 // painted over the axis labels and out past the card edge.
-for (let i = 0; i < 6; i++) {
-  await send("Input.dispatchMouseEvent", { type: "mouseWheel", x: frame.bx + frame.bw / 2,
-    y: frame.by + frame.bh / 2, deltaX: 0, deltaY: -120, pointerType: "mouse" });
-  await sleep(80);
-}
+await wheel(frame.bx + frame.bw / 2, frame.by + frame.bh / 2, -720);
 await settle(`!document.getElementById('reset').disabled`);
 const outside = await ev(`(()=>{const s=document.querySelector('#plot svg');
   const b=s.querySelector('rect.bg').getBoundingClientRect();
@@ -692,7 +792,7 @@ check("the Fame view is what a bare URL opens on",
 await goto(BASE + "#v=readers");
 check("an old #v=readers link still opens the Fame view",
       await ev(`Chart.getMode() === 'fame'`), await ev(`Chart.getMode()`));
-await goto(BASE);
+await rest();
 // The thirteen names are the ONLY hardcoded composer strings in the app, and they are canonical
 // Wikipedia titles — which change spelling when the pipeline runs (invariant 4). A rename has to
 // fail here rather than quietly drop a composer out of the argument the view is making.
@@ -796,7 +896,7 @@ check("the pinned composer gets a label of its own",
       `pinned ${pinned}; labels ` + JSON.stringify(labelsAfter));
 // --sel is the PINNED colour; tinting the repertoire with it elsewhere made ten composers look
 // pinned with nothing pinned.
-await goto(BASE + "#v=scatter");
+await rest(); await view("scatter");
 check("the canon is not painted as pinned in the timeline view",
       await ev(`(()=>{const sel=getComputedStyle(document.documentElement)
         .getPropertyValue('--sel').trim();
@@ -806,7 +906,7 @@ check("the canon is not painted as pinned in the timeline view",
 check("the chart tells a screen reader which axes it is showing",
       (await ev(`document.querySelector('#plot svg').getAttribute('aria-label')`)).includes("birth year"),
       await ev(`document.querySelector('#plot svg').getAttribute('aria-label')`));
-await goto(BASE);
+await view("fame");
 check("and says something different in the Fame view",
       (await ev(`document.querySelector('#plot svg').getAttribute('aria-label')`)).includes("readers"),
       await ev(`document.querySelector('#plot svg').getAttribute('aria-label')`));
@@ -814,16 +914,11 @@ check("and says something different in the Fame view",
 // Labels are a function of ZOOM, like a map. A fixed set answers a pinch with the same names
 // larger, which makes the interaction decorative: it promises detail and delivers scale. At rest
 // the Fame view still says exactly what it is about -- the thirteen -- and nothing else.
-await goto(BASE);
 const restLabels = await ev(`[...document.querySelectorAll('#plot svg text')]
   .filter(t=>new Set(ROWS.map(d=>Names.short(d.name))).has(t.textContent)).length`);
 const pbox = await ev(`(()=>{const b=document.querySelector('#plot svg rect.bg').getBoundingClientRect();
   return {x:b.x,y:b.y,w:b.width,h:b.height}})()`);
-for (let i = 0; i < 6; i++) {
-  await send("Input.dispatchMouseEvent", { type: "mouseWheel", x: pbox.x + pbox.w / 2,
-    y: pbox.y + pbox.h / 2, deltaX: 0, deltaY: -120, pointerType: "mouse" });
-  await sleep(80);
-}
+await wheel(pbox.x + pbox.w / 2, pbox.y + pbox.h / 2, -720);
 await settle(`Chart.zoomK() > 1`);
 const zoomLabels = await ev(`[...document.querySelectorAll('#plot svg text')]
   .filter(t=>new Set(ROWS.map(d=>Names.short(d.name))).has(t.textContent)).length`);
@@ -857,7 +952,7 @@ check("and the resting picture is still just the seed",
 // same jitter range is spent over a third of the width.
 for (const [label, vw, vh, mob] of [["1280x900", 1280, 900, false], ["390x844", 390, 844, true]]) {
   await viewport(vw, vh, mob);
-  await goto(BASE);
+  await relaid();
   // Only the dots actually DRAWN. plottable() is `quartets != null`, so a row with no readership
   // still joins a circle — parked off-frame at r=0 by layout(). Two of those share a quartet count
   // and this reads a 0px "overlap" between two dots nobody can see. validate.py permits up to 5% of
@@ -879,7 +974,7 @@ for (const [label, vw, vh, mob] of [["1280x900", 1280, 900, false], ["390x844", 
         + `base radius ${worst.r.toFixed(2)}px`);
 }
 await viewport(1280, 900, false);
-await goto(BASE);
+await rest();
 
 // --- 4f. one filter row, above everything it scopes -------------------------------------------
 check("the filter row is not inside the chart or the table card",
@@ -977,7 +1072,7 @@ check("the footnote does not restate the lede's framing",
 // page states no quartet count for are in the table only, and three of them are the earliest
 // births on the roster, so the sentence dated a picture by composers it does not contain and
 // began a century before the x axis does. Static: plottability is not a filter (issue 8).
-await goto(BASE);
+await rest();
 const plotStats = await ev(`(async()=>{const d=await (await fetch('composers.json')).json();
   const p=d.rows.filter(r=>r[3]!=null);
   return {n:p.length, all:d.rows.length, from:Math.min(...p.map(r=>r[1])),
@@ -998,7 +1093,6 @@ check("the count matches the dots actually drawn",
 // A third filter in a row that composes by intersection. It is the only one with no module, so
 // these checks are the only thing standing between it and a quiet divergence from the other two:
 // the same "Set of indices or null" contract, the same URL round-trip, the same live chart.
-await goto(BASE);
 const allRows = await ev(`document.querySelectorAll('tbody tr').length`);
 check("the gender filter lives in the one filter row, not in a card",
       await ev(`!!document.getElementById('filters').querySelector('#gender')`));
@@ -1124,7 +1218,7 @@ check("the footnote says whose statement the gender is",
 // occupied, which answers "where are they" at the resolution of the group you filtered AWAY. The
 // frame now closes in on what the filter kept — against the ghost of the field, which is still
 // drawn at 0.07, so it is a highlight and not a subtraction.
-await goto(BASE);
+await rest();
 check("nothing is fitted until something is filtered", await ev(`Chart.zoomK()`) === 1,
       "k=" + await ev(`Chart.zoomK()`));
 await ev(`document.querySelector('#gender button[data-g="female"]').click()`);
@@ -1158,11 +1252,7 @@ check("a fitted frame does not read as a pinch", await ev(`document.getElementBy
 // the reader to the full extent would undo the filter's answer rather than their gesture.
 const fbox = await ev(`(()=>{const b=document.querySelector('#plot svg rect.bg').getBoundingClientRect();
   return {x:b.x,y:b.y,w:b.width,h:b.height}})()`);
-for (let i = 0; i < 4; i++) {
-  await send("Input.dispatchMouseEvent", { type: "mouseWheel", x: fbox.x + fbox.w / 2,
-    y: fbox.y + fbox.h / 2, deltaX: 0, deltaY: -120, pointerType: "mouse" });
-  await sleep(80);
-}
+await wheel(fbox.x + fbox.w / 2, fbox.y + fbox.h / 2, -480);
 await settle(`!document.getElementById('reset').disabled`);
 check("pinching a filtered view still lights the reset button",
       !(await ev(`document.getElementById('reset').disabled`)),
@@ -1214,11 +1304,7 @@ check("clearing the search opens the frame back out", await ev(`Chart.zoomK()`) 
 // does. Zoom in first, then search.
 const zbox = await ev(`(()=>{const b=document.querySelector('#plot svg rect.bg').getBoundingClientRect();
   return {x:b.x,y:b.y,w:b.width,h:b.height}})()`);
-for (let i = 0; i < 8; i++) {
-  await send("Input.dispatchMouseEvent", { type: "mouseWheel", x: zbox.x + zbox.w / 2,
-    y: zbox.y + zbox.h / 2, deltaX: 0, deltaY: -300, pointerType: "mouse" });
-  await sleep(120);
-}
+await wheel(zbox.x + zbox.w / 2, zbox.y + zbox.h / 2, -2400);
 await settle(`Chart.zoomK() > 2`);
 const pinched = await ev(`Chart.zoomK()`);
 await searchFor("mozart");
@@ -1229,8 +1315,10 @@ check("a search from a pinched view returns to the full field, not to the pinch"
 await searchFor("");
 // Each view fits its own filter: the same composers occupy a different box in a timeline than in
 // a log-log readership cloud, so a view switch recomputes the frame instead of carrying it over.
-await goto(BASE + "#g=female&v=scatter");
+// Driven as a SWITCH, which is the claim: filter first, then change the view under the filter.
+await ev(`document.querySelector('#gender button[data-g="female"]').click()`);
 await idle();
+await view("scatter");
 const scatterK = await ev(`Chart.zoomK()`);
 // A modest fit, and that is the point: the women span nearly the whole birth-year range, so the
 // timeline has little to close in on where the readership cloud had a great deal.
@@ -1241,7 +1329,7 @@ check("a filtered timeline fits its own box, not the Fame view's",
 // Every one of the curated thirteen is a man, so "Women" dimmed every accented dot to 0.07 and
 // left the group with no emphasis of its own — in the one view whose whole job is picking a few
 // names out of a field. The ring now says the same thing about whatever group is on screen.
-await goto(BASE);
+await rest();
 const ringsOf = `(()=>{const acc=getComputedStyle(document.documentElement)
     .getPropertyValue('--accent').trim();
   const shown=c=>c.getAttribute('display')!=='none' && +c.getAttribute('opacity')>0.5;
@@ -1324,13 +1412,16 @@ check("the table chip follows the derived ring",
 // Filtering to the men keeps all three curated outliers, so there is nothing to derive — the
 // ring budget is THREE, not three-plus-three, or a filter that changes almost nothing would
 // double the ink.
-await goto(BASE + "#g=male");
+await ev(`document.querySelector('#gender button[data-g="male"]').click()`);
+await idle();
 check("a filter that keeps the curated three derives none",
       await ev(`Chart.derivedRings()`) === 0 && (await ev(ringsOf)).dots === 3,
       "derived=" + await ev(`Chart.derivedRings()`));
 // A ring means "stands out from the crowd it is drawn in", so it needs a crowd. Two Haydns are
 // already the whole picture; ringing them would be pointing at everything.
-await goto(BASE + "#q=haydn");
+await ev(`document.querySelector('#gender button[data-g=""]').click()`);
+await searchFor("haydn");
+await idle();
 check("too small a group to have a crowd derives no rings",
       await ev(`Chart.derivedRings()`) === 0, "derived=" + await ev(`Chart.derivedRings()`));
 
@@ -1347,7 +1438,7 @@ const filledOf = `(()=>{const sel=getComputedStyle(document.documentElement)
   const hit=[...document.querySelectorAll('#plot svg circle.dot')].filter(c=>{
     const f=c.getAttribute('fill'); return (f===sel||f===rgb) && shown(c)});
   return hit.length})()`;
-await goto(BASE);
+await rest();
 const restFill = await ev(filledOf);
 check("the resting view fills the default repertoire", restFill === 10, "filled=" + restFill);
 // The gate is the whole design: not one of the nine clears 10,000 readers a month, so at rest
@@ -1356,7 +1447,8 @@ check("the resting view fills the default repertoire", restFill === 10, "filled=
 check("and none of the women's set is filled at rest",
       await ev(`Chart.seedNames().some(n => n === "Florence Price")`) === false,
       await ev(`JSON.stringify(Chart.seedNames())`));
-await goto(BASE + "#g=female");
+await ev(`document.querySelector('#gender button[data-g="female"]').click()`);
+await idle();
 const womenFill = await ev(filledOf);
 check("the Women filter swaps in a curated set of its own", womenFill === 9, "filled=" + womenFill);
 check("and it is the hand-written one, not a ranking",
@@ -1366,7 +1458,8 @@ check("and it is the hand-written one, not a ranking",
           .every(n => s.has(n))})()`),
       await ev(`JSON.stringify(Chart.seedNames())`));
 // "Men" keeps every name in the default list, so nothing about that view may move.
-await goto(BASE + "#g=male");
+await ev(`document.querySelector('#gender button[data-g="male"]').click()`);
+await idle();
 check("filtering to the men changes neither the fill nor the key",
       await ev(filledOf) === 10
       && await ev(`document.getElementById('legend').textContent
@@ -1387,20 +1480,20 @@ check("arriving in Fame from another view re-derives the rings for THIS geometry
       + `needs ${(2 * afterSwitch.r).toFixed(1)}`);
 // The other half of the same bug, and the one that was actually caught in the wild: a ROTATION or
 // a window drag changes the box without changing the filter, so resize() has to re-derive too.
-// Shrunk AFTER loading on purpose — loading fresh at this size derives correctly and proves
-// nothing. Pre-fix this measured 5.7px of clearance against a 10.6px bar.
-await goto(BASE + "#g=female");
+// Shrunk AFTER deriving on purpose — loading fresh at this size derives correctly and proves
+// nothing. The page is already in Fame under the Women filter from the switch above, at 1280.
+// Pre-fix this measured 5.7px of clearance against a 10.6px bar.
 await viewport(360, 780, true);
-await laidOut();
+await relaid();
 const onPhone = await ev(closestOf);
 check("and resizing to a phone re-derives them for the smaller box",
       onPhone.rings >= 1 && onPhone.fills > 0 && onPhone.slack > 2 * onPhone.r,
       `${onPhone.rings} rings, r=${onPhone.r}; closest pair ${onPhone.gap}px apart, `
       + `${onPhone.slack}px clear, needs ${(2 * onPhone.r).toFixed(1)}`);
 await viewport(1100, 1500);
+await rest();
 // Same staleness contract as the composer names and the P21 values: a curated set keyed to a pill
 // that does not exist can never be shown, and looks maintained while doing nothing.
-await goto(BASE);
 check("every curated set is reachable by a pill",
       await ev(`Chart.repertoireKeys().every(k =>
         [...document.querySelectorAll('#gender button')].some(b => b.dataset.g === k))`),
@@ -1414,10 +1507,6 @@ check("every curated set is reachable by a pill",
 // cutting it that the page still needs: the legend and the axes each still state their own, and
 // the readership caveat was later cut from the footnote deliberately rather than moved, so nothing
 // here pretends it survived somewhere else.
-await goto(BASE);
-// Defined here because the sections below still use it and its old home was one of the three this
-// replaced. searchFor() lives up in section 4.
-const pill = m => ev(`document.querySelector('.controls .seg button[data-mode="${m}"]').click()`);
 const ledeText = () => ev(`document.querySelector('.lede').textContent.replace(/\\s+/g,' ').trim()`);
 check("the lede is one static sentence", (await ledeText()) ===
       "Everyone on Wikipedia's List of String Quartet Composers, visualized.", await ledeText());
@@ -1438,14 +1527,16 @@ check("the axes are still named by the chart itself",
 // And it can no longer move: nothing writes to it, so no filter and no view can change its height.
 const ledeH = () => ev(`document.querySelector('.lede').getBoundingClientRect().height`);
 const ledeRest = await ledeH();
-await goto(BASE + "#g=female&r=751-4501");
+await ev(`(()=>{ document.querySelector('#gender button[data-g="female"]').click();
+  Histogram.setRange([751, 4501]); applyFilters(true) })()`);
+await idle();
 check("no filter changes the lede's height any more",
       Math.abs(await ledeH() - ledeRest) < 0.5,
       `${ledeRest.toFixed(1)} -> ${(await ledeH()).toFixed(1)} under the combination that moved it 20px`);
 check("...and it reserves no height of its own to go stale",
       await ev(`!document.querySelector('.lede').style.minHeight`),
       await ev(`JSON.stringify(document.querySelector('.lede').style.minHeight)`));
-await goto(BASE);
+await rest();
 
 // --- 4m4. ...and neither does a view switch, because the switcher is no longer under the plot ---
 // The residue of 4m3 (issue 29). Reserving the lede settled the plot's TOP; its HEIGHT still
@@ -1467,7 +1558,7 @@ const segTop = () => ev(`document.querySelector('.controls .seg').getBoundingCli
 const plotHeight = () => ev(`document.getElementById('plot').getBoundingClientRect().height`);
 for (const [w, h, mobile] of [[390, 844, true], [1280, 900, false]]) {
   await viewport(w, h, mobile);
-  await goto(BASE);
+  await relaid();
   const restTop = await segTop(), restH = await plotHeight();
   let worstTop = 0, worstH = 0;
   for (const m of ["scatter", "swarm", "lens", "fame"]) {
@@ -1621,7 +1712,7 @@ check("sort by Died keeps living composers off the top",
 
 // --- 6. dark mode repaints the JS-baked colors --------------------------------
 // The timeline view, because the lifespan ramp is the legend piece that is baked from the tokens.
-await goto(BASE + "#v=scatter");
+await view("scatter");
 const dotFill = `document.querySelector('#plot svg circle.dot').getAttribute('fill')`;
 const lightFill = await ev(dotFill);
 await ev(`Theme.set('dark')`);
@@ -1800,6 +1891,10 @@ await send("Emulation.setTouchEmulationEnabled", { enabled: false });
 // without the emulation a 390px box is a narrow desktop, the touch floor does not apply, and the
 // button heights this checks are the wrong ones. The two states at the END are deliberate — a
 // narrow window WITH a pointer, then a wide one — because each has a rule the phone cannot reach.
+// A BOOT, not rest(), though section 7 booted under the same touch emulation: after a full-screen
+// round trip this headless Chromium stops forwarding wheel events to the page at all — every
+// wheel below went nowhere, three sends each, until a listener was registered afresh — and
+// section 7 leaves the page exactly there. A boot is the reset that works.
 await viewport(390, 844, true);
 await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
 await goto(BASE);
@@ -1950,11 +2045,7 @@ check("...and its bottom stays above the plot area, so no dot's CENTRE can fall 
           .toFixed(1)+'px of clearance'})()`));
 const zbx = await ev(`(()=>{const b=document.querySelector('#plot svg rect.bg').getBoundingClientRect();
   return {x:b.x,y:b.y,w:b.width,h:b.height}})()`);
-for (let i = 0; i < 8; i++) {
-  await send("Input.dispatchMouseEvent", { type: "mouseWheel", x: zbx.x + zbx.w * 0.8,
-    y: zbx.y + zbx.h * 0.92, deltaX: 0, deltaY: -300, pointerType: "mouse" });
-  await sleep(120);
-}
+await wheel(zbx.x + zbx.w * 0.8, zbx.y + zbx.h * 0.92, -2400);
 await settle(`Chart.zoomK() > 1.5`);
 const uz = JSON.parse(await underTools());
 check("...and a real pinch agrees",
@@ -2043,13 +2134,9 @@ check("on a desktop they are words in the controls row again",
           && getComputedStyle(document.querySelector('#share .ico')).display === 'none'
           && document.querySelector('#share .btn-t').offsetParent !== null})()`),
       "parent = " + await ev(`document.getElementById('chart-tools').parentNode.className`));
-await send("Emulation.setTouchEmulationEnabled", { enabled: false });
-await viewport(390, 844, true);
-await goto(BASE);
 
 // --- 7d. full screen on a real pointer: hover previews into the strip, and nothing moves --------
-await viewport(1280, 900);
-await goto(BASE);
+await rest();
 await ev(`document.getElementById('fs').click()`);
 await laidOut();
 const fsPlotH = await ev(`document.getElementById('plot').getBoundingClientRect().height`);
@@ -2072,7 +2159,7 @@ await ev(`document.getElementById('fs').click()`);
 // The one layout where hover and the in-flow compact panel meet. Its box is reserved (styles.css)
 // so a preview fills it instead of appearing out of nowhere and shoving the legend down.
 await viewport(760, 900);
-await goto(BASE);
+await rest();
 const beforeTop = await ev(`document.querySelector('#viz .legend').getBoundingClientRect().top`);
 const ndot = await ev(`(()=>{const s=document.querySelector('#plot svg');
   const c=[...s.querySelectorAll('circle.dot')].sort((a,b)=>+b.getAttribute('r')-+a.getAttribute('r'))[0];
@@ -2097,10 +2184,10 @@ check("pinning does not shove it either", Math.abs(pinnedTop - beforeTop) < 2,
 // The dot above is whichever is largest, and its caption is a short trend line. The WORST case for
 // the reservation is a spike caption — "peak Jun 2023 — 42,195, 18× typical" is half again as long
 // and is what would wrap first — so the box has to cover that one too.
-await goto(BASE + "#c=" + encodeURIComponent("Kaija Saariaho"));
-await settle(`!!document.querySelector('#detail .spark-cap')`);
+await pin("Kaija Saariaho");
+await settle(`document.querySelector('#detail .spark-cap')?.textContent.startsWith('peak')`);
 const spikeTop = await ev(`document.querySelector('#viz .legend').getBoundingClientRect().top`);
-await goto(BASE);
+await rest();
 check("the reservation covers the LONGEST caption, not just the first one tested",
       Math.abs(spikeTop - (await ev(`document.querySelector('#viz .legend').getBoundingClientRect().top`))) < 2,
       `legend top with a spike caption ${spikeTop.toFixed(0)} vs empty `
@@ -2133,9 +2220,8 @@ check("the landscape chart fills its box instead of letterboxing",
 await shot("landscape-fs");
 await send("Emulation.setTouchEmulationEnabled", { enabled: false });
 
-// --- 8. offline: load once online to prime the precache, then kill the network ---------------
+// --- 8. offline: the precache was primed by the first boot; kill the network and reload ---------
 await viewport(1280, 900);
-await goto(BASE);
 // The SW precaches per-file on install; wait for it to take control AND finish the shell.
 let cached = 0;
 for (let i = 0; i < 60; i++) {
@@ -2161,7 +2247,6 @@ await send("Network.emulateNetworkConditions",
   { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
 
 // --- 9. print stylesheet -----------------------------------------------------------------------
-await goto(BASE);
 await send("Emulation.setEmulatedMedia", { media: "print" });
 await settle(`getComputedStyle(document.querySelector('.controls')).display === 'none'`);
 check("print hides the interactive chrome",
@@ -2190,7 +2275,14 @@ await send("Emulation.setEmulatedMedia", { media: "" });
         + `per CSS pixel, against a floor of 1 — ${shots.length} shots measured`);
 }
 
-// --- 8. THE SUITE'S OWN STATED SIZE ---------------------------------------------------------
+// --- 10. the in-place resets kept their promise -----------------------------------------------
+// rest() reboots when it cannot get the page back to rest and writes down where, so a section
+// that ran on a fallback boot is named here rather than passing on a clean slate it did not earn.
+// A diagnosis, so it takes the `fail` slot: on a pass there is nothing to say.
+check("every in-place reset reached the resting page without a boot", missedRests.length === 0, "",
+      missedRests.join("; "));
+
+// --- 11. THE SUITE'S OWN STATED SIZE --------------------------------------------------------
 // The docs quote this total, and it is the one count in the repo that cannot be taken offline:
 // some checks are registered in loops, so the literal `check(` count is not what this reports.
 // So `scripts/prose-lint.py` deliberately does not pin it and this does, where the real total is

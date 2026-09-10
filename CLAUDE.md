@@ -226,7 +226,7 @@ human grades. No test framework, and nothing to install:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 242 behavioral checks against a real Chrome over CDP, the
+- `scripts/ui-test.sh` — 243 behavioral checks against a real Chrome over CDP, the
   last of which is the suite asserting its OWN stated size against both docs — some checks run in
   loops, so the literal `check(` count is not the number it reports and no offline count is exact.
   It is the one total `prose-lint.py` cannot take, and this is where it is known. It starts
@@ -273,6 +273,19 @@ human grades. No test framework, and nothing to install:
   that arises after it, so a failing run destroyed its own evidence. It now keeps the directory
   whenever the suite fails — including when Chrome never opened, so `chrome.log` outlives the
   scrollback — and prints the path either way. A clean run still cleans up.
+  **And a boot is a claim, not a reset** (#48 again): most of the 53 navigations it made were a
+  way back to a known state, a full boot to clear a pill or press one. `rest()` gets there through
+  the app's own controls, then reads every piece of state a boot would have cleared and boots
+  after all if any is out of place — recording where, which the second-to-last check reports, so a
+  reset that quietly reboots cannot hide the app failing to reset. The boots left each test a URL
+  (a bare one opens on Fame, `#v=readers` still resolves, a `#g=`, `#r=` or `#c=` link arrives
+  applied, an offline reload paints), straddle a change of touch emulation, because chart.js
+  reads `TOUCH` once at boot, or follow a full-screen round trip, after which this Chromium
+  forwards no wheel event to the page until something registers a listener afresh. A
+  section that only needs another viewport asks for it and waits for the re-layout (`relaid()`);
+  a view switch goes through its pill (`view()`). One wheel event now carries a whole zoom, and
+  it is checked for rather than assumed: this Chromium drops a synthetic wheel now and then under
+  emulation, so `wheel()` re-sends one that moved nothing and the run prints how often it had to.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
   `git diff --cached`); the meta-length and stated-count halves read the working tree and run in
   CI. `check_counts()` knows BOTH live totals — the roster (884) and what the chart can plot

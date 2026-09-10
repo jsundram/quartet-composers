@@ -202,6 +202,17 @@ into `names.js` and now serves both, deriving the table's "Haydn, Joseph" and th
 surname. The win is not only tidiness: `pickLabels()` is a greedy first-come placer, so halving
 every box is what lets the names behind it find room.
 
+### Pressing Full screen during the un-fit tween pins the chart mid-tween — **known defect**
+Clearing a filter tweens the frame back out over 420ms (`goTo()` in `chart.js`). `setFull()` asks
+for a `Chart.resize()` on the next frame, and `resize()` keeps whatever transform it finds when the
+reader has pinched — measured by `zoomed()`, which cannot tell a pinch from a tween in flight. So a
+Full screen press inside that 420ms lands the chart at k≈1.05 with the reset button lit, and
+nothing ever finishes the tween. Found by `ui.test.mjs`'s in-place reset (#48), which section 7
+left in exactly that state; the reset now lets the full-screen relayout land before it presses
+reset zoom, which is a workaround in the suite and not a fix in the app. The fix is probably for
+`resize()` to read the tween's TARGET rather than its current frame — d3 keeps it on the node —
+or for `setFull()` to interrupt to the target first.
+
 ### The full-screen strip drops four things, and says so nowhere
 `tight()` in `app.js` trims the panel to two lines for the fixed-height strip above the chart: the
 percentile line, the Wikipedia link, Prev/Next, and the 12-month range beside the median view count
