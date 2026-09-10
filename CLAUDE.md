@@ -158,7 +158,9 @@ plain static assets. Read README.md first for what the app is.
    existed.
 
 14. **`scripts/make-og-svg.py` duplicates chart.js's scales on purpose.** Same log domains, same
-   jitter hash, same emphasis, the same two uniform radii — readership is the Y AXIS in this
+   jitter (`spread_jq()` there, `spreadJq()` here — RANKED by readership within a quartet count
+   since #45, not hashed from the name, so it is a function of the whole roster and a top-up can
+   move it), same emphasis, the same two uniform radii — readership is the Y AXIS in this
    view, so the card has no radius scale either — and the same short-name rule from `names.js`.
    It renders the FAME view AT REST, because that is what a bare URL opens on — so the derived
    rings never reach it and it needs only the curated three. Changing an encoding in `chart.js` means changing it there too, or

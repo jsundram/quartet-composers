@@ -105,7 +105,15 @@ def main():
 
     # fetch_views.py is the only stage that touches the network, and it only asks for months it
     # does not already hold. build_data.py then rebuilds BOTH shipped files from the caches.
-    for stage in (("fetch_views.py",), ("build_data.py",), ("validate.py",)):
+    #
+    # make-og-svg.py joined the list when the Fame jitter stopped being a name hash (#45). It is
+    # ranked by readership now, so a top-up that changes who out-reads whom inside one quartet
+    # count MOVES dots — and the card duplicates that placement offline (invariant 14). While the
+    # offset was a hash of the name, new view counts could not touch the card's x at all and
+    # leaving it alone was safe; now a refresh that skips it ships a share card whose dots no
+    # longer sit where the app draws them, which is precisely the drift invariant 14 exists to
+    # stop. It reads composers.json and writes assets/og.svg, so it must run AFTER build_data.py.
+    for stage in (("fetch_views.py",), ("build_data.py",), ("make-og-svg.py",), ("validate.py",)):
         rc = run(*stage)
         if rc != 0:
             print("\n%s failed (exit %d) — nothing was version-bumped" % (stage[0], rc),

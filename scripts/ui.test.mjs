@@ -717,9 +717,15 @@ check("and the resting picture is still just the seed",
 for (const [label, vw, vh, mob] of [["1280x900", 1280, 900, false], ["390x844", 390, 844, true]]) {
   await viewport(vw, vh, mob);
   await goto(BASE);
+  // Only the dots actually DRAWN. plottable() is `quartets != null`, so a row with no readership
+  // still joins a circle — parked off-frame at r=0 by layout(). Two of those share a quartet count
+  // and this reads a 0px "overlap" between two dots nobody can see. validate.py permits up to 5% of
+  // the roster to ship `views: null`; it is 0 today, which is exactly how this would arrive later
+  // as a mystery FAIL naming two composers who are not on the chart.
   const worst = await ev(`(()=>{
-    const ds=[...document.querySelectorAll('#plot circle.dot')].map(n=>({
-      i:n.__data__.i, x:+n.getAttribute('cx'), y:+n.getAttribute('cy'), r:+n.getAttribute('r')}));
+    const ds=[...document.querySelectorAll('#plot svg circle.dot')]
+      .filter(n=>+n.getAttribute('r')>0 && n.getAttribute('display')!=='none')
+      .map(n=>({i:n.__data__.i, x:+n.getAttribute('cx'), y:+n.getAttribute('cy'), r:+n.getAttribute('r')}));
     let best=Infinity, pair=null;
     for(let a=0;a<ds.length;a++)for(let b=a+1;b<ds.length;b++){
       if(ROWS[ds[a].i].quartets!==ROWS[ds[b].i].quartets) continue;
