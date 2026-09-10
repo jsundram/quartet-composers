@@ -376,8 +376,10 @@ missing pointer and are fixed (#50, above); the ninth was a FONT metric — `sys
 Sans on a Linux runner and the four phone columns measured 9px wider than on a Mac, so `table does
 not overflow its box at 390px` read 335 against 326 — and it is fixed too (#53). It was never a
 harness artefact: the layout had no margin, and at 360px it overflowed in every face including the
-Mac's own. Nothing on that list is still failing, so what stands between this suite and CI is the
-decision to add the job, not the platform.
+Mac's own. Nothing on that list is still failing — the whole suite has since been RUN on Ubuntu
+under `xvfb-run`, in DejaVu, green — so what stands between this suite and CI is a job, not the
+platform. TODO.md holds what that job needs; the one that bites is node 22, which the jobs already
+there do not use.
 
 ## Design artifacts
 

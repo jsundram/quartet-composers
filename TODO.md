@@ -851,14 +851,27 @@ So the fix gave back the width that was carrying nothing: the header word "Quart
 three-digit column (`short` in `table.js`, drawn as "Qts" with the full word kept as the sort
 button's accessible name) and the phone cell gutters, 8px to 6px. The check now asserts 390 AND
 360, because one width in the runner's own font is measuring the font.
-Measured on macOS across the faces installed here; a Linux run is inference, not a reading — the
-widest face available for the test clears 390px by ~49px and 360px by ~19px, where DejaVu was 9px
-short.
+It was designed on macOS, where a Linux run was inference and the widest face installed stood in
+for DejaVu, and it has since been RUN there: 251 of 251 on Ubuntu 24.04 / Chromium 141 under
+`xvfb-run`, with `fc-match system-ui` resolving to DejaVu Sans and no SF on the box to fall back
+to. The stand-in was accurate rather than merely convenient — predicted ~49px of slack at 390 and
+~19px at 360 against a measured 47.6 and 17.6. `styles.css`'s comment still says inference on
+purpose: it describes how the number was ARRIVED at, and the next person changing that layout will
+be on a Mac too.
 
-**Not addressed here: running the suite in CI.** Both blockers this entry named are now gone —
-the browser was never missing, and the font check was a real layout defect rather than a platform
-quirk — so what is left is the decision to add the job, plus `xvfb-run` in it. Until somebody
-does, the suite still only runs when somebody remembers to.
+**Not addressed here: running the suite in CI — but it is now only a job away, and the job is
+specified.** Both blockers this entry named are gone: the browser was never missing, and the font
+check was a real layout defect rather than a platform quirk. A Linux run of the whole suite is
+green (above), so what is left is a `ui` job in `checks.yml`, deliberately kept out of #53 so a
+workflow change is reviewable on its own. Three things it needs, one of which is not obvious:
+**node 22**, because `ui.test.mjs`'s entire CDP client is the global `WebSocket` that node 20 does
+not have — and all three existing jobs pin 20, so copying one is the way to get an immediate
+failure that looks like a browser problem; `xvfb-run`, for the pointer (#50); and the FULL Chrome
+rather than `chrome-headless-shell`, which `find_chrome` prefers from a Playwright cache and which
+reports no pointer even under a display. The prize is bigger than the suite: with a browser on the
+runner, `ablate.py --with-ui` becomes runnable there, and the branch gate stops printing
+"no CI-runnable suite covers this branch's source" for exactly the branches that change what the
+page LOOKS like — #53's own ablation was owed locally and run by hand.
 
 ## Deliberately not doing
 
