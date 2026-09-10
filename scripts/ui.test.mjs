@@ -2025,19 +2025,35 @@ check("...drawn as a bare glyph, not a pill moved onto the chart",
           && (c.backgroundColor === 'rgba(0, 0, 0, 0)' || c.backgroundColor === 'transparent')})`),
       await ev(`(()=>{const c=getComputedStyle(document.getElementById('share'));
         return 'border '+c.borderTopWidth+', bg '+c.backgroundColor})()`));
-// The copy confirmation, in the half that is visible here. navigator.share is absent in this
-// browser and the clipboard write is refused without a permission, so BOTH fallback branches land
-// on copied() — which is the point: the label they used to swap is `clip-path:inset(50%)` in this
-// layout, so the button acknowledged a copy nowhere a reader could see it.
+// The copy confirmation, in the half that is visible here: the label the button used to swap is
+// `clip-path:inset(50%)` in this layout, so it acknowledged a copy nowhere a reader could see it.
+// WHICH BRANCH of share() gets there is a platform fact, and this comment used to assert one —
+// "navigator.share is absent in this browser and the clipboard write is refused without a
+// permission, so BOTH fallback branches land on copied()". The first CI run of this suite said
+// otherwise on Linux, so the branch is REPORTED rather than assumed, on a pass as well as a
+// failure: an environment named in a comment cannot go red, which is the rule this repo already
+// applies to every other mechanical claim.
+await ev(`(()=>{
+  window.__share = { share: !!navigator.share, clipboard: !!navigator.clipboard,
+                     secure: isSecureContext, focus: document.hasFocus(), write: "not called" };
+  if (navigator.clipboard) {
+    const w = navigator.clipboard.writeText.bind(navigator.clipboard);
+    navigator.clipboard.writeText = t => { window.__share.write = "pending";
+      return w(t).then(r => { window.__share.write = "resolved"; return r },
+                       e => { window.__share.write = "rejected " + e.name; throw e }) };
+  }
+  return 0 })()`);
 await ev(`document.getElementById('share').click()`);
 await settle(`document.getElementById('share').classList.contains('copied')`);
+const shareEnv = await ev(`JSON.stringify(window.__share)`);
 check("Share acknowledges a copy with the glyph, not just the clipped label",
       await ev(`(()=>{const b=document.getElementById('share');
         const vis=[...b.querySelectorAll('.ico')].filter(i=>getComputedStyle(i).display !== 'none');
         return vis.length === 1 && vis[0].classList.contains('ico-ok')
           && b.querySelector('.btn-t').textContent.trim() === 'Link copied'})()`),
+      shareEnv,
       await ev(`[...document.querySelectorAll('#share .ico')]
-        .map(i=>i.getAttribute('class')+':'+getComputedStyle(i).display).join(' | ')`));
+        .map(i=>i.getAttribute('class')+':'+getComputedStyle(i).display).join(' | ')`) + " " + shareEnv);
 await settle(`!document.getElementById('share').classList.contains('copied')`);   // app.js reverts it after 1600ms
 check("...and goes back to the share glyph afterwards",
       await ev(`(()=>{const b=document.getElementById('share');
