@@ -157,7 +157,10 @@ plain static assets. Read README.md first for what the app is.
    count are pinned by `scripts/prose-lint.py` — they had each drifted from `FOLD` before it
    existed.
 
-14. **`scripts/make-og-svg.py` duplicates chart.js's scales on purpose.** Same log domains, same
+14. **`scripts/make-og-svg.py` duplicates chart.js's scales on purpose.** Same log domains — the
+   readership floor is DERIVED in both, snapped to the decade at or below the least-read plotted
+   composer (`decadeFloor` there, `vy_domain()` here), so a fixed floor cannot go on spending a
+   decade of the axis on a band no dot occupies (#38) — same
    jitter hash, same emphasis, the same two uniform radii — readership is the Y AXIS in this
    view, so the card has no radius scale either — and the same short-name rule from `names.js`.
    It renders the FAME view AT REST, because that is what a bare URL opens on — so the derived
@@ -224,7 +227,7 @@ human grades. No test framework, and nothing to install:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 237 behavioral checks against a real headless Chrome over CDP, the
+- `scripts/ui-test.sh` — 238 behavioral checks against a real headless Chrome over CDP, the
   last of which is the suite asserting its OWN stated size against both docs — some checks run in
   loops, so the literal `check(` count is not the number it reports and no offline count is exact.
   It is the one total `prose-lint.py` cannot take, and this is where it is known. It starts
@@ -241,6 +244,12 @@ human grades. No test framework, and nothing to install:
   before a deploy rather than by pasting the live URL into a validator afterwards. The two
   descriptions in `index.html` are deliberately different lengths — a SERP snippet wants 120-160,
   a phone link preview truncates near 125 — and re-unifying them fails the lint.
+  `check_card_axis()` is the third half: it reads the ticks drawn in `assets/og.svg` and refuses
+  any the card's own readership axis does not contain. That is invariant 14's duplication caught
+  where it goes SILENT — `make-og-svg.py`'s `logscale()` clamps, so a tick under the floor is not
+  dropped but painted on the bottom edge with the wrong number beside it, which is how a "1"
+  outlived the floor moving up to the first occupied decade (#38). It compares against
+  `vy_domain()` itself rather than a copy of the rule, so a STALE `og.svg` fails it too.
 - `python3 scripts/pagemoves.test.py` — the page-move rule (invariant 15), offline: `step`,
   `tenures`, `confirm` and `stitch` are pure, and `find_moves`'s walk runs against a stubbed log.
   It exists because every defect that module has had is one the PIPELINE cannot show you — a
@@ -309,8 +318,9 @@ human grades. No test framework, and nothing to install:
 The first two and `sw-lint.test.py` run in CI. `ui-test.sh` does not — run it by hand after
 touching `chart.js`, `table.js`, or `styles.css`. **Not for want of a browser**, which is what
 this line used to say: `ubuntu-latest` ships `/usr/bin/google-chrome` and `find_chrome` finds it.
-Measured on #43, the suite RUNS there and scores 231/240. The nine are one cause and one detail,
-both recorded in TODO.md — do not re-derive them.
+Measured on #43, the suite RUNS there and scored 231 of the 240 checks it had then — a RECORD of
+that run, so the denominator does not follow the total above. The nine are one cause and one
+detail, both recorded in TODO.md — do not re-derive them.
 
 ## Design artifacts
 
