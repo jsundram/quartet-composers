@@ -1813,9 +1813,19 @@ for (const w of [390, 360]) {
   check(`no horizontal overflow at ${w}px`,
         await ev(`document.documentElement.scrollWidth <= ${w}`),
         "scrollWidth=" + await ev(`document.documentElement.scrollWidth`));
+  // The table fills its box, so scrollWidth equals clientWidth whether the fit is comfortable or
+  // hairline — the boolean can say "fine" and cannot say "one column from not fine", which is
+  // exactly the no-margin layout #53 turned out to be: green in SF, red in DejaVu, and nothing on
+  // the way there measured the difference. Min-content is what the table WANTS independent of the
+  // box it was given, so the slack is the reading that would have warned. It goes in the detail
+  // slot rather than an assertion: a threshold here would invent a number nobody measured and go
+  // red for layouts that are genuinely fine.
   check(`table does not overflow its box at ${w}px`,
         await ev(`(()=>{const b=document.querySelector('.scroll');return b.scrollWidth <= b.clientWidth+1})()`),
-        await ev(`(()=>{const b=document.querySelector('.scroll');return b.scrollWidth+' vs '+b.clientWidth})()`));
+        await ev(`(()=>{const b=document.querySelector('.scroll'), t=b.querySelector('table');
+          const prev=t.style.width; t.style.width='min-content';
+          const min=t.getBoundingClientRect().width; t.style.width=prev;
+          return b.scrollWidth+' vs '+b.clientWidth+', '+(b.clientWidth-min).toFixed(1)+'px of slack'})()`));
   const cols = await ev(`document.querySelectorAll('tbody tr:first-child td:not(.wide-only)').length`);
   check(`phone table drops to 4 columns at ${w}px`, cols === 4, "cols=" + cols);
   check(`the table box advertises that it scrolls at ${w}px`,
