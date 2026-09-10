@@ -885,13 +885,22 @@ check("every stated gender is reachable by a pill",
       (await ev(`unfilterableGenders()`)).length === 0,
       "unreachable: " + JSON.stringify(await ev(`unfilterableGenders()`)));
 
-// Unknown is in NEITHER set: Women + Men must not add up to the whole roster, or the null rule
-// has quietly been replaced by "everyone we didn't call a man".
+// Unknown is in NEITHER set, so the three counts must PARTITION the roster.
+//
+// This asserted `women + men < allRows` — the same rule, but only while some composer actually
+// HAS a null claim. The roster's last one turned out not to be a composer Wikidata is quiet about
+// but a redlink the pipeline was counting (TITLE_FIXES in fetch_wikidata.py), and the day it was
+// repaired this check went red for the one reason that is not a bug: nothing was left to be in
+// neither filter. An inequality that can only be exercised by a data hole goes vacuous the moment
+// the hole is fixed. The partition holds at zero and still catches what the inequality was for —
+// filing the nulls under "male" inflates men and the sum overshoots.
 await ev(`document.querySelector('#gender button[data-g="male"]').click()`);
 await sleep(300);
 const men = await ev(`document.querySelectorAll('tbody tr').length`);
-check("a composer with no P21 claim is in neither filter", women + men < allRows,
-      `${women} + ${men} < ${allRows}`);
+const noClaim = await ev(`ROWS.filter(d => d.gender == null).length`);
+check("the gender pills partition the roster — a null claim is in neither",
+      women + men + noClaim === allRows,
+      `${women} women + ${men} men + ${noClaim} unstated = ${allRows}`);
 
 // Intersection, not replacement — the same contract the search box and the brush hold to.
 await ev(`(()=>{const q=document.getElementById('q'); q.value='haydn';

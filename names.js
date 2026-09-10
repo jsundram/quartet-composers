@@ -25,7 +25,7 @@
 //   compound surnames -- found by listing the penultimate word of every 3+ word name; ~80 are
 //     ordinary middle names and the five below are not.
 // Left deliberately alone: French and Dutch particles file under the last word here
-// ("Fernand de la Tombelle" -> Tombelle, "Louise Haenel de Cronenthall" -> Cronenthall), where a
+// ("Fernand de La Tombelle" -> Tombelle, "Louise Haenel de Cronenthall" -> Cronenthall), where a
 // French index would keep the particle. Both are still recognisable, and the whole point is to
 // be narrow.
 window.Names = (function () {

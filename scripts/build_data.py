@@ -102,7 +102,12 @@ def main():
     for e in listing["entries"]:
         title = e["title"]
         p = people.get(title, {})
-        canon = p.get("canonical", title)
+        # May be None — a title that did not resolve (fetch_wikidata.py). `key` is what identifies
+        # the ROW, and stays the list title so two unresolved entries cannot collapse into one
+        # `seen` slot; `canon` stays None so the series lookup finds nothing rather than picking up
+        # a stale cache entry filed under the raw title, which is the fabrication being removed.
+        canon = p.get("canonical")
+        key = canon or title
         birth, death = p.get("birth", e["birth"]), p.get("death", e["death"])
         gender = p.get("gender")
         if birth is None:
@@ -120,18 +125,18 @@ def main():
         else:
             views = lo = hi = None
 
-        name = QUALIFIER.sub("", canon)
+        name = QUALIFIER.sub("", key)
         # Two list entries can resolve to one article (an alias and the real title). Keep the
         # richer row rather than letting the later one silently win.
         row = [name, birth, death, e["quartets"], views, lo, hi, gender]
-        if canon in seen:
-            prev = rows[seen[canon]]
+        if key in seen:
+            prev = rows[seen[key]]
             better = sum(x is not None for x in row) > sum(x is not None for x in prev)
             if better:
-                rows[seen[canon]] = row
-            dropped.append((title, "duplicate of %s" % canon))
+                rows[seen[key]] = row
+            dropped.append((title, "duplicate of %s" % key))
             continue
-        seen[canon] = len(rows)
+        seen[key] = len(rows)
         canons.append(canon)
         rows.append(row)
 

@@ -2575,12 +2575,12 @@
 },
 "Fernand de la Tombelle": {
 "birth": 1854,
-"canonical": "Fernand de la Tombelle",
+"canonical": "Fernand de La Tombelle",
 "death": 1928,
-"gender": null,
-"qid": null,
-"wd_birth": null,
-"wd_death": null
+"gender": "male",
+"qid": "Q1406550",
+"wd_birth": 1854,
+"wd_death": 1928
 },
 "Fernande Decruck": {
 "birth": 1896,
