@@ -482,17 +482,10 @@ def check_names(rows, people):
 def check_resolved(people):
     """A list title that resolves to nothing must not ship a readership.
 
-    THE FAILURE LEAVES NO TRACE DOWNSTREAM, which is why it needs a check of its own rather than a
-    count in a print. The list page is edited by hand and can name a page nobody has written —
-    "[[Fernand de la Tombelle]]", lowercase "la", where the article is at "Fernand de La
-    Tombelle". Resolution failed, the canonical fell back to the raw title, and the pageviews API
-    answered for the redlink exactly the way invariant 5 says it does: with a 200. One stray hit,
-    in one month out of 134, became a median readership of 1 against a real 90.
-
-    Nothing else here could have caught it. The row had the right number of fields, the series was
-    aligned to the axis, the median really was the median of the values present, and 1 view a
-    month is plausible for a name nobody has heard of — it is only wrong against a page that was
-    never being counted.
+    Needs a check of its own because nothing downstream can see it: the row is the right shape, the
+    series is aligned, the median really is the median of what is there, and a tiny count is
+    plausible for an obscure name. It is only wrong against a page that was never being counted
+    (invariant 5; TITLE_FIXES in fetch_wikidata.py).
     """
     if not people:
         return

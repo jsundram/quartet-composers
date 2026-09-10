@@ -106,13 +106,8 @@ def transport_failure(fv):
 
 @case("a title that resolved to NOTHING is never asked for")
 def unresolved_is_not_asked(fv):
-    # The one defect this file could not have caught, because it is upstream of every invariant in
-    # it: a list title nobody has written an article for. fetch_wikidata.py used to hand back the
-    # raw title as its canonical, so the request went out, and the pageviews API answers for a page
-    # that does not exist -- with a 200 and a number nobody can tell from a real one. That is
-    # invariant 5's rule stated exactly: never ask for an unresolved title. A null canonical is how
-    # the resolver now says it has no title to give, and the only correct number of requests is
-    # zero, because there is no answer that would be right.
+    # Upstream of every other invariant here: a list title nobody has written an article for. The
+    # API answers for it anyway, so the only correct number of requests is zero (invariant 5).
     with open(fv.PEOPLE, "w", encoding="utf-8") as f:
         json.dump({"A": {"canonical": "A"}, "B": {"canonical": None}}, f)
     asked = []

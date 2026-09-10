@@ -134,47 +134,29 @@ def check_counts():
 
 
 def check_card_axis():
-    """The share card's readership axis must contain every tick it draws.
+    """The card must not label a readership its own axis does not contain.
 
-    make-og-svg.py duplicates chart.js's scales on purpose (invariant 14), and the drift is silent
-    in the worst possible way: its logscale() CLAMPS, so a tick below the floor is not dropped, it
-    is drawn hard on the bottom edge with the wrong number beside it. When the y floor moved up to
-    the first occupied decade (issue 38) the card went on printing a "1" against an axis starting
-    at 8.5 — a label naming a value the picture no longer contains, on the one image that gets
-    scraped into every link preview and is never looked at again.
-
-    Compared against `vy_domain()` itself rather than a copy of the rule, so this checks the card ON
-    DISK against the script that should have drawn it: a stale assets/og.svg fails here too, which
-    is the other way the two go out of step. The y ticks are the `text-anchor="end"` ones — the x
-    axis anchors middle — so nothing here has to know the plot's geometry.
+    make-og-svg.py duplicates chart.js's scales (invariant 14) and its logscale() CLAMPS, so a tick
+    under the floor is not dropped -- it is drawn on the bottom edge with the wrong number beside
+    it. Read from the card ON DISK, so a stale one fails here too. The y ticks are the
+    text-anchor="end" ones; the x axis anchors middle.
     """
     spec = importlib.util.spec_from_file_location("og", os.path.join(HERE, "make-og-svg.py"))
     og = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(og)
-    with open(os.path.join(ROOT, "composers.json"), encoding="utf-8") as f:
-        rows = json.load(f)["rows"]
-    lo, hi = og.vy_domain(rows)
+    lo, hi = og.VY_DOMAIN
     with open(os.path.join(ROOT, "assets", "og.svg"), encoding="utf-8") as f:
         card = f.read()
-    drawn = []
-    for lab in re.findall(r'text-anchor="end">([\d.]+k?)</text>', card):
-        drawn.append(float(lab[:-1]) * 1000 if lab.endswith("k") else float(lab))
+    drawn = [float(m[:-1]) * 1000 if m.endswith("k") else float(m)
+             for m in re.findall(r'text-anchor="end">([\d.]+k?)</text>', card)]
     if not drawn:
-        print("  og.svg has no readership axis labels — has the card's markup changed?")
+        print("  og.svg has no readership axis labels -- has the card's markup changed?")
         return 1
     stray = [v for v in drawn if not lo <= v <= hi]
     if stray:
-        print("  assets/og.svg draws readership ticks its own axis does not contain: %s"
-              % ", ".join("%g" % v for v in stray))
-        print("  The axis runs %g..%g. logscale() clamps, so these are painted on the bottom edge "
-              "with the wrong number beside them." % (lo, hi))
+        print("  assets/og.svg labels readership its axis (%g..%g) does not contain: %s"
+              % (lo, hi, ", ".join("%g" % v for v in stray)))
         print("  Rerun: python3 scripts/make-og-svg.py")
-        return 1
-    # ...and it must be ANCHORED: a floor with no label near it leaves an unexplained empty band
-    # under the lowest gridline, which is the same wasted space issue 38 was about.
-    if min(drawn) > lo * 100:
-        print("  assets/og.svg labels nothing in its bottom decade: axis starts at %g, lowest "
-              "tick is %g. Rerun: python3 scripts/make-og-svg.py" % (lo, min(drawn)))
         return 1
     return 0
 

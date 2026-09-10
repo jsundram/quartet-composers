@@ -15,6 +15,7 @@
 
 window.Histogram = (function () {
   const BINS = 36;
+  const LO = 10;                // shared with chart.js's VY_DOMAIN floor
   const H = 42;                 // bar area
   const AXIS = 15;              // tick labels below it
   const PAD = 2;
@@ -30,13 +31,13 @@ window.Histogram = (function () {
   function setData(r) {
     rows = r.filter(d => d.views != null);
     const vals = rows.map(d => d.views);
-    const lo = Math.max(1, d3.min(vals)), hi = d3.max(vals);
-    // Geometric edges. Math.max(1, …) because a log scale has no zero and one composer really does
-    // sit at a single view per month.
-    edges = d3.range(BINS + 1).map(i => Math.pow(10, Math.log10(lo) + (Math.log10(hi) - Math.log10(lo)) * i / BINS));
+    const hi = d3.max(vals);
+    // Geometric edges from the same floor the chart uses: under ten readers a month is not a
+    // readership worth resolving, and a fixed floor does not move when the roster does.
+    edges = d3.range(BINS + 1).map(i => Math.pow(10, Math.log10(LO) + (Math.log10(hi) - Math.log10(LO)) * i / BINS));
     counts = new Array(BINS).fill(0);
     for (const v of vals) {
-      let k = Math.floor((Math.log10(Math.max(1, v)) - Math.log10(lo)) / (Math.log10(hi) - Math.log10(lo)) * BINS);
+      let k = Math.floor((Math.log10(Math.max(LO, v)) - Math.log10(LO)) / (Math.log10(hi) - Math.log10(LO)) * BINS);
       counts[Math.max(0, Math.min(BINS - 1, k))]++;
     }
   }
@@ -232,7 +233,10 @@ window.Histogram = (function () {
   function matches() {
     if (!range) return null;
     const set = new Set();
-    for (const d of rows) if (d.views >= range[0] && d.views <= range[1]) set.add(d.i);
+    // At the left edge the low bound means "everything below", or a composer under the floor is
+    // dropped by a brush that covers the whole axis.
+    const lo = range[0] <= edges[0] ? 0 : range[0];
+    for (const d of rows) if (d.views >= lo && d.views <= range[1]) set.add(d.i);
     return set;
   }
 

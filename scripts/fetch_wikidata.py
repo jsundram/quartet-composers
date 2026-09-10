@@ -55,19 +55,13 @@ PAUSE = 0.15
 TRIES = 5
 BACKOFF = [2, 5, 15, 40]
 
-# UPSTREAM REDLINKS. The list page is edited by hand, so an entry can name a page nobody has
-# written: "[[Fernand de la Tombelle]]", lowercase "la", where the article is at "Fernand de La
-# Tombelle". Resolution fails, and what mattered was what came NEXT — the canonical fell back to
-# the raw title and fetch_views.py asked the pageviews API for a page that does not exist. That
-# request SUCCEEDS, which is invariant 5's whole point, so he shipped a readership of 1 against a
-# real 90: one stray hit on the redlink, in one month out of 134, taken as the median of a
-# twelve-month window. Nothing downstream could see it. A composer really can be read once a
-# month, the row was the right length, and the number was plausible for an obscure name.
+# Upstream redlinks: the list page is edited by hand and can name a page nobody has written, which
+# resolution cannot repair on its own. The pageviews API then answers for the missing title anyway
+# (invariant 5), so the row ships a readership built from stray hits on a redlink.
 #
-# Keyed by the LIST title and applied BEFORE resolution, so the replacement is resolved like any
-# other title and a value that stops existing fails here instead of becoming a second fabricated
-# canonical. Stale entries are reported the way names.js reports its SURNAME overrides: when
-# upstream fixes the redlink this should be deleted, not left to outlive its reason.
+# Keyed by the LIST title and applied BEFORE resolution, so a replacement that stops existing fails
+# here rather than becoming another bad canonical. Delete an entry when upstream fixes the link;
+# main() reports the ones that have gone stale.
 TITLE_FIXES = {
     "Fernand de la Tombelle": "Fernand de La Tombelle",
 }
@@ -233,9 +227,8 @@ def main():
     qids = sorted({q for _, q in resolved.values() if q})
     print("  %d resolved, %d with a Wikidata item" % (len(resolved), len(qids)))
 
-    # An override that no longer does anything is worse than no override: it reads as a live repair
-    # while the thing it repaired has moved on. Both directions are reported — a key upstream has
-    # fixed, and a value that has itself stopped resolving.
+    # An override that no longer does anything reads as a live repair. Both directions: a key
+    # upstream has fixed, and a value that has itself stopped resolving.
     for t in sorted(set(TITLE_FIXES) - set(titles)):
         print("  TITLE_FIXES: %r is no longer on the list page - delete the entry" % t)
     for t in sorted(t for t in TITLE_FIXES if t in ask and ask[t] not in answered):
@@ -260,10 +253,8 @@ def main():
             disagree.append(("birth", t, e["birth"], wb))
         if wd_ is not None and e["death"] is not None and wd_ != e["death"]:
             disagree.append(("death", t, e["death"], wd_))
-        # `canon`, never `canon or t`. A title that did not resolve has no canonical, and saying
-        # otherwise is what sent the pageviews API after a page that was never written; null here
-        # means fetch_views.py does not ask and validate.py fails until a human decides what the
-        # title should have been (TITLE_FIXES above).
+        # `canon`, never `canon or t`: a title that did not resolve has no canonical, and claiming
+        # one is what sends the pageviews API after a page that was never written.
         people[t] = {"canonical": canon, "qid": qid, "birth": birth, "death": death,
                      "wd_birth": wb, "wd_death": wd_, "gender": g}
 
@@ -271,9 +262,8 @@ def main():
     # exactly the "still shown as living years after they died" bug this script exists to end.
     newly_dead = [t for t, p in people.items()
                   if p["wd_death"] and next(e["death"] for e in entries if e["title"] == t) is None]
-    # SEPARATELY from no_wd, which it used to be pooled into. A composer with no Wikidata dates is
-    # ordinary and there are dozens; a title that does not resolve at all is a defect, and one of
-    # them hid inside that number for the life of the dataset.
+    # Separately from no_wd, which this used to be pooled into: no Wikidata dates is ordinary, a
+    # title that does not resolve at all is a defect, and pooling them hid the second in the first.
     print("\ntitles that do not resolve to a Wikipedia page: %d" % len(unresolved))
     for t in unresolved:
         print("   %-40s <- add it to TITLE_FIXES, or validate.py will fail" % t)

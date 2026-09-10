@@ -157,10 +157,7 @@ plain static assets. Read README.md first for what the app is.
    count are pinned by `scripts/prose-lint.py` — they had each drifted from `FOLD` before it
    existed.
 
-14. **`scripts/make-og-svg.py` duplicates chart.js's scales on purpose.** Same log domains — the
-   readership floor is DERIVED in both, snapped to the decade at or below the least-read plotted
-   composer (`decadeFloor` there, `vy_domain()` here), so a fixed floor cannot go on spending a
-   decade of the axis on a band no dot occupies (#38) — same
+14. **`scripts/make-og-svg.py` duplicates chart.js's scales on purpose.** Same log domains, same
    jitter hash, same emphasis, the same two uniform radii — readership is the Y AXIS in this
    view, so the card has no radius scale either — and the same short-name rule from `names.js`.
    It renders the FAME view AT REST, because that is what a bare URL opens on — so the derived
@@ -244,12 +241,10 @@ human grades. No test framework, and nothing to install:
   before a deploy rather than by pasting the live URL into a validator afterwards. The two
   descriptions in `index.html` are deliberately different lengths — a SERP snippet wants 120-160,
   a phone link preview truncates near 125 — and re-unifying them fails the lint.
-  `check_card_axis()` is the third half: it reads the ticks drawn in `assets/og.svg` and refuses
-  any the card's own readership axis does not contain. That is invariant 14's duplication caught
-  where it goes SILENT — `make-og-svg.py`'s `logscale()` clamps, so a tick under the floor is not
-  dropped but painted on the bottom edge with the wrong number beside it, which is how a "1"
-  outlived the floor moving up to the first occupied decade (#38). It compares against
-  `vy_domain()` itself rather than a copy of the rule, so a STALE `og.svg` fails it too.
+  `check_card_axis()` refuses a card labelling a readership its own axis does not contain. That is
+  invariant 14's duplication caught where it goes silent: `logscale()` clamps, so a tick under the
+  floor is painted on the bottom edge with the wrong number beside it rather than dropped. Read
+  from the file, so a stale `og.svg` fails it too.
 - `python3 scripts/pagemoves.test.py` — the page-move rule (invariant 15), offline: `step`,
   `tenures`, `confirm` and `stitch` are pure, and `find_moves`'s walk runs against a stubbed log.
   It exists because every defect that module has had is one the PIPELINE cannot show you — a

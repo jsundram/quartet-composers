@@ -46,26 +46,9 @@ window.Chart = (function () {
   // views ask "when, and how much"; this one asks "and did it land".
   const QX_DOMAIN = [0.85, 200];        // quartets written; largest stated is 149
   const QX_TICKS = [1, 2, 3, 5, 10, 20, 30, 50, 100];
-  const VY_TOP = 260000;                // readers/mo; the most-read article is 186,772 today
-  // THE FLOOR FOLLOWS THE DATA. It was a hardcoded 0.85 — a decade starting at 1 — and that decade
-  // held exactly one composer, who turned out not to be a composer: the list page linked a redlink
-  // and the pageviews API was answering for it. Repairing him did not fix the axis, because a
-  // fixed floor is a guess about the roster either way, and the guess was 23% of the height spent
-  // below the least-read composer on a stretch where no dot can be drawn (issue 38).
-  //
-  // Derived instead of moved to 10, which is what the issue asked for. A hardcoded 10 buys the
-  // space and takes on the other failure: a composer who really is read three times a month plots
-  // BELOW the frame, where inFrame() drops them from the paint, the hit test and the labels
-  // silently — worse than being cramped, because nothing on screen says a row is missing. Snapping
-  // to the decade at or below the lowest dot cannot do either, and it cannot go stale: at a roster
-  // whose least-read composer is back in the first decade this returns 0.85 exactly, so it is the
-  // old constant plus a rule. The 0.85 is that constant's own padding, kept so the lowest dot sits
-  // just above the axis rather than on it.
-  //
-  // X_DOMAIN is derived the same way (see setData) and snapped for the same reason: round numbers
-  // keep the ticks round. make-og-svg.py duplicates this, per invariant 14.
-  const decadeFloor = v => Math.pow(10, Math.floor(Math.log10(v))) * 0.85;
-  let VY_DOMAIN = [0.85, VY_TOP];
+  // Floor at 10: under ten readers a month is not a readership worth resolving, and a fixed floor
+  // does not move when the roster does (issue 38).
+  const VY_DOMAIN = [10, 260000];       // readers/mo
   const VY_TICKS = [1, 10, 100, 1000, 10000, 100000];
   const RATIOS = [1, 10, 100, 1000, 10000];   // the readers-per-quartet diagonals
 
@@ -199,10 +182,6 @@ window.Chart = (function () {
     if (yrs.length) {
       X_DOMAIN = [Math.floor((d3.min(yrs) - 8) / 50) * 50, Math.ceil((d3.max(yrs) + 8) / 50) * 50];
     }
-    // Only the dots this view can PLACE: a composer with no quartet count has no x here, and one
-    // with no readership has no y, so neither can pull the floor down to a decade nothing occupies.
-    const vv = rows.filter(d => plottable(d) && d.views > 0).map(d => d.views);
-    if (vv.length) VY_DOMAIN = [decadeFloor(d3.min(vv)), VY_TOP];
     swarmY = null;
     restingT = null;
     scoreProminence();
@@ -287,14 +266,9 @@ window.Chart = (function () {
   // including the prolific end (Cambini, Ellerton, Krommer) that readership is blind to.
   let prom = new Map();
   // Below this a "prominent" dot is a data hole rather than a composer: prominence is distance
-  // from the centre of the cloud, so a readership nobody actually has scores high on it. The case
-  // it was written for was Fernand de La Tombelle, who sat at 1 quartet and 1 view/month and
-  // outranked Shostakovich on distance alone — not because he is obscure, but because the list
-  // page linked a redlink and the pageviews API answered for a page nobody had written (repaired;
-  // TITLE_FIXES in scripts/fetch_wikidata.py). The floor stays, because the repair fixes that one
-  // article and not the class: an article too new or too quiet to have a number still gets ranked
-  // on one it does not have. Such a dot is still drawn and still selectable — it just cannot win
-  // a LABEL on the strength of a number nobody has.
+  // from the centre of the cloud, so an article too new or too quiet to have a real number ranks
+  // high on one it does not have. Such a dot is still drawn and still selectable — it just cannot
+  // win a LABEL.
   const MIN_VIEWS = 5;
 
   function scoreProminence() {
@@ -527,7 +501,7 @@ window.Chart = (function () {
       for (const d of rows) {
         out[d.i] = (d.quartets == null || d.views == null)
           ? { x: -9e9, y: -9e9, r: 0 }
-          : { x: rx(d.quartets * d.jq), y: ry(Math.max(1, d.views)),
+          : { x: rx(d.quartets * d.jq), y: ry(Math.max(VY_DOMAIN[0], d.views)),
               r: named(d.i) ? base * NAMED_R : base };
       }
     } else if (mode === "swarm") {
@@ -830,7 +804,10 @@ window.Chart = (function () {
     const tx = fame ? transform.rescaleX(qx) : transform.rescaleX(x0);
     const ty = fame ? transform.rescaleY(vy)
              : mode === "scatter" ? transform.rescaleY(y0) : y0;
-    const inDom = (sc, v) => v >= sc.domain()[0] && v <= sc.domain()[1];
+    // Tolerant at the ends: rescaleY() recomputes the domain from inverted pixels, so a tick lying
+    // exactly ON the floor comes back a hair outside it and the axis stops labelling its own bottom.
+    const inDom = (sc, v) => { const [a, b] = sc.domain();
+                               return v >= a * (1 - 1e-9) && v <= b * (1 + 1e-9); };
     const xTicks = fame ? QX_TICKS.filter(v => inDom(tx, v))
                         : tx.ticks(Math.max(3, Math.round(w / 90)));
     const yTicks = fame ? VY_TICKS.filter(v => inDom(ty, v))
