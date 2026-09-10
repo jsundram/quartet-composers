@@ -305,8 +305,11 @@ human grades. No test framework, and nothing to install:
   which is the evidence behind invariant 15's refusal to. `--limit N` audits the N most-read
   instead of all 884, which is the difference between two minutes and ten.
 
-The first two and `sw-lint.test.py` run in CI. `ui-test.sh` does not (it needs a browser) — run it
-by hand after touching `chart.js`, `table.js`, or `styles.css`.
+The first two and `sw-lint.test.py` run in CI. `ui-test.sh` does not — run it by hand after
+touching `chart.js`, `table.js`, or `styles.css`. **Not for want of a browser**, which is what
+this line used to say: `ubuntu-latest` ships `/usr/bin/google-chrome` and `find_chrome` finds it.
+Measured on #43, the suite RUNS there and scores 231/240. The nine are one cause and one detail,
+both recorded in TODO.md — do not re-derive them.
 
 ## Design artifacts
 
