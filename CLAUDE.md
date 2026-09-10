@@ -283,7 +283,7 @@ human grades. No test framework, and nothing to install:
   is told its ablation is owed locally rather than passing quietly. One `No-test: <reason>` trailer
   on any commit in the range skips BOTH, so an untested source change is a sentence somebody wrote
   on purpose and a reviewer can read, not a silence. `scripts/fix-lint.test.py` covers both in
-  thirty-six cases that each build a throwaway repo with real branches.
+  forty-two cases that each build a throwaway repo with real branches.
 - `python3 scripts/prose-lint.py` — **every number in README.md and CLAUDE.md that the repo can
   COMPUTE**, checked against the live value: the curated list sizes in `chart.js`, each suite's
   `len(CASES)` by importing it, the recorded page-move chains, the `FOLD` characters and the names

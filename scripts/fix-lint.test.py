@@ -288,28 +288,6 @@ with tempfile.TemporaryDirectory() as tmp:
     case("...and the deleted file stays deleted",
          os.path.exists(os.path.join(repo, "histogram.js")), False)
 
-    # --- ablate: A RENAMED SOURCE FILE ------------------------------------------------------------
-    # `git diff --name-status` reports `R050<TAB>old<TAB>new`, so taking the last field gave the
-    # HEAD path, which does not exist at base. The checkout failed silently, nothing was ablated,
-    # the suite passed on an unmodified tree and the branch was told its tests prove nothing.
-    repo = new_repo(tmp)
-    body = "".join(f"// line {i}\n" for i in range(40))
-    write(repo, "table.js", body)
-    write(repo, "suite.py", SUITE)
-    commit(repo, "a suite and a file to rename")
-    git(repo, "checkout", "-q", "-b", "b12")
-    git(repo, "mv", "table.js", "chart.js")
-    # One line changed out of forty, or git scores the similarity too low to call it a rename at
-    # all and records D+A instead -- which is a different code path and not what this covers.
-    write(repo, "chart.js", body.replace("// line 7\n", "// line 7 FIXED\n"))
-    write(repo, "scripts/thing.test.py", "x\n")
-    commit(repo, "rename a source file")
-    code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
-                    "--cmd", f"{sys.executable} suite.py")
-    case("a renamed source file is not judged as an unproven fix", code, 0)
-    case("...and is reported as renamed rather than silently skipped",
-         "renamed" in out, True, out.splitlines()[0][:60] if out else "")
-
     # --- ablate: A SUITE THAT DID NOT RUN IS NOT A SUITE THAT PASSED ------------------------------
     # ui-test.sh prints "no Chromium found -- skipping (this is not a failure)" and exits 0, so on
     # a machine with no browser the baseline and the ablated run were identical empty passes and
@@ -352,6 +330,77 @@ with tempfile.TemporaryDirectory() as tmp:
     commit(repo, "monthly top-up")
     code, out = run(repo, os.path.join(repo, "scripts/fix-lint.py"))
     case("fix-lint applies the same V exemption ablate.py does", code, 0, out[:70])
+
+    # --- ablate: A BROKEN SUITE IS NOT A SKIPPED ONE ---------------------------------------------
+    # Both produce a baseline with no ok/FAIL lines. Classifying on that alone let a suite that
+    # CRASHES -- import error, missing dep, syntax error -- read as "not runnable here" and pass
+    # the gate, which is a louder version of the hole this script exists to close. The exit code
+    # is the other half of the test: 0 is a deliberate skip, nonzero is a suite that never ran.
+    repo = new_repo(tmp)
+    write(repo, "suite.py", 'import sys\nsys.stderr.write("Traceback: boom\\n")\nsys.exit(1)')
+    commit(repo, "a suite that crashes")
+    git(repo, "checkout", "-q", "-b", "b16")
+    write(repo, "app.js", "// FIXED\n")
+    write(repo, "scripts/thing.test.py", "x\n")
+    commit(repo, "fix it")
+    code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
+                    "--cmd", f"{sys.executable} suite.py")
+    case("a suite that CRASHES is refused, not read as a skip", code, 2)
+    case("...and says it never ran", "never ran" in out, True)
+
+    # --- ablate: A RENAME IS ABLATED, NOT EXEMPTED ------------------------------------------------
+    # The base content of a renamed file lives at its OLD path, so it can be ablated properly
+    # rather than waved through. This is the case that used to report a passing suite as proof of
+    # nothing; now it has to actually prove the fix.
+    repo = new_repo(tmp)
+    body = "".join(f"// line {i}\n" for i in range(40))
+    write(repo, "table.js", body)
+    write(repo, "suite.py", 'import sys\nsrc=open("chart.js").read() if __import__("os").path.exists("chart.js") else ""\n'
+                            'ok="FIXED" in src\nprint(("  ok   - " if ok else "  FAIL - ")+"chart.js carries the fix")\n'
+                            'sys.exit(0 if ok else 1)')
+    commit(repo, "a suite and a file to rename")
+    git(repo, "checkout", "-q", "-b", "b17")
+    git(repo, "mv", "table.js", "chart.js")
+    write(repo, "chart.js", body.replace("// line 7\n", "// line 7 FIXED\n"))
+    write(repo, "scripts/thing.test.py", "x\n")
+    commit(repo, "rename and fix")
+    code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
+                    "--cmd", f"{sys.executable} suite.py")
+    case("a renamed file is ABLATED, so its fix must be proven", code, 0, out.splitlines()[0][:58])
+    case("...and the tree survives it",
+         git(repo, "status", "--porcelain").strip(), "")
+    case("...and the renamed file keeps its fix",
+         "FIXED" in open(os.path.join(repo, "chart.js")).read(), True)
+
+    # A rename git scores BELOW the default 50% used to arrive as D+A, which ablated the old path
+    # while the new one kept the fix -- a suite that then passed, reported as proving nothing.
+    repo = new_repo(tmp)
+    write(repo, "table.js", "// almost nothing in common\n")
+    write(repo, "suite.py", 'import sys,os\nsrc=open("chart.js").read() if os.path.exists("chart.js") else ""\n'
+                            'ok="FIXED" in src\nprint(("  ok   - " if ok else "  FAIL - ")+"chart.js carries the fix")\n'
+                            'sys.exit(0 if ok else 1)')
+    commit(repo, "a suite and a small file")
+    git(repo, "checkout", "-q", "-b", "b18")
+    git(repo, "mv", "table.js", "chart.js")
+    write(repo, "chart.js", "// FIXED, and wholly rewritten\n")
+    write(repo, "scripts/thing.test.py", "x\n")
+    commit(repo, "rename with a rewrite")
+    code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
+                    "--cmd", f"{sys.executable} suite.py")
+    # git reports this as D + A at ANY -M threshold — it genuinely cannot tell a 0%-similar
+    # rename from an unrelated delete plus add. So the branch is NOT waved through; what it must
+    # not do is claim the tests prove nothing without saying the new file was never ablated.
+    case("a wholly-rewritten rename does not get a confidently wrong verdict",
+         "NOT ablated" in out, True, out.splitlines()[-1][:58] if out else "")
+    case("...and it names the file it could not ablate", "chart.js" in out, True)
+
+    # --- ablate: UNCOVERED IS AN ASSERTION, NOT DECORATION ----------------------------------------
+    # plan() defaults anything unmapped to reported, so UNCOVERED is read by nothing -- which is
+    # how prose-lint.py sat in it through the very commit that gave it a suite.
+    import importlib.util as _il
+    _spec = _il.spec_from_file_location("abl", os.path.join(HERE, "ablate.py"))
+    _abl = _il.module_from_spec(_spec); _spec.loader.exec_module(_abl)
+    case("no name in UNCOVERED has a suite or a COVERS entry", _abl.unsuited(), [])
 
     # --- THIS SUITE'S OWN STATED SIZE -------------------------------------------------------------
     # Counted at RUNTIME, not by grepping for `case(`: these cases are inline rather than

@@ -189,7 +189,7 @@ python3 scripts/sw-lint.py   # precache contract: V bumped, SHELL paths exist, n
 python3 scripts/og-lint.py   # share card size (a card over ~250 KB previews as a grey box)
 python3 scripts/prose-lint.py # every number in these docs the repo can compute, vs the live value
 python3 scripts/prose-lint.test.py # its fold counter, which mirrors table.js (7 cases)
-python3 scripts/fix-lint.test.py # the two branch gates below, on throwaway repos (36 cases)
+python3 scripts/fix-lint.test.py # the two branch gates below, on throwaway repos (42 cases)
 
 # The branch gates. They compare a branch against what it will merge into, so they need a base ref
 # and run on pull requests in CI; by hand, point them at main.
