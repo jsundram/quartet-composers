@@ -253,10 +253,12 @@ human grades. No test framework, and nothing to install:
   **And every CDP call has a watchdog.** `send()` rejects after 60s, the socket closing rejects
   everything pending, and both print the checks that had already run — a dropped reply used to end
   the run as node's bare "unsettled top-level await" with zero lines of output, which is how one
-  oversized screenshot read as a random hang. That screenshot is the other half: a full-page shot
-  under print media is 34,936px tall, and asking for it at the suite's deviceScaleFactor of 2 made
-  this Chromium drop the page target, so `shot()` takes a `clip` and the print one halves the
-  scale. Nothing asserts on these images; they are diagnostics.
+  oversized screenshot read as a random hang. That screenshot is the other half: print un-scrolls
+  the table, so the page is 884 rows and ~35,000px tall, and asking for it at deviceScaleFactor 2
+  made this Chromium drop the page target. `shot()` takes a `clip` now and the print one clips its
+  HEIGHT, to the 30th row: everything print changes is above the fold and the rest is the same row
+  850 more times. The scale is left at the dsf 2 every other shot here uses, because a human opens
+  these to look at them.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
   `git diff --cached`); the meta-length and stated-count halves read the working tree and run in
   CI. `check_counts()` knows BOTH live totals — the roster (884) and what the chart can plot
