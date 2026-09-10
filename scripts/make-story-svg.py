@@ -1,0 +1,195 @@
+#!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.9"
+# ///
+"""Render assets/story.svg — the Instagram story card, 1080x1920 — from composers.json.
+
+The same picture as the share card, stood upright: the Fame view at rest, drawn with
+make-og-svg.py's domains, palette, stripe spread and short-name rule. Those are IMPORTED, not copied — the
+share card duplicates chart.js on purpose (invariant 14), but a third copy would let the two cards
+drift from each other as well as from the page. What is new here is the frame: a story is 9:16,
+viewed at ~390px wide, and Instagram draws its own chrome over the top and bottom ~250px, so
+everything sits inside that band and every size is ~2.8x the phone pixel it lands on.
+
+Instagram cannot make an image clickable — the link is a sticker placed in the app. The dashed
+box at the foot is the spot for it: empty on purpose, so nothing has to be covered exactly, with a
+line above it that stays true once the sticker is on.
+
+Labels are placed by the same greedy search chart.js's pickLabels() runs (above, below, beside,
+the four diagonals), over the thirteen named composers in birth order, because the portrait plot
+has room the share card's hand-placed six did not — how many it seats is printed when it runs.
+
+Pipeline:  scripts/make-story-svg.py  ->  assets/story.svg  ->  scripts/make-og.sh story.svg  ->  assets/story.png
+"""
+import importlib.util
+import json
+import os
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+spec = importlib.util.spec_from_file_location("og", os.path.join(HERE, "make-og-svg.py"))
+og = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(og)
+
+W, H = 1080, 1920
+PLOT = {"x": 150, "y": 610, "w": 870, "h": 760}   # dots area; ticks and titles sit outside it
+R_CONTEXT, R_NAMED = 5.6, 12                      # og's 3.6 / 7.5, scaled to the wider plot
+LABEL = 28
+FONT = "system-ui,sans-serif"
+TITLE = ("String Quartet", "Composers")
+SUBTITLE = ("Every string quartet composer on Wikipedia,", "their quartet counts and page views")
+CTA = "Explore the interactive chart"
+LINK_BOX = {"x": 260, "y": 1560, "w": 560, "h": 100}   # clears Instagram's bottom band at 1670
+X_TICKS = (1, 3, 10, 30, 100)
+Y_TICKS = ((10, "10"), (100, "100"), (1000, "1k"), (10000, "10k"), (100000, "100k"))
+BG_TOP, BG_BOT = "#1c2129", "#0f1114"            # a slow radial fall-off; og.BG lies between
+
+
+def vfmt(k):
+    return f"{k // 1000}k" if k >= 1000 else str(k)
+
+
+def text(x, y, s, size, fill=og.MUTED, anchor="start", weight=None, family=FONT, halo=None):
+    w = f' font-weight="{weight}"' if weight else ""
+    h = (f' stroke="{halo}" stroke-width="{size / 4:.0f}" paint-order="stroke" '
+         f'stroke-linejoin="round"') if halo else ""
+    return (f'  <text x="{x:.1f}" y="{y:.1f}" fill="{fill}" font-family="{family}" '
+            f'font-size="{size}"{w} text-anchor="{anchor}"{h}>{og.esc(s)}</text>')
+
+
+def place(dots, boxes, size):
+    """chart.js's pickLabels() spot order, first fit wins, inside the plot and off every box."""
+    px, py, pw, ph = PLOT["x"], PLOT["y"], PLOT["w"], PLOT["h"]
+    hits = lambda bx, by, tw, th: any(bx < o[0] + o[2] and bx + tw > o[0] and
+                                     by < o[1] + o[3] and by + th > o[1] for o in boxes)
+    out = []
+    for name, label, x, y, r in dots:
+        tw, th = len(label) * size * 0.56 + 8, size
+        spots = [(x - tw / 2, y - r - 6 - th), (x - tw / 2, y + r + 6),
+                 (x + r + 7, y - th / 2), (x - r - 7 - tw, y - th / 2),
+                 (x + r + 4, y - r - 4 - th), (x + r + 4, y + r + 4),
+                 (x - r - 4 - tw, y - r - 4 - th), (x - r - 4 - tw, y + r + 4)]
+        for bx, by in spots:
+            if bx < px or bx + tw > px + pw or by < py or by + th > py + ph or hits(bx, by, tw, th):
+                continue
+            boxes.append((bx - 3, by - 2, tw + 6, th + 4))
+            out.append((label, bx + tw / 2, by + th - size * 0.22))
+            break
+    return out
+
+
+def main():
+    with open(os.path.join(ROOT, "composers.json")) as f:
+        rows = json.load(f)["rows"]
+    by_name = {r[0]: r for r in rows}
+    named = list(og.CANON) + list(og.OUTLIERS)
+    absent = [n for n in named if n not in by_name]
+    if absent:
+        print("ERROR: named composers are not in composers.json: %s\n"
+              "       (names are canonical Wikipedia titles — check the spelling)"
+              % ", ".join(absent), file=sys.stderr)
+        return 1
+
+    sx = og.logscale(og.QX_DOMAIN, PLOT["w"], PLOT["x"])
+    sy = og.logscale(og.VY_DOMAIN, PLOT["h"], PLOT["y"], flip=True)
+    ly = og.logscale(og.VY_DOMAIN, PLOT["h"], PLOT["y"], flip=True, clamp=False)
+    jq = og.spread_jq(rows)
+    pos = lambda r: (sx(r[3] * jq[r[0]]), sy(r[4]))
+    px, py, pw, ph = PLOT["x"], PLOT["y"], PLOT["w"], PLOT["h"]
+
+    o = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">',
+         '  <!-- GENERATED by scripts/make-story-svg.py — do not hand-edit; rerun the script. -->',
+         '  <defs>',
+         f'    <radialGradient id="bg" cx="30%" cy="25%" r="95%"><stop offset="0" stop-color="{BG_TOP}"/>'
+         f'<stop offset="1" stop-color="{BG_BOT}"/></radialGradient>',
+         '    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">'
+         '<feGaussianBlur stdDeviation="9"/></filter>',
+         '  </defs>',
+         f'  <rect width="{W}" height="{H}" fill="url(#bg)"/>',
+         text(64, 336, TITLE[0], 100, og.INK, weight=700, family="Georgia,serif"),
+         text(64, 442, TITLE[1], 100, og.INK, weight=700, family="Georgia,serif"),
+         text(66, 506, SUBTITLE[0], 33),
+         text(66, 549, SUBTITLE[1], 33)]
+
+    for q in X_TICKS:
+        o.append(f'  <line x1="{sx(q):.1f}" y1="{py}" x2="{sx(q):.1f}" y2="{py + ph}" '
+                 f'stroke="{og.GRID}" stroke-width="1.5"/>')
+        o.append(text(sx(q), py + ph + 40, str(q), 26, anchor="middle"))
+    for v, lab in Y_TICKS:
+        if not og.VY_DOMAIN[0] <= v <= og.VY_DOMAIN[1]:
+            continue                          # logscale() clamps; og-lint.py checks this on disk
+        o.append(f'  <line x1="{px}" y1="{sy(v):.1f}" x2="{px + pw}" y2="{sy(v):.1f}" '
+                 f'stroke="{og.GRID}" stroke-width="1.5"/>')
+        o.append(text(px - 16, sy(v) + 9, lab, 26, anchor="end"))
+    o.append(text(px - 86, py - 18, "↑ EN Wikipedia readers / month", 24, weight=600))
+    o.append(text(px + pw, py + ph + 82, "quartets written →", 24, weight=600, anchor="end"))
+
+    # The diagonals and their captions go in first so no name is placed through one.
+    boxes = []
+    for k in og.RATIOS:
+        q1, q2 = og.QX_DOMAIN
+        seg = og.clip(PLOT, sx(q1), ly(k * q1), sx(q2), ly(k * q2))
+        if not seg:
+            continue
+        o.append(f'  <line x1="{seg[0]:.1f}" y1="{seg[1]:.1f}" x2="{seg[2]:.1f}" y2="{seg[3]:.1f}" '
+                 f'stroke="{og.GRID}" stroke-width="1.5"/>')
+        cap = f'{vfmt(k)} reader{"" if k == 1 else "s"} per quartet'
+        # Under the line when it enters from the left, over it from the bottom: the caption sits
+        # on the plot side of its line, and the band above the left-edge entries is where four of
+        # the named dots crowd. Captioning above there cost Debussy and Prokofiev their names.
+        cy = seg[1] + 28 if seg[1] < py + ph - 1 else seg[1] - 10
+        o.append(text(seg[0] + 8, cy, cap, 22))
+        boxes.append((seg[0] + 8, cy - 22, len(cap) * 22 * 0.56 + 8, 26))
+
+    for name, birth, death, quartets, views, *_ in sorted(rows, key=lambda r: -(r[4] or 0)):
+        if quartets is None or views is None or name in named:
+            continue
+        x, y = pos(by_name[name])
+        o.append(f'  <circle cx="{x:.1f}" cy="{y:.1f}" r="{R_CONTEXT}" fill="{og.MUTED}" opacity=".3"/>')
+    # A soft glow under each named dot: the one thing here chart.js does not draw, because on a
+    # phone a story is glanced at, not read, and thirteen dots have to carry the picture from
+    # across a room. It is a halo, not an encoding — the same two channels, only louder.
+    glow = lambda x, y, c: (f'  <circle cx="{x:.1f}" cy="{y:.1f}" r="{R_NAMED * 1.9:.0f}" fill="{c}" '
+                            f'opacity=".5" filter="url(#glow)"/>')
+    for name in og.OUTLIERS:
+        x, y = pos(by_name[name])
+        o.append(glow(x, y, og.ACCENT))
+        o.append(f'  <circle cx="{x:.1f}" cy="{y:.1f}" r="{R_NAMED}" fill="none" '
+                 f'stroke="{og.ACCENT}" stroke-width="4"/>')
+    for name in og.CANON:
+        x, y = pos(by_name[name])
+        o.append(glow(x, y, og.SEL))
+        o.append(f'  <circle cx="{x:.1f}" cy="{y:.1f}" r="{R_NAMED}" fill="{og.SEL}" '
+                 f'stroke="{BG_BOT}" stroke-width="2.5"/>')
+
+    # A label may not cover a named dot either — chart.js's placer never had to say so at 10px,
+    # but at this size "Debussy" beside its dot lay straight across Prokofiev's.
+    short = og.short_names(rows)
+    dots = [(n, short[n], *pos(by_name[n]), R_NAMED) for n in named]
+    boxes += [(x - r, y - r, 2 * r, 2 * r) for _, _, x, y, r in dots]
+    labels = place(dots, boxes, LABEL)
+    for label, x, y in labels:
+        o.append(text(x, y, label, LABEL, og.INK, anchor="middle", weight=600, halo=BG_BOT))
+
+    ly = py + ph + 118
+    o += [f'  <circle cx="80" cy="{ly - 9}" r="12" fill="{og.SEL}"/>',
+          text(104, ly, og.LEGEND[0], 26),
+          f'  <circle cx="{W / 2 + 30}" cy="{ly - 9}" r="12" fill="none" stroke="{og.ACCENT}" stroke-width="4"/>',
+          text(W / 2 + 54, ly, og.LEGEND[1], 26),
+          text(W / 2, LINK_BOX["y"] - 28, CTA, 30, og.INK, anchor="middle", weight=600),
+          f'  <rect x="{LINK_BOX["x"]}" y="{LINK_BOX["y"]}" width="{LINK_BOX["w"]}" '
+          f'height="{LINK_BOX["h"]}" rx="28" fill="none" stroke="{og.MUTED}" stroke-width="3" '
+          f'stroke-dasharray="16 14"/>',
+          '</svg>']
+
+    path = os.path.join(ROOT, "assets", "story.svg")
+    with open(path, "w") as f:
+        f.write("\n".join(o) + "\n")
+    print("wrote assets/story.svg (%d composers, %d of %d named, %d bytes)"
+          % (len(rows), len(labels), len(named), os.path.getsize(path)))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

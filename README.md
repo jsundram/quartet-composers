@@ -73,6 +73,18 @@ The roster and the Wikidata reads are deliberately **not** on the schedule: thos
 editorial reasons, and a roster that grows by three composers overnight with nobody looking is how
 a bad parse ships.
 
+Two pictures of the data that are not part of the build, generated so they cannot go stale:
+
+```sh
+python3 scripts/make-og-svg.py     # the link-preview card, 1200x630    -> assets/og.svg
+python3 scripts/make-story-svg.py  # the Instagram story, 1080x1920     -> assets/story.svg
+scripts/make-og.sh                 # rasterize a card (og.svg by default; `story.svg` for the story)
+```
+
+Both draw the Fame view at rest with the page's own scales, and the story imports them from the
+card rather than restating them. The story cannot carry a link — Instagram adds one as a sticker
+in the app — so it leaves a dashed box at the foot for it, empty on purpose.
+
 Two review tools that are not part of the build:
 
 ```sh
@@ -186,10 +198,11 @@ scripts/ui-test.sh           # 240 behavioural checks in a real headless Chrome 
                              #   the three filters, theme repaint, 390px layout, offline, print) — no deps
 node scripts/sw.test.mjs     # 24 tests of the service worker's fetch handler
 python3 scripts/sw-lint.py   # precache contract: V bumped, SHELL paths exist, no cross-origin
-python3 scripts/og-lint.py   # share card size (a card over ~250 KB previews as a grey box)
+python3 scripts/og-lint.py   # share card size (a card over ~250 KB previews as a grey box), and
+                             #   both cards' readership axes against the domain they are drawn on
 python3 scripts/prose-lint.py # every number in these docs the repo can compute, vs the live value
 python3 scripts/prose-lint.test.py # its fold counter, which mirrors table.js (7 cases)
-python3 scripts/fix-lint.test.py # the two branch gates below, on throwaway repos (42 cases)
+python3 scripts/fix-lint.test.py # the two branch gates below, on throwaway repos (43 cases)
 
 # The branch gates. They compare a branch against what it will merge into, so they need a base ref
 # and run on pull requests in CI; by hand, point them at main.

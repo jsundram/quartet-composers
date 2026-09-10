@@ -79,7 +79,8 @@ COVERS = [
 # unsuited() below: a name here that has a test file beside it, or that COVERS already maps, is a
 # stale claim that this file has nothing to prove, which is exactly the silence the gate is for.
 UNCOVERED = ("scripts/build_data.py", "scripts/scrape_list.py", "scripts/fetch_wikidata.py",
-             "scripts/make-og-svg.py", "scripts/og-lint.py", "scripts/refresh.py",
+             "scripts/make-og-svg.py", "scripts/make-story-svg.py", "scripts/og-lint.py",
+             "scripts/refresh.py",
              "manifest.json", "ping.js")
 
 # WHAT COUNTS AS SOURCE lives here and nowhere else, because fix-lint.py asks the same question
@@ -95,7 +96,7 @@ SOURCE = re.compile(
     r"^(app|chart|table|histogram|names|theme|sw|ping)\.js$"
     r"|^(styles\.css|index\.html|manifest\.json)$"
     r"|^scripts/(validate|pagemoves|fetch_views|fetch_wikidata|build_data|scrape_list"
-    r"|make-og-svg|og-lint|sw-lint|refresh|ablate|fix-lint|prose-lint)\.py$")
+    r"|make-og-svg|make-story-svg|og-lint|sw-lint|refresh|ablate|fix-lint|prose-lint)\.py$")
 TESTS = re.compile(r"^scripts/.*(\.test\.(py|mjs)|ui-test\.sh)$")
 # Both halves of the line matter: `FAIL` at the head, and the name with any trailing detail cut.
 # The detail carries measured numbers that differ between two runs of the same suite, so a set

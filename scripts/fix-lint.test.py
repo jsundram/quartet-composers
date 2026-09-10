@@ -105,6 +105,15 @@ with tempfile.TemporaryDirectory() as tmp:
     case("a branch that changes source and no test fails", code, 1, out.splitlines()[-1][:60])
     case("...and it names the file", "app.js" in out, True)
 
+    # The story card's generator ships an asset the way make-og-svg.py does, so it is SOURCE: a
+    # branch that changes it and no test is asked the same question.
+    repo = new_repo(tmp)
+    git(repo, "checkout", "-q", "-b", "b1s")
+    write(repo, "scripts/make-story-svg.py", "# FIXED\n")
+    commit(repo, "redraw the story")
+    code, out = run(repo, os.path.join(repo, "scripts/fix-lint.py"))
+    case("make-story-svg.py is source", (code, "make-story-svg.py" in out), (1, True))
+
     # --- fix-lint: THE TRAILER --------------------------------------------------------------------
     git(repo, "commit", "-q", "--amend", "-m", "fix it\n\nNo-test: a comment, nothing to assert")
     code, out = run(repo, os.path.join(repo, "scripts/fix-lint.py"))

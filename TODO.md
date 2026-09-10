@@ -711,6 +711,13 @@ Richter, Shostakovich, Krommer, Ellerton, Tchaikovsky, Debussy and Prokofiev hav
 but it means the card's "the repertoire, in birth order" key names a set the card only
 half-identifies. The four diagonal label spots that closed #10 on the page are NOT in
 `make-og-svg.py`, whose six labels are placed by hand rather than by a placer.
+The Instagram story ([#17](https://github.com/jsundram/quartet-composers/issues/17)) got the
+placer instead — `make-story-svg.py` runs chart.js's spot order over all thirteen and seats every
+one, because a portrait plot has the room. Two things it needed that the page's placer never did:
+a label may not cover a NAMED dot (at 26px "Debussy" lay straight across Prokofiev's), and a
+diagonal's caption goes under its line where the line enters from the left, because the band
+above those entries is where four of the thirteen crowd. Porting the placer back to the card is
+the obvious way to close this entry.
 
 ### A phone seats about twelve chart labels, whatever is emphasised
 Measured across six different emphasis sets at 390×844: 10, 11, 11, 11, 12, 12 names placed. The

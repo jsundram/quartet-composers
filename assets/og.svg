@@ -20,8 +20,8 @@
   <text x="508" y="244.9" fill="#9aa3a8" font-family="system-ui,sans-serif" font-size="17" text-anchor="end">10k</text>
   <line x1="520" y1="137.9" x2="1128" y2="137.9" stroke="#2b313a" stroke-width="1"/>
   <text x="508" y="143.9" fill="#9aa3a8" font-family="system-ui,sans-serif" font-size="17" text-anchor="end">100k</text>
-  <line x1="520.0" y1="542.0" x2="1128.0" y2="410.6" stroke="#2b313a" stroke-width="1"/>
-  <line x1="520.0" y1="542.0" x2="1128.0" y2="309.6" stroke="#2b313a" stroke-width="1"/>
+  <line x1="794.5" y1="542.0" x2="1128.0" y2="410.6" stroke="#2b313a" stroke-width="1"/>
+  <line x1="538.1" y1="542.0" x2="1128.0" y2="309.6" stroke="#2b313a" stroke-width="1"/>
   <line x1="520.0" y1="448.1" x2="1128.0" y2="208.5" stroke="#2b313a" stroke-width="1"/>
   <line x1="520.0" y1="347.1" x2="1128.0" y2="107.5" stroke="#2b313a" stroke-width="1"/>
   <line x1="520.0" y1="246.1" x2="900.8" y2="96.0" stroke="#2b313a" stroke-width="1"/>
@@ -827,8 +827,8 @@
   <text x="72" y="350" fill="#9aa3a8" font-family="system-ui,sans-serif" font-size="24">Quartets written × readers.</text>
   <text x="72" y="384" fill="#9aa3a8" font-family="system-ui,sans-serif" font-size="24">Diagonals = readers per quartet.</text>
   <circle cx="80" cy="424" r="7.5" fill="#fb923c"/>
-  <text x="98" y="430" fill="#9aa3a8" font-family="system-ui,sans-serif" font-size="17">the repertoire, in birth order</text>
+  <text x="98" y="430" fill="#9aa3a8" font-family="system-ui,sans-serif" font-size="17">the notables</text>
   <circle cx="80" cy="456" r="7.5" fill="none" stroke="#7ec2f0" stroke-width="2.4"/>
-  <text x="98" y="462" fill="#9aa3a8" font-family="system-ui,sans-serif" font-size="17">wrote the most, read the least</text>
+  <text x="98" y="462" fill="#9aa3a8" font-family="system-ui,sans-serif" font-size="17">some standouts</text>
   <text x="72" y="540" fill="#9aa3a8" font-family="system-ui,sans-serif" font-size="18">jsundram.github.io/quartet-composers</text>
 </svg>

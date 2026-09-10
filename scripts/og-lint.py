@@ -133,36 +133,67 @@ def check_counts():
     return 1 if bad else 0
 
 
+# Both cards, one domain: make-story-svg.py imports VY_DOMAIN from make-og-svg.py rather than
+# restating it, so the story can only be wrong the way the share card is.
+CARDS = (("og.svg", "make-og-svg.py"), ("story.svg", "make-story-svg.py"))
+
+
 def check_card_axis():
-    """The card must not label a readership its own axis does not contain.
+    """A card must not label a readership its own axis does not contain.
 
     make-og-svg.py duplicates chart.js's scales (invariant 14) and its logscale() CLAMPS, so a tick
     under the floor is not dropped -- it is drawn on the bottom edge with the wrong number beside
     it. Read from the card ON DISK, so a stale one fails here too. The y ticks are the
-    text-anchor="end" ones; the x axis anchors middle.
+    text-anchor="end" ones; the x axis anchors middle, and so does everything else that ends in a
+    digit.
     """
     spec = importlib.util.spec_from_file_location("og", os.path.join(HERE, "make-og-svg.py"))
     og = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(og)
     lo, hi = og.VY_DOMAIN
-    with open(os.path.join(ROOT, "assets", "og.svg"), encoding="utf-8") as f:
-        card = f.read()
-    drawn = [float(m[:-1]) * 1000 if m.endswith("k") else float(m)
-             for m in re.findall(r'text-anchor="end">([\d.]+k?)</text>', card)]
-    if not drawn:
-        print("  og.svg has no readership axis labels -- has the card's markup changed?")
+    rc = 0
+    for card, script in CARDS:
+        with open(os.path.join(ROOT, "assets", card), encoding="utf-8") as f:
+            svg = f.read()
+        drawn = [float(m[:-1]) * 1000 if m.endswith("k") else float(m)
+                 for m in re.findall(r'text-anchor="end">([\d.]+k?)</text>', svg)]
+        stray = [v for v in drawn if not lo <= v <= hi]
+        if not drawn:
+            print(f"  {card} has no readership axis labels -- has the card's markup changed?")
+        elif stray:
+            print("  assets/%s labels readership its axis (%g..%g) does not contain: %s"
+                  % (card, lo, hi, ", ".join("%g" % v for v in stray)))
+            print(f"  Rerun: python3 scripts/{script}")
+        rc |= bool(stray) or not drawn
+    return int(rc)
+
+
+def check_legend():
+    """Both cards' key captions must be the ones the page prints.
+
+    The page names its filled dots from chart.js's DEFAULT_REPERTOIRE noun and its rings from a
+    string in app.js's renderLegend(); the cards cannot read either, so make-og-svg.py carries a
+    copy in LEGEND. A copy drifts — the card captioned "the repertoire" for a week after the page
+    was reworded to "the notables" — so read the page's two strings here and compare.
+    """
+    spec = importlib.util.spec_from_file_location("og", os.path.join(HERE, "make-og-svg.py"))
+    og = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(og)
+    page = (re.search(r'DEFAULT_REPERTOIRE = \{[^}]*noun: "([^"]+)"', (ROOT / "chart.js").read_text()),
+            re.search(r'accent[^`]*`\s*\+\s*`([^<`]+)</span>`', (ROOT / "app.js").read_text()))
+    if not all(page):
+        print("  og-lint cannot find the page's legend captions — has chart.js or app.js changed shape?")
         return 1
-    stray = [v for v in drawn if not lo <= v <= hi]
-    if stray:
-        print("  assets/og.svg labels readership its axis (%g..%g) does not contain: %s"
-              % (lo, hi, ", ".join("%g" % v for v in stray)))
-        print("  Rerun: python3 scripts/make-og-svg.py")
+    want = tuple(m.group(1).strip() for m in page)
+    if tuple(og.LEGEND) != want:
+        print(f"  make-og-svg.py's LEGEND {tuple(og.LEGEND)} is not what the page prints {want}")
+        print("  Fix LEGEND, then rerun make-og-svg.py and make-story-svg.py")
         return 1
     return 0
 
 
 def main():
-    rc = check_meta() | check_counts() | check_card_axis()
+    rc = check_meta() | check_counts() | check_card_axis() | check_legend()
     staged = sh("git", "diff", "--cached", "--name-only").stdout.split()
     over = []
     for f in staged:

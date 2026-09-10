@@ -166,6 +166,14 @@ plain static assets. Read README.md first for what the app is.
    rings never reach it and it needs only the curated three. Changing an encoding in `chart.js` means changing it there too, or
    the share card stops matching the page. They are duplicated rather than shared because the app
    must not ship a build step and the card must not ship a JS runtime.
+   `scripts/make-story-svg.py` is the same picture at 1080x1920 for an Instagram story, and it
+   IMPORTS the domains, palette, jitter and short-name rule from `make-og-svg.py` rather than
+   copying them a third time — the two cards may only drift from the page together, and
+   `og-lint.py`'s `check_card_axis()` reads both. What the story adds is a frame (Instagram's own
+   chrome covers the top and bottom ~250px) and a label placer, chart.js's spot order over the
+   thirteen named, because the portrait plot has room the card's hand-placed six do not. A story
+   cannot carry a link — the app adds one as a sticker — so the dashed box at the foot is left
+   empty for it, with a line above that stays true once it is covered.
 
 15. **A canonical title is only canonical TODAY, so a page MOVE is a hole in the series.** The API
    counts the string that was requested, so every month before a move was counted under the name
@@ -246,7 +254,10 @@ human grades. No test framework, and nothing to install:
   `check_card_axis()` refuses a card labelling a readership its own axis does not contain. That is
   invariant 14's duplication caught where it goes silent: `logscale()` clamps, so a tick under the
   floor is painted on the bottom edge with the wrong number beside it rather than dropped. Read
-  from the file, so a stale `og.svg` fails it too.
+  from the file, so a stale `og.svg` fails it too, and `story.svg` is read the same way.
+  `check_legend()` pins the cards' two key captions (`LEGEND` in `make-og-svg.py`) to the strings
+  the page prints — chart.js's `DEFAULT_REPERTOIRE` noun and the ring line in `renderLegend()` —
+  because the card went on saying "the repertoire" after the page had moved to "the notables".
 - `python3 scripts/pagemoves.test.py` — the page-move rule (invariant 15), offline: `step`,
   `tenures`, `confirm` and `stitch` are pure, and `find_moves`'s walk runs against a stubbed log.
   It exists because every defect that module has had is one the PIPELINE cannot show you — a
@@ -290,7 +301,7 @@ human grades. No test framework, and nothing to install:
   is told its ablation is owed locally rather than passing quietly. One `No-test: <reason>` trailer
   on any commit in the range skips BOTH, so an untested source change is a sentence somebody wrote
   on purpose and a reviewer can read, not a silence. `scripts/fix-lint.test.py` covers both in
-  forty-two cases that each build a throwaway repo with real branches.
+  forty-three cases that each build a throwaway repo with real branches.
 - `python3 scripts/prose-lint.py` — **every number in README.md and CLAUDE.md that the repo can
   COMPUTE**, checked against the live value: the curated list sizes in `chart.js`, each suite's
   `len(CASES)` by importing it, the recorded page-move chains, the `FOLD` characters and the names
