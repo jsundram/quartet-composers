@@ -81,12 +81,21 @@ fi
   --no-first-run --no-default-browser-check --disable-search-engine-choice-screen \
   --remote-debugging-port="$CDP" --user-data-dir="$PROFILE" about:blank >"$OUT/chrome.log" 2>&1 &
 BROWSER=$!
+# A FAILING RUN IS THE ONE WHOSE PICTURES YOU WANT, and it was the one throwing them away: this
+# deleted $OUT unless KEEP=1, so the screenshots and chrome.log survived only when you had already
+# guessed you would need them — and you guess that after the run, not before. Nothing in the suite
+# asserts on a PNG (it asserts the DOM, which is the better oracle); their whole job is being
+# LOOKED at afterwards, so a run that has nothing to explain cleans up and a run that does keeps
+# its evidence and says where.
+#
 # Chrome is xvfb-run's CHILD, and killing the wrapper leaves it holding $CDP — which is exactly
 # the leftover browser the pkill above exists to clear, arriving one run early.
+rc=0
 cleanup() {
   kill "$SERVER" "$BROWSER" 2>/dev/null
   pkill -f "remote-debugging-port=$CDP" 2>/dev/null
-  [ "${KEEP:-}" = "1" ] || rm -rf "$OUT"
+  if [ "${KEEP:-}" = "1" ] || [ "$rc" -ne 0 ]; then echo "screenshots: $OUT"
+  else rm -rf "$OUT"; fi
 }
 trap cleanup EXIT
 
@@ -103,10 +112,10 @@ if [ -z "$READY" ]; then
   echo "         not the no-browser skip. Using: $CHROME"
   echo "--- chrome.log ---"
   cat "$OUT/chrome.log" 2>/dev/null || echo "(no chrome.log)"
+  rc=1        # keep the log on disk too, not just in this scrollback
   exit 1
 fi
 
 node scripts/ui.test.mjs "$CDP" "$OUT" "http://127.0.0.1:$PORT"
 rc=$?
-[ "${KEEP:-}" = "1" ] && echo "screenshots: $OUT"
 exit $rc
