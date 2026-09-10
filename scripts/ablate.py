@@ -53,9 +53,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Source -> the suite that can testify about it. A branch is only asked to redden the suites that
 # cover the files it touched.
 #
-# `ui.test.mjs` needs a real headless Chrome and so cannot run in CI, which is why it is marked
-# and not merely absent: a UI branch REPORTS that its ablation is owed locally rather than passing
-# quietly, and `--with-ui` runs it here, on the same machinery, when a human has a browser. The
+# `ui.test.mjs` needs a real headless Chrome, which is why it is marked and not merely absent: a
+# UI branch REPORTS that its ablation is owed rather than passing quietly, and `--with-ui` runs it
+# here, on the same machinery, wherever there is a browser. CI is now one of those places — the
+# gates job passes `--with-ui`, so the mark is about a machine without a browser rather than about
+# CI, which is what it used to say and what kept UI branches unproven by anything automatic. The
 # entries with no suite at all (build_data.py, scrape_list.py, make-og-svg.py) are named too, for
 # the same reason — an uncovered file should read as a known gap, not as a clean run.
 COVERS = [

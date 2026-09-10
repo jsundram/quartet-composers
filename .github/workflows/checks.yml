@@ -1,4 +1,4 @@
-# pwa-starter: checks.yml @ d2fad01  (+ the og-lint step, the prose lint, the gates job)
+# pwa-starter: checks.yml @ d2fad01  (+ the og-lint step, the prose lint, the gates job, the ui job)
 name: checks
 
 # Guards for sw.js — the offline service worker. Its contract is subtle and easy to regress, so
@@ -29,6 +29,10 @@ name: checks
 #     live value. It reads the working tree, so it runs on pushes too. It found three drifts on
 #     the day it was written, one of which had been deferred to a follow-up during #23 and never
 #     done — which is the argument for a gate over a convention.
+#   - scripts/ui-test.sh : the browser suite, in a job of its own — see the note above it for why
+#     it is not steps in `sw`. It was kept out of CI for a long time on a premise that was simply
+#     false (that a runner has no browser); what was actually missing was a POINTER, and #50 fixed
+#     that by giving Chrome an X server rather than arguing with the page about one.
 #   - scripts/og-lint.py : it used to be hook-only, because its card-size check reads
 #     `git diff --cached` and a CI checkout stages nothing. Its meta-length and stated-count
 #     checks read the working tree instead, so THOSE run here with a real exit code — which is
@@ -87,9 +91,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
+      # 22 rather than the 20 the sw job pins, because --with-ui below reaches ui.test.mjs, whose
+      # entire CDP client is the global WebSocket that node 20 does not have. The sw job keeps 20
+      # on purpose — sw.js is the one file here that has to run in whatever the browser gives it.
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
       # Offline, ~3s, and it runs FIRST: it builds throwaway repos with real branches, so a gate
       # that has itself regressed says so before it judges this branch.
       - name: the gates' own tests (scripts/fix-lint.test.py)
@@ -98,12 +105,71 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: python3 scripts/fix-lint.py --base "$BASE_SHA"
-      # Only the suites that cover what this branch touched, so a UI-only branch reports that its
-      # ablation is owed locally instead of failing on a browser CI does not have.
-      - name: the tests must catch the change (scripts/ablate.py --base)
+      # Only the suites that cover what this branch touched — and --with-ui adds the browser one,
+      # which is the whole prize of putting a browser on the runner. Without it this step printed
+      # "no CI-runnable suite covers this branch's source" for every branch whose source is
+      # chart.js, table.js or styles.css — i.e. exactly the branches that change what the page
+      # LOOKS like, where an ablation has the most to prove. #55's was owed locally and run by
+      # hand; it went red in the right two places and nothing here could have known that.
+      #
+      # It costs nothing on a branch that touched no UI file: COVERS decides what runs, and
+      # --with-ui only moves the browser suite from "owed locally" into the runnable list.
+      # REQUIRE_BROWSER for the reason the ui job sets it, one step further removed — ablate.py
+      # reads a skipped suite as "not runnable here, so it can prove nothing" and then exits 0,
+      # so a lost browser would take the gate green rather than red.
+      - name: the tests must catch the change (scripts/ablate.py --base --with-ui)
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: python3 scripts/ablate.py --base "$BASE_SHA"
+          REQUIRE_BROWSER: "1"
+        run: python3 scripts/ablate.py --base "$BASE_SHA" --with-ui
+
+  # The browser suite: 251 behavioural checks against a real Chrome over CDP. A separate job
+  # rather than steps in `sw`, because its failure means "the app regressed" and not "the service
+  # worker is broken" — and because it wants a different node (see below). No --base, unlike the
+  # gates, so it judges the tree in front of it and runs on pushes as well as pull requests.
+  ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # THE PIN THAT BITES. ui.test.mjs has no dependencies because its whole ~25-line CDP client
+      # is the global WebSocket, which node 20 does not have — so copying the version from `sw`
+      # gets an immediate failure that reads like a browser problem and is not.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # ubuntu-latest ships /usr/bin/google-chrome AND xvfb, and find_chrome takes the first
+      # without help — the premise that CI has no browser was false all along (#43). Both are
+      # asserted rather than assumed, because the runner image is not this repo's to promise:
+      # REQUIRE_BROWSER turns ui-test.sh's exit-0 skip into a failure, so a job that quietly loses
+      # its Chrome goes RED having tested nothing instead of green. It covers the X server too —
+      # without one this Chrome reports no pointing device at all and nine checks fail at a layout
+      # the app is right to be drawing, which is a platform report dressed as nine bug reports.
+      #
+      # OUT is named here rather than mktemp'd because the upload below needs the path BEFORE the
+      # run. ui-test.sh will not delete a directory it did not create, so this one survives a
+      # PASSING run too — which costs nothing here and is what keeps the same variable from being
+      # a way to delete a directory somebody cared about on a laptop.
+      - name: browser suite (scripts/ui-test.sh)
+        env:
+          REQUIRE_BROWSER: "1"
+          OUT: ${{ runner.temp }}/ui-test
+        run: scripts/ui-test.sh
+      # No check here reads a pixel — the DOM is the better oracle and a baseline would go red for
+      # two reasons that are not bugs. The screenshots are the one look a FAILURE gets, which is
+      # why they are sized to survive the resize a reader's viewer applies (#50). ui-test.sh keeps
+      # them on disk whenever the suite fails and prints the path; this is that path, on a machine
+      # you cannot walk over to. chrome.log is in there too, for the run where Chrome never opened.
+      - name: keep the evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-screenshots
+          # The PNGs and the log, NOT the whole directory: $OUT is also Chrome's user-data-dir,
+          # and uploading a browser profile is hundreds of megabytes of nothing anybody will read.
+          path: |
+            ${{ runner.temp }}/ui-test/*.png
+            ${{ runner.temp }}/ui-test/chrome.log
+          if-no-files-found: warn
 
   data:
     runs-on: ubuntu-latest

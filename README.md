@@ -205,8 +205,12 @@ branch's tests, and requires a named check to go red — a test that still passe
 is meant to prove does not prove it. A `No-test: <reason>` trailer on any commit skips both gates
 when there is genuinely nothing to assert.
 
-`validate.py`, `validate.test.py`, `fetch_views.test.py`, `pagemoves.test.py`, `sw.test.mjs`, `sw-lint.py`, `prose-lint.py`, `prose-lint.test.py`, `fix-lint.py`, `ablate.py` and `fix-lint.test.py` all run in CI; `ui-test.sh` needs
-a browser, so it's a local check and skips with exit 0 rather than failing if there isn't one.
+All of these run in CI, `ui-test.sh` included — `ubuntu-latest` ships a Chrome and an X server, and
+the `ui` job in `checks.yml` gives the browser suite node 22 and `xvfb-run`. It still skips with
+exit 0 rather than failing on a machine with no browser, which is right for a laptop and wrong for
+a runner, so CI sets `REQUIRE_BROWSER=1` and a lost browser goes red instead of quietly green. The
+gates job runs `ablate.py --with-ui` for the same reason: a branch that changes what the page looks
+like is where an ablation has the most to prove.
 
 ### Why there's a data gate
 

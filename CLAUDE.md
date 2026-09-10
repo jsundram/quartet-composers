@@ -367,19 +367,32 @@ human grades. No test framework, and nothing to install:
   which is the evidence behind invariant 15's refusal to. `--limit N` audits the N most-read
   instead of all 884, which is the difference between two minutes and ten.
 
-The first two and `sw-lint.test.py` run in CI. `ui-test.sh` does not — run it by hand after
-touching `chart.js`, `table.js`, or `styles.css`. **Not for want of a browser**, which is what
-this line used to say: `ubuntu-latest` ships `/usr/bin/google-chrome` and `find_chrome` finds it.
-Measured on #43, the suite RUNS there and scored 231 of the 240 checks it had then — a RECORD of
-that run, so the denominator does not follow the total above. Of those nine, eight were the
-missing pointer and are fixed (#50, above); the ninth was a FONT metric — `system-ui` is DejaVu
-Sans on a Linux runner and the four phone columns measured 9px wider than on a Mac, so `table does
-not overflow its box at 390px` read 335 against 326 — and it is fixed too (#53). It was never a
-harness artefact: the layout had no margin, and at 360px it overflowed in every face including the
-Mac's own. Nothing on that list is still failing — the whole suite has since been RUN on Ubuntu
-under `xvfb-run`, in DejaVu, green — so what stands between this suite and CI is a job, not the
-platform. TODO.md holds what that job needs; the one that bites is node 22, which the jobs already
-there do not use.
+Everything above that does not need a browser or a network runs in CI, and since #56 so does the
+one that needs a browser: `checks.yml` has a `ui` job. Still run `ui-test.sh` by hand after
+touching `chart.js`, `table.js` or `styles.css` — it is faster than a push, and a UI change is one
+you want to LOOK at — but it is no longer the only thing standing between a regression and main.
+**It was never kept out for want of a browser**, which is what this line used to say:
+`ubuntu-latest` ships `/usr/bin/google-chrome` and `find_chrome` finds it. Measured on #43, the
+suite RUNS there and scored 231 of the 240 checks it had then — a RECORD of that run, so the
+denominator does not follow the total above. Of those nine, eight were the missing POINTER and are
+fixed (#50, above); the ninth was a FONT metric — `system-ui` is DejaVu Sans on a Linux runner and
+the four phone columns measured 9px wider than on a Mac, so `table does not overflow its box at
+390px` read 335 against 326 — and it is fixed too (#53). It was never a harness artefact: the
+layout had no margin, and at 360px it overflowed in every face including the Mac's own.
+Three things the job needs, and only one of them is about the browser. **node 22**, because
+`ui.test.mjs`'s whole CDP client is the global `WebSocket` that node 20 does not have — the two
+jobs that set node up at all pinned 20, so copying one was the way to get an immediate failure
+that reads like a browser problem and is not. **`xvfb-run`**, for the pointer. And **the full
+Chrome**, never `chrome-headless-shell`, which reports no pointer even under a display.
+The fourth thing is that a SKIP IS A PASS: `ui-test.sh` exits 0 when it finds no browser, which is
+right for a laptop and would let a runner that quietly lost its Chrome go green having tested
+nothing. `REQUIRE_BROWSER=1` turns that skip — and both pointer warnings — into a failure, and
+both jobs that reach the suite set it, the gates one included, since `ablate.py --with-ui` reads a
+skipped suite as "proves nothing" and then exits 0.
+**The prize is bigger than the suite**: with a browser on the runner, `ablate.py --with-ui` runs
+there, so a branch whose source is `chart.js`, `table.js` or `styles.css` is finally ablated by
+something other than a human remembering to. That was #55's own ablation — owed locally, run by
+hand, red in the right two places, and invisible to CI.
 
 ## Design artifacts
 
