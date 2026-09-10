@@ -55,13 +55,11 @@ PAUSE = 0.15
 TRIES = 5
 BACKOFF = [2, 5, 15, 40]
 
-# Upstream redlinks: the list page is edited by hand and can name a page nobody has written, which
-# resolution cannot repair on its own. The pageviews API then answers for the missing title anyway
-# (invariant 5), so the row ships a readership built from stray hits on a redlink.
+# Upstream redlinks: the list page can name a page nobody has written, and the pageviews API will
+# answer for the missing title anyway (invariant 5).
 #
 # Keyed by the LIST title and applied BEFORE resolution, so a replacement that stops existing fails
-# here rather than becoming another bad canonical. Delete an entry when upstream fixes the link;
-# main() reports the ones that have gone stale.
+# here rather than becoming another bad canonical. main() reports entries that have gone stale.
 TITLE_FIXES = {
     "Fernand de la Tombelle": "Fernand de La Tombelle",
 }
@@ -218,8 +216,7 @@ def main():
         entries = json.load(f)["entries"]
     titles = sorted({e["title"] for e in entries})
 
-    # Ask for the OVERRIDE where there is one, but key the answer by the list title, which is what
-    # every other stage joins on.
+    # Ask for the override, key the answer by the list title: that is what every stage joins on.
     ask = {t: TITLE_FIXES.get(t, t) for t in titles}
     print("resolving %d titles..." % len(titles))
     answered = resolve_titles(sorted(set(ask.values())))
@@ -227,8 +224,7 @@ def main():
     qids = sorted({q for _, q in resolved.values() if q})
     print("  %d resolved, %d with a Wikidata item" % (len(resolved), len(qids)))
 
-    # An override that no longer does anything reads as a live repair. Both directions: a key
-    # upstream has fixed, and a value that has itself stopped resolving.
+    # An override that no longer does anything reads as a live repair.
     for t in sorted(set(TITLE_FIXES) - set(titles)):
         print("  TITLE_FIXES: %r is no longer on the list page - delete the entry" % t)
     for t in sorted(t for t in TITLE_FIXES if t in ask and ask[t] not in answered):
@@ -262,8 +258,8 @@ def main():
     # exactly the "still shown as living years after they died" bug this script exists to end.
     newly_dead = [t for t, p in people.items()
                   if p["wd_death"] and next(e["death"] for e in entries if e["title"] == t) is None]
-    # Separately from no_wd, which this used to be pooled into: no Wikidata dates is ordinary, a
-    # title that does not resolve at all is a defect, and pooling them hid the second in the first.
+    # Separate from no_wd: missing dates are ordinary, an unresolved title is a defect, and pooling
+    # them hid the second in the first.
     print("\ntitles that do not resolve to a Wikipedia page: %d" % len(unresolved))
     for t in unresolved:
         print("   %-40s <- add it to TITLE_FIXES, or validate.py will fail" % t)
