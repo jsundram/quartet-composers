@@ -226,7 +226,7 @@ human grades. No test framework, and nothing to install:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 240 behavioral checks against a real headless Chrome over CDP, the
+- `scripts/ui-test.sh` — 241 behavioral checks against a real Chrome over CDP, the
   last of which is the suite asserting its OWN stated size against both docs — some checks run in
   loops, so the literal `check(` count is not the number it reports and no offline count is exact.
   It is the one total `prose-lint.py` cannot take, and this is where it is known. It starts
@@ -239,6 +239,24 @@ human grades. No test framework, and nothing to install:
   cold runner can miss it. The only fixed wait left is `TWEEN`, one frame past chart.js's 420ms
   transition, and it is used ONLY before a non-event assertion ("nothing moved"), which has no
   signal to poll for. A new check that waits should say what it is waiting for.
+  **A POINTER is a platform fact and cannot be emulated** (#50). The lens, every hover preview and
+  the panel's reserved height all need `(hover:hover) and (pointer:fine)`, which chart.js reads
+  once into `TOUCH` and styles.css reserves the panel behind. macOS reports it unconditionally and
+  a headless Linux Chrome reports no pointing device at all, so all of them failed on every runner
+  that was not a Mac. `Emulation.setEmulatedMedia`'s `features` list is NOT
+  the fix TODO prescribed: it accepts `hover` and `pointer`, returns success, and ignores them.
+  `--blink-settings` is worse — it works until the first `setTouchEmulationEnabled`, whose restore
+  then clobbers the pointer type for every page in the browser, so a suite that interleaves phone
+  and desktop sections cannot use it. `ui-test.sh` runs Chrome on an **Xvfb** display where there
+  is one, which gives it a real pointer that a touch toggle restores TO, and section 2 asserts
+  which of the two it got rather than leaving eight later checks to imply it.
+  **And every CDP call has a watchdog.** `send()` rejects after 60s, the socket closing rejects
+  everything pending, and both print the checks that had already run — a dropped reply used to end
+  the run as node's bare "unsettled top-level await" with zero lines of output, which is how one
+  oversized screenshot read as a random hang. That screenshot is the other half: a full-page shot
+  under print media is 34,936px tall, and asking for it at the suite's deviceScaleFactor of 2 made
+  this Chromium drop the page target, so `shot()` takes a `clip` and the print one halves the
+  scale. Nothing asserts on these images; they are diagnostics.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
   `git diff --cached`); the meta-length and stated-count halves read the working tree and run in
   CI. `check_counts()` knows BOTH live totals — the roster (884) and what the chart can plot
@@ -323,8 +341,13 @@ The first two and `sw-lint.test.py` run in CI. `ui-test.sh` does not — run it 
 touching `chart.js`, `table.js`, or `styles.css`. **Not for want of a browser**, which is what
 this line used to say: `ubuntu-latest` ships `/usr/bin/google-chrome` and `find_chrome` finds it.
 Measured on #43, the suite RUNS there and scored 231 of the 240 checks it had then — a RECORD of
-that run, so the denominator does not follow the total above. The nine are one cause and one
-detail, both recorded in TODO.md — do not re-derive them.
+that run, so the denominator does not follow the total above. Of those nine, eight were the
+missing pointer and are fixed (#50, above); the ninth is a FONT metric — `system-ui` is DejaVu
+Sans on a Linux runner and the four phone columns measure 9px wider than on a Mac, so `table does
+not overflow its box at 390px` reads 335 against 326. It is a real cross-platform difference
+rather than a harness artefact, it is the one check a Linux run still fails, and TODO.md holds it
+open deliberately: measure the widest plausible font before widening either the column budget or
+the assertion.
 
 ## Design artifacts
 

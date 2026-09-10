@@ -38,14 +38,34 @@ await new Promise(r => ws.addEventListener("open", r));
 let id = 0; const pending = new Map(); const logs = [];
 ws.addEventListener("message", e => {
   const m = JSON.parse(e.data);
-  if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); }
+  if (m.id && pending.has(m.id)) { const p = pending.get(m.id); pending.delete(m.id); p.resolve(m); }
   if (m.method === "Runtime.consoleAPICalled" && m.params.type === "error")
     logs.push("console.error: " + m.params.args.map(a => a.value ?? a.description).join(" "));
   if (m.method === "Runtime.exceptionThrown")
     logs.push("EXCEPTION: " + (m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text));
 });
-const send = (method, params = {}) => new Promise(res => {
-  const i = ++id; pending.set(i, res); ws.send(JSON.stringify({ id: i, method, params }));
+// A CDP call that never answers used to end the whole run as node's "unsettled top-level await"
+// with ZERO lines of output — no check results, no page errors, no name for the call that died.
+// That is the worst failure shape this file has, and it is the one this file's own comments argue
+// against everywhere else. It is not hypothetical: `shot("print")` asked this Chromium for a
+// 2560x69872 image (~179 megapixels, the print stylesheet un-scrolls the table) and it dropped the
+// page target and closed the socket with 1006 (#50). The clip below fixes that particular ask; the
+// watchdog is what turns any future one into a sentence instead of silence.
+const CDP_TIMEOUT = 60000;
+const send = (method, params = {}) => new Promise((res, rej) => {
+  const i = ++id;
+  const t = setTimeout(() => { pending.delete(i); rej(new Error(`CDP ${method} did not answer in ${CDP_TIMEOUT}ms`)); }, CDP_TIMEOUT);
+  pending.set(i, { resolve: m => { clearTimeout(t); res(m); }, reject: e => { clearTimeout(t); rej(e); } });
+  ws.send(JSON.stringify({ id: i, method, params }));
+});
+// The socket dying is that same failure arriving a minute sooner AND naming its cause, so say it
+// instead of waiting the watchdog out: a dropped target closes with 1006 and no pending reply is
+// ever coming. Rejecting rather than resolving matters — a resolve would hand the caller
+// `undefined` and the check after it would fail on a dereference, blaming the app.
+ws.addEventListener("close", e => {
+  const waiting = [...pending.values()];
+  pending.clear();
+  for (const r of waiting) r.reject(new Error(`DevTools socket closed (code ${e.code}) mid-run`));
 });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 // A wait here is a POLL, not a budget (issue 48). The suite used to sleep ~100 of its ~110 seconds
@@ -83,10 +103,17 @@ async function ev(expr) {
   if (r.result?.exceptionDetails) throw new Error(r.result.exceptionDetails.text + " :: " + expr);
   return r.result.result.value;
 }
-async function shot(name) {
-  const r = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
+async function shot(name, params = {}) {
+  const r = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true, ...params });
   writeFileSync(`${OUTDIR}/${name}.png`, Buffer.from(r.result.data, "base64"));
 }
+// A full-page shot of a tall page at the suite's deviceScaleFactor of 2 can exceed what Chromium
+// will rasterise, and it does not say so — it drops the page target (#50). `clip.scale` divides
+// the device scale factor back out, so the PNG is the page's CSS size: half the width, a quarter
+// of the pixels, and nothing in this file asserts on any of these images. Diagnostics, not data.
+const HALF = async () => ({ scale: 0.5, x: 0, y: 0,
+  width: await ev(`document.documentElement.clientWidth`),
+  height: await ev(`document.documentElement.scrollHeight`) });
 async function goto(url) {
   // A navigation that changes only the FRAGMENT is same-document: the app never re-runs, so
   // goto(BASE + "#v=scatter") from BASE quietly left the previous section's view in place and the
@@ -129,6 +156,19 @@ async function key(k) {
       nativeVirtualKeyCode: VK[k] || 0 });
   }
 }
+// A DESKTOP call here means a fine pointer, and that is not something this file can arrange.
+// `Emulation.setEmulatedMedia` takes a `features` list and TODO.md prescribed hover/pointer
+// overrides through it — they are accepted with an empty result and change nothing, because
+// Blink's media-feature overrides cover prefers-color-scheme and its neighbours and not the
+// pointer ones. Nor does `mobile: true` below make a pointer coarse; only
+// `setTouchEmulationEnabled` does, which is why every phone section calls it.
+//
+// So the pointer is a PLATFORM fact: macOS reports fine unconditionally, and a headless Linux
+// Chrome reports NONE, which fails `(hover:hover) and (pointer:fine)` and takes the lens, every
+// hover preview and the panel's reserved height with it — chart.js reads that query once into
+// `TOUCH`, and styles.css reserves the panel behind it. `ui-test.sh` answers it where it can be
+// answered, by running the browser on an Xvfb display, and section 2 asserts the answer arrived
+// rather than trusting it (#50).
 async function viewport(w, h, mobile = false) {
   await send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 2, mobile });
 }
@@ -138,6 +178,23 @@ await send("Page.enable"); await send("Runtime.enable"); await send("Log.enable"
 const BASE = (ORIGIN || "http://127.0.0.1:8765") + "/";
 const results = [];
 const check = (name, cond, extra = "") => results.push(`${cond ? "ok  " : "FAIL"} ${name}${extra ? " — " + extra : ""}`);
+
+// Every exit goes through here, so a run that DIES still prints the checks that had already run
+// and the section it got to. `ev` has always thrown on an evaluation error too, and that took the
+// same silent path.
+function report(died) {
+  console.log(results.join("\n"));
+  if (died) console.log(`\nDIED after ${results.length} checks: ${died}`);
+  console.log(logs.length ? "\nPAGE ERRORS:\n" + logs.join("\n") : "\nno page errors");
+  process.exit(died || logs.length || results.some(r => r.startsWith("FAIL")) ? 1 : 0);
+}
+// A rejected TOP-LEVEL await lands on `uncaughtException`, not on `unhandledRejection` — node
+// treats the module's own evaluation promise as the main script throwing. Both are registered
+// because a stray un-awaited promise takes the other door, and either way the point is the same:
+// print what we have instead of the bare "unsettled top-level await" the tail of this suite spent
+// an issue producing.
+for (const door of ["uncaughtException", "unhandledRejection"])
+  process.on(door, e => report(e?.stack || String(e)));
 
 // --- 1. lens mode: aim the magnifier at the crowded low bands -----------------
 await viewport(1280, 900);
@@ -161,6 +218,16 @@ await shot("lens-active");
 
 // --- 2. hover flag on a real pointer -----------------------------------------
 await goto(BASE);
+// The premise of this section, of 7c2, 7d and 7e, and of the panel's reserved height — asserted
+// once, up front, rather than left to be inferred from a scatter of later checks failing at a
+// layout the app is right to be drawing. There is no CDP override for this (see viewport()): a headless Linux
+// Chrome reports no pointer at all, so `ui-test.sh` runs the browser on an Xvfb display to give
+// it a real one, and this is where that either arrived or did not. It is the mirror of "the phone
+// viewport really reports a touch pointer" in section 7.
+check("the desktop viewport really reports a fine pointer",
+      await ev(`matchMedia('(hover:hover) and (pointer:fine)').matches`),
+      "no fine pointer: chart.js's TOUCH is true, so nothing below hovers, and styles.css never "
+      + "reserves the panel's height. On Linux this means the browser is headless — see ui-test.sh");
 const dot = await ev(`(()=>{const s=document.querySelector('#plot svg');const r=s.getBoundingClientRect();
   const c=[...s.querySelectorAll('circle.dot')].sort((a,b)=>+b.getAttribute('r')-+a.getAttribute('r'))[0];
   const b=c.getBoundingClientRect(); return {x:b.x+b.width/2, y:b.y+b.height/2}})()`);
@@ -2064,7 +2131,7 @@ check("print hides the interactive chrome",
       await ev(`getComputedStyle(document.querySelector('.controls')).display === 'none'`));
 check("print un-scrolls the table so every row is on the page",
       await ev(`getComputedStyle(document.querySelector('.scroll')).overflow === 'visible'`));
-await shot("print");
+await shot("print", { clip: await HALF() });
 await send("Emulation.setEmulatedMedia", { media: "" });
 
 // --- 8. THE SUITE'S OWN STATED SIZE ---------------------------------------------------------
@@ -2090,6 +2157,4 @@ await send("Emulation.setEmulatedMedia", { media: "" });
           : wrong.map(([f, n]) => `${f} says ${n}`).join(", ") + ` — it is ${total}`);
 }
 
-console.log(results.join("\n"));
-console.log(logs.length ? "\nPAGE ERRORS:\n" + logs.join("\n") : "\nno page errors");
-process.exit(results.some(r => r.startsWith("FAIL")) || logs.length ? 1 : 0);
+report(null);
