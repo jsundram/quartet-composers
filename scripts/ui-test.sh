@@ -6,6 +6,7 @@
 #     KEEP=1 scripts/ui-test.sh              # keep the screenshots dir open for inspection
 #     REQUIRE_BROWSER=1 scripts/ui-test.sh   # a platform it cannot run on is a FAILURE (CI)
 #     OUT=<dir> scripts/ui-test.sh           # put the screenshots somewhere known in advance
+#     CHROME=<path> scripts/ui-test.sh       # this browser, rather than whatever find_chrome picks
 #
 # Needs node >= 22 (global WebSocket) and a Chromium. It SKIPS with exit 0 when no browser is
 # installed, so it never fails a machine that simply doesn't have one — the service-worker suite
@@ -45,24 +46,39 @@ find_chrome() {
   local c pw="${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"
   # The full Chromium before chrome-headless-shell: only the full build takes a pointer from
   # Xvfb (see below), and Playwright installs either.
+  #
+  # GOOGLE-CHROME BEFORE CHROMIUM ON A PATH, because on Ubuntu `chromium` is a snap wrapper and
+  # this order was chosen by nothing: the second CI run of this suite took /usr/bin/chromium,
+  # printed three dbus errors and never opened its debug port inside 30s, while the first run
+  # went 250/251 on the same image. A browser that starts sometimes is worse than one that never
+  # does, and the vendor build is the one every other line here already assumes.
   for c in \
     "$pw"/chromium-*/chrome-linux/chrome \
     "$pw"/chromium_headless_shell-*/chrome-headless-shell-*/chrome-headless-shell \
     "$pw"/chromium-*/chrome-*/"Google Chrome for Testing.app"/Contents/MacOS/"Google Chrome for Testing" \
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
-    "$(command -v chromium || true)" "$(command -v chromium-browser || true)" \
-    "$(command -v google-chrome || true)"
+    "$(command -v google-chrome || true)" "$(command -v google-chrome-stable || true)" \
+    "$(command -v chromium || true)" "$(command -v chromium-browser || true)"
   do
     [ -n "$c" ] && [ -x "$c" ] && { echo "$c"; return 0; }
   done
   return 1
 }
 
-CHROME=$(find_chrome) || {
-  echo "ui-test: no Chromium found — skipping (this is not a failure)"
-  required_or_warn
-  exit 0
-}
+# An explicit browser wins over the search, for the machine whose install this list guesses wrong.
+if [ -n "${CHROME:-}" ]; then
+  [ -x "$CHROME" ] || { echo "ui-test: CHROME=$CHROME is not executable"; exit 1; }
+else
+  CHROME=$(find_chrome) || {
+    echo "ui-test: no Chromium found — skipping (this is not a failure)"
+    required_or_warn
+    exit 0
+  }
+fi
+# WHICH BINARY RAN IS EVIDENCE, and it was missing from the one run that needed it: two CI runs of
+# the same job behaved differently and the passing one had not said what it was using, so the
+# difference could only be inferred. It is one line; print it always.
+echo "ui-test: using $CHROME"
 
 # A FRESH profile every run. sw.js serves the shell cache-first, so a reused profile keeps running
 # the PREVIOUS edit's JS until V is bumped — you would be testing code you already changed.
