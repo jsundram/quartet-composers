@@ -232,6 +232,13 @@ human grades. No test framework, and nothing to install:
   It is the one total `prose-lint.py` cannot take, and this is where it is known. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
+  **Every wait in it is a poll, not a budget** (#48): `settle()` re-asks the page for the state the
+  next check reads, `goto()` polls for a drawn page, and `idle()` asks d3 whether the zoom tween
+  is still running. The suite used to spend ~100 of its ~110 seconds asleep in fixed waits, most
+  of them following synchronous DOM work, and a fixed wait is wrong in the other direction too — a
+  cold runner can miss it. The only fixed wait left is `TWEEN`, one frame past chart.js's 420ms
+  transition, and it is used ONLY before a non-event assertion ("nothing moved"), which has no
+  signal to poll for. A new check that waits should say what it is waiting for.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
   `git diff --cached`); the meta-length and stated-count halves read the working tree and run in
   CI. `check_counts()` knows BOTH live totals — the roster (884) and what the chart can plot
