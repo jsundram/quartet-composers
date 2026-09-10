@@ -19,6 +19,7 @@ OUT=$(mktemp -d)
 find_chrome() {
   local c
   for c in \
+    "${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"/chromium-*/chrome-linux/chrome \
     "$HOME/.cache/ms-playwright"/chromium_headless_shell-*/chrome-headless-shell-*/chrome-headless-shell \
     "$HOME/.cache/ms-playwright"/chromium-*/chrome-*/"Google Chrome for Testing.app"/Contents/MacOS/"Google Chrome for Testing" \
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
