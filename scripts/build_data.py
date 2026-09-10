@@ -102,10 +102,9 @@ def main():
     for e in listing["entries"]:
         title = e["title"]
         p = people.get(title, {})
-        # May be None — a title that did not resolve (fetch_wikidata.py). `key` is what identifies
-        # the ROW, and stays the list title so two unresolved entries cannot collapse into one
-        # `seen` slot; `canon` stays None so the series lookup finds nothing rather than picking up
-        # a stale cache entry filed under the raw title, which is the fabrication being removed.
+        # `canon` may be None (unresolved). `key` identifies the ROW and falls back to the list
+        # title, so two unresolved entries cannot collapse into one `seen` slot; `canon` stays None
+        # so the series lookup finds nothing rather than a stale entry under the raw title.
         canon = p.get("canonical")
         key = canon or title
         birth, death = p.get("birth", e["birth"]), p.get("death", e["death"])

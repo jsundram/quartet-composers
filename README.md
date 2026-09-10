@@ -150,10 +150,9 @@ from names or pronouns** for the composers who have no claim: `null` is a fact h
 is for an unstated quartet count. A value outside the label map ships as its raw QID rather than
 as a null — a stated fact filed under "not stated" is the one outcome that is wrong about someone
 rather than merely incomplete — and `validate.py` fails on it, so the fix is a label, not a
-mystery. 276 of the 884 are women, 219 of them plottable; a composer with no claim at all is in
-neither filter, and the provenance line states how many there are rather than letting silence read
-as none — a count that was one until the pipeline stopped counting a redlink (see below), and that
-the line now has a branch for at zero.
+mystery. 276 of the 884 are women, 219 of them plottable. A composer with no claim at all is in
+neither filter, so the provenance line states how many there are rather than letting silence read
+as none — with a branch for when there are none, which is where the roster stands today.
 
 The honest name for (d) is **English Wikipedia readership**, not popularity — a Czech or Russian
 composer's readers are largely on their own language's Wikipedia, which this does not count. The

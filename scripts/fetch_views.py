@@ -361,10 +361,8 @@ def main():
 
     with open(PEOPLE, encoding="utf-8") as f:
         people = json.load(f)
-    # A null canonical is a title fetch_wikidata.py could not resolve, and invariant 5 is exactly
-    # the rule that it must not be asked for: the pageviews API answers for a page that does not
-    # exist, with a 200 and a number nobody can tell from a real one. Skipped here, so the series
-    # is absent rather than fabricated, and validate.py is what refuses to ship it.
+    # A null canonical did not resolve, and invariant 5 is the rule that it must not be asked for:
+    # the API answers for a page that does not exist, with a number nobody can tell from a real one.
     titles = sorted({p["canonical"] for p in people.values() if p.get("canonical")})
 
     cached = {"months": [], "series": {}}

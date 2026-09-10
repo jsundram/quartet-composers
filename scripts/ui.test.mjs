@@ -600,27 +600,19 @@ check("the diagonals are trimmed to the plot, not drawn past it",
         const b=s.querySelector('rect.bg'); const w=+b.getAttribute('width'), h=+b.getAttribute('height');
         return [...s.querySelectorAll('line.dg')].every(l=>['x1','x2'].every(a=>+l.getAttribute(a)>=-0.5 && +l.getAttribute(a)<=w+0.5)
           && ['y1','y2'].every(a=>+l.getAttribute(a)>=-0.5 && +l.getAttribute(a)<=h+0.5))})()`));
-// THE Y AXIS STARTS WHERE THE READERSHIP DOES (issue 38), the same complaint as the x-axis lead
-// band in 4c, one axis over. VY_DOMAIN's floor was hardcoded at 0.85 and the decade above it —
-// 1 to 10 readers a month — held exactly one composer, who then turned out to be a redlink the
-// pipeline was counting rather than a composer at all. That was 23% of the plot height on a band
-// where no dot could be drawn.
-//
-// Asserted as a COUNT of gridlines rather than a fraction of the height, because a fraction needs
-// a threshold and there is no honest one: the gap below the lowest dot is legitimately large when
-// the least-read composer sits high in their decade (a roster with a floor of 99 puts them 24% up,
-// correctly). The rule the derivation actually guarantees is discrete — the floor is the decade AT
-// OR BELOW the lowest dot, so exactly one decade line can be under it. Two means a whole decade
-// band is empty, which is the defect, and it is what the old constant drew.
-const decades = await ev(`(()=>{const s=document.querySelector('#plot svg');
-  const ys=[...s.querySelectorAll('circle.dot')].map(c=>{const r=c.getBoundingClientRect();return r.y+r.height/2});
-  const low=Math.max(...ys);          // largest screen y = lowest on screen = least read
-  const under=[...s.querySelectorAll('line.gy')].filter(l=>l.getBoundingClientRect().y>=low-0.5).length;
-  const b=s.querySelector('rect.bg').getBoundingClientRect();
-  return {under, gap:((b.bottom-low)/b.height*100).toFixed(1)}})()`);
-check("the y axis starts where the readership does — no empty decade under the lowest dot",
-      decades.under === 1,
-      `${decades.under} decade line(s) below the least-read dot, ${decades.gap}% of the height empty`);
+// The chart and the readership filter are two pictures of one quantity, so they start at the same
+// place: under ten readers a month is not a readership worth resolving (issue 38). Two constants
+// in two files, which is what makes it worth asserting rather than reading.
+const floors = await ev(`(()=>{
+  const y=[...document.querySelectorAll('#plot svg text')]
+    .filter(t=>t.getAttribute('text-anchor')==='end' && /^[\\d.]+k?$/.test(t.textContent));
+  const h=[...document.querySelectorAll('#hist svg g.axis text')];
+  const num=t=>t.endsWith('k')?parseFloat(t)*1000:parseFloat(t);
+  const low=a=>a.length?Math.min(...a.map(t=>num(t.textContent))):-1;   // -1, not Infinity: CDP
+  return {chart:low(y), hist:low(h)}})()`);                             // cannot return it by value
+check("the chart and the filter agree where readership starts",
+      floors.chart === 10 && floors.hist === 10,
+      `chart axis from ${floors.chart}, histogram from ${floors.hist}`);
 
 // Size is the y axis here, so a radius that repeated it would double-encode the one variable the
 // view is about. Every unnamed dot is the same size.
@@ -909,13 +901,9 @@ check("every stated gender is reachable by a pill",
 
 // Unknown is in NEITHER set, so the three counts must PARTITION the roster.
 //
-// This asserted `women + men < allRows` — the same rule, but only while some composer actually
-// HAS a null claim. The roster's last one turned out not to be a composer Wikidata is quiet about
-// but a redlink the pipeline was counting (TITLE_FIXES in fetch_wikidata.py), and the day it was
-// repaired this check went red for the one reason that is not a bug: nothing was left to be in
-// neither filter. An inequality that can only be exercised by a data hole goes vacuous the moment
-// the hole is fixed. The partition holds at zero and still catches what the inequality was for —
-// filing the nulls under "male" inflates men and the sum overshoots.
+// This asserted `women + men < allRows`, which is the same rule only while some composer actually
+// HAS a null claim — an inequality that goes vacuous the moment the data has none. The partition
+// holds at zero and still catches what it was for: nulls filed under "male" inflate men.
 await ev(`document.querySelector('#gender button[data-g="male"]').click()`);
 await sleep(300);
 const men = await ev(`document.querySelectorAll('tbody tr').length`);

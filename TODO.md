@@ -111,27 +111,22 @@ and so, therefore, is this dataset. Worth deciding a policy and stating it in th
 the inconsistency explicitly rather than by default.
 
 ### ~~One composer is sized by a single month of page views~~ — done, 2026-09-10
-The premise was wrong in a way worth writing down, because the entry itself repeated the mistake.
-`Fernand de la Tombelle` was not a real composer with one month of data; **there is no such
-article**. The list page links a redlink — lowercase `la`, where the article is at `Fernand de La
-Tombelle` — so he was the one row of 884 that resolved to nothing, the canonical fell back to the
-raw title, and `fetch_views.py` asked the pageviews API for a page nobody has written. That
-request SUCCEEDS, which is the whole of invariant 5, and it returned a single stray hit on the
-redlink (2026-04, not 2026-08 — this entry got that wrong too, from reading the shipped median
-rather than the series). One view became a twelve-month median of 1 against a real **89**.
+The premise was wrong, and this entry repeated the mistake: `Fernand de la Tombelle` was not a
+composer with one month of data. **There is no such article.** The list page links a redlink —
+lowercase `la`, where the article is at `Fernand de La Tombelle` — so he was the one row that
+resolved to nothing, the canonical fell back to the raw title, and `fetch_views.py` asked the
+pageviews API for a page nobody has written. That request succeeds (invariant 5), and it returned
+a stray hit which became his twelve-month median.
 
-Nothing downstream could have seen it. The row had the right number of fields, the series was
-aligned to the axis, the median really was the median of the values present, and one view a month
-is plausible for a name nobody has heard of. It was only wrong against a page that was never being
-counted — which is why the repair is three things and not one: `TITLE_FIXES` in
-`fetch_wikidata.py` records the real title, that script no longer writes `canon or t` (a title that
-did not resolve now has NO canonical, so `fetch_views.py` does not ask for it), and
-`validate.py`'s `check_resolved()` refuses to ship a roster with an unresolved title at all. He now
-has all 134 months, a sparkline, a P21 claim, and an ordinary readership near the roster's 25th
-percentile.
+Nothing downstream could have seen it: the row was the right shape, the series was aligned, the
+median really was the median of what was there, and a tiny count is plausible for an obscure name.
+It was only wrong against a page that was never being counted. So the repair is three things —
+`TITLE_FIXES` in `fetch_wikidata.py` records the real title, that script no longer invents a
+canonical for a title that did not resolve, and `validate.py`'s `check_resolved()` refuses to ship
+one. He now has a full series, a sparkline and an ordinary readership.
 
-The general lesson is the one invariant 5 already states and this row evaded: asking the RIGHT
-title is only half of it — the other half is noticing when there is no title to ask.
+The lesson is invariant 5's own, one step earlier: asking the RIGHT title is half of it, and
+noticing there is no title to ask is the other half.
 
 ### ~~Readership was counted under whatever the article is called TODAY~~ — done, 2026-09-08, [#23](https://github.com/jsundram/quartet-composers/issues/23)
 The pageviews API counts the string that was REQUESTED, so an article that was renamed inside the

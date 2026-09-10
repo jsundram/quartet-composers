@@ -27,18 +27,7 @@ ROOT = os.path.dirname(HERE)
 W, H = 1200, 630
 PLOT = {"x": 520, "y": 96, "w": 608, "h": 446}      # chart panel, right of the title block
 QX_DOMAIN = (0.85, 200)                              # quartets written, log -- as chart.js
-VY_TOP = 260000                                      # EN readers / month, log
-
-
-def vy_domain(rows):
-    """chart.js's decadeFloor, duplicated for the reason this whole file is (invariant 14).
-
-    Module level rather than inline in main() so og-lint.py can check the card ON DISK against it
-    instead of keeping a third copy of the rule. The floor follows the least-read PLOTTED composer,
-    snapped down to a decade and padded to 0.85 of it exactly as chart.js does.
-    """
-    lo = min(r[4] for r in rows if r[3] is not None and r[4] is not None and r[4] > 0)
-    return (10 ** math.floor(math.log10(lo)) * 0.85, VY_TOP)
+VY_DOMAIN = (10, 260000)                             # EN readers / month, log -- as chart.js
 R_CONTEXT, R_NAMED = 3.6, 7.5                        # uniform: readership is the Y AXIS here
 
 BG, PANEL, INK, MUTED, GRID = "#14161a", "#191c21", "#eceef0", "#9aa3a8", "#2b313a"
@@ -155,7 +144,6 @@ def main():
         data = json.load(f)
     rows = data["rows"]
     plotted = [r for r in rows if r[3] is not None and r[4] is not None]
-    VY_DOMAIN = vy_domain(rows)
     by_name0 = {r[0]: r for r in rows}
 
     def logscale(dom, px, origin, flip=False):
@@ -197,10 +185,8 @@ def main():
                    f'y2="{PLOT["y"] + PLOT["h"]}" stroke="{GRID}" stroke-width="1"/>')
         out.append(f'  <text x="{sx(q):.1f}" y="{PLOT["y"] + PLOT["h"] + 26}" fill="{MUTED}" '
                    f'font-family="system-ui,sans-serif" font-size="17" text-anchor="middle">{q}</text>')
-    # Filtered to the domain, the way chart.js filters VY_TICKS through inDom(). logscale() CLAMPS,
-    # so a tick below the floor does not vanish — it is drawn hard on the bottom edge with the
-    # wrong number beside it, which is how a "1" survived the floor moving up to the first
-    # occupied decade.
+    # Filtered to the domain, as chart.js filters VY_TICKS. logscale() CLAMPS, so a tick under the
+    # floor is not dropped but drawn on the bottom edge with the wrong number beside it.
     for v, lab in ((1, "1"), (10, "10"), (100, "100"), (10000, "10k"), (100000, "100k")):
         if not VY_DOMAIN[0] <= v <= VY_DOMAIN[1]:
             continue
