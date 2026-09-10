@@ -149,6 +149,39 @@ window.Chart = (function () {
     return ((a >>> 0) / 4294967295) * 2 - 1;     // -1..1
   }
 
+  // Quartet counts are integers, so on the Fame view's log x every composer with the same count
+  // lands on one vertical stripe — and Fame is the view with NO y jitter (layout() plots the raw
+  // readership), so this offset is the only thing holding apart two composers who wrote the same
+  // number of quartets and are read about equally. A hash cannot do that job. It is an independent
+  // uniform draw per name, which separates ties on AVERAGE and not in particular: Debussy and
+  // Gershwin (one quartet each, 0.5% apart in readership) drew 0.47px apart, close enough that the
+  // Delaunay bisector ran through the middle of the visible disc and its right half selected the
+  // composer you could not see (#45).
+  //
+  // So rank instead of hash. Within a stripe, order by readership and walk the golden ratio: by the
+  // three-distance theorem consecutive terms of frac(k·φ) sit ~0.382 or ~0.618 of the range apart,
+  // so the dots ADJACENT IN Y — the only ones that can collide — are pushed as far apart in x as
+  // the range allows. Still deterministic, still stable between renders, and the amplitude is
+  // untouched, so the nudge still cannot be read as data.
+  //
+  // Ordered by readership and then by NAME, never by row order: build_data.py is free to reorder
+  // its rows, and a jitter that followed that would move dots when nothing about the data changed.
+  const PHI = (Math.sqrt(5) - 1) / 2;
+  function spreadJq() {
+    const stripes = new Map();
+    // Only the rows Fame can place. A row with no readership has no y, so it is never drawn here
+    // and must not consume a rank — that would push every dot above it along the sequence.
+    for (const d of rows) {
+      if (d.quartets == null || d.views == null) continue;
+      if (!stripes.has(d.quartets)) stripes.set(d.quartets, []);
+      stripes.get(d.quartets).push(d);
+    }
+    for (const grp of stripes.values()) {
+      grp.sort((a, b) => a.views - b.views || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+      grp.forEach((d, k) => { d.jq = Math.pow(10, (((k * PHI) % 1) * 2 - 1) * 0.045); });
+    }
+  }
+
   // [name, birth, death, quartets, views, views_lo, views_hi, gender]; death, quartets and gender
   // may be null. This comment IS the schema for every positional read below — keep it in step with
   // build_data.py's `fields`, which validate.py pins.
@@ -164,12 +197,10 @@ window.Chart = (function () {
         lifespan: r[2] == null ? null : r[2] - r[1],
         jx: j * 0.5,                                        // years
         jy: Math.pow(10, hash(r[0] + "y") * 0.04),          // multiplicative, log-uniform
-        // Quartet counts are integers, so on the Fame view's log x they land in hard vertical
-        // stripes — 313 of the 790 sit on "1". Same idea as jx, in log space so the nudge is a
-        // constant PROPORTION of the axis rather than a constant number of quartets.
-        jq: Math.pow(10, hash(r[0] + "q") * 0.045),
+        jq: 1,                                              // set by spreadJq, below
       };
     });
+    spreadJq();
     at = new Map(rows.map(d => [d.name, d.i]));
     outlierIdx = resolve(OUTLIERS);
     applyRepertoire();

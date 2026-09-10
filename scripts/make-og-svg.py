@@ -124,15 +124,28 @@ def short_names(rows):
     return out
 
 
-def jitter(name):
-    """chart.js's FNV-1a name hash, in log space: quartet counts are integers, so without this the
-    card draws the same hard vertical stripes the app deliberately breaks up (313 composers sit on
-    "1"). Same encoding on both sides, per the note at the top of this file."""
-    a = 2166136261
-    for ch in name:
-        a ^= ord(ch)
-        a = (a * 16777619) & 0xFFFFFFFF
-    return 10 ** (((a / 4294967295) * 2 - 1) * 0.045)
+PHI = (5 ** 0.5 - 1) / 2
+
+
+def spread_jq(rows):
+    """chart.js's spreadJq, in log space: quartet counts are integers, so without this the card
+    draws the same hard vertical stripes the app deliberately breaks up. Same encoding on both
+    sides, per the note at the top of this file.
+
+    Ranked, not hashed, for the reason chart.js gives at length: this is the Fame view, whose y is
+    the raw readership, so this offset separates same-count composers alone and a per-name hash only
+    does that on average (#45). Order each stripe by readership, then by name, and walk frac(k*phi)
+    so that neighbours in y land far apart in x."""
+    stripes = {}
+    for r in rows:
+        if r[3] is None or r[4] is None:
+            continue                                  # no y, never drawn; must not consume a rank
+        stripes.setdefault(r[3], []).append(r)
+    out = {}
+    for grp in stripes.values():
+        for k, r in enumerate(sorted(grp, key=lambda r: (r[4], r[0]))):
+            out[r[0]] = 10 ** (((k * PHI) % 1 * 2 - 1) * 0.045)
+    return out
 
 
 def esc(s):
@@ -144,6 +157,7 @@ def main():
         data = json.load(f)
     rows = data["rows"]
     plotted = [r for r in rows if r[3] is not None and r[4] is not None]
+    jq = spread_jq(rows)
     by_name0 = {r[0]: r for r in rows}
 
     def logscale(dom, px, origin, flip=False):
@@ -208,15 +222,15 @@ def main():
     for name, birth, death, quartets, views, *_ in sorted(rows, key=lambda r: -(r[4] or 0)):
         if quartets is None or views is None or name in named:
             continue                                  # not plottable; the app omits it too
-        out.append(f'  <circle cx="{sx(quartets * jitter(name + "q")):.1f}" '
+        out.append(f'  <circle cx="{sx(quartets * jq[name]):.1f}" '
                    f'cy="{sy(views):.1f}" r="{R_CONTEXT}" fill="{MUTED}" opacity=".22"/>')
     for name in OUTLIERS:
         r = by_name0[name]
-        out.append(f'  <circle cx="{sx(r[3] * jitter(name + "q")):.1f}" cy="{sy(r[4]):.1f}" '
+        out.append(f'  <circle cx="{sx(r[3] * jq[name]):.1f}" cy="{sy(r[4]):.1f}" '
                    f'r="{R_NAMED}" fill="none" stroke="{ACCENT}" stroke-width="2.4"/>')
     for name in CANON:
         r = by_name0[name]
-        out.append(f'  <circle cx="{sx(r[3] * jitter(name + "q")):.1f}" cy="{sy(r[4]):.1f}" '
+        out.append(f'  <circle cx="{sx(r[3] * jq[name]):.1f}" cy="{sy(r[4]):.1f}" '
                    f'r="{R_NAMED}" fill="{SEL}" stroke="{PANEL}" stroke-width="1.6"/>')
 
     # A label that silently vanishes degrades the one image people see before they click, so this
@@ -234,7 +248,7 @@ def main():
     short = short_names(rows)
     for name, anchor, dx, where in LABELS:
         r = by_name[name]
-        cx, cy, rad = sx(r[3] * jitter(r[0] + "q")), sy(r[4]), R_NAMED
+        cx, cy, rad = sx(r[3] * jq[r[0]]), sy(r[4]), R_NAMED
         tx = cx + (dx + (rad if dx > 0 else -rad) if where == "beside" else 0)
         ty = {"above": cy - rad - 9, "below": cy + rad + 21}.get(where, cy + 6)
         # Halo painted in the PAGE background, not the panel's: a "beside" label can hang off the
