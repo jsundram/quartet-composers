@@ -700,6 +700,40 @@ check("and the resting picture is still just the seed",
           .filter(t=>new Set(ROWS.map(d=>Names.short(d.name))).has(t)).every(n=>seed.has(n))})()`),
       "a derived name is showing at rest, where the view should say only what it is about");
 
+// --- 4e2. no two dots in one quartet stripe are drawn on top of each other ---------------------
+// Fame has no y jitter, so the x offset separates same-count composers alone. It was a per-name
+// hash, which separates ties on average and not in particular, and the pair it drew on top of each
+// other owned half the hit area of the dot covering it — see spreadJq in chart.js, and #45.
+//
+// WITHIN A STRIPE, and to a FLOOR rather than to "never touching", because neither is what spreadJq
+// guarantees: adjacent stripes overlap by construction, and inside a stripe the guarantee is about
+// dots adjacent in readership, so a long run of near-ties degrades it. Both residuals are in
+// TODO.md. Tightening this bar to "never touching" would assert something the fix does not do.
+//
+// The floor is a constant but the margin is not: the closest pair and the base radius are printed
+// every run, so a change to dotRadius() or the aspect ratio shows up as a shrinking margin instead
+// of quietly making the bar meaningless. Both viewports, because the phone is the worse case — the
+// same jitter range is spent over a third of the width.
+for (const [label, vw, vh, mob] of [["1280x900", 1280, 900, false], ["390x844", 390, 844, true]]) {
+  await viewport(vw, vh, mob);
+  await goto(BASE);
+  const worst = await ev(`(()=>{
+    const ds=[...document.querySelectorAll('#plot circle.dot')].map(n=>({
+      i:n.__data__.i, x:+n.getAttribute('cx'), y:+n.getAttribute('cy'), r:+n.getAttribute('r')}));
+    let best=Infinity, pair=null;
+    for(let a=0;a<ds.length;a++)for(let b=a+1;b<ds.length;b++){
+      if(ROWS[ds[a].i].quartets!==ROWS[ds[b].i].quartets) continue;
+      const d=Math.hypot(ds[a].x-ds[b].x, ds[a].y-ds[b].y);
+      if(d<best){best=d;pair=[ds[a].i,ds[b].i];}}
+    return {d:best, names:pair.map(i=>ROWS[i].name), r:Math.min(...ds.map(v=>v.r))};
+  })()`);
+  check(`same-count Fame dots stay a pixel apart at ${label}`, worst.d >= 1,
+        `closest same-count pair ${worst.d.toFixed(2)}px (${worst.names.join(" / ")}) against a 1px floor, `
+        + `base radius ${worst.r.toFixed(2)}px`);
+}
+await viewport(1280, 900, false);
+await goto(BASE);
+
 // --- 4f. one filter row, above everything it scopes -------------------------------------------
 check("the filter row is not inside the chart or the table card",
       await ev(`(()=>{const f=document.getElementById('filters');

@@ -737,6 +737,32 @@ nobody has noticed: French particles are dropped where a French index would keep
 labels started printing the same short form: a misjudged surname is now on the plot, not only in
 a table cell whose `title` still carries the full name.
 
+### Two Fame dots can still overlap, in ways the golden-ratio jitter does not cover — **known defect**
+[#45](https://github.com/jsundram/quartet-composers/issues/45) replaced the Fame view's per-name
+hash jitter with `spreadJq()`: rank each quartet-count stripe by readership and walk `frac(k·φ)`, so
+dots adjacent in y are pushed maximally apart in x. That killed the reported failure — Debussy and
+Gershwin went from 0.469px apart (with Gershwin painted on top of him and owning the right half of
+his hit area) to over 6px, and the worst same-count pair on a phone from 0.045px to 1.11px. Two
+residuals survive it, both measured, neither worth a mechanism yet:
+
+- **Across stripes.** Adjacent counts are 0.079 decades apart down where the roster piles up and
+  the jitter is ±0.045 wide, so the stripes overlap by construction. Rigel (6 quartets) and
+  Martinaitytė (5) sit 0.78px apart on a phone. Ranking inside a stripe cannot see this. The only
+  fixes are narrowing the jitter — which reintroduces the crowding it exists to break up — or
+  giving up on the offset being a pure function of the row.
+- **Along a run of near-ties.** The three-distance theorem bounds the gap between dots ADJACENT in
+  the sequence; five composers sit on 38–39 views, and two of them five ranks apart (Barbillion,
+  Charrière) come within 1.11px. The guarantee degrades as ~1/(φ·m) across a tied run of m.
+
+A real fix is a relaxation pass — detect overlaps in screen space and repel — which is what
+`MIN_SEP` does for the ring channel. It is not a jitter any more at that point: it costs the
+"deterministic, stable between renders, pure function of the row" property that lets
+`make-og-svg.py` duplicate it offline (invariant 14). Do not start it without deciding that trade
+first. `ui.test.mjs` 4e2 holds the line at a 1px floor per stripe, so a regression past the point
+already won fails loudly.
+
+---
+
 ## Pipeline
 
 ### `fetch_views.py --force` refetches every article

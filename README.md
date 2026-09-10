@@ -182,7 +182,7 @@ python3 scripts/validate.py       # THE DATA GATE — see below; run it after ev
 python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (26 + a clean pass)
 python3 scripts/fetch_views.test.py  # the page-view cache's invariants, network stubbed (17 cases)
 python3 scripts/pagemoves.test.py # the page-move rule, offline (9 cases)
-scripts/ui-test.sh           # 238 behavioural checks in a real headless Chrome (lens, tap-to-pin,
+scripts/ui-test.sh           # 240 behavioural checks in a real headless Chrome (lens, tap-to-pin,
                              #   the three filters, theme repaint, 390px layout, offline, print) — no deps
 node scripts/sw.test.mjs     # 24 tests of the service worker's fetch handler
 python3 scripts/sw-lint.py   # precache contract: V bumped, SHELL paths exist, no cross-origin
