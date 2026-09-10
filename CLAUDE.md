@@ -226,7 +226,7 @@ human grades. No test framework, and nothing to install:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 247 behavioral checks against a real Chrome over CDP, the
+- `scripts/ui-test.sh` — 248 behavioral checks against a real Chrome over CDP, the
   last of which is the suite asserting its OWN stated size against both docs — some checks run in
   loops, so the literal `check(` count is not the number it reports and no offline count is exact.
   It is the one total `prose-lint.py` cannot take, and this is where it is known. It starts
@@ -481,13 +481,20 @@ would not have worked.
   Windows and DejaVu on most Linux — and DejaVu is wide enough that the four phone columns
   overflowed 390px outright (#53), which is how the suite came to fail on a Linux runner and
   nowhere else. Two things were paying width for nothing and now do not: a header WORD wider than
-  any value beneath it (`short` in `table.js`'s `COLS` — "Qts" is drawn, "Quartets" stays as the
-  sort button's accessible name in a second span, the same visually-hidden split `#chart-tools`
-  uses) and the cell gutters. The lesson is in what the measurement found on the way: at 360px, the
-  common Android width, the old table overflowed in EVERY face including SF, so the 390px check was
-  passing on the one width where the narrowest font happened to clear. `ui.test.mjs` asserts BOTH
-  widths for that reason — a fit measured in the runner's own font is measuring the font. A new
-  column, or a longer header, has to be measured the same way rather than eyeballed on a Mac.
+  any value beneath it (`short` in `table.js`'s `COLS` — "Qts" is drawn below 640px) and the cell
+  gutters. **An abbreviation is not free to a reader who can SEE it**: the accessible name has to
+  contain the drawn label (WCAG 2.5.3), or a voice-control user says "click Qts" against a name
+  that reads "Quartets" and the column cannot be sorted at all. So both spans stay in the name, the
+  drawn one first, and the word is moved off screen rather than `display:none`d. This is NOT the
+  `#chart-tools` split, where the drawn thing is a GLYPH and there is no visible word to mismatch.
+  `ui.test.mjs` asserts the name the browser COMPUTES, over CDP, because an `aria-label` added
+  later overrides the markup while a check written against the two spans stays green.
+  The other lesson is in what the measurement found on the way: at 360px, the common Android
+  width, the old table overflowed in EVERY face including SF, so the 390px check was passing on the
+  one width where the narrowest font happened to clear. `ui.test.mjs` asserts BOTH widths for that
+  reason — a fit measured in the runner's own font is measuring the font — and the document-level
+  overflow guard runs at both too, since declaring a width supported means the whole page fits it.
+  A new column, or a longer header, has to be measured the same way rather than eyeballed on a Mac.
 - **A number printed beside the chart counts the PLOTTABLE rows.** The empty detail panel said
   "884 composers, born 1582–1989" next to an x axis starting at 1709 — the 94 rows with no stated
   quartet count are in the table only, and three of them are the roster's earliest births.

@@ -314,6 +314,18 @@ async function rest() {
 }
 
 await send("Page.enable"); await send("Runtime.enable"); await send("Log.enable");
+await send("Accessibility.enable");
+// The accessible NAME a browser computes, not the DOM it is computed from. Everything else here
+// reads the page through Runtime.evaluate, which cannot see this: name computation folds in
+// aria-label, aria-labelledby, `display:none` subtrees and the rest of accname, so a check written
+// against the markup passes while the name says something different (7's abbreviated header).
+const axName = async sel => {
+  const doc = (await send("DOM.getDocument")).result.root.nodeId;
+  const nodeId = (await send("DOM.querySelector", { nodeId: doc, selector: sel })).result.nodeId;
+  if (!nodeId) return "";
+  const tree = await send("Accessibility.getPartialAXTree", { nodeId, fetchRelatives: false });
+  return (tree.result.nodes || []).map(n => (n.name && n.name.value) || "").join(" ").trim();
+};
 
 const BASE = (ORIGIN || "http://127.0.0.1:8765") + "/";
 const results = [];
@@ -1751,9 +1763,6 @@ await goto(BASE);
 check("the phone viewport really reports a touch pointer",
       await ev(`matchMedia('(pointer:coarse)').matches && matchMedia('(hover:none)').matches`),
       "setDeviceMetricsOverride alone does NOT: chart.js's TOUCH and the compact panel both key off this");
-check("no horizontal overflow at 390px",
-      await ev(`document.documentElement.scrollWidth <= 390`),
-      "scrollWidth=" + await ev(`document.documentElement.scrollWidth`));
 // offsetParent is null while an element is `hidden`, so this scan only ever sees the controls that
 // are on screen RIGHT NOW. It ran at BASE with no range applied, and the readership brush's own
 // Clear button was the one control not on screen there — 28px for as long as this check existed,
@@ -1797,30 +1806,30 @@ check("phone table drops to 4 columns", cols === 4, "cols=" + cols);
 for (const w of [390, 360]) {
   await viewport(w, 844, true);
   await relaid();
+  // The DOCUMENT-level guard belongs in this loop too, and used to run at 390 only. Declaring 360
+  // a supported width while asserting nothing but the table's own box there leaves the page free
+  // to scroll sideways on the phone this section is about: `.controls` is already two lines at
+  // 390, and `#filters`, `#hist` and the legend all live at that width as well.
+  check(`no horizontal overflow at ${w}px`,
+        await ev(`document.documentElement.scrollWidth <= ${w}`),
+        "scrollWidth=" + await ev(`document.documentElement.scrollWidth`));
   check(`table does not overflow its box at ${w}px`,
         await ev(`(()=>{const b=document.querySelector('.scroll');return b.scrollWidth <= b.clientWidth+1})()`),
         await ev(`(()=>{const b=document.querySelector('.scroll');return b.scrollWidth+' vs '+b.clientWidth})()`));
 }
-// The abbreviation is a WIDTH fix, so it may not cost the column its name: the sort button still
-// has to announce "Quartets" at the width where "Qts" is what is drawn.
-check("the abbreviated phone header keeps its full accessible name",
-      await ev(`(()=>{const b=[...document.querySelectorAll('thead th button')]
-        .find(x=>x.textContent.includes('Qts'));
-        if(!b) return false;
-        const full=b.querySelector('.th-full'), short=b.querySelector('.th-short');
-        return full.textContent === 'Quartets'
-          && getComputedStyle(full).display !== 'none'
-          && full.getBoundingClientRect().width <= 2
-          && getComputedStyle(short).display !== 'none'
-          && short.getAttribute('aria-hidden') === 'true'})()`),
-      "", await ev(`(()=>{const b=[...document.querySelectorAll('thead th button')]
-        .find(x=>x.textContent.includes('Qts'));
-        if(!b) return 'no abbreviated header at all';
-        const full=b.querySelector('.th-full'), short=b.querySelector('.th-short');
-        return 'full=' + JSON.stringify(full && full.textContent)
-          + ' drawn ' + (full ? getComputedStyle(full).display + '/' +
-              full.getBoundingClientRect().width.toFixed(1) + 'px' : '-')
-          + ', short aria-hidden=' + (short && short.getAttribute('aria-hidden'))})()`));
+// The abbreviation is a WIDTH fix and may not cost the column its name — in EITHER direction.
+// Hiding "Qts" from the accessibility tree and keeping only "Quartets" was the first shape here,
+// and it fails WCAG 2.5.3 (Label in Name): a reader who can see "Qts" says "click Qts", and voice
+// control matches against the accessible name, which did not contain it. So the name carries the
+// drawn label and the word it stands for, and this asserts the NAME the browser computes rather
+// than the two spans it comes from — an aria-label added later would override the markup while
+// leaving the DOM check green, which is the failure mode that made this worth a CDP call.
+const drawnLabel = await ev(`(()=>{const e=document.querySelector('th.c-quartets .th-short');
+  return e && getComputedStyle(e).display !== 'none' ? e.textContent.trim() : ''})()`);
+const qtsName = await axName("th.c-quartets button");
+check("the abbreviated phone header's accessible name contains what is drawn",
+      !!drawnLabel && qtsName.includes(drawnLabel) && qtsName.includes("Quartets"),
+      `drawn ${JSON.stringify(drawnLabel)}, name ${JSON.stringify(qtsName)}`);
 await viewport(390, 844, true);
 await relaid();
 check("y-axis tick labels are not clipped",

@@ -345,8 +345,10 @@ thead th button{
   padding:10px 10px; min-height:40px; cursor:pointer;
 }
 /* The phone table abbreviates one header (table.js's `short`). Two spans, not one swapped string:
-   the abbreviation is drawn and aria-hidden, the full word is kept in the accessibility tree and
-   moved off screen below — display:none there would take the sort button's NAME with it. */
+   the drawn abbreviation and the word it stands for are BOTH in the accessible name below, in that
+   order (WCAG 2.5.3 — see table.js), so the word is moved off screen rather than display:none'd,
+   which would take it out of the name. Here, where the full word is what is drawn, the
+   abbreviation is display:none and leaves the name alone. */
 .th-short{ display:none }
 th.num, td.num{ text-align:right; font-variant-numeric:tabular-nums }
 th.num button{ text-align:right }
@@ -493,10 +495,12 @@ body.fs .grid{ display:block }
      hands `system-ui` — SF here, DejaVu on Linux, and DejaVu is wide enough that the table
      overflowed 390px outright. So the two things paying for width that carries nothing give it
      back: a header word wider than any value beneath it (the Qts swap above) and the cell
-     gutters. Measured across the faces available on macOS and Linux, the pair clears 390px on
-     all of them and 360px — the common Android width, which the old layout missed in EVERY face,
-     SF included — on all of them too. ui.test.mjs asserts both widths, because a fit that only
-     holds in the runner's own font is a coin toss, not a layout. */
+     gutters. Measured on macOS, across the faces installed there — a Linux run is inference, not
+     a reading, and the widest face measured stands in for DejaVu. The pair clears 390px in every
+     one of them, and 360px too, which the old layout missed in EVERY face including SF.
+     ui.test.mjs asserts both widths, because a fit that only holds in the runner's own font is a
+     coin toss, not a layout — and it is the check, not this comment, that a fifth column or a
+     longer header has to answer to. */
   tbody td{ padding:9px 6px }
   thead th button{ padding:10px 6px }
   .th-full{ position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%) }
