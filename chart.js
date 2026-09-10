@@ -178,7 +178,15 @@ window.Chart = (function () {
     }
     for (const grp of stripes.values()) {
       grp.sort((a, b) => a.views - b.views || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
-      grp.forEach((d, k) => { d.jq = Math.pow(10, (((k * PHI) % 1) * 2 - 1) * 0.045); });
+      // Recentred on the stripe's own mean, because frac(0·φ) is 0: un-shifted, the first term is
+      // the extreme −0.045 decades and every stripe leans left. A stripe of ONE then drew a lone
+      // dot a full 9.8% below its own count while having no tie to break at all — Cambini's 149
+      // quartets rendered at 134, on a dot the view rings and labels. Eleven stripes have one
+      // member and they are the whole sparse right end of the axis. A constant shift leaves every
+      // consecutive-rank gap untouched, so the separation this function exists for is unchanged.
+      const off = grp.map((_, k) => ((k * PHI) % 1) * 2 - 1);
+      const mid = off.reduce((a, b) => a + b, 0) / off.length;
+      grp.forEach((d, k) => { d.jq = Math.pow(10, (off[k] - mid) * 0.045); });
     }
   }
 

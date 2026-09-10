@@ -143,8 +143,10 @@ def spread_jq(rows):
         stripes.setdefault(r[3], []).append(r)
     out = {}
     for grp in stripes.values():
-        for k, r in enumerate(sorted(grp, key=lambda r: (r[4], r[0]))):
-            out[r[0]] = 10 ** (((k * PHI) % 1 * 2 - 1) * 0.045)
+        off = [(k * PHI) % 1 * 2 - 1 for k in range(len(grp))]
+        mid = sum(off) / len(off)          # see chart.js: frac(0*phi) is 0, so a raw sequence
+        for k, r in enumerate(sorted(grp, key=lambda r: (r[4], r[0]))):   # leans every stripe left
+            out[r[0]] = 10 ** ((off[k] - mid) * 0.045)
     return out
 
 
