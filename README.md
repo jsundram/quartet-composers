@@ -182,14 +182,27 @@ python3 scripts/validate.py       # THE DATA GATE — see below; run it after ev
 python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (25 + a clean pass)
 python3 scripts/fetch_views.test.py  # the page-view cache's invariants, network stubbed (16 cases)
 python3 scripts/pagemoves.test.py # the page-move rule, offline (9 cases)
-scripts/ui-test.sh           # 195 behavioural checks in a real headless Chrome (lens, tap-to-pin,
+scripts/ui-test.sh           # 240 behavioural checks in a real headless Chrome (lens, tap-to-pin,
                              #   the three filters, theme repaint, 390px layout, offline, print) — no deps
 node scripts/sw.test.mjs     # 24 tests of the service worker's fetch handler
 python3 scripts/sw-lint.py   # precache contract: V bumped, SHELL paths exist, no cross-origin
 python3 scripts/og-lint.py   # share card size (a card over ~250 KB previews as a grey box)
+python3 scripts/prose-lint.py # every number in these docs the repo can compute, vs the live value
+python3 scripts/fix-lint.test.py # the two branch gates below, on throwaway repos (26 cases)
+
+# The branch gates. They compare a branch against what it will merge into, so they need a base ref
+# and run on pull requests in CI; by hand, point them at main.
+python3 scripts/fix-lint.py --base main   # did this branch change source and touch no test?
+python3 scripts/ablate.py --base main     # do the tests it changed actually CATCH the change?
+python3 scripts/ablate.py --base main --with-ui   # ...including the browser suite (slow)
 ```
 
-`validate.py`, `validate.test.py`, `fetch_views.test.py`, `pagemoves.test.py`, `sw.test.mjs` and `sw-lint.py` all run in CI; `ui-test.sh` needs
+`ablate.py` is the one worth knowing about. It reverts the branch's source to the base, keeps the
+branch's tests, and requires a named check to go red — a test that still passes without the code it
+is meant to prove does not prove it. A `No-test: <reason>` trailer on any commit skips both gates
+when there is genuinely nothing to assert.
+
+`validate.py`, `validate.test.py`, `fetch_views.test.py`, `pagemoves.test.py`, `sw.test.mjs`, `sw-lint.py`, `prose-lint.py`, `fix-lint.py`, `ablate.py` and `fix-lint.test.py` all run in CI; `ui-test.sh` needs
 a browser, so it's a local check and skips with exit 0 rather than failing if there isn't one.
 
 ### Why there's a data gate
