@@ -150,9 +150,11 @@ plain static assets. Read README.md first for what the app is.
    them: the pageviews API has no per-article data before 2015-07, so they came from a different
    measurement system. They are archived for provenance only.
 
-13. **Search folds `ł ø đ ß æ œ` before NFD** (`table.js`). Those have no Unicode decomposition, so
-   NFD alone leaves them intact and "lutoslawski" misses "Lutosławski". 58 names carry such
-   characters; a new one means a new `FOLD` entry.
+13. **Search folds `ł ø đ ð þ ß æ œ ı` before NFD** (`table.js`). Those have no Unicode
+   decomposition, so NFD alone leaves them intact and "lutoslawski" misses "Lutosławski". 8
+   names carry such characters; a new one means a new `FOLD` entry. Both the list and the
+   count are pinned by `scripts/prose-lint.py` — they had each drifted from `FOLD` before it
+   existed.
 
 14. **`scripts/make-og-svg.py` duplicates chart.js's scales on purpose.** Same log domains, same
    jitter hash, same emphasis, the same two uniform radii — readership is the Y AXIS in this
@@ -204,8 +206,9 @@ plain static assets. Read README.md first for what the app is.
 
 ## Testing
 
-Eleven entries — seven checks that run offline, one that needs a browser, the monthly top-up, and
-two audits a human grades. No test framework, and nothing to install:
+Twelve entries, one per bullet below — seven checks that run offline, one that needs a
+browser, one pair of branch gates only CI can run, the monthly top-up, and two audits a
+human grades. No test framework, and nothing to install:
 
 - `node scripts/sw.test.mjs` — the service worker's fetch handler under mocked SW globals.
 - `python3 scripts/sw-lint.py` — the precache contract (invariant 1). Five of its six checks read
@@ -220,7 +223,10 @@ two audits a human grades. No test framework, and nothing to install:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 239 behavioral checks against a real headless Chrome over CDP. It starts
+- `scripts/ui-test.sh` — 240 behavioral checks against a real headless Chrome over CDP, the
+  last of which is the suite asserting its OWN stated size against both docs — 235 literal
+  `check(` calls produce 240 at runtime, so it is the one count `prose-lint.py` cannot take
+  offline and this is where the real total is known. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
   in it exists because something was actually broken; read the header before deleting one.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
@@ -259,6 +265,35 @@ two audits a human grades. No test framework, and nothing to install:
   `.github/workflows/refresh.yml` runs it monthly and opens a PR. NB a PR opened with the built-in
   `GITHUB_TOKEN` does NOT trigger `checks.yml`, which is why refresh.py runs the gate itself —
   the gate must not be skippable because a robot opened the PR.
+- `python3 scripts/fix-lint.py --base REF` and `python3 scripts/ablate.py --base REF` — **the two
+  branch gates**, and the answer to why simple changes were taking six rounds of review. Both read
+  TWO commits, so like `sw-lint.py --base` they run on pull requests only and CI is the one place
+  with both sides of the merge. `fix-lint` notices that a branch changed source and touched no
+  test. `ablate` is the one with teeth: it reverts the branch's SOURCE hunks to the base, keeps its
+  TEST hunks, runs the suites that cover what changed, and requires a NAMED check to go red. A test
+  that still passes without the code it is meant to prove does not prove it — which is exactly how
+  PR #23 ran six rounds, four of them fixing a defect in the previous round's fix, every one
+  shipped on a green suite. It is the reviewer's ablation of `pointer-events="none"` (#42), run
+  automatically. Three details are load-bearing: a new named `FAIL` rather than a nonzero exit,
+  because an ablated tree is this branch's tests over the base's code and can die on import while
+  proving nothing (reported as INCONCLUSIVE, which also fails); only the suites `COVERS` maps to
+  the changed files, so a chart.js branch is never asked to redden `validate.test.py`; and it
+  refuses a dirty tree, because restoring means `git checkout HEAD --` and that would take
+  uncommitted work with it. `--with-ui` adds the browser suite, which CI cannot run — a UI branch
+  is told its ablation is owed locally rather than passing quietly. One `No-test: <reason>` trailer
+  on any commit in the range skips BOTH, so an untested source change is a sentence somebody wrote
+  on purpose and a reviewer can read, not a silence. `scripts/fix-lint.test.py` covers both in
+  twenty-six cases that each build a throwaway repo with real branches.
+- `python3 scripts/prose-lint.py` — **every number in README.md and CLAUDE.md that the repo can
+  COMPUTE**, checked against the live value: the curated list sizes in `chart.js`, each suite's
+  `len(CASES)` by importing it, the recorded page-move chains, the `FOLD` characters and the names
+  that need them, and — permissively, the way `og-lint.py` does it — any stated composer count.
+  This file's own rule was that prose the app can falsify is built or cut; it had never been
+  applied to the docs, and three claims had drifted by the time it was written, one of which was
+  spotted during #23, deferred to a follow-up, and never done. A pinned claim that stops MATCHING
+  is a failure and not a pass, which is round 5 of #23's lesson one file over: a check that can go
+  vacuous proves nothing. What it deliberately does not pin is anything with two readings — the
+  entry count above, or which of 884 and 790 a sentence means.
 - `scripts/audit_counts.py` — not automated: it prints parsed quartet counts beside the sentence
   they came from so a human can grade them. Run it after touching `scrape_list.py`.
 - `scripts/audit_redirects.py` — not automated either, and for the same reason: it answers a POLICY
@@ -292,6 +327,27 @@ would not have worked.
   editing them; it is how `check-downstream.py` upstream finds this repo.
 - Comments explain *why*, and especially what breaks otherwise. Match that; don't narrate what the
   next line does.
+- **A comment may not assert a mechanical fact about the code beside it — that becomes a check, or
+  it goes.** This is the built-or-cut rule applied one level down, and it is the rule the steady
+  trickle of low-severity review findings has been about: `histogram.js`'s "Keyed by side" over a
+  `.data([-1, 1])` that joins by INDEX (#42), invariant 13's six folded characters where `FOLD` has
+  nine, "58 names carry such characters" where eight do. Each was correct when written and none
+  could fail — a comment cannot go red. The repo already had the answer and was applying it
+  everywhere except to its own prose: `Chart.missingNames()`, `Names.staleOverrides()`,
+  `unfilterableGenders()` and `unreachableRepertoires()` all turn a claim into something a suite
+  asserts, and `scripts/prose-lint.py` now does it for every computable number in the docs. So a
+  comment that states a join key, a count, a list or a threshold either gets pinned by a check or
+  gets written loosely enough to stay true. A comment about WHY is never in this category, which is
+  most of them, and none of this is an argument for fewer comments.
+- **A fix ships with the test that goes red without it — not with the next review.** `ablate.py`
+  enforces it on a branch, but the discipline is the point: run the fix's test against the tree
+  WITHOUT the fix and watch it fail, before proposing it. PR #23 ran six rounds and four of them
+  fixed a defect in the previous round's fix, every one shipped on a green suite; the test that
+  would have caught each arrived one round late, every time. `validate.test.py` has embodied this
+  from the start — it proves the gate still catches each past incident — and round 4 of that PR had
+  to invent `case(name, expect=None)` to test a deliberate LOOSENING, which is the same idea
+  inverted. When there is genuinely nothing to assert, say so in a `No-test:` trailer rather than
+  leaving it silent.
 - **One filter row, above everything it scopes.** `#filters` is a sibling of `.grid`, not a child
   of the chart card or the table card — all THREE filters (search, readership brush, gender pills)
   scope both views, and a filter drawn inside one card says otherwise. `placeFilters()` moves it into `#viz` in full screen (where the chart

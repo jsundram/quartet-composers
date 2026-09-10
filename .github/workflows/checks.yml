@@ -1,4 +1,4 @@
-# pwa-starter: checks.yml @ d2fad01  (+ the og-lint step)
+# pwa-starter: checks.yml @ d2fad01  (+ the og-lint step, the prose lint, the gates job)
 name: checks
 
 # Guards for sw.js — the offline service worker. Its contract is subtle and easy to regress, so
@@ -18,6 +18,17 @@ name: checks
 #     bump (#32). It reads the branch's own changes from the merge base and the V it has to clear
 #     from the base BRANCH — see the header in sw-lint.py for why those are two different refs.
 #     Pull requests only: a push to main has no base to compare against.
+#   - scripts/fix-lint.py --base and scripts/ablate.py --base : the two branch gates. Like
+#     sw-lint's --base check they need BOTH sides of the merge, so pull requests only, and CI is
+#     the only place that has them. fix-lint notices that a branch changed source and no test;
+#     ablate proves the tests it DID change actually catch what the source changed, by reverting
+#     the source to base and requiring a named check to go red. That second one is the gate PR #23
+#     needed and did not have: four of its six rounds fixed a defect in the previous round's fix,
+#     each shipped on a green suite. Both are skipped by a `No-test:` trailer.
+#   - scripts/prose-lint.py : every number in README/CLAUDE.md the repo can COMPUTE, against the
+#     live value. It reads the working tree, so it runs on pushes too. It found three drifts on
+#     the day it was written, one of which had been deferred to a follow-up during #23 and never
+#     done — which is the argument for a gate over a convention.
 #   - scripts/og-lint.py : it used to be hook-only, because its card-size check reads
 #     `git diff --cached` and a CI checkout stages nothing. Its meta-length and stated-count
 #     checks read the working tree instead, so THOSE run here with a real exit code — which is
@@ -62,6 +73,35 @@ jobs:
         run: python3 scripts/sw-lint.test.py
       - name: share-card + link-preview lint (scripts/og-lint.py)
         run: python3 scripts/og-lint.py
+      - name: computable prose (scripts/prose-lint.py)
+        run: python3 scripts/prose-lint.py
+
+  # The branch gates. A separate job so its failure reads as "this branch is unproven" rather than
+  # as a broken service worker, and because both steps want the full history the sw job also asks
+  # for. Pull requests only: a push to main has no base to compare against.
+  gates:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      # Offline, ~3s, and it runs FIRST: it builds throwaway repos with real branches, so a gate
+      # that has itself regressed says so before it judges this branch.
+      - name: the gates' own tests (scripts/fix-lint.test.py)
+        run: python3 scripts/fix-lint.test.py
+      - name: source without a test (scripts/fix-lint.py --base)
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python3 scripts/fix-lint.py --base "$BASE_SHA"
+      # Only the suites that cover what this branch touched, so a UI-only branch reports that its
+      # ablation is owed locally instead of failing on a browser CI does not have.
+      - name: the tests must catch the change (scripts/ablate.py --base)
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python3 scripts/ablate.py --base "$BASE_SHA"
 
   data:
     runs-on: ubuntu-latest
