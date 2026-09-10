@@ -226,7 +226,7 @@ human grades. No test framework, and nothing to install:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 248 behavioral checks against a real Chrome over CDP, the
+- `scripts/ui-test.sh` — 251 behavioral checks against a real Chrome over CDP, the
   last of which is the suite asserting its OWN stated size against both docs — some checks run in
   loops, so the literal `check(` count is not the number it reports and no offline count is exact.
   It is the one total `prose-lint.py` cannot take, and this is where it is known. It starts
@@ -266,8 +266,9 @@ human grades. No test framework, and nothing to install:
   IHDR — because a comment claiming it could never go red.
   **No check reads a PIXEL, deliberately.** The DOM is the better oracle and every check here
   asserts against it; a screenshot hash or baseline would go red for two reasons that are not
-  bugs — `system-ui` resolves to a different face per platform (it is the one check a Linux run
-  still fails) and `refresh.py` tops the data up monthly by design, moving every dot. So the PNGs
+  bugs — `system-ui` resolves to a different face per platform (which is what #53 was, arriving
+  through the one check that DID read a measurement) and `refresh.py` tops the data up monthly by
+  design, moving every dot. So the PNGs
   are evidence for whoever reads a failure, and what they needed was to still EXIST then:
   `ui-test.sh` deleted `$OUT` unless `KEEP=1`, which is a guess made before a run about a need
   that arises after it, so a failing run destroyed its own evidence. It now keeps the directory
@@ -371,12 +372,12 @@ touching `chart.js`, `table.js`, or `styles.css`. **Not for want of a browser**,
 this line used to say: `ubuntu-latest` ships `/usr/bin/google-chrome` and `find_chrome` finds it.
 Measured on #43, the suite RUNS there and scored 231 of the 240 checks it had then — a RECORD of
 that run, so the denominator does not follow the total above. Of those nine, eight were the
-missing pointer and are fixed (#50, above); the ninth is a FONT metric — `system-ui` is DejaVu
-Sans on a Linux runner and the four phone columns measure 9px wider than on a Mac, so `table does
-not overflow its box at 390px` reads 335 against 326. It is a real cross-platform difference
-rather than a harness artefact, it is the one check a Linux run still fails, and it is open as #53
-— which also holds the measurement TODO asked for before anyone widens either the column budget or
-the assertion.
+missing pointer and are fixed (#50, above); the ninth was a FONT metric — `system-ui` is DejaVu
+Sans on a Linux runner and the four phone columns measured 9px wider than on a Mac, so `table does
+not overflow its box at 390px` read 335 against 326 — and it is fixed too (#53). It was never a
+harness artefact: the layout had no margin, and at 360px it overflowed in every face including the
+Mac's own. Nothing on that list is still failing, so what stands between this suite and CI is the
+decision to add the job, not the platform.
 
 ## Design artifacts
 
