@@ -1,26 +1,23 @@
-// The chart: three ways to read the same ~880 dots, sharing one layout + hit-test core.
+// The chart: four ways to read the same ~880 dots, sharing one layout + hit-test core.
 //
-// WHY THREE. The 2014 original had exactly one: a *cartesian* fisheye that distorted both axes
-// continuously under the cursor. It magnified beautifully and read terribly — with the axes
-// moving there was no stable picture to look at, and a screenshot of it is nonsense. So:
-//
-//   scatter  the default and the honest one. Axes are FIXED (birth year, log quartets) so the
-//            static view is a real chart you can screenshot, print, or link. Detail comes from
+//   fame     the DEFAULT, and the one that makes the page's claim: output ACROSS, attention UP, so
+//            readers-per-quartet is a diagonal and the distance a composer sits above one is the
+//            argument — Mozart near 10,000 readers a quartet, Cambini on 1.
+//   scatter  the honest overview, and one tap away. Axes FIXED (birth year, log quartets), so the
+//            static view is a real chart you can screenshot, print or link; detail comes from
 //            ordinary pan/zoom you opt into, not from a distortion that is always on.
 //   swarm    force-collided along the birth-year axis. Nothing overlaps, ever — the answer to
 //            "most composers here wrote three quartets or fewer and pile onto three log bands".
-//            Costs the quartet-count axis, which is why it isn't the default.
-//   lens     the experiment, rehabilitated. A CIRCULAR fisheye over a fixed base chart: the
-//            axes never move, the magnifier is a lens you drag around. This is what the original
-//            was reaching for.
+//            Costs the quartet-count axis, which is why it is not the default.
+//   lens     the 2014 experiment rehabilitated. A CIRCULAR fisheye over a fixed base chart: the
+//            axes never move and the magnifier is a lens you drag around.
 //
-// Two things are shared by all three and are most of the value:
-//   - hit-testing via a Delaunay over the CURRENT screen positions, so the tap target for a dot
-//     is its whole Voronoi cell rather than its 2.5px radius. On a phone that is the difference
-//     between "usable" and "not".
-//   - greedy collision-avoided labels, so the chart says something with no interaction at all.
+// Two things are shared by all four and are most of the value: hit-testing via a Delaunay over the
+// CURRENT screen positions, so a dot's tap target is its whole Voronoi cell rather than its 2.5px
+// radius (on a phone that is the difference between usable and not); and greedy collision-avoided
+// labels, so the chart says something with no interaction at all.
 //
-// Colors are read INTO JS here (Theme.getCssColor), so a theme flip can't reach them via CSS —
+// Colors are read INTO JS here (Theme.getCssColor), so a theme flip cannot reach them via CSS —
 // app.js calls rerender() on every theme change and this file re-reads them. See theme.js.
 
 window.Chart = (function () {
@@ -67,39 +64,26 @@ window.Chart = (function () {
                  "Sergei Prokofiev", "Dmitri Shostakovich"];
   const OUTLIERS = ["Giuseppe Cambini", "Franz Krommer", "John Lodge Ellerton"];
 
-  // A SECOND repertoire, shown only while the Women filter is on (issue #7).
+  // A SECOND repertoire, shown only while the Women filter is on (issue #7). Every name in CANON
+  // is a man, so the women's group was filled with nothing at all. Deriving one was rejected — a
+  // canon is a claim about what gets played, which is taste, and no single ranking reproduces one
+  // (the best recovers 8 of 13) — so this is a second hand-written list, by the same taste, about
+  // the group the filter is showing. Nine, in birth order, spanning 1805 to 1962.
   //
-  // #7 asked two questions and they got different answers. Should the curated set be computed?
-  // No -- a canon is a claim about what gets played, which is taste, and TODO records that no
-  // single ranking reproduces one (the best recovers 8 of 13). Should the RING be computed? Yes --
-  // "wrote a lot and is read little" is a property of whatever crowd is on screen, and it has been
-  // derived per filter since 2026-09-05. So the fill stays hand-written and the ring stays earned.
+  // GATED TO THE FILTER, and that is the whole design: none of the nine clears 10,000 readers a
+  // month, so at rest they would be nine filled dots low in the densest part of the cloud under a
+  // key that holds Mozart and Beethoven. It is a different claim, and it is legible exactly when
+  // the women are the picture — so the resting view, "Men" and the share card are untouched.
   //
-  // That left the women's group filled with nothing, because every name in CANON is a man. The
-  // answer is not to derive one: it is to write a second list, by the same taste, about the group
-  // the filter is showing. Nine, in birth order, spanning 1805 to 1962.
-  //
-  // GATED TO THE FILTER, and that is the whole design. Not one of the nine clears 10,000 readers a
-  // month -- Price tops them at 8,001, where CANON's median is Tchaikovsky at 58,023 -- so at rest
-  // they would be nine filled dots low in the densest part of a 790-dot cloud, under a key reading
-  // "the repertoire", claiming to be the same set as Mozart and Beethoven. They are not the same
-  // claim. They are a claim about the women, and it is legible exactly when the women are the
-  // picture. So the resting view and the share card are untouched (invariant 14 draws the view AT
-  // REST, so this never reaches the card), "Men" is untouched, and "Women" swaps the claim rather
-  // than diluting it.
-  //
-  // Keyed by the gender pill VALUE, so this table and index.html's pills are one vocabulary --
-  // a key no pill can reach is dead code, which app.js asserts against exactly as it does for
-  // an unfilterable P21 value (invariant 7).
+  // Keyed by the gender pill VALUE, so this table and index.html's pills are one vocabulary; a key
+  // no pill can reach is dead code, which app.js asserts against (invariant 7).
   const WOMEN_CANON = ["Fanny Hensel", "Amy Beach", "Rebecca Clarke", "Florence Price",
                        "Elizabeth Maconchy", "Grażyna Bacewicz", "Sofia Gubaidulina",
                        "Elena Kats-Chernin", "Jennifer Higdon"];
   // The list and the sentence that names it are ONE editorial claim, so they live together: a key
-  // that still said "the repertoire" while filling nine women the repertoire never contained would
-  // be labelling the wrong channel, which is the failure invariant 8 exists to prevent.
-  // `noun` is separate from the legend's phrasing because two sentences need it in two shapes —
-  // the key says "<noun>, in birth order", the lede says "<noun>, 1709 to 1906". One noun, so
-  // they cannot come to disagree about what the filled dots ARE.
+  // still reading "the repertoire" over nine women the repertoire never held would be labelling the
+  // wrong channel, which is the failure invariant 8 exists to prevent. `noun` is separate from the
+  // legend's phrasing so the two cannot come to disagree about what the filled dots ARE.
   const REPERTOIRES = { female: { names: WOMEN_CANON, noun: "the notables" } };
   const DEFAULT_REPERTOIRE = { names: CANON, noun: "the notables" };
   let repertoire = DEFAULT_REPERTOIRE;
@@ -139,34 +123,23 @@ window.Chart = (function () {
   let pos = [], idx = [], delaunay = null;
 
   // ---- data prep ----------------------------------------------------------
-  // Deterministic jitter from the name, so ties separate without the picture changing between
-  // renders. Ties are very common (many cells hold several composers at one birth year AND count) and
-  // an un-jittered scatter hides them completely — one dot is drawn over another and the one
-  // underneath can never be hovered, tapped, or counted by eye. Kept small (half a year; ~9% in
-  // count-space, well inside the gap between adjacent integer counts) and disclosed in the hint.
-  function hash(s) {
-    let a = 2166136261;
-    for (let i = 0; i < s.length; i++) { a ^= s.charCodeAt(i); a = Math.imul(a, 16777619); }
-    return ((a >>> 0) / 4294967295) * 2 - 1;     // -1..1
-  }
-
-  // Quartet counts are integers, so on the Fame view's log x every composer with the same count
-  // lands on one vertical stripe — and Fame is the view with NO y jitter (layout() plots the raw
-  // readership), so this offset is the only thing holding apart two composers who wrote the same
-  // number of quartets and are read about equally. A hash cannot do that job. It is an independent
-  // uniform draw per name, which separates ties on AVERAGE and not in particular: Debussy and
-  // Gershwin (one quartet each, 0.5% apart in readership) drew 0.47px apart, close enough that the
-  // Delaunay bisector ran through the middle of the visible disc and its right half selected the
-  // composer you could not see (#45).
+  // A deterministic offset per row, so ties separate without the picture changing between renders.
+  // Ties are very common — many cells hold several composers at one birth year AND count — and an
+  // un-jittered scatter hides them completely: one dot is drawn over another and the one underneath
+  // can never be hovered, tapped or counted by eye. Kept small (half a year; ~9% in count-space,
+  // well inside the gap between adjacent integer counts) and disclosed in the hint.
   //
-  // So rank instead of hash. Within a stripe, order by readership and walk the golden ratio: by the
-  // three-distance theorem consecutive terms of frac(k·φ) sit ~0.382 or ~0.618 of the range apart,
-  // so the dots ADJACENT IN Y — the only ones that can collide — are pushed as far apart in x as
-  // the range allows. Still deterministic, still stable between renders, and the amplitude is
-  // untouched, so the nudge still cannot be read as data.
-  //
-  // Ordered by readership and then by NAME, never by row order: build_data.py is free to reorder
-  // its rows, and a jitter that followed that would move dots when nothing about the data changed.
+  // RANKED, not hashed (#45). Quartet counts are integers, so on Fame's log x every composer with
+  // the same count lands on one vertical stripe — and Fame has NO y jitter, so this offset is the
+  // only thing holding apart two composers who wrote the same number and are read about equally. A
+  // hash is an independent draw per name, which separates ties on AVERAGE and not in particular:
+  // Debussy and Gershwin (one quartet each, 0.5% apart in readership) drew 0.47px apart, close
+  // enough that the Delaunay bisector ran through the middle of the visible disc and its right half
+  // selected the composer you could not see. So within a stripe, order by readership and walk
+  // frac(k·φ): by the three-distance theorem consecutive terms sit ~0.382 or ~0.618 of the range
+  // apart, so the dots ADJACENT IN Y — the only ones that can collide — are pushed as far apart in
+  // x as the range allows. Ordered by readership and then by NAME, never by row order: build_data.py
+  // is free to reorder its rows, and a jitter that followed would move dots for no reason.
   const PHI = (Math.sqrt(5) - 1) / 2;
   function spreadJq() {
     const stripes = new Map();
@@ -180,11 +153,10 @@ window.Chart = (function () {
     for (const grp of stripes.values()) {
       grp.sort((a, b) => a.views - b.views || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
       // Recentred on the stripe's own mean, because frac(0·φ) is 0: un-shifted, the first term is
-      // the extreme −0.045 decades and every stripe leans left. A stripe of ONE then drew a lone
-      // dot a full 9.8% below its own count while having no tie to break at all — Cambini's 149
-      // quartets rendered at 134, on a dot the view rings and labels. Eleven stripes have one
-      // member and they are the whole sparse right end of the axis. A constant shift leaves every
-      // consecutive-rank gap untouched, so the separation this function exists for is unchanged.
+      // the extreme −0.045 decades and every stripe leans left. A stripe of ONE then drew a lone dot
+      // a full 9.8% below its own count while having no tie to break at all — Cambini's 149 quartets
+      // rendered at 134, on a dot the view rings and labels. A constant shift leaves every
+      // consecutive-rank gap untouched.
       const off = grp.map((_, k) => ((k * PHI) % 1) * 2 - 1);
       const mid = off.reduce((a, b) => a + b, 0) / off.length;
       grp.forEach((d, k) => { d.jq = Math.pow(10, (off[k] - mid) * 0.045); });
@@ -292,19 +264,18 @@ window.Chart = (function () {
 
   // ---- label priority -----------------------------------------------------
   // LABELS ARE A FUNCTION OF ZOOM, like a map. A fixed set answers a pinch with the same names
-  // larger, which makes the zoom decorative: the interaction promises detail and delivers scale.
-  // So the budget grows with the zoom (pickLabels) and this decides who fills it.
+  // larger, which makes the zoom decorative: the interaction promises detail and delivers scale. So
+  // the budget grows with the zoom (pickLabels) and this decides who fills it.
   //
   // PROMINENCE is how far a dot stands out from the crowd it is drawn in: z-scored on each axis,
   // then the distance from the centre. Z-scores rather than raw decades because the two axes have
   // different spreads, and a rule that ignores that just ranks whichever axis is wider.
   //
-  // Recomputed over the VISIBLE set, so a filter ranks that group against ITSELF. That is the
-  // whole reason it beats readership here: filtered to the women, readership names whoever has
-  // the largest article (Beach, Monk — famous for other work, one quartet each), while prominence
-  // names Kats-Chernin and Vrebalov, who wrote 25 and 18 of them. Neither is wrong; only one is
-  // about this chart. Against the full roster it recovers eight of the thirteen curated names,
-  // including the prolific end (Cambini, Ellerton, Krommer) that readership is blind to.
+  // Recomputed over the VISIBLE set, so a filter ranks that group against ITSELF. That is why it
+  // beats readership here: filtered to the women, readership names whoever has the largest article
+  // (Beach, Monk — famous for other work, one quartet each), while prominence names Kats-Chernin and
+  // Vrebalov, who wrote 25 and 18 of them. Against the full roster it recovers eight of the thirteen
+  // curated names, including the prolific end readership is blind to.
   let prom = new Map();
   // Below this a "prominent" dot is a data hole rather than a composer: prominence is distance
   // from the centre, so an article with no real number ranks high on one it does not have. Still
@@ -328,24 +299,19 @@ window.Chart = (function () {
     refreshEmphasis();
   }
 
-  // THE RING FOLLOWS THE FILTER. Every one of the curated thirteen is a man, so "Women" used to
-  // ring nobody: it dimmed every accented dot to 0.07 and offered the group no emphasis of its
-  // own, in the one view whose whole job is picking a few names out of a field. The ring now says
-  // the same thing about whatever group is on screen — "these are the ones standing out from the
-  // crowd they are drawn in" — which is what it always meant; it was just frozen to one crowd.
+  // THE RING FOLLOWS THE FILTER. Every one of the curated thirteen is a man, so "Women" used to ring
+  // nobody: it dimmed every accented dot to 0.07 and offered the group no emphasis of its own, in
+  // the one view whose job is picking a few names out of a field. The ring now says the same thing
+  // about whatever group is on screen — "these stand out from the crowd they are drawn in" — which
+  // is what it always meant; it was just frozen to one crowd.
   //
   // Same seed-then-rank shape as the label budget, and deliberately the same size as OUTLIERS:
-  // THREE rings, filled first by the curated outliers the filter kept and then by prominence. So
-  // filtering to the men (who include all three) changes nothing, and filtering to the women
-  // derives all three. It was six until Debussy, Gershwin and Ravel left this set for the
-  // repertoire; keep the two in step, or "Women" gets more emphasis than the resting view has.
-  // Only the ring is derived — the repertoire filled in --sel is an editorial claim about which
-  // quartets are played, which is not a thing a ranking can recompute (see issue #7).
-  // The one place the curated fill is built. setData() calls it for the opening view and
-  // setRepertoire() calls it when the filter swaps the claim; both then go through
-  // refreshEmphasis(), so the ring budget is re-derived against whatever is now curated -- which
-  // is why filling Kats-Chernin and Price hands their ring slots to Vrebalov and Monk instead of
-  // ringing a dot that is already filled.
+  // filtering to the men (who include all three) changes nothing, filtering to the women derives all
+  // three. Keep the two in step, or "Women" gets more emphasis than the resting view has. Only the
+  // ring is derived — the fill is an editorial claim no ranking can recompute (issue #7).
+  // setData() calls this for the opening view and setRepertoire() when the filter swaps the claim;
+  // both then go through refreshEmphasis(), so curating Kats-Chernin and Price hands their ring
+  // slots on rather than ringing a dot that is already filled.
   function applyRepertoire() {
     canonIdx = resolve(repertoire.names);
     canonSet = new Set(canonIdx);
@@ -359,37 +325,24 @@ window.Chart = (function () {
   // IS the picture — every dot is already legible and separately labelled — and ringing three of
   // eight would be pointing at almost everything.
   const MIN_FIELD = 20;
-  // ...and it has to stand APART. Prominence is distance from the CENTRE of the visible cloud, so
-  // a corner full of composers all scores high and the tie was broken by nothing visual at all:
-  // under "Women" the ring landed on Meredith Monk, whose disc came within 4px of Amy Beach's —
-  // two 6.75px dots with a hairline between them, one filled and one ringed. A ring that close to
-  // a dot the view has already picked out says nothing the picture was not already saying, and
-  // reads as clutter rather than as emphasis. The closest ring/fill pair is 30px clear now.
+  // ...and it has to stand APART. Prominence is distance from the CENTRE of the visible cloud, so a
+  // corner full of composers all scores high and the tie was broken by nothing visual at all: under
+  // "Women" the ring landed on a dot 4px from a filled one — two discs with a hairline between them,
+  // one filled and one ringed. A ring that close to a dot the view has already picked out says
+  // nothing the picture was not already saying, and reads as clutter rather than as emphasis.
   //
-  // So a derived ring must clear every dot already emphasised, and every ring derived before it,
-  // by 3% of the plot's diagonal. Measured in SCREEN space because "on top of" is a claim about
-  // pixels, not about data — and as a FRACTION of the plot so it means the same thing on a phone
-  // and in full screen. The exact number is not delicate: anything from about 2.5% to 5% picks the
-  // same three on a desktop.
+  // So a derived ring must clear every dot already emphasised, and every ring derived before it, by
+  // a fraction of the plot's diagonal. Measured in SCREEN space because "on top of" is a claim about
+  // pixels, not about data — and as a FRACTION so it means the same thing on a phone and in full
+  // screen. The exact number is not delicate: 2.5% to 5% picks the same three on a desktop.
   //
-  // It changes what the ring finds, and for the better: the three it now derives under "Women" are
-  // all "wrote a lot, read little", which is exactly what the CURATED outliers mean at rest.
-  // The other end of that group is not lost, it is carried by the other channel — Price and Beach
-  // are filled.
-  const MIN_SEP = 0.03;
-  // ...and a fraction of the diagonal alone does not mean the same thing at every size, because
-  // the fame dot radius is FLOORED at 3.2: as the plot shrinks the dots stop shrinking with it, so
-  // the same fraction buys steadily less daylight relative to the things it is separating. At
-  // 320px the fraction works out at ~11.8px against a bar of 10.6 — a margin of about one pixel.
-  //
-  // This is a GUARD, not a fix for anything observed: probed across eight viewports from 320px to
-  // 1100px, the fraction alone still clears the bar by 20px or more on today's data. What was
-  // actually producing a 5.7px violation on a phone was the STALE GEOMETRY above — rings chosen
-  // for one box and drawn in another — and that is fixed where it was caused, in setMode/resize.
-  // The floor stays because a threshold that sits a pixel above the bar it has to satisfy is not
-  // a threshold. Stated in DOTS to say so: centres at least 4 named radii apart, i.e. a whole
-  // dot's width of daylight between the edges, which is the bar ui.test.mjs measures. On a
-  // desktop the fraction is the larger of the two and nothing changes.
+  // The floor in DOTS is a guard, not a fix for anything observed. The fame radius is FLOORED, so as
+  // the plot shrinks the dots stop shrinking with it and the same fraction buys steadily less
+  // daylight relative to the things it is separating — at 320px a margin of about one pixel. Probed
+  // across eight viewports the fraction alone still clears the bar by 20px or more; what actually
+  // produced a violation on a phone was the STALE GEOMETRY above, fixed where it was caused, in
+  // setMode/resize. Stated in dot radii to say what it buys: a whole dot's width of daylight between
+  // the edges, which is the bar ui.test.mjs measures.
   const GAP_DOTS = 4;
   // ONE definition, shared with layout(): the separation floor is expressed in the radius of the
   // dot it is separating, so the two cannot drift.
@@ -578,16 +531,13 @@ window.Chart = (function () {
   const inFrame = p => p.x >= -FUZZ && p.x <= w + FUZZ && p.y >= -FUZZ && p.y <= h + FUZZ;
 
   // ---- labels -------------------------------------------------------------
-  // Greedy, most-viewed first, first-come-first-served on space. This is what makes the STATIC
-  // view worth looking at: with no interaction the chart already says "Haydn, Boccherini, Cambini,
-  // Beethoven". Width is estimated rather than measured — a getBBox() per candidate would force
-  // ~30 synchronous layouts per frame during a zoom, and being 10% off just costs a little
-  // whitespace. The selected composer is placed FIRST so it never loses its label to a rival.
-  //
-  // A label prints the SHORT name (names.js), not the canonical Wikipedia title: 7 characters on
-  // average instead of 15. That is not only tidier — the placer is first-come-first-served on
-  // space, so halving every box is what lets the ones behind it find room at all. The full title
-  // is still one hover or tap away in the detail panel, and the flag prints it on the way.
+  // Greedy, most-viewed first, first-come-first-served on space. This is what makes the STATIC view
+  // worth looking at: with no interaction the chart already says "Haydn, Boccherini, Cambini,
+  // Beethoven". Width is ESTIMATED rather than measured — a getBBox() per candidate would force ~30
+  // synchronous layouts per frame during a zoom, and being 10% off just costs a little whitespace.
+  // The selected composer is placed FIRST so it never loses its label to a rival. Every label prints
+  // the SHORT name (names.js), 7 characters instead of 15: halving every box is what lets the names
+  // behind it find room at all, and the full title is one tap away in the panel.
   function pickLabels(p, diag) {
     // Full screen earns more labels, but not proportionally more: a phone in full screen is TALL
     // and narrow, and 40+ names there collide with dots even when they miss each other.

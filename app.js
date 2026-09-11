@@ -528,77 +528,49 @@ function placeFilters() {
 }
 
 // The third of these, on the same contract as placeFilters() and placeDetail(): one element, moved,
-// never a second copy — #fs holds the pressed state and share() holds a timeout on its own label, so
-// two of either would drift apart.
+// never a second copy — #fs holds the pressed state and share() a timeout on its own label, so two of
+// either would drift apart. They leave the controls row wherever it will not hold them on one line,
+// which is what PAYS for Reset filters beside Reset zoom; CLAUDE.md's placeChartTools() bullet has the
+// rest of the why, and they sit in the band chart.js already spends on the y-axis title, so the cost
+// is 26px of data area rather than a covered dot.
 //
-// Share and Full screen leave the controls row and become icons on the chart wherever the row does
-// not fit on one line with them in it. That is what PAYS for the Reset filters button beside Reset
-// zoom: .controls is already two lines at 390, and a third word button takes it to three — 48px of
-// the first screen, half of what issue 29 spent 94px winning back. Shrinking these two to icons IN
-// the row is not enough on its own; at 360 it still wraps to three lines. Only lifting them out
-// clears it at both widths.
+// THE ONLY COPY OF THIS BREAKPOINT: styles.css scopes the icon look to `#plot > #chart-tools`, so the
+// look follows the DOM rather than re-deciding the width. It answered on width once, and then every
+// state where this had not run yet drew the icon look in the row.
 //
-// The row is two lines well past a phone, so this stopped pretending to be a phone rule — see the
-// measurement above iconsOnPlot() below.
-//
-// They do not float over the DOTS. They sit in the band chart.js already spends on the y-axis
-// title, which the chart widens to fit them — so the cost is 26px of data area rather than any dot
-// being covered, and it is paid out of a box whose outer height is unchanged.
-//
-// Width, not full screen: the words stay wherever there is room for them, and #plot is the target in
-// both layouts (in full screen it is flex:1, so the band is still the band). Everything that makes
-// the overlay safe is already true of #plot — see the CSS.
-//
-// THE ONLY COPY OF THIS BREAKPOINT. styles.css scopes the icon look to `#plot > #chart-tools`, so
-// the looks follow the DOM rather than re-deciding the width, and a disagreement between the two —
-// a word button parked over the dots, or a bare glyph in the controls row — has nowhere to come
-// from. It had somewhere before: the CSS answered on width alone, so every state where this had not
-// run yet drew the icon look in the row.
-//
-// TWO intervals, because the row's width is not monotonic in the viewport's. What decides the row is
+// TWO intervals, because the row's width is not monotonic in the viewport's: what decides the row is
 // the CARD, and the two-column grid at 900px takes 194px off it. Measured with the words in the row,
-// stepping 4px:
+// stepping 4px — the numbers in parentheses allow for share()'s wider "Link copied", which is the
+// state that matters, since a row that wraps on the PRESS drops the plot 44px under the cursor that
+// just pressed it:
 //
 //     641- 743   card  582- 681   two lines
-//     744- 899   card  682- 837   ONE line (780 up, once share()'s "Link copied" is allowed for)
+//     744- 899   card  682- 837   ONE line (780 up)
 //     900-1055   card  524- 679   two lines
-//     1056+      card  680+       ONE line (1092 up, same allowance)
+//     1056+      card  680+       ONE line (1092 up)
 //
-// So the words fit in two bands and the icons are right in the other two. "Link copied" is the
-// widest state the row ever has, and it is the one that matters: a row that wraps on the PRESS drops
-// the plot 44px under the cursor that just pressed it, which is the rule the chart's controls
-// already follow one row down (see index.html). Both numbers here sit clear of the measured edge on
-// the ICON side, because the two errors are not equal — words where they do not fit is that shift,
-// while icons where words would have fitted costs 26px of data height and nothing else.
-// Those widths are one machine's font metrics, so ui.test.mjs presses Share at 800 and at 1101 —
-// the first width in each band that draws the words — and fails if the row grows.
+// Both thresholds sit clear of the measured edge on the ICON side, because the two errors are not
+// equal: words that do not fit is that 44px shift, while icons where words would have fitted costs
+// 26px of data height and nothing else. One machine's font metrics, so ui.test.mjs presses Share at
+// the first width in each band and fails if the row grows.
 //
-// They are TWO queries and not one list, because only the second one is about the grid.
-// `body.fs .grid{ display:block }` — in full screen the card IS the window, so the 194px is never
-// taken and the row is back to the 1056+ geometry. Measured the same way, words in the row with the
-// widest label: full screen fits them from 762px, where the two-column card does not until 1092. So
-// the squeezed interval is skipped there, and a 1000px window in full screen keeps its words instead
-// of spending the 48px band on a row that would have held them. That band costs MORE in full screen
-// than at rest — #plot is flex:1 there, so it comes off a chart that is already the whole viewport.
-// The narrow interval still applies, conservatively: full screen fits from 762 and this draws icons
-// to 799, which errs 38px toward the icons, the side that cannot wrap a row under a cursor.
+// TWO queries and not one list, because only the second is about the grid: `body.fs .grid` is
+// `display:block`, so full screen never pays the 194px and fits both words from 762px. The squeezed
+// interval is skipped there, or a 1000px full-screen window spends the band on a row that would have
+// held them — and it costs more there, off a flex:1 chart that is already the whole viewport. The
+// narrow interval still applies, erring 38px toward the side that cannot wrap a row under a cursor.
 const NARROW = matchMedia("(max-width:799px)");
 const SQUEEZED = matchMedia("(min-width:900px) and (max-width:1100px)");
 const iconsOnPlot = () =>
   NARROW.matches || (SQUEEZED.matches && !document.body.classList.contains("fs"));
 
 // 40px of touch target, CENTRED on the axis title's line, with the whole target clear of the plot
-// area. Those numbers pin the band, and styles.css carries the derivation: the glyph's centre sits
-// at BAND-12.47, its bottom is the target's bottom, so the target spans 3.5 to 43.5 and BAND has to
-// be 48 for it to start below the top edge and end above the plot.
-//
-// The clearance is not cosmetic. The target is invisible, so anything it overlaps is a dot that
-// silently stops being tappable — at BAND 46 the target's bottom landed ON the plot area and shadowed
-// 12 dots in the swarm, whose blob reaches the top of its box. 4.5px is what it clears the plot area
-// by, not the 8px the title sits above it, and that is the whole margin: a dot's clip is inset
-// outward by a radius, so the sliver of one at the very top edge can still reach under the target
-// under a pinch. Never its centre — see styles.css. Lowering BAND again spends that margin twice.
-// See setTopReserve() in chart.js for why the chart is TOLD this rather than reading the breakpoint.
+// area. styles.css carries the derivation from the title's own box; what matters here is why the
+// clearance is not cosmetic. The target is invisible, so anything it overlaps is a dot that silently
+// stops being tappable — one pixel lower, the target's bottom landed ON the plot area and shadowed 12
+// dots in the swarm, whose blob reaches the top of its box. The margin it leaves is the whole margin:
+// a dot's clip is inset outward by a radius, so the sliver of one at the very top edge can still
+// reach under the target under a pinch. Never its centre — see styles.css.
 const TOOLS_BAND = 48;
 
 function placeChartTools() {

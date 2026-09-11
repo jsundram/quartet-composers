@@ -3,9 +3,9 @@
 **[jsundram.github.io/quartet-composers](https://jsundram.github.io/quartet-composers/)**
 
 884 composers from Wikipedia's [List of String Quartet
-Composers](https://en.wikipedia.org/wiki/List_of_string_quartet_composers), plotted by birth year
-and number of quartets written, sized by how much their article is read and coloured by lifespan —
-with a searchable, sortable table of the same data underneath.
+Composers](https://en.wikipedia.org/wiki/List_of_string_quartet_composers), plotted by how many
+quartets they wrote against how much their article is read — with three other views of the same
+roster (a birth-year timeline, a swarm, a fisheye lens) and a searchable, sortable table underneath.
 
 A remake of a [2014 experiment](http://viz.runningwithdata.com/quartet_composers/index.html) that
 used a *cartesian* fisheye: both axes warped continuously under
@@ -16,13 +16,13 @@ stable picture, hovering was the only way to learn anything, and a screenshot of
 
 | 2014 | now |
 |---|---|
-| One view: cartesian fisheye, always on | Three: **scatter** (fixed axes, ordinary pan/zoom), **swarm** (force-collided, nothing overlaps), **lens** (a *circular* fisheye over a fixed chart) |
+| One view: cartesian fisheye, always on | Four: **fame** (quartets against readership — the default, and the one that makes the argument), **timeline** (fixed axes, ordinary pan/zoom), **swarm** (force-collided, nothing overlaps), **lens** (a *circular* fisheye over a fixed chart) |
 | Linear y, 0–200 | **Log y** — most composers here wrote three quartets or fewer, and a linear axis crushed them into one line |
 | Tap target = the dot (2.5px for most) | **Voronoi hit-testing** — a Delaunay over current screen positions, so the target is the dot's whole cell |
 | Hover-only tooltip | **A persistent detail panel.** Hover previews it, click/tap pins it — which is also why there's no hover bubble to double-fire on touch |
 | No labels | **Collision-avoided labels**, so the static view says something with no interaction at all |
 | Fixed 960px, desktop only | Responsive, dark mode, print stylesheet, and a CSS-driven full-screen chart |
-| Colour = lifespan on RdYlBu-9 | Diverging ramp pivoting on the **median** lifespan, with living composers off the ramp entirely |
+| Colour = lifespan on RdYlBu-9 | **Sequential** ramp (YlGnBu, stepped darker for contrast on this surface) over a fixed domain, with living composers off the ramp entirely — a diverging one needs a baseline, and pivoting on the dataset's own median moved the pivot whenever the data did |
 | 477 composers, frozen 2014 scrape | **884**, re-scraped, with a repeatable pipeline (below) |
 | Dot size = one month of page views | **Median of 12 months** — a single month is 12% off typical, 29% at worst |
 | — | **A readership sparkline** in the detail panel — every month since 2015-07, hover or arrow-key any month to read it, and a caption that names the spike (Saariaho's obituary, 18× typical) or the trend (Haydn, down 42% since 2015) |
@@ -84,9 +84,9 @@ python3 scripts/compare_2014.py     # diff against the archived 2014 snapshot, w
 ## Five data elements, five different problems
 
 **(a) The roster** and **(b) quartet counts** come from the list page, which is *prose, not a
-table*: `*[[Joseph Haydn]] (1732–1809): Wrote sixty-eight string quartets…`. Seven rules read 791
-of 885 entries; the rest return **null** and appear in the table but not the chart, because a wrong
-count ships as a confident dot while a null is merely honest. Graded by hand on a random sample:
+table*: `*[[Joseph Haydn]] (1732–1809): Wrote sixty-eight string quartets…`. Seven rules read a count for
+790 of the 884 composers; the rest return **null** and appear in the table but not the chart,
+because a wrong count ships as a confident dot while a null is merely honest. Graded by hand on a random sample:
 25 exactly right, 4 correctly null, 1 arguable. *Wikidata is not an alternative here* — Beethoven's
 quartets are typed as generic "musical work/composition" with nothing linking them to the genre, so
 a SPARQL count over the whole corpus returns four composers.
@@ -117,30 +117,25 @@ traps, all of which this repo fell into first:
   own median. `monthly` granularity returns the whole range in **one request**, so twelve months
   costs exactly what one did. The stored series makes the statistic recomputable offline.
 
-The cache now holds **every month the API has** — 2015-07 onward, 134 months — for the same
-one-request reason, and the detail panel draws it as a sparkline.
-Each series is stored as a **flat array aligned to a shared `months` axis**, null where the API had
-nothing: the obvious `{month: count}` object repeats the key 884 times per month and cost 1.9 MB
-against 0.5 MB for the same numbers, and had to be rewritten whole every month. A null is *asked,
-and there was nothing there* — distinct from a **missing** month, which is *never asked*, and
-recording it is what makes a top-up cheap: without it the 62 articles created after 2015 look
-permanently incomplete and are refetched in full on every run. The corollary is that a title that
-needs fetching is fetched over the **whole axis**, never over `--months`: a flat array has no third
-value between a count and a null, so the file holds exactly one asked window, and writing a
-narrower fetch onto the wider axis would record un-asked months as nulls that then read as
-complete forever. A month **in progress** is refused outright — the API does not withhold the
-current month, it returns the days so far as though they were the month. And a title that does not
-**answer** — a 404, or five exhausted retries — is dropped from the cache rather than written,
-because the flatten would otherwise null-pad it into looking complete forever; dropping it makes
-the next run ask again in full, which is what "rerun to pick them up" promises.
-`scripts/fetch_views.test.py` holds all of that as sixteen stubbed, offline cases. The headline number did **not**
-move with it: the median is still over the last **twelve** cached months — up to twelve, since a
-null is dropped and a composer whose article moved inside the window has one — because "how much
-read is this composer" is a question about now. The rest is history, which is a different question, and
-`validate.py` recomputes one from the other so the two files cannot drift apart. What a decade
-buys is the thing twelve months structurally cannot show: Kaija Saariaho runs at ~2,000 readers a
-month for eight years and touches 42,195 in June 2023, the month she died. 61 of the 884 articles
-did not exist in 2015, and their sparklines start partway across the box and say so — a blank
+The cache now holds **every month the API has** — 2015-07 onward — for the same one-request reason,
+and the detail panel draws it as a sparkline. Each series is a **flat array aligned to a shared
+`months` axis**, null where the API had nothing: the obvious `{month: count}` object repeats the key
+884 times per month, cost 1.9 MB against 0.5 MB, and had to be rewritten whole every month. The
+three states are what make a top-up cheap — a **null** is *asked, and there was nothing there*, a
+**missing** month is *never asked*, and a title that did not **answer** is dropped rather than
+written, so the next run asks for it again in full. Without that distinction the articles created
+after 2015 look permanently incomplete and are refetched every run. The corollary: a title is
+fetched over the **whole axis**, never over `--months`, because a flat array has no third value and
+a narrower fetch would record un-asked months as nulls that then read as complete forever. A month
+**in progress** is refused outright — the API returns the days so far as though they were the month.
+`scripts/fetch_views.test.py` holds all of that as stubbed, offline cases.
+
+The headline number did **not** move when the window grew: the median is still over the last
+**twelve** cached months, because "how much read is this composer" is a question about now. The rest
+is history, a different question, and `validate.py` recomputes one from the other so the two files
+cannot drift apart. What a decade buys is what twelve months structurally cannot show: Kaija
+Saariaho runs at ~2,000 readers a month for eight years and touches 42,195 in June 2023, the month
+she died. The articles that did not exist in 2015 start partway across the box and say so — a blank
 stretch under a line chart otherwise reads as "nobody read this" rather than "not written yet".
 
 **(e) Sex or gender** is **Wikidata [P21](https://www.wikidata.org/wiki/Property:P21)**, and it is the one element that is not a measurement but

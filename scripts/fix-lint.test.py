@@ -406,6 +406,12 @@ with tempfile.TemporaryDirectory() as tmp:
     # Counted at RUNTIME, not by grepping for `case(`: these cases are inline rather than
     # registered, so a static count reads 23 against a real 25 — which is the very defect
     # prose-lint.py exists to catch, so it declines to count this file and this does it instead.
+    #
+    # ONE stated count is enough, and that is a deliberate loosening. This used to require the number
+    # in BOTH docs, which made every added case a three-file edit and made the docs the reason to
+    # skip writing one — the same tax that got the UI suite's size dropped from the docs entirely.
+    # A count that IS stated still has to be right, so a stale one fails exactly as before; what no
+    # longer fails is a doc that simply does not bring it up.
     total = len(printed) + 1   # +1: this case is about to be printed
     stated = []
     for f in ("README.md", "CLAUDE.md"):
@@ -420,7 +426,7 @@ with tempfile.TemporaryDirectory() as tmp:
              for t, b in (("twenty", 20), ("thirty", 30), ("forty", 40), ("fifty", 50))
              for i, o in enumerate(ones)}
     nums = [(f, int(v) if v.isdigit() else words.get(v, -1)) for f, v in stated]
-    case("both docs state this suite's real size", len(nums) >= 2 and all(n == total for _f, n in nums),
+    case("every stated size of this suite is its real one", nums and all(n == total for _f, n in nums),
          True, ", ".join(f"{f} says {n}" for f, n in nums) + f" — it is {total}")
 
 print(("\nFAIL: " + ", ".join(fails)) if fails else "\nall ok")

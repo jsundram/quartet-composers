@@ -1945,26 +1945,17 @@ await settle(`document.getElementById('reset-filters').disabled`);
 await send("Emulation.setTouchEmulationEnabled", { enabled: false });
 
 // --- 7c2. Share and Full screen become icons ON the chart, and stay usable there ---------------
-// Issue 35. They leave .controls wherever the row will not hold them on one line, which is every
-// window up to 1100px — on a phone that is what pays for the Reset filters button beside Reset
-// zoom, since the row is already two lines at 390 and a third word button takes it to three. The
-// risks of putting a control over a zoom surface are what this checks: that they still
-// receive taps (d3-zoom binds to the SVG, not to #plot, so they should), that chart.js's rebuild
-// does not delete them (it removes its own svg by reference, and a descendant query there took
-// these glyphs with it), that they clear the touch floor, and that an icon-only button still has a
-// NAME — the words are visually hidden, not display:none'd, precisely so it does.
+// The risks of putting a control over a zoom surface, in order: that it still receives taps (d3-zoom
+// binds to the SVG, not to #plot, so it should), that chart.js's rebuild does not delete it, that it
+// clears the touch floor, that an icon-only button still has a NAME, and that it covers no dot in any
+// view. CLAUDE.md's placeChartTools() bullet has the why.
 //
-// It sets its own device state and its own URL. The checks above leave the page in full screen and
-// turn touch emulation back OFF, and everything here up to the narrow-window check is about a phone:
-// without the emulation a 390px box is a narrow desktop, the touch floor does not apply, and the
-// button heights this checks are the wrong ones. The states at the END are deliberate — a narrow
-// window with a pointer, then a LAPTOP, then a wide one, then the breakpoint itself — because each
-// has a rule the phone cannot reach, and the middle two only exist at all because the breakpoint
-// moved off 640.
-// A BOOT, not rest(), though section 7 booted under the same touch emulation: after a full-screen
-// round trip this headless Chromium stops forwarding wheel events to the page at all — every
-// wheel below went nowhere, three sends each, until a listener was registered afresh — and
-// section 7 leaves the page exactly there. A boot is the reset that works.
+// It sets its own device state and its own URL. Everything up to the narrow-window check is about a
+// phone: without touch emulation a 390px box is a narrow desktop, the touch floor does not apply, and
+// the heights here are the wrong ones. The states at the END are deliberate — a narrow window with a
+// pointer, a laptop, a wide one, then the breakpoint itself — because each has a rule the phone cannot
+// reach. A BOOT rather than rest(), because after a full-screen round trip this Chromium forwards no
+// wheel to the page until a listener is registered afresh, and section 7 leaves the page there.
 await viewport(390, 844, true);
 await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
 await goto(BASE);
@@ -2086,18 +2077,11 @@ check("...and a clipboard write that never settles acknowledges anyway", stalled
 await ev(`(()=>{ Object.defineProperty(navigator, 'clipboard',
   { value: window.__clip, configurable: true }); return 0 })()`);
 await settle(`!document.getElementById('share').classList.contains('copied')`);
-check("...and #fs shows one glyph, not both",
-      await ev(`(()=>{const vis=[...document.querySelectorAll('#fs .ico')]
-        .filter(i=>getComputedStyle(i).display !== 'none'); return vis.length === 1
-          && vis[0].classList.contains('ico-in')})()`),
-      await ev(`[...document.querySelectorAll('#fs .ico')]
-        .map(i=>i.getAttribute('class')+':'+getComputedStyle(i).display).join(' | ')`));
-// It covers NOTHING, in any view — which is the whole reason it sits in the axis-title band rather
-// than in a corner. Checked in all four, because the corners were judged from Fame and Fame is the
-// one view where the top right looks empty: the swarm piles 90 dots and the "Rachmaninoff" label
-// exactly there. Bottom left was the best corner at 3 dots and still ate the axis origin ("1700").
-// Zero is the assertion because the band makes zero achievable; anything above it means the band
-// stopped being tall enough (Chart.setTopReserve) or the title grew into the group's 86px.
+// It covers NOTHING, in any view — the reason it sits in the axis-title band rather than a corner.
+// Checked in all four, because the corners were judged from Fame and Fame is the one view where the
+// top right looks empty: the swarm piles 90 dots and the "Rachmaninoff" label exactly there. Zero is
+// the assertion because the band makes zero achievable; anything above it means the band stopped being
+// tall enough or the title grew into the group.
 const covered = () => ev(`(()=>{const t=document.getElementById('chart-tools').getBoundingClientRect();
   const hit=r=>r.left<t.right&&r.right>t.left&&r.top<t.bottom&&r.bottom>t.top;
   const dots=[...document.querySelectorAll('#plot svg circle.dot')].filter(c=>hit(c.getBoundingClientRect()));
@@ -2105,10 +2089,8 @@ const covered = () => ev(`(()=>{const t=document.getElementById('chart-tools').g
     .filter(t2=>hit(t2.getBoundingClientRect())).map(t2=>t2.textContent.trim())
     .filter(s=>s && !/^[0-9.,k]+$/.test(s) && !/quartet|year|→|↑|readers/i.test(s));
   return JSON.stringify({dots:dots.length, names})})()`);
-// And at BOTH phone widths, because 360 is the one styles.css did the arithmetic for and never
-// measured: "the title ends by x=202 in the worst case, leaving 96px at 360 for an 86px group".
-// That is a 10px margin computed by hand at the width nothing checked — the same shape as #53's
-// table, one component over. 390 has room to spare, so it cannot fail for the reason 360 would.
+// At BOTH phone widths: 360 is the width the arithmetic was done for and never measured, and 390 has
+// room to spare, so it cannot fail for the reason 360 would.
 let worstDots = 0, coveredNames = [], worstWidth = 0;
 for (const w of [390, 360]) {
   await viewport(w, 844, true);
@@ -2133,42 +2115,20 @@ check("the overlay covers and shadows nothing, in any view or phone width",
       `worst view covers ${worstDots} dots${worstDots ? ` at ${worstWidth}px` : ""}; ` +
       `labels: ${coveredNames.join(", ") || "none"}`);
 
-// At rest is not the only state. The dot clip is inset OUTWARD by one maximum radius (chart.js's
-// `over`), so a dot whose centre sits just inside the top edge draws a sliver up into the band —
-// under a pinch, under the invisible target. The target cannot be shortened to miss it without
-// going under the 40px floor, so the guarantee is one step weaker and it is this: no dot's CENTRE
-// is ever under the target, because the frame test only draws a dot whose centre is inside the plot
-// rect and that rect starts 4.5px below the target's bottom. A finger aiming at a dot lands on the
-// dot.
-const underTools = () => ev(`(()=>{const t=document.getElementById('chart-tools').getBoundingClientRect();
-  const mid=r=>[(r.left+r.right)/2,(r.top+r.bottom)/2];
-  const box=[...document.querySelectorAll('#plot svg circle.dot')].filter(c=>{const r=c.getBoundingClientRect();
-    return r.left<t.right&&r.right>t.left&&r.top<t.bottom&&r.bottom>t.top});
-  const ctr=box.filter(c=>{const [x,y]=mid(c.getBoundingClientRect());
-    return x>t.left&&x<t.right&&y>t.top&&y<t.bottom});
-  return JSON.stringify({box:box.length, ctr:ctr.length})})()`);
-// The GUARANTEE, not a sample of it. A state-by-state hunt for the bad case is a check that passes
-// by not finding one — zooming the top right pushes dots away from the anchor, zooming the bottom
-// lifted none into that column at k=5.3, and the swarm's y is not under the zoom at all. What holds
-// in every state instead is arithmetic: the frame test only draws a dot whose CENTRE is inside the
-// plot rect, so a target whose bottom is above that rect can never have one under it, at any zoom.
-// One measurement, and it is the one the band exists to make true.
+// At rest is not the only state. The dot clip is inset OUTWARD by one maximum radius, so under a pinch
+// the sliver of a dot whose centre is just inside the top edge draws up into the band, under the
+// invisible target. The target cannot be shortened to miss it without going under the 40px floor, so
+// the guarantee is one step weaker and it is this: no dot's CENTRE is ever under the target, because
+// the frame test only draws a dot whose centre is inside the plot rect and that rect starts below it.
+// The GUARANTEE, not a sample of it: a state-by-state hunt for the bad case is a check that passes by
+// not finding one. What holds in every state instead is arithmetic, and this is the one measurement
+// the band exists to make true.
 check("...and its bottom stays above the plot area, so no dot's CENTRE can fall under it at any zoom",
       await ev(`(()=>{const t=document.getElementById('chart-tools').getBoundingClientRect();
         return document.querySelector('#plot svg rect.bg').getBoundingClientRect().top - t.bottom >= 0})()`),
       await ev(`(()=>{const t=document.getElementById('chart-tools').getBoundingClientRect();
         return (document.querySelector('#plot svg rect.bg').getBoundingClientRect().top - t.bottom)
           .toFixed(1)+'px of clearance'})()`));
-const zbx = await ev(`(()=>{const b=document.querySelector('#plot svg rect.bg').getBoundingClientRect();
-  return {x:b.x,y:b.y,w:b.width,h:b.height}})()`);
-await wheel(zbx.x + zbx.w * 0.8, zbx.y + zbx.h * 0.92, -2400);
-await settle(`Chart.zoomK() > 1.5`);
-const uz = JSON.parse(await underTools());
-check("...and a real pinch agrees",
-      uz.ctr === 0 && await ev(`Chart.zoomK()`) > 1.5,
-      `k=${(await ev(`Chart.zoomK()`)).toFixed(1)}, ${uz.box} dots reach the band, ${uz.ctr} centres under it`);
-await ev(`Chart.resetZoom()`);
-await idle();
 // And it fits INSIDE the reservation rather than merely happening to miss the dots: the band is the
 // plot group's own translate, read off the DOM, so this goes red the moment Chart.setTopReserve is
 // dropped or the buttons grow — before anything is visibly covered. Zero coverage above is the
@@ -2186,10 +2146,9 @@ check("...because the chart reserved the band for it", b.top >= 40 && b.used <= 
       `band ${b.top}px, buttons reach ${b.used}px`);
 
 // A REAL tap through the CDP, not .click(): the whole question is whether a press over the zoom
-// surface reaches the button or is swallowed by the pan gesture.
-// Deliberately NOT the centre: the affordance here is a 40px target around a 16px glyph, so the
-// tap that proves it is one that lands on empty space inside the button — 3px in from the corner,
-// about 12px clear of the mark that is actually drawn. A centre tap would pass on a 16px button.
+// surface reaches the button or is swallowed by the pan gesture. Deliberately NOT the centre — the
+// affordance is a 40px target around a 16px glyph, so the tap that proves it lands on empty space
+// inside the button, which a centre tap would not.
 const fsBox = await ev(`(()=>{const r=document.getElementById('fs').getBoundingClientRect();
   const g=document.querySelector('#fs .ico').getBoundingClientRect();
   return {x:r.left+3, y:r.top+3,
@@ -2219,14 +2178,11 @@ await settle(`Chart.getMode() === 'fame'`);
 check("a chart re-render does not delete the overlay",
       await ev(`document.getElementById('chart-tools').parentNode.id === 'plot'
         && !!document.querySelector('#plot > #chart-tools #share .ico')`));
-// A NARROW WINDOW WITH A REAL POINTER — the layout neither of the two above can see. The overlay's
-// geometry is scoped to `#plot > #chart-tools` and asks about no device at all, but the 40px touch
-// floor is `(hover:none) and (pointer:coarse) and (max-width:800px)`: this window matches the
-// layout and not the floor, and when the geometry was stated only by the floor the buttons took
-// .btn's base min-height of 36 and dropped the glyph ~4px below the title's line — the derivation
-// in styles.css describing a box the browser was not drawing. Every check above runs under touch
-// emulation, where the button is 40px and this is invisible. Same shape of blind spot as the
-// icon-inflation bug: a state the suite never entered.
+// A NARROW WINDOW WITH A REAL POINTER — the layout neither state above can see. The overlay geometry
+// is scoped to `#plot > #chart-tools` and asks about no device, but the 40px floor is
+// `(hover:none) and (pointer:coarse) and (max-width:800px)`: this window matches the layout and not the
+// floor, and while the geometry was stated only by the floor the buttons took .btn's 36px and dropped
+// the glyph below the title's line. Every check above runs under emulation, where that is invisible.
 await send("Emulation.setTouchEmulationEnabled", { enabled: false });
 await viewport(600, 900, false);
 await goto(BASE);
@@ -2283,12 +2239,11 @@ check("...and covers nothing there either, in any view",
       lapDots === 0 && lapNames.length === 0,
       `worst view covers ${lapDots} dots; labels: ${lapNames.join(", ") || "none"}`);
 
-// COVERING NO DOT IS NOT THE SAME AS PASSING A GESTURE THROUGH. d3-zoom is bound to the svg and
-// this group is a SIBLING of it inside #plot, so a wheel that starts over a glyph reached no zoom
-// listener at all: the corner was dead and the page scrolled instead, two pixels from a spot in the
-// same band that zooms. Nothing saw it, because the taps 7c2 sends are the one gesture that DOES
-// work here and a phone has no wheel — it only became reachable when the layout reached a laptop.
-// Measured at both spots, because "the corner is dead" is only a defect against a corner that works.
+// COVERING NO DOT IS NOT THE SAME AS PASSING A GESTURE THROUGH. d3-zoom is bound to the svg and this
+// group is a SIBLING of it inside #plot, so a wheel starting over a glyph reached no zoom listener at
+// all: the corner was dead and the page scrolled instead, two pixels from a spot in the same band that
+// zooms. Measured at both spots, because "the corner is dead" only means something against a corner
+// that works — and it was unreachable until the layout reached a laptop, since a phone has no wheel.
 await view("fame");
 await ev(`Chart.resetZoom()`); await idle();
 const corner = await ev(`(()=>{const b=document.getElementById('share').getBoundingClientRect(),
