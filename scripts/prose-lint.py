@@ -133,6 +133,7 @@ def live():
         # ui.test.mjs — the count that cannot drift rather than the one that happens to agree.
         "sw_lint_cases": len(re.findall(r"^\s*case\(", read("scripts/sw-lint.test.py"), re.M)),
         "prose_lint_cases": len(re.findall(r"^case\(", read("scripts/prose-lint.test.py"), re.M)),
+        "ui_test_cases": cases("scripts/ui-test.test.py"),
         "roster": len(rows),
         "plotted": sum(1 for r in rows if r[3] is not None),
     }
@@ -163,6 +164,10 @@ CLAIMS = [
      "fetch_views.test.py's cases"),
     ("README.md", "pagemoves_cases", r"pagemoves\.test\.py.*?\((\d+) cases\)",
      "pagemoves.test.py's cases"),
+    ("README.md", "ui_test_cases", r"ui-test\.test\.py.*?\((\d+) cases\)",
+     "ui-test.test.py's cases"),
+    ("CLAUDE.md", "ui_test_cases", r"in ([\w-]+) cases that need no browser",
+     "ui-test.test.py's cases"),
 ]
 
 # Composer counts anywhere in the docs must be one the data currently supports. Permissive on

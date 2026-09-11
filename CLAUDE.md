@@ -209,7 +209,7 @@ plain static assets. Read README.md first for what the app is.
 
 ## Testing
 
-Twelve entries, one per bullet below — seven checks that run offline, one that needs a
+Thirteen entries, one per bullet below — eight checks that run offline, one that needs a
 browser, one pair of branch gates only CI can run, the monthly top-up, and two audits a
 human grades. No test framework, and nothing to install:
 
@@ -292,6 +292,31 @@ human grades. No test framework, and nothing to install:
   a view switch goes through its pill (`view()`). One wheel event now carries a whole zoom, and
   it is checked for rather than assumed: this Chromium drops a synthetic wheel now and then under
   emulation, so `wheel()` re-sends one that moved nothing and the run prints how often it had to.
+- `python3 scripts/ui-test.test.py` — the RUNNER rather than the app: the two ports
+  `ui-test.sh` derives from the checkout's own path, in eleven cases that need no browser. They
+  were fixed at 8765/9333 and are cleared with a `pkill -f` that matches every process on the
+  machine, so a second checkout starting up killed the first one's browser and server mid-run —
+  and the victim was the run that had done nothing wrong (#49). Deriving the default gives every
+  worktree its own pair while keeping it the SAME on every run here, which is what lets that clear
+  go on reaping a browser left over from an INTERRUPTED run, the failure it was written for. The
+  hash has 200 slots, so two worktrees can still land on one: the runner prints the pair, says so
+  when it is clearing a port somebody else may be holding, and takes `PORT=` and `CDP=` to pin
+  one. `--ports` answers out of the path and starts nothing, which is how the cases ask. It is
+  a suite because the defect is invisible in the run in front of you and in CI, which never runs
+  two at once — and because the way back to it is a one-line edit that looks like tidying.
+  **The cases that are not about the sibling are about the stranger.** A 200-wide band covers ports
+  people use — 8888 is Jupyter's, 9515 is chromedriver's — and a run that finds one held used to
+  proceed: the server exits on "Address already in use" into a `/dev/null`, or the new Chrome
+  fails to bind, and the suite then drives somebody ELSE's origin or debug endpoint and reports it
+  as 252 failures of this app. So the runner stops and says which port and why, `kill -0` on its
+  own server being the oracle that needs no marker in the page, and every probe is bounded
+  (`answers()`), because a process that accepts a connection and never replies hangs a bare
+  `curl` for as long as it likes — which would be the same silence one step earlier.
+  **And the runner is SOURCE to the gates now**, not a test file beside the suite it launches:
+  `ablate.py`'s `COVERS` maps `scripts/ui-test.sh` to these cases, so a change to it has to be
+  proved by one of them. Filed as a test — which it was, back when it only started a server and a
+  browser — the port derivation was logic nothing ablated, and the branch that wrote it was
+  ablated on `prose-lint.py` alone.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
   `git diff --cached`); the meta-length and stated-count halves read the working tree and run in
   CI. `check_counts()` knows BOTH live totals — the roster (884) and what the chart can plot
@@ -352,7 +377,7 @@ human grades. No test framework, and nothing to install:
   skips, and the report says so rather than passing quietly. One `No-test: <reason>` trailer
   on any commit in the range skips BOTH, so an untested source change is a sentence somebody wrote
   on purpose and a reviewer can read, not a silence. `scripts/fix-lint.test.py` covers both in
-  forty-two cases that each build a throwaway repo with real branches.
+  forty-four cases that each build a throwaway repo with real branches.
 - `python3 scripts/prose-lint.py` — **every number in README.md and CLAUDE.md that the repo can
   COMPUTE**, checked against the live value: the curated list sizes in `chart.js`, each suite's
   `len(CASES)` by importing it, the recorded page-move chains, the `FOLD` characters and the names

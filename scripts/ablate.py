@@ -73,6 +73,13 @@ COVERS = [
     (("scripts/ablate.py", "scripts/fix-lint.py"),
                                       ["python3 scripts/fix-lint.test.py"]),
     (("scripts/prose-lint.py",),      ["python3 scripts/prose-lint.test.py"]),
+    # The RUNNER, which is source now that it has logic of its own to get wrong (#49) — see the
+    # note under SOURCE. BOTH suites, because it has two halves and only one of them is about
+    # ports: the offline one answers for the derivation and the guards, and the browser one for
+    # everything a change to the profile clear, find_chrome or the Xvfb launch would break, which
+    # nothing offline can see. Either going red is proof; the other is reported as also-ran.
+    (("scripts/ui-test.sh",),         ["python3 scripts/ui-test.test.py",
+                                       "BROWSER:scripts/ui-test.sh"]),
 ]
 
 # Load-bearing source that genuinely has no suite. plan() no longer READS this — anything unmapped
@@ -97,8 +104,14 @@ SOURCE = re.compile(
     r"^(app|chart|table|histogram|names|theme|sw|ping)\.js$"
     r"|^(styles\.css|index\.html|manifest\.json)$"
     r"|^scripts/(validate|pagemoves|fetch_views|fetch_wikidata|build_data|scrape_list"
-    r"|make-og-svg|og-lint|sw-lint|refresh|ablate|fix-lint|prose-lint)\.py$")
-TESTS = re.compile(r"^scripts/.*(\.test\.(py|mjs)|ui-test\.sh)$")
+    r"|make-og-svg|og-lint|sw-lint|refresh|ablate|fix-lint|prose-lint)\.py$"
+    # ui-test.sh IS SOURCE, and used to be filed under TESTS with the suite it launches. That was
+    # true when it only started a server and a browser; it now derives a port pair per checkout
+    # and refuses to run against a port it did not take (#49), which is logic, and logic filed as
+    # a test is logic nothing ablates — the branch that wrote it was ablated only on prose-lint.py.
+    # scripts/ui-test.test.py is what covers it, and COVERS maps the two.
+    r"|^scripts/ui-test\.sh$")
+TESTS = re.compile(r"^scripts/.*\.test\.(py|mjs)$")
 # Both halves of the line matter: `FAIL` at the head, and the name with any trailing detail cut.
 # The detail carries measured numbers that differ between two runs of the same suite, so a set
 # difference over whole lines would report noise as signal.

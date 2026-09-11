@@ -29,6 +29,17 @@
 import { writeFileSync } from "node:fs";
 
 const [,, PORT, OUTDIR, ORIGIN] = process.argv;
+// BEFORE the fetch below, which is what actually dies first without them: a bare `node
+// scripts/ui.test.mjs` threw "Failed to parse URL from http://127.0.0.1:undefined/json/list" and
+// never reached the usage line printed for it. And NO DEFAULT ORIGIN — it used to fall back to
+// 127.0.0.1:8765, the runner's old fixed port; the runner derives that from the checkout's path
+// now (#49), so a default here could only be a guess at another run's port, and a wrong guess
+// does not fail, it loads a dead port or somebody else's page and blames this app for it.
+if (!PORT || !OUTDIR || !ORIGIN) {
+  console.error("usage: node scripts/ui.test.mjs <cdp-port> <outdir> <origin>\n"
+    + "run scripts/ui-test.sh instead — it starts the server and the browser and knows both ports");
+  process.exit(2);
+}
 
 const targets = await (await fetch(`http://127.0.0.1:${PORT}/json/list`)).json();
 const page = targets.find(t => t.type === "page");
@@ -327,7 +338,7 @@ const axName = async sel => {
   return (tree.result.nodes || []).map(n => (n.name && n.name.value) || "").join(" ").trim();
 };
 
-const BASE = (ORIGIN || "http://127.0.0.1:8765") + "/";
+const BASE = ORIGIN + "/";
 const results = [];
 // `extra` prints either way, which is right for a MEASUREMENT — "34 dots grew >1.5x" reads
 // correctly under `ok` and `FAIL` alike, and that is what almost every call site passes. It is

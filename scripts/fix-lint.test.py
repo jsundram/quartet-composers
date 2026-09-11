@@ -402,6 +402,19 @@ with tempfile.TemporaryDirectory() as tmp:
     _abl = _il.module_from_spec(_spec); _spec.loader.exec_module(_abl)
     case("no name in UNCOVERED has a suite or a COVERS entry", _abl.unsuited(), [])
 
+    # --- ablate: WHAT COUNTS AS SOURCE ------------------------------------------------------------
+    # ui-test.sh sat in TESTS beside the suite it launches, which was true while it only started a
+    # server and a browser. It derives a port pair per checkout now and refuses a port it did not
+    # take (#49) -- logic, and logic filed as a test is logic nothing ablates: the branch that
+    # wrote that was ablated on prose-lint.py alone. A classification is exactly the kind of claim
+    # that reads fine and proves nothing, so it is asserted rather than commented.
+    case("the runner counts as source, and its own suite still counts as a test",
+         (bool(_abl.SOURCE.match("scripts/ui-test.sh")), bool(_abl.TESTS.match("scripts/ui-test.sh")),
+          bool(_abl.TESTS.match("scripts/ui-test.test.py"))), (True, False, True))
+    case("...and COVERS points it at both halves: the offline suite and the browser one",
+         [c for pats, c in _abl.COVERS if "scripts/ui-test.sh" in pats],
+         [["python3 scripts/ui-test.test.py", "BROWSER:scripts/ui-test.sh"]])
+
     # --- THIS SUITE'S OWN STATED SIZE -------------------------------------------------------------
     # Counted at RUNTIME, not by grepping for `case(`: these cases are inline rather than
     # registered, so a static count reads 23 against a real 25 — which is the very defect
