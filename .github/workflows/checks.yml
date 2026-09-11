@@ -36,6 +36,11 @@ name: checks
 #     it is not steps in `sw`. It was kept out of CI for a long time on a premise that was simply
 #     false (that a runner has no browser); what was actually missing was a POINTER, and #50 fixed
 #     that by giving Chrome an X server rather than arguing with the page about one.
+#   - scripts/ui-test.test.py : the runner's own ports, derived from the checkout's path so that
+#     two runs on one machine stop killing each other (#49). Offline, and it belongs here for the
+#     reason it is easy to think it does not: a runner back on fixed ports passes every other
+#     check in this file, because CI only ever runs one checkout at a time. The machine that
+#     feels the defect is a laptop with two worktrees open, and it is not the one gating merges.
 #   - scripts/og-lint.py : it used to be hook-only, because its card-size check reads
 #     `git diff --cached` and a CI checkout stages nothing. Its meta-length and stated-count
 #     checks read the working tree instead, so THOSE run here with a real exit code — which is
@@ -155,6 +160,12 @@ jobs:
       # both steps below can read it, which is the same one place.
       - name: where the screenshots go if this fails
         run: echo "UI_OUT=$RUNNER_TEMP/ui-test" >> "$GITHUB_ENV"
+      # Instant, and before the suite it is about. BELOW the step above, not beside the checkout:
+      # a failure here fails the job, `keep the evidence` then runs on if:failure() with UI_OUT
+      # unset, its paths become /*.png, and `if-no-files-found: error` buries the real red mark
+      # under a second one about an artifact this step never had anything to do with.
+      - name: the runner's port derivation (scripts/ui-test.test.py)
+        run: python3 scripts/ui-test.test.py
       # ubuntu-latest ships /usr/bin/google-chrome AND xvfb, and find_chrome takes the first
       # without help — the premise that CI has no browser was false all along (#43). Both are
       # asserted rather than assumed, because the runner image is not this repo's to promise:
@@ -169,6 +180,7 @@ jobs:
       # delete a directory somebody cared about on a laptop. It clears Chrome's profile inside it
       # on every run regardless, or an inherited OUT would reintroduce the stale-shell trap.
       - name: browser suite (scripts/ui-test.sh)
+        id: suite
         env:
           REQUIRE_BROWSER: "1"
           OUT: ${{ env.UI_OUT }}
@@ -178,8 +190,15 @@ jobs:
       # why they are sized to survive the resize a reader's viewer applies (#50). ui-test.sh keeps
       # them on disk whenever the suite fails and prints the path; this is that path, on a machine
       # you cannot walk over to. chrome.log is in there too, for the run where Chrome never opened.
+      # THE SUITE's failure, not the JOB's. `if: failure()` also fires when the step above this
+      # job's browser work fails — the port-derivation one — and that step writes nothing into
+      # $UI_OUT, which does not exist yet, so all four globs match nothing and
+      # `if-no-files-found: error` adds a second red mark about an artifact it never had anything
+      # to do with. That is the burying the note below is trying to prevent, arriving from inside
+      # the same job. Conditioned on the step id, the upload only runs when there is a run to
+      # explain.
       - name: keep the evidence
-        if: failure()
+        if: failure() && steps.suite.conclusion == 'failure'
         uses: actions/upload-artifact@v4
         with:
           name: ui-screenshots
@@ -188,10 +207,13 @@ jobs:
           path: |
             ${{ env.UI_OUT }}/*.png
             ${{ env.UI_OUT }}/chrome.log
-          # error, not warn: this step only runs on a failure, and a failure that got as far as
-          # opening a browser always leaves a chrome.log. Nothing to upload therefore means the
-          # path is wrong, which is the thing you want to be TOLD rather than left to notice when
-          # you go looking for the screenshots and there are none.
+            ${{ env.UI_OUT }}/server.log
+            ${{ env.UI_OUT }}/ui-test.log
+          # error, not warn: this step only runs on a failure, and every way ui-test.sh can fail
+          # now writes SOMETHING here — chrome.log once a browser was opened, server.log for a
+          # port it could not take, ui-test.log for every stop before either. Nothing to upload
+          # therefore means the path is wrong, which is the thing you want to be TOLD rather than
+          # left to notice when you go looking for the evidence and there is none.
           if-no-files-found: error
 
   data:
