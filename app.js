@@ -1128,9 +1128,10 @@ function wire() {
   // any other and the page is what a wheel there should move.
   //
   // preventDefault ONLY when the chart actually took it, which is why wheelInto reports back and
-  // why this listener cannot be passive. Cancelling first and forwarding second is wrong in the one
-  // view that binds no zoom: in lens the forward reaches nothing, so the corner became the one
-  // region of the page where a wheel did nothing at all, while the axis title beside it scrolled.
+  // why this listener cannot be passive. "Took it" is narrower than "a zoom is bound" — at rest the
+  // zoom declines every scroll DOWN, because k is already at scaleExtent's floor — and cancelling
+  // on the wider test left a hole in the page's scrolling under these two buttons, in the resting
+  // default view and in lens both.
   $("chart-tools").addEventListener("wheel", e => {
     if ($("chart-tools").parentNode !== $("plot")) return;
     if (Chart.wheelInto(e)) e.preventDefault();

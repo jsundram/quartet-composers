@@ -823,16 +823,24 @@ window.Chart = (function () {
   // build() makes a new svg on every setData/setMode, and a captured node is the same stale-handle
   // trap that `selectAll("svg")` was.
   //
-  // It REPORTS whether it delivered, because the caller has to preventDefault only when it did.
-  // In lens mode applyZoomBehavior() binds nothing, so a forwarded wheel reaches no listener — and
-  // a caller that had already cancelled the page scroll made the corner DEADER than leaving it
-  // alone: over the glyph nothing happened at all, while two pixels left, over the axis title, the
-  // wheel scrolled the page as it always has. That is the same asymmetry this forward exists to
-  // remove, with the sign flipped, and it was measured: 0px against 602px at 1024 in lens.
+  // It reports whether the zoom TOOK the event, not whether one is bound, because the caller may
+  // cancel the page scroll only in the first case. Those are different far more often than they
+  // look: `scaleExtent` starts at 1 and the resting view is already there, so every scroll DOWN at
+  // rest asks for a scale d3 will not go to — it declines and, correctly, does NOT cancel, leaving
+  // the page to scroll. A forward that reported "bound" cancelled those too, and the DEFAULT view
+  // at rest got an 86x40 hole where scrolling the page down did nothing while a pixel to the left
+  // it worked. Measured at 1024: 0px under the glyphs against 120px beside them.
+  //
+  // ASKING is the whole point. d3-zoom cancels what it acts on, so the synthetic event carries the
+  // answer and no second copy of d3's clamp has to live here — predicting "would this move k?" is
+  // exactly the duplication that goes stale when scaleExtent changes. It also makes lens fall out
+  // rather than be named: applyZoomBehavior() binds nothing there, so nothing cancels, so this
+  // returns false and the page scrolls, which is what the bare plot does in that view.
   function wheelInto(e) {
-    if (!svg || mode === "lens") return false;
-    svg.node().dispatchEvent(new WheelEvent("wheel", e));
-    return true;
+    if (!svg) return false;
+    const w = new WheelEvent("wheel", e);
+    svg.node().dispatchEvent(w);
+    return w.defaultPrevented;
   }
 
   function applyZoomBehavior() {
