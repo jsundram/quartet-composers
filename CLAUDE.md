@@ -597,7 +597,8 @@ would not have worked.
   the `(min-width:900px)` two-column grid takes 194px off the card. Measured with the words in the
   row, stepping 4px — 641-743 wraps (card 582-681), **744-899 fits** (682-837), 900-1055 wraps
   (524-679), 1056+ fits (680+). So the words belong in two bands and the icons in the other two, and
-  `ICONS` in `app.js` is `(max-width:799px), (min-width:900px) and (max-width:1100px)`. A single
+  `iconsOnPlot()` in `app.js` is `NARROW` (`max-width:799px`) or `SQUEEZED`
+  (`min-width:900px and max-width:1100px`). A single
   `(max-width:1100px)` was the first answer and it was wrong in a 120px band: 780-899 would have
   spent 26px of DATA height to buy no page height at all, which is the exact trade this rule refuses
   at the top end. The numbers are 799 and 1100 rather than the 743 and 1055 the row wraps at because
@@ -608,6 +609,28 @@ would not have worked.
   26px and nothing else. Those widths are one machine's font metrics, so they are defended by checks
   rather than by arithmetic: `ui.test.mjs` presses Share at 800 and at 1101 — the first width in each
   band that draws the words — and fails if the row grows.
+  **They are two QUERIES and not one list, because only the second one is about the grid.**
+  `body.fs .grid{ display:block }` — full screen has no two-column grid, so the card is the window
+  and the row has its 1056+ geometry back. Measured the same way, full screen fits both words from
+  762px, where the two-column card does not until 1092. So `SQUEEZED` is skipped under `.fs`, or a
+  1000px window in full screen spends the 48px band on a row that would have held them — and that
+  costs MORE there than at rest, because `#plot` is `flex:1` and the band comes off a chart that is
+  already the whole viewport. `NARROW` still applies in full screen, conservatively: it fits from
+  762 and this draws icons to 799, erring 38px toward the side that cannot wrap a row under a
+  cursor. The suite enters full screen at 1000px and asserts the words stayed and no band was spent.
+  **A wheel over the glyphs is a wheel over the CHART, and that needs saying in code.** d3-zoom is
+  bound to the svg and `#chart-tools` is a SIBLING of it, so a wheel starting over a glyph reached
+  no zoom listener at all: the corner was dead and the page scrolled instead, two pixels from a spot
+  in the same band that zooms. It cost nothing while the icons were a phone layout — a phone has no
+  wheel, and the trade measured for that layout was all about dots COVERED — and became reachable
+  the moment the layout reached a laptop. `Chart.wheelInto()` re-dispatches into the CURRENT svg
+  (`build()` makes a new one on every `setData`/`setMode`, so a captured node is the `selectAll("svg")`
+  trap again) and `app.js` forwards only while the group is on the plot, since in the row a wheel
+  should move the page. The DRAG is deliberately NOT forwarded: `pointerdown` into the zoom would
+  start a gesture on every press of these two buttons, which is the conflict binding to the svg
+  rather than `#plot` avoids. A control swallowing a drag is the platform convention; swallowing a
+  wheel is not, because a wheel was never aimed at the control. The check measures the glyph AND the
+  band beside it — "the corner is dead" only means something against a corner that works.
   **`app.js` holds the only copy of it.** `styles.css` scopes the icon look to `#plot > #chart-tools`,
   so the looks follow the DOM rather than re-deciding the width, and the two cannot disagree. They
   could when that look lived in a width query: the CSS answered on width alone, so every state where

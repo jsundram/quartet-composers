@@ -539,7 +539,7 @@ function placeFilters() {
 // clears it at both widths.
 //
 // The row is two lines well past a phone, so this stopped pretending to be a phone rule — see the
-// measurement on ICONS below.
+// measurement above iconsOnPlot() below.
 //
 // They do not float over the DOTS. They sit in the band chart.js already spends on the y-axis
 // title, which the chart widens to fit them — so the cost is 26px of data area rather than any dot
