@@ -647,9 +647,10 @@ height at all, so that is where they stay.
 120px band** — the two bold columns. The row's width is not monotonic in the viewport's: what
 decides it is the CARD, and the `(min-width:900px)` two-column grid takes 194px off that. Stepping
 4px with the words in the row: 641-743 wraps (card 582-681), **744-899 fits** (682-837), 900-1055
-wraps (524-679), 1056+ fits (680+). So the words belong in TWO bands, `ICONS` is
-`(max-width:799px), (min-width:900px) and (max-width:1100px)`, and 780-899 no longer spends 26px of
-data height to buy nothing. The edges are 799 and 1100 rather than the 743 and 1055 the row wraps at
+wraps (524-679), 1056+ fits (680+). So the words belong in TWO bands, and `iconsOnPlot()` is
+`NARROW` (`max-width:799px`) or `SQUEEZED` (`min-width:900px and max-width:1100px`) — two queries
+and not one list, because only the second is the grid's and full screen has no grid, so `SQUEEZED`
+is skipped under `.fs`. 780-899 no longer spends 26px of data height to buy nothing. The edges are 799 and 1100 rather than the 743 and 1055 the row wraps at
 because `share()` swaps the label to "Link copied", which is wider than "Share" and moves both out
 (to 780 and 1092) — a breakpoint inside either gap would have let a PRESS on Share wrap the row and
 drop the plot 44px under the cursor that just pressed it, which is the rule the controls row already

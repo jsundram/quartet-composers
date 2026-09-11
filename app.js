@@ -1125,12 +1125,15 @@ function wire() {
   // A wheel over the glyphs is a wheel over the CHART — the zoom is bound to the svg and this group
   // is its sibling, so without this the corner is dead to a wheel and the page scrolls instead (see
   // Chart.wheelInto). Only while the group is ON the plot: in the controls row it is a button like
-  // any other and the page is what a wheel there should move. preventDefault, or the page scrolls
-  // as well as the chart zooming — which is why the listener cannot be passive.
+  // any other and the page is what a wheel there should move.
+  //
+  // preventDefault ONLY when the chart actually took it, which is why wheelInto reports back and
+  // why this listener cannot be passive. Cancelling first and forwarding second is wrong in the one
+  // view that binds no zoom: in lens the forward reaches nothing, so the corner became the one
+  // region of the page where a wheel did nothing at all, while the axis title beside it scrolled.
   $("chart-tools").addEventListener("wheel", e => {
     if ($("chart-tools").parentNode !== $("plot")) return;
-    e.preventDefault();
-    Chart.wheelInto(e);
+    if (Chart.wheelInto(e)) e.preventDefault();
   }, { passive: false });
   $("theme").onclick = () => Theme.cycle();
   themeLabel();
