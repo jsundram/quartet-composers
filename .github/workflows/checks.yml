@@ -123,12 +123,22 @@ jobs:
           REQUIRE_BROWSER: "1"
         run: python3 scripts/ablate.py --base "$BASE_SHA" --with-ui
 
-  # The browser suite: 251 behavioural checks against a real Chrome over CDP. A separate job
+  # The browser suite, against a real Chrome over CDP. It used to say how many checks, and that
+  # was stale inside the PR that wrote it — nothing reads THIS file for the number (ui.test.mjs
+  # scans README and CLAUDE.md, prose-lint.py reads the same two), so it could only ever drift.
+  # A count that no check can redden is written loosely or not at all; here, not at all. A separate job
   # rather than steps in `sw`, because its failure means "the app regressed" and not "the service
   # worker is broken" — and because it wants a different node (see below). No --base, unlike the
   # gates, so it judges the tree in front of it and runs on pushes as well as pull requests.
   ui:
     runs-on: ubuntu-latest
+    # ONE literal for the screenshots' path. It was typed twice — once as the suite's OUT and once
+    # as the artifact's path — with nothing able to enforce the agreement, and the drift would have
+    # been silent in the worst place: rename it here, and the next FAILING run writes its evidence
+    # somewhere the upload does not look, on a job whose only red mark is the failure that evidence
+    # was meant to explain.
+    env:
+      UI_OUT: ${{ runner.temp }}/ui-test
     steps:
       - uses: actions/checkout@v4
       # THE PIN THAT BITES. ui.test.mjs has no dependencies because its whole ~25-line CDP client
@@ -145,14 +155,15 @@ jobs:
       # without one this Chrome reports no pointing device at all and nine checks fail at a layout
       # the app is right to be drawing, which is a platform report dressed as nine bug reports.
       #
-      # OUT is named here rather than mktemp'd because the upload below needs the path BEFORE the
-      # run. ui-test.sh will not delete a directory it did not create, so this one survives a
-      # PASSING run too — which costs nothing here and is what keeps the same variable from being
-      # a way to delete a directory somebody cared about on a laptop.
+      # OUT is named rather than mktemp'd because the upload below needs the path BEFORE the run.
+      # ui-test.sh will not delete a directory it did not create, so this one survives a PASSING
+      # run too — which costs nothing here and is what keeps the same variable from being a way to
+      # delete a directory somebody cared about on a laptop. It clears Chrome's profile inside it
+      # on every run regardless, or an inherited OUT would reintroduce the stale-shell trap.
       - name: browser suite (scripts/ui-test.sh)
         env:
           REQUIRE_BROWSER: "1"
-          OUT: ${{ runner.temp }}/ui-test
+          OUT: ${{ env.UI_OUT }}
         run: scripts/ui-test.sh
       # No check here reads a pixel — the DOM is the better oracle and a baseline would go red for
       # two reasons that are not bugs. The screenshots are the one look a FAILURE gets, which is
@@ -167,9 +178,13 @@ jobs:
           # The PNGs and the log, NOT the whole directory: $OUT is also Chrome's user-data-dir,
           # and uploading a browser profile is hundreds of megabytes of nothing anybody will read.
           path: |
-            ${{ runner.temp }}/ui-test/*.png
-            ${{ runner.temp }}/ui-test/chrome.log
-          if-no-files-found: warn
+            ${{ env.UI_OUT }}/*.png
+            ${{ env.UI_OUT }}/chrome.log
+          # error, not warn: this step only runs on a failure, and a failure that got as far as
+          # opening a browser always leaves a chrome.log. Nothing to upload therefore means the
+          # path is wrong, which is the thing you want to be TOLD rather than left to notice when
+          # you go looking for the screenshots and there are none.
+          if-no-files-found: error
 
   data:
     runs-on: ubuntu-latest

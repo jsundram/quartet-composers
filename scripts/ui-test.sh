@@ -34,7 +34,8 @@ else                       OUT=$(mktemp -d); OWN=1; fi
 # The three ways this platform can be unable to answer the question the suite is asking: no
 # browser at all, the old headless shell (no pointer even under a display), and no X server (no
 # pointer either). Each is a warning on a laptop and a failure under REQUIRE_BROWSER — see the
-# header. Called before the EXIT trap is installed, so exiting here has nothing to tear down.
+# header. Every call site precedes both the server and the EXIT trap, deliberately — see the note
+# at the server launch — so exiting here has nothing to tear down.
 required_or_warn() {
   [ -n "${REQUIRE_BROWSER:-}" ] || return 0
   echo "ui-test: REQUIRE_BROWSER is set, so a platform this suite cannot run correctly on is a"
@@ -82,7 +83,12 @@ echo "ui-test: using $CHROME"
 
 # A FRESH profile every run. sw.js serves the shell cache-first, so a reused profile keeps running
 # the PREVIOUS edit's JS until V is bumped — you would be testing code you already changed.
+# CLEARED rather than merely placed, because an inherited $OUT is not deleted at the end and is
+# therefore RE-ENTERED by the next run that names it: `OUT=/tmp/ui` twice around an edit to
+# chart.js would serve the first run's shell out of the second run's profile and pass. The freshness
+# has to be a property of this line rather than of who owns the directory.
 PROFILE="$OUT/profile"
+rm -rf "$PROFILE"
 
 # A browser left over from an interrupted run still holds $CDP. The new one then fails to bind and
 # node connects to the OLD one -- which has the PREVIOUS build in its service-worker cache, so the
@@ -97,9 +103,6 @@ for _ in $(seq 40); do
   curl -sf "http://127.0.0.1:$CDP/json/version" >/dev/null 2>&1 || break
   sleep 0.1
 done
-
-python3 -m http.server "$PORT" --bind 127.0.0.1 >/dev/null 2>&1 &
-SERVER=$!
 
 # WHETHER A POINTER EXISTS IS A PLATFORM FACT, and it decides the lens, the hover previews and the
 # detail panel's reserved height — eight of the nine checks that failed on #43's CI run. macOS
@@ -154,6 +157,13 @@ fi
 # and Xvfb's own name carries no $CDP for the pkill to match. Killing the wrapper alone therefore
 # left one X server and one /tmp/.X<n>-lock per run — and `-a` hides that by picking the next free
 # display, so it accumulated on a laptop or a long-lived runner without anything going red.
+# The server starts HERE, below the three checks above, and not before them: two of those call
+# required_or_warn, which exits — and an exit between the launch and the EXIT trap below leaves a
+# `python3 -m http.server 8765` holding the port with nothing to reap it. The next run's pkill
+# papers over that, but only if there is a next run, which in a container there is not.
+python3 -m http.server "$PORT" --bind 127.0.0.1 >/dev/null 2>&1 &
+SERVER=$!
+
 [ -n "$XVFB" ] && set -m
 "${LAUNCH[@]}" --disable-gpu --no-sandbox --hide-scrollbars --disable-dev-shm-usage \
   --no-first-run --no-default-browser-check --disable-search-engine-choice-screen \

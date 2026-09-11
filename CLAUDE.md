@@ -341,8 +341,10 @@ human grades. No test framework, and nothing to install:
   proving nothing (reported as INCONCLUSIVE, which also fails); only the suites `COVERS` maps to
   the changed files, so a chart.js branch is never asked to redden `validate.test.py`; and it
   refuses a dirty tree, because restoring means `git checkout HEAD --` and that would take
-  uncommitted work with it. `--with-ui` adds the browser suite, which CI cannot run — a UI branch
-  is told its ablation is owed locally rather than passing quietly. One `No-test: <reason>` trailer
+  uncommitted work with it. `--with-ui` adds the browser suite, and the `gates` job passes it — a
+  UI branch is ablated by CI rather than told its ablation is owed locally, which is what this
+  sentence used to say and the whole point of #56. On a machine with no browser the suite still
+  skips, and the report says so rather than passing quietly. One `No-test: <reason>` trailer
   on any commit in the range skips BOTH, so an untested source change is a sentence somebody wrote
   on purpose and a reviewer can read, not a silence. `scripts/fix-lint.test.py` covers both in
   forty-two cases that each build a throwaway repo with real branches.
