@@ -12,6 +12,13 @@
 python3 scripts/sw-lint.py --fix || true
 python3 scripts/og-lint.py || true
 
+# Is the code in this commit identical to HEAD's? Informational, and the one answer worth having
+# before a push: a comment pass that quietly deleted a function reads as "CODE CHANGED" here, which
+# is how a deleted `function hash()` would have been caught the day it happened instead of two
+# commits later. Warn-only like the rest; ablate.py acts on the same answer in CI.
+python3 scripts/codehash.py || true
+python3 scripts/codehash.test.py >/dev/null 2>&1 || echo "  (warning only — codehash tests failed; run python3 scripts/codehash.test.py)"
+
 
 # The data gate. Every serious defect this dataset has had was a plausible-looking wrong NUMBER
 # that no test caught; validate.py compares composers.json against its schema, the other caches,

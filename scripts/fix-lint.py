@@ -26,7 +26,9 @@ import os, re, subprocess, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # What counts as source and what counts as a test are defined ONCE, in ablate.py, and
-# imported — the two gates ask the same question and a second copy would drift.
+# imported — the two gates ask the same question and a second copy would drift. No bytecode, for
+# the reason ablate.py gives: a gate that litters the tree it is judging cannot claim to restore it.
+sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 import ablate
 SOURCE, TESTS = ablate.SOURCE, ablate.TESTS
@@ -68,6 +70,11 @@ def main():
     # because a GITHUB_TOKEN PR does not trigger checks.yml; any human-opened regeneration hits it.
     if "sw.js" in src and ablate.only_a_version_bump(mb):
         src = [f for f in src if f != "sw.js"]
+    # And the same for a file whose CODE is unchanged, for the same reason in a second shape: if
+    # ablate.py exempts a comments-only hunk and this does not, one branch gets opposite verdicts
+    # from the pair and the trailer becomes the only way through — which is how `No-test:` stops
+    # being a sentence somebody meant and becomes a thing you type to get past the gate.
+    src = [f for f in src if not ablate.only_comments(mb, f)]
     if not src or tests:
         return 0
 

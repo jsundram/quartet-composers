@@ -48,6 +48,17 @@ question is empty rather than unanswered.
 """
 import os, re, subprocess, sys
 
+# codehash.py isolates the CODE in a file so a comments-only change can be recognised instead of
+# asserted. Named without a hyphen so it can be imported, like this file.
+#
+# NO BYTECODE. This gate's whole contract is that it leaves the tree as it found it, and an import
+# writes scripts/__pycache__/ — which is ignored in this repo and so invisible here, and is NOT
+# ignored in the throwaway repos its own suite builds, where it turned "the working tree is clean
+# afterwards" red. A gate that litters is a gate that cannot be trusted to restore.
+sys.dont_write_bytecode = True
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import codehash
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Source -> the suite that can testify about it. A branch is only asked to redden the suites that
@@ -171,6 +182,23 @@ def excused(base_mb):
     return None
 
 
+def only_comments(base_mb, f):
+    """True when f differs from base in COMMENTS ONLY, proved rather than promised.
+
+    Same shape as the V exemption below and the same argument: ablation asks whether a test catches a
+    change, and a comment carries no behaviour for a test to catch — so reverting a comment hunk and
+    demanding a red check asks for something impossible, which is how a gate teaches people to write
+    `No-test:` out of habit. codehash.py isolates the code (AST for Python, a verified strip for JS
+    and CSS) and answers no whenever it cannot TELL, so the exemption is granted only on a positive
+    proof. It is also the check that would have caught this repo's own comment-compression pass
+    deleting `function hash()` from chart.js.
+    """
+    head, base = sh("git", "show", f"HEAD:{f}"), sh("git", "show", f"{base_mb}:{f}")
+    if head.returncode != 0 or base.returncode != 0:
+        return False
+    return codehash.unchanged(f, base.stdout, head.stdout)
+
+
 def only_a_version_bump(base_mb):
     """True when sw.js differs from base ONLY in V.
 
@@ -206,6 +234,11 @@ def plan(files, base_mb=None):
     added = [(st, f) for st, f, _o in files if SOURCE.match(f) and st == "A"]
     if "sw.js" in src and base_mb and only_a_version_bump(base_mb):
         src = [f for f in src if f != "sw.js"]
+    # A file whose CODE is unchanged has nothing a test could catch. Proved per file rather than
+    # claimed for the branch, so a commit that rewrites comments in one file and edits another is
+    # still ablated on the second.
+    if base_mb:
+        src = [f for f in src if not only_comments(base_mb, f)]
     suites, uncovered = [], []
     for f in src:
         hit = next((cmds for pats, cmds in COVERS if f in pats), None)

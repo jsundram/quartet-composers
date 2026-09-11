@@ -52,6 +52,11 @@ def git(repo, *a):
     return r.stdout
 
 
+# EVERY SOURCE FIXTURE CARRIES CODE, not just a comment. They used to be `// FIXED`, which was
+# enough while "changed source" meant "the bytes differ" — and stopped being enough the moment
+# ablate.py learned to exempt a change whose CODE is identical (only_comments, via codehash.py).
+# A fixture that is all comment now means "nothing to prove", which is the opposite of what these
+# cases are about. The FIXED marker stays because three cases grep the tree for it.
 def write(repo, name, text):
     p = os.path.join(repo, name)
     os.makedirs(os.path.dirname(p), exist_ok=True)
@@ -69,10 +74,12 @@ def new_repo(tmp):
     git(repo, "init", "-q", "-b", "main")
     git(repo, "config", "user.email", "t@t"); git(repo, "config", "user.name", "t")
     # The gates resolve their own directory, so the scripts under test must live in the throwaway
-    # repo too — they are read as scripts/, exactly where they sit in the real one.
-    for f in ("fix-lint.py", "ablate.py"):
+    # repo too — they are read as scripts/, exactly where they sit in the real one. codehash.py
+    # comes along because ablate.py imports it; leaving it out made every case here die on that
+    # import, which reads as twenty-eight unrelated failures.
+    for f in ("fix-lint.py", "ablate.py", "codehash.py"):
         write(repo, f"scripts/{f}", open(os.path.join(HERE, f)).read())
-    write(repo, "app.js", "// nothing yet\n")
+    write(repo, "app.js", "const n = 0;  // nothing yet\n")
     write(repo, "README.md", "hi\n")
     commit(repo, "base")
     return repo
@@ -99,7 +106,7 @@ with tempfile.TemporaryDirectory() as tmp:
     # --- fix-lint: SOURCE WITHOUT A TEST ---------------------------------------------------------
     repo = new_repo(tmp)
     git(repo, "checkout", "-q", "-b", "b1")
-    write(repo, "app.js", "// FIXED\n")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
     commit(repo, "fix it")
     code, out = run(repo, os.path.join(repo, "scripts/fix-lint.py"))
     case("a branch that changes source and no test fails", code, 1, out.splitlines()[-1][:60])
@@ -114,7 +121,7 @@ with tempfile.TemporaryDirectory() as tmp:
     # --- fix-lint: A TEST WAS TOUCHED ------------------------------------------------------------
     repo = new_repo(tmp)
     git(repo, "checkout", "-q", "-b", "b2")
-    write(repo, "app.js", "// FIXED\n")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
     write(repo, "scripts/thing.test.py", SUITE)
     commit(repo, "fix it, with a test")
     code, _ = run(repo, os.path.join(repo, "scripts/fix-lint.py"))
@@ -133,7 +140,7 @@ with tempfile.TemporaryDirectory() as tmp:
     write(repo, "suite.py", SUITE)
     commit(repo, "add a suite runner")
     git(repo, "checkout", "-q", "-b", "b4")
-    write(repo, "app.js", "// FIXED\n")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
     write(repo, "scripts/thing.test.py", "x\n")   # so fix-lint is satisfied; ablate uses the cmd
     commit(repo, "fix it, with a test")
     ab = os.path.join(repo, "scripts/ablate.py")
@@ -146,7 +153,7 @@ with tempfile.TemporaryDirectory() as tmp:
     write(repo, "suite.py", '''print("  ok   - something unrelated")''')
     commit(repo, "add a suite runner")
     git(repo, "checkout", "-q", "-b", "b5")
-    write(repo, "app.js", "// FIXED\n")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
     write(repo, "scripts/thing.test.py", "x\n")
     commit(repo, "fix it, with a test that proves nothing")
     code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
@@ -159,7 +166,7 @@ with tempfile.TemporaryDirectory() as tmp:
     write(repo, "suite.py", EXPLODES)
     commit(repo, "add a suite runner")
     git(repo, "checkout", "-q", "-b", "b6")
-    write(repo, "app.js", "// FIXED\n")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
     write(repo, "scripts/thing.test.py", "x\n")
     commit(repo, "fix it")
     code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
@@ -174,7 +181,7 @@ with tempfile.TemporaryDirectory() as tmp:
     write(repo, "suite.py", '''print("  FAIL - something already broken")\nimport sys; sys.exit(1)''')
     commit(repo, "add a broken suite")
     git(repo, "checkout", "-q", "-b", "b7")
-    write(repo, "app.js", "// FIXED\n")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
     write(repo, "scripts/thing.test.py", "x\n")
     commit(repo, "fix it")
     code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
@@ -191,7 +198,7 @@ with tempfile.TemporaryDirectory() as tmp:
          "FIXED" in open(os.path.join(repo, "app.js")).read(), True)
 
     # --- ablate: A DIRTY TREE IS REFUSED ----------------------------------------------------------
-    write(repo, "app.js", "// FIXED, plus uncommitted work\n")
+    write(repo, "app.js", "const n = 2;  // FIXED, plus uncommitted work\n")
     code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
                     "--cmd", f"{sys.executable} suite.py")
     case("a dirty tree is refused before anything is touched", code, 2)
@@ -214,7 +221,7 @@ with tempfile.TemporaryDirectory() as tmp:
     write(repo, "unrelated.py", 'print("  ok   - something unrelated")')
     commit(repo, "two suites")
     git(repo, "checkout", "-q", "-b", "b8")
-    write(repo, "app.js", "// FIXED\n")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
     write(repo, "scripts/thing.test.py", "x\n")
     commit(repo, "fix it")
     ab = os.path.join(repo, "scripts/ablate.py")
@@ -254,7 +261,7 @@ with tempfile.TemporaryDirectory() as tmp:
     write(repo, "suite.py", 'print("  ok   - fine")')
     commit(repo, "a suite")
     git(repo, "checkout", "-q", "-b", "b10")
-    write(repo, "chart.js", "// brand new module\n")
+    write(repo, "chart.js", "const c = 1;  // brand new module\n")
     write(repo, "scripts/thing.test.py", "x\n")
     commit(repo, "add a new module, with a test")
     code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
@@ -270,12 +277,12 @@ with tempfile.TemporaryDirectory() as tmp:
     # silently shipped the un-fixed file. This is the case the old "tree is clean afterwards" check
     # could not see, because it only ever built a modify-only branch.
     repo = new_repo(tmp)
-    write(repo, "histogram.js", "// doomed\n")
+    write(repo, "histogram.js", "const h = 1;  // doomed\n")
     write(repo, "suite.py", SUITE)
     commit(repo, "a suite and a file to delete")
     git(repo, "checkout", "-q", "-b", "b11")
     git(repo, "rm", "-q", "histogram.js")
-    write(repo, "app.js", "// FIXED\n")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
     write(repo, "scripts/thing.test.py", "x\n")
     commit(repo, "delete one source file and fix another")
     code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
@@ -297,7 +304,7 @@ with tempfile.TemporaryDirectory() as tmp:
     write(repo, "suite.py", 'print("suite: skipping, nothing to run here")')
     commit(repo, "a suite that skips")
     git(repo, "checkout", "-q", "-b", "b13")
-    write(repo, "app.js", "// FIXED\n")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
     write(repo, "scripts/thing.test.py", "x\n")
     commit(repo, "fix it")
     code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
@@ -340,7 +347,7 @@ with tempfile.TemporaryDirectory() as tmp:
     write(repo, "suite.py", 'import sys\nsys.stderr.write("Traceback: boom\\n")\nsys.exit(1)')
     commit(repo, "a suite that crashes")
     git(repo, "checkout", "-q", "-b", "b16")
-    write(repo, "app.js", "// FIXED\n")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
     write(repo, "scripts/thing.test.py", "x\n")
     commit(repo, "fix it")
     code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
@@ -353,7 +360,7 @@ with tempfile.TemporaryDirectory() as tmp:
     # rather than waved through. This is the case that used to report a passing suite as proof of
     # nothing; now it has to actually prove the fix.
     repo = new_repo(tmp)
-    body = "".join(f"// line {i}\n" for i in range(40))
+    body = "".join(f"const v{i} = {i};  // line {i}\n" for i in range(40))
     write(repo, "table.js", body)
     write(repo, "suite.py", 'import sys\nsrc=open("chart.js").read() if __import__("os").path.exists("chart.js") else ""\n'
                             'ok="FIXED" in src\nprint(("  ok   - " if ok else "  FAIL - ")+"chart.js carries the fix")\n'
@@ -361,7 +368,7 @@ with tempfile.TemporaryDirectory() as tmp:
     commit(repo, "a suite and a file to rename")
     git(repo, "checkout", "-q", "-b", "b17")
     git(repo, "mv", "table.js", "chart.js")
-    write(repo, "chart.js", body.replace("// line 7\n", "// line 7 FIXED\n"))
+    write(repo, "chart.js", body.replace("const v7 = 7;", "const v7 = 77;  // FIXED"))
     write(repo, "scripts/thing.test.py", "x\n")
     commit(repo, "rename and fix")
     code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
@@ -375,14 +382,14 @@ with tempfile.TemporaryDirectory() as tmp:
     # A rename git scores BELOW the default 50% used to arrive as D+A, which ablated the old path
     # while the new one kept the fix -- a suite that then passed, reported as proving nothing.
     repo = new_repo(tmp)
-    write(repo, "table.js", "// almost nothing in common\n")
+    write(repo, "table.js", "const t = 1;  // almost nothing in common\n")
     write(repo, "suite.py", 'import sys,os\nsrc=open("chart.js").read() if os.path.exists("chart.js") else ""\n'
                             'ok="FIXED" in src\nprint(("  ok   - " if ok else "  FAIL - ")+"chart.js carries the fix")\n'
                             'sys.exit(0 if ok else 1)')
     commit(repo, "a suite and a small file")
     git(repo, "checkout", "-q", "-b", "b18")
     git(repo, "mv", "table.js", "chart.js")
-    write(repo, "chart.js", "// FIXED, and wholly rewritten\n")
+    write(repo, "chart.js", "const c = 9;  // FIXED, and wholly rewritten\n")
     write(repo, "scripts/thing.test.py", "x\n")
     commit(repo, "rename with a rewrite")
     code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),

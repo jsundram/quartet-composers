@@ -301,6 +301,22 @@ framework, and nothing to install:
   `.github/workflows/refresh.yml` runs it monthly and opens a PR. A PR opened with the built-in
   `GITHUB_TOKEN` does not trigger `checks.yml`, which is why refresh.py runs the gate itself — the
   gate must not be skippable because a robot opened the PR.
+- `python3 scripts/codehash.py` — **is this change comments-only, or did code go with them?**
+  A comment-compression pass through `chart.js` deleted `function hash()` and `const MIN_SEP` from
+  inside the blocks it was rewriting, and the audit that missed it was a human reading a long diff
+  for an ABSENCE. This isolates the code and hashes it: the AST for Python, where comments and
+  formatting are absent by construction, and a scanner for JS and CSS that knows strings, template
+  literals and regex literals, so `"http://x"` is code. The scanner is **verified by re-parsing**
+  both the source and the stripped text with `node --check`, which is what makes its imperfection
+  affordable — a misclassification leaves something that does not parse, so it degrades to "cannot
+  tell" rather than to a false pass, and cannot-tell is a third exit code rather than a pass.
+  Newlines survive the strip deliberately: collapsing them would hide a reflow of code too, and in
+  JS it would change meaning (`return` and its value on two lines). A template literal is copied
+  whole, so a comment inside `${…}` reads as code — the conservative direction, because recursing
+  would mean deleting inside a string. `ablate.py` and `fix-lint.py` both import `unchanged()` and
+  stop asking a comments-only hunk for a test, which is the only place the claim is acted on rather
+  than reported. `scripts/codehash.test.py` is where the awkward cases live, and two of them are
+  defects it found in the tool.
 - `python3 scripts/fix-lint.py --base REF` and `python3 scripts/ablate.py --base REF` — **the two
   branch gates**, and the answer to why simple changes were taking six rounds of review. Both read
   two commits, so like `sw-lint.py --base` they are pull-request only. `fix-lint` notices a branch
@@ -349,6 +365,13 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   claim into something a suite asserts, and `prose-lint.py` does it for the docs. A claim about a
   join key, a count, a list or a threshold gets pinned or gets written loosely enough to stay true.
   A comment about WHY is never in this category, which is most of them.
+- **A comments-only change is PROVED, not promised.** `codehash.py` isolates the code and hashes
+  it, so "I only touched comments" is a command and not a claim — run it before committing a
+  rewrite pass, and both branch gates read the same answer and stop asking such a hunk for a test.
+  It earns that trust by answering "cannot tell" out loud: a strip it cannot verify is a third exit
+  code, never folded into the pass. The reason it exists is that a human diff-read missed a deleted
+  `function hash()` at the end of a long session, and then a restore from the index undid the repair
+  and it shipped. A hash does not get tired.
 - **A fix ships with the test that goes red without it.** Run it against the tree WITHOUT the fix
   and watch it fail before proposing it; `ablate.py` enforces this, but the discipline is the point.
   PR #23 ran six rounds, four of them fixing a defect in the previous round's fix, every one on a

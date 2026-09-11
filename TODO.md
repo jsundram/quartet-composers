@@ -370,6 +370,29 @@ section. What is still owed, in the order it is worth doing:
   floor makes it a command — and makes deleting a check safe, since the rate says whether anything
   else was holding the property up.
 
+### ~~Nothing could tell a comment pass from a code deletion~~ — done, 2026-09-11
+A comment-compression pass through `chart.js` deleted `function hash()` and `const MIN_SEP`, both
+inside blocks it was rewriting. Both were repaired within minutes; what was not caught is that a
+restore from the INDEX — my own mutation harness, whose `git checkout --` reads the index, which
+still held the broken copy — silently undid the repair, and it was committed and pushed. The branch
+was un-bootable for two commits. The tell was there and was waved off: one mutation "caught" in 11s
+with PAGE ERRORS instead of a named failure, which is what a dead boot looks like.
+The audit that should have caught it was "diff the file and read every line that is not a comment",
+i.e. a human reading hundreds of changed lines for an absence, last thing. `scripts/codehash.py`
+does it mechanically instead — AST for Python, a re-parse-verified scanner for JS and CSS — and both
+branch gates import `unchanged()`, so a comments-only hunk is exempted on PROOF rather than on a
+`No-test:` trailer. Verified against the real history: at the bad commit it reports chart.js as
+**CODE CHANGED** and app.js, in that same commit, as comments-only.
+Two things its own suite found in it: an unterminated block comment was stripped to EOF leaving text
+that parsed, so the SOURCE is parsed too now; and a comment inside a template interpolation counts
+as code, which is left that way because recursing into `${…}` means deleting inside a string, and a
+false alarm is cheaper than a false pass.
+Two smaller repairs fell out. Both gates now set `sys.dont_write_bytecode` — an import wrote
+`scripts/__pycache__/` into the throwaway repos their own suite builds, which turned "the working
+tree is clean afterwards" red, and a gate that litters cannot claim to restore. And every source
+fixture in `fix-lint.test.py` carries real code now: they expressed "a source change" as `// FIXED`,
+which the new exemption correctly reads as nothing to prove.
+
 ### ~~prose-lint kept thirteen numbers honest that should not have been written~~ — done, 2026-09-11
 It was built to stop the docs lying, and it worked — it found three live drifts the day it was
 written. But it is the wrong branch of this repo's own built-or-cut rule: the cure for "a doc states

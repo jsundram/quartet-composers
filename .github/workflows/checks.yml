@@ -74,6 +74,16 @@ jobs:
       # a single commit.
       - name: the --base check's own tests (scripts/sw-lint.test.py)
         run: python3 scripts/sw-lint.test.py
+      # The comment-stripper the gates act on. Its own suite runs everywhere; the tool itself needs
+      # two sides and so runs with the base sha, where it reports which changed files are
+      # comments-only. Informational here — `gates` is where the answer has teeth.
+      - name: the code-isolation tests (scripts/codehash.test.py)
+        run: python3 scripts/codehash.test.py
+      - name: code vs comments on this branch (scripts/codehash.py --base)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python3 scripts/codehash.py --base "$BASE_SHA" || true
       - name: share-card + link-preview lint (scripts/og-lint.py)
         run: python3 scripts/og-lint.py
 
