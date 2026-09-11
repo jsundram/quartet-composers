@@ -275,8 +275,9 @@ python3 -u -m http.server "$PORT" --bind 127.0.0.1 >"$OUT/server.log" 2>&1 &
 SERVER=$!
 # A PORT THE SERVER COULD NOT TAKE IS THE WORST OUTCOME HERE, because the suite still RUNS: python
 # exits on "Address already in use", node drives Chrome against whatever else is on that port, and
-# 252 checks fail at a page this repo did not write — each one after a 4s settle(), with nothing
-# on screen saying the server never started.
+# every check in it fails at a page this repo did not write — one settle() timeout at a time, with
+# nothing on screen saying the server never started. (The suite's SIZE is deliberately not stated
+# anywhere: run it and read the total it prints. It was two numbers in two docs and it drifted.)
 #
 # THE ORACLE IS OUR SERVER'S OWN ANNOUNCEMENT, and nothing weaker survives the case it is for: a
 # squatter that answers 200 satisfies any HTTP probe on the first iteration, while our python has

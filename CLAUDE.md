@@ -308,7 +308,7 @@ human grades. No test framework, and nothing to install:
   people use — 8888 is Jupyter's, 9515 is chromedriver's — and a run that finds one held used to
   proceed: the server exits on "Address already in use" into a `/dev/null`, or the new Chrome
   fails to bind, and the suite then drives somebody ELSE's origin or debug endpoint and reports it
-  as 252 failures of this app. So the runner stops and says which port and why, `kill -0` on its
+  as a suiteful of failures of this app. So the runner stops and says which port and why, `kill -0` on its
   own server being the oracle that needs no marker in the page, and every probe is bounded
   (`answers()`), because a process that accepts a connection and never replies hangs a bare
   `curl` for as long as it likes — which would be the same silence one step earlier.
