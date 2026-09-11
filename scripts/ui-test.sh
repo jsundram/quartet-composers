@@ -41,8 +41,16 @@ CDP=${CDP:-$((9333 + SLOT))}
 # another's debug port — which would be the same cross-kill wearing a different number.
 
 # Answered out of the path, before anything is started: how a human reads the pair off in order to
-# decide what to pin, and how scripts/ui-test.test.py asks without a browser.
-if [ "${1:-}" = "--ports" ]; then echo "PORT=$PORT CDP=$CDP"; exit 0; fi
+# decide what to pin, and how scripts/ui-test.test.py asks without a browser. An argument this
+# script does NOT know is a question too — `--port`, `--help`, something a wrapper passed — and
+# taking it for a bare run means somebody asking what this does gets a browser instead of an
+# answer. (An echo rather than die(): $OUT does not exist yet, and a usage error has no evidence
+# to leave. Exit 2, the same code ui.test.mjs uses for the same mistake.)
+case "${1:-}" in
+  "")      ;;
+  --ports) echo "PORT=$PORT CDP=$CDP"; exit 0 ;;
+  *)       echo "ui-test: unknown argument \"$1\" — the only one is --ports"; exit 2 ;;
+esac
 echo "ui-test: server :$PORT, devtools :$CDP"
 
 # EVERY PROBE BELOW IS BOUNDED, because a bare `curl` at one of these ports is not. What can be
@@ -188,7 +196,12 @@ reaped() {
   return 1
 }
 reaped "remote-debugging-port=$CDP"
-reaped "http.server $PORT"        # the old server has to go before the new one can bind
+# The server half is asked the same question and its answer is KEPT, because the two failures read
+# identically further down: an old server of ours that will not die and a stranger holding the
+# port both end as "the server never took $PORT", and only one of them is worth pinning a port
+# over. The debug half needs no flag — `listening` below is a sharper statement of the same thing.
+SLOW_SERVER=""
+reaped "http.server $PORT" || SLOW_SERVER=1
 # So a port still held HERE is held by something the kill does not match — no wait will free it.
 # Falling through is the trap the paragraph above argues against, arriving one door along: the new
 # Chrome fails to bind, the readiness loop below succeeds against the FOREIGN endpoint, and node
@@ -270,15 +283,30 @@ SERVER=$!
 # not reached its bind yet — so `kill -0` still sees a live pid and the run goes on. A stranger
 # cannot say this line for us; a python that never bound never prints it, and one whose wording
 # changes fails CLOSED, into a message and the log rather than into a silent green run.
-for _ in $(seq 40); do
+# The budget only bites when python is ALIVE and silent, since both other outcomes break the loop
+# on their own, so it is generous: a cold interpreter on a contended runner is not a bind failure.
+T0=$SECONDS
+for _ in $(seq 150); do
   grep -q "^Serving HTTP" "$OUT/server.log" 2>/dev/null && break
   kill -0 "$SERVER" 2>/dev/null || break
   sleep 0.1
 done
 if ! grep -q "^Serving HTTP" "$OUT/server.log" 2>/dev/null; then
-  die "ui-test: the server never took $PORT — something else is holding it, and the derived band" \
-      "         covers ports people use (8888 is Jupyter's). Pin another with PORT=<n>." \
-      "--- server.log ---" "$(cat "$OUT/server.log" 2>/dev/null || echo "(no server.log)")"
+  # THREE OUTCOMES, NOT ONE. Blaming a squatter for all of them sends the reader to pin a port
+  # that was never the problem — the same mistake this file keeps fixing: a message stating a
+  # cause nothing checked. `kill -0` is the discriminator and it is already in the loop above.
+  if [ -n "$SLOW_SERVER" ]; then
+    die "ui-test: a server of this checkout's own would not die, so the new one could not take" \
+        "         $PORT. Nothing else is wrong; run it again, or pin another with PORT=<n>."
+  elif kill -0 "$SERVER" 2>/dev/null; then
+    die "ui-test: the server on $PORT is alive but has not said it bound after $((SECONDS - T0))s." \
+        "         That is a slow python, not a held port — nothing here needs pinning." \
+        "--- server.log ---" "$(cat "$OUT/server.log" 2>/dev/null || echo "(no server.log)")"
+  else
+    die "ui-test: the server never took $PORT — something else is holding it, and the derived" \
+        "         band covers ports people use (8888 is Jupyter's). Pin another with PORT=<n>." \
+        "--- server.log ---" "$(cat "$OUT/server.log" 2>/dev/null || echo "(no server.log)")"
+  fi
 fi
 
 [ -n "$XVFB" ] && set -m
@@ -292,12 +320,16 @@ set +m
 # bare ECONNREFUSED from node with chrome.log already deleted by the EXIT trap — a failure that
 # says only "the port is shut", never why. Say why.
 READY=""
+# SECONDS rather than the number this loop was written around: every probe carries `-m 2` now, so
+# 120 iterations is 30s only when nothing stalls, and a message stating a budget it did not spend
+# is the same defect as one stating a cause it did not check.
+T0=$SECONDS
 for _ in $(seq 120); do
   answers "$CDP/json/version" && { READY=1; break; }
   sleep 0.25
 done
 if [ -z "$READY" ]; then
-  die "ui-test: chrome never opened its debug port on $CDP after 30s — this is a FAILURE," \
+  die "ui-test: chrome never opened its debug port on $CDP after $((SECONDS - T0))s — a FAILURE," \
       "         not the no-browser skip. Using: $CHROME" \
       "--- chrome.log ---" "$(cat "$OUT/chrome.log" 2>/dev/null || echo "(no chrome.log)")"
 fi
