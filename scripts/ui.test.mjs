@@ -2299,6 +2299,28 @@ check("a wheel over the glyphs zooms the chart, like the band they sit in",
       kGlyph > 1.05 && kBand > 1.05,
       `k ${kGlyph.toFixed(2)} over the glyph, ${kBand.toFixed(2)} beside it`);
 
+// ...AND THE LENS, WHERE THE CHART TAKES NO WHEEL AT ALL. applyZoomBehavior() binds nothing in that
+// view, so a forward that cancelled the page scroll BEFORE knowing whether the chart would take it
+// made this corner deader than leaving it alone: 0px over the glyph against 602px two pixels left,
+// measured at 1024. The guarantee is not "the corner always zooms" but "the corner always does what
+// the band beside it does" — which in lens is scroll the page. Sent raw rather than through wheel(),
+// which polls for a zoom that is not coming.
+await view("lens");
+await ev(`window.scrollTo(0, 0)`);
+await settle(`window.scrollY === 0`);
+const lensPt = await ev(`(()=>{const b=document.getElementById('share').getBoundingClientRect();
+  return {x:Math.round(b.left+b.width/2), y:Math.round(b.top+b.height/2)}})()`);
+for (let i = 0; i < 3; i++) {
+  await send("Input.dispatchMouseEvent", { type: "mouseWheel", x: lensPt.x, y: lensPt.y,
+    deltaX: 0, deltaY: 240, pointerType: "mouse" });
+  if (await settle(`window.scrollY > 0`, 400)) break;
+}
+const lensScroll = await ev(`Math.round(window.scrollY)`);
+await ev(`window.scrollTo(0, 0)`);
+await view("fame");
+check("...and in the lens, where it takes none, the page scrolls as it does beside them",
+      lensScroll > 0, `scrollY ${lensScroll} after a wheel over the glyph`);
+
 // And above the breakpoint they go back to being words in the row, one element moved rather than
 // two drawn.
 await viewport(1280, 900, false);

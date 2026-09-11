@@ -821,11 +821,18 @@ window.Chart = (function () {
   // COVERED — and became a dead corner under a mouse the moment the layout reached a laptop.
   // The event is re-dispatched into the CURRENT svg rather than app.js holding a reference to one:
   // build() makes a new svg on every setData/setMode, and a captured node is the same stale-handle
-  // trap that `selectAll("svg")` was. In lens mode nothing is bound (see below) and this reaches
-  // no listener, which is the same thing the bare plot does there.
+  // trap that `selectAll("svg")` was.
+  //
+  // It REPORTS whether it delivered, because the caller has to preventDefault only when it did.
+  // In lens mode applyZoomBehavior() binds nothing, so a forwarded wheel reaches no listener — and
+  // a caller that had already cancelled the page scroll made the corner DEADER than leaving it
+  // alone: over the glyph nothing happened at all, while two pixels left, over the axis title, the
+  // wheel scrolled the page as it always has. That is the same asymmetry this forward exists to
+  // remove, with the sign flipped, and it was measured: 0px against 602px at 1024 in lens.
   function wheelInto(e) {
-    if (!svg) return;
+    if (!svg || mode === "lens") return false;
     svg.node().dispatchEvent(new WheelEvent("wheel", e));
+    return true;
   }
 
   function applyZoomBehavior() {
