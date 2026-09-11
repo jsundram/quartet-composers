@@ -226,10 +226,12 @@ human grades. No test framework, and nothing to install:
   compares composers.json against its schema, the other caches, readership.json and the previous
   commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
   if you weaken a check, that goes red.
-- `scripts/ui-test.sh` — 252 behavioral checks against a real Chrome over CDP, the
-  last of which is the suite asserting its OWN stated size against both docs — some checks run in
-  loops, so the literal `check(` count is not the number it reports and no offline count is exact.
-  It is the one total `prose-lint.py` cannot take, and this is where it is known. It starts
+- `scripts/ui-test.sh` — the behavioural suite, against a real Chrome over CDP. **Its size is not
+  stated here: run it and read the total it prints.** Some of its checks are registered in loops,
+  so the literal `check(` count is not that total and no offline count is exact — it is the one
+  number `prose-lint.py` cannot take, so a figure written here could only be re-typed by hand every
+  time somebody adds a check, which is churn in exchange for a number the suite already reports.
+  The docs used to state it and a check used to assert the statement; both are gone. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed — right for a
   laptop and wrong for a runner, where a job that quietly lost its Chrome would go green having
   tested nothing, so `REQUIRE_BROWSER=1` turns that skip and both pointer warnings into a failure
@@ -378,8 +380,8 @@ touching `chart.js`, `table.js` or `styles.css` — it is faster than a push, an
 you want to LOOK at — but it is no longer the only thing standing between a regression and main.
 **It was never kept out for want of a browser**, which is what this line used to say:
 `ubuntu-latest` ships `/usr/bin/google-chrome` and `find_chrome` finds it. Measured on #43, the
-suite RUNS there and scored 231 of the 240 checks it had then — a RECORD of that run, so the
-denominator does not follow the total above. Of those nine, eight were the missing POINTER and are
+suite RUNS there and scored 231 of the 240 checks it had then — a RECORD of one past run, which is
+why it carries a number at all: it is a fact about that afternoon and cannot go stale. Of those nine, eight were the missing POINTER and are
 fixed (#50, above); the ninth was a FONT metric — `system-ui` is DejaVu Sans on a Linux runner and
 the four phone columns measured 9px wider than on a Mac, so `table does not overflow its box at
 390px` read 335 against 326 — and it is fixed too (#53). It was never a harness artefact: the

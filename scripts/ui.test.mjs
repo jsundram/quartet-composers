@@ -26,7 +26,7 @@
 // reused profile happily runs the previous edit's chart.js until V is bumped. That cost two
 // confusing test rounds during the build; it is the service worker working exactly as documented.
 
-import { writeFileSync, readFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 
 const [,, PORT, OUTDIR, ORIGIN] = process.argv;
 
@@ -346,7 +346,12 @@ const check = (name, cond, extra = "", fail = "") => {
 // same silent path.
 function report(died) {
   console.log(results.join("\n"));
+  // The suite's size, printed rather than stated: some checks are registered in loops, so this is
+  // the only place the real total is known, and the docs point here instead of carrying a number
+  // that every added check would send somebody to re-type.
+  const failed = results.filter(r => r.startsWith("FAIL")).length;
   if (died) console.log(`\nDIED after ${results.length} checks: ${died}`);
+  else console.log(`\n${results.length} checks, ${failed} failed`);
   console.log(logs.length ? "\nPAGE ERRORS:\n" + logs.join("\n") : "\nno page errors");
   if (resentWheels) console.log(`${resentWheels} wheel event(s) went nowhere and were re-sent`);
   process.exit(died || logs.length || results.some(r => r.startsWith("FAIL")) ? 1 : 0);
@@ -2547,30 +2552,5 @@ await send("Emulation.setEmulatedMedia", { media: "" });
 // A diagnosis, so it takes the `fail` slot: on a pass there is nothing to say.
 check("every in-place reset reached the resting page without a boot", missedRests.length === 0, "",
       missedRests.join("; "));
-
-// --- 11. THE SUITE'S OWN STATED SIZE --------------------------------------------------------
-// The docs quote this total, and it is the one count in the repo that cannot be taken offline:
-// some checks are registered in loops, so the literal `check(` count is not what this reports.
-// So `scripts/prose-lint.py` deliberately does not pin it and this does, where the real total is
-// known — the same pin-it-where-the-file-settles-it rule og-lint.py uses for manifest.json.
-// README carried a stale size for months before this check existed; the drift was spotted during
-// #23, deferred to a follow-up, and never done. Quoting the literal count here went stale inside
-// the branch that added this check, which is why neither number is written down any more.
-{
-  const total = results.length + 1;   // +1: this check is about to be pushed
-  const stated = [];
-  for (const f of ["README.md", "CLAUDE.md"]) {
-    const src = readFileSync(new URL(`../${f}`, import.meta.url), "utf8");
-    for (const m of src.matchAll(/(\d+)\s+behaviou?ral checks/g)) stated.push([f, +m[1]]);
-  }
-  const wrong = stated.filter(([, n]) => n !== total);
-  // The other diagnosis: on a pass `wrong` is empty, so this text was `"" + " — it is 242"` and
-  // every green run printed "the docs state this suite's real size —  — it is 242".
-  check("the docs state this suite's real size",
-        stated.length >= 2 && wrong.length === 0, "",
-        stated.length < 2
-          ? `only ${stated.length} doc(s) state it — a claim that stops matching proves nothing`
-          : wrong.map(([f, n]) => `${f} says ${n}`).join(", ") + ` — it is ${total}`);
-}
 
 report(null);

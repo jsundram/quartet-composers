@@ -182,8 +182,9 @@ python3 scripts/validate.py       # THE DATA GATE — see below; run it after ev
 python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (26 + a clean pass)
 python3 scripts/fetch_views.test.py  # the page-view cache's invariants, network stubbed (17 cases)
 python3 scripts/pagemoves.test.py # the page-move rule, offline (9 cases)
-scripts/ui-test.sh           # 252 behavioural checks in a real Chrome (lens, tap-to-pin, the three
+scripts/ui-test.sh           # the behavioural suite in a real Chrome (lens, tap-to-pin, the three
                              #   filters, theme repaint, 390/360px layout, offline, print) — no deps.
+                             #   It prints its own total; that is where the count lives.
                              #   On Linux it wants xvfb-run: headless there reports no pointer at
                              #   all, and nine of these checks are about having one
 node scripts/sw.test.mjs     # 24 tests of the service worker's fetch handler
