@@ -784,9 +784,8 @@ window.Chart = (function () {
     // #chart-tools in the icon layout (placeChartTools) — so it matched the chart's svg and the
     // three .ico glyphs inside Share and Full screen, and removed all four. Nothing showed it,
     // because build() only runs from init() and init() runs before the move; the day anything
-    // rebuilds the svg the icons vanish wherever the group is on the plot, which was phones only
-    // when this was found and is now every window under 1100px. This removes the one svg this
-    // module made, which no overlay can ever be.
+    // rebuilds the svg the icons vanish wherever the group is on the plot. This removes the one
+    // svg this module made, which no overlay can ever be.
     if (svg) svg.remove();
     svg = d3.select(el).append("svg").attr("role", "img");
     // Everything that MOVES under a zoom is clipped to the plot rectangle. Without this a pinch
@@ -812,6 +811,21 @@ window.Chart = (function () {
     zoom = d3.zoom().scaleExtent([1, 24])
       .on("zoom", ev => { transform = ev.transform; draw(); cbZoom && cbZoom(zoomed()); });
     bindPointer();
+  }
+
+  // A wheel that starts over the chart's own two buttons is a wheel over the CHART. The zoom is
+  // bound to the SVG and app.js parks #chart-tools in #plot as a SIBLING of it, so such a wheel
+  // reaches no zoom listener at all: it bubbles to the document and scrolls the page, two pixels
+  // from a spot in the same band that zooms. It cost nothing while the icons were a phone layout —
+  // there is no wheel on a phone, and the trade-off measured for that layout was all about dots
+  // COVERED — and became a dead corner under a mouse the moment the layout reached a laptop.
+  // The event is re-dispatched into the CURRENT svg rather than app.js holding a reference to one:
+  // build() makes a new svg on every setData/setMode, and a captured node is the same stale-handle
+  // trap that `selectAll("svg")` was. In lens mode nothing is bound (see below) and this reaches
+  // no listener, which is the same thing the bare plot does there.
+  function wheelInto(e) {
+    if (!svg) return;
+    svg.node().dispatchEvent(new WheelEvent("wheel", e));
   }
 
   function applyZoomBehavior() {
@@ -1174,7 +1188,7 @@ window.Chart = (function () {
            repertoireLabel: () => repertoire.noun,
            // Every gender pill value that swaps the claim, so app.js can assert they are reachable.
            repertoireKeys: () => Object.keys(REPERTOIRES),
-           resetZoom, zoomed, colorOf, hint, setTopReserve,
+           resetZoom, zoomed, colorOf, hint, setTopReserve, wheelInto,
            // The current zoom scale, for the suite: "the frame closed in on the filter" is a
            // claim about this number, and reading it off the axis ticks would be reading a
            // rendering of it.

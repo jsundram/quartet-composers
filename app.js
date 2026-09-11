@@ -572,7 +572,20 @@ function placeFilters() {
 // while icons where words would have fitted costs 26px of data height and nothing else.
 // Those widths are one machine's font metrics, so ui.test.mjs presses Share at 800 and at 1101 —
 // the first width in each band that draws the words — and fails if the row grows.
-const ICONS = matchMedia("(max-width:799px), (min-width:900px) and (max-width:1100px)");
+//
+// They are TWO queries and not one list, because only the second one is about the grid.
+// `body.fs .grid{ display:block }` — in full screen the card IS the window, so the 194px is never
+// taken and the row is back to the 1056+ geometry. Measured the same way, words in the row with the
+// widest label: full screen fits them from 762px, where the two-column card does not until 1092. So
+// the squeezed interval is skipped there, and a 1000px window in full screen keeps its words instead
+// of spending the 48px band on a row that would have held them. That band costs MORE in full screen
+// than at rest — #plot is flex:1 there, so it comes off a chart that is already the whole viewport.
+// The narrow interval still applies, conservatively: full screen fits from 762 and this draws icons
+// to 799, which errs 38px toward the icons, the side that cannot wrap a row under a cursor.
+const NARROW = matchMedia("(max-width:799px)");
+const SQUEEZED = matchMedia("(min-width:900px) and (max-width:1100px)");
+const iconsOnPlot = () =>
+  NARROW.matches || (SQUEEZED.matches && !document.body.classList.contains("fs"));
 
 // 40px of touch target, CENTRED on the axis title's line, with the whole target clear of the plot
 // area. Those numbers pin the band, and styles.css carries the derivation: the glyph's centre sits
@@ -590,7 +603,7 @@ const TOOLS_BAND = 48;
 
 function placeChartTools() {
   const tools = $("chart-tools"), viz = $("viz");
-  const onPlot = ICONS.matches;
+  const onPlot = iconsOnPlot();
   const parent = onPlot ? $("plot") : viz.querySelector(".controls");
   Chart.setTopReserve(onPlot ? TOOLS_BAND : 0);
   if (tools.parentNode === parent) return;
@@ -1107,7 +1120,18 @@ function wire() {
     Table.select(selected, false);
   });
   WIDE.addEventListener("change", placeDetail);   // rotation / a window drag crosses the breakpoint
-  ICONS.addEventListener("change", placeChartTools);
+  NARROW.addEventListener("change", placeChartTools);
+  SQUEEZED.addEventListener("change", placeChartTools);
+  // A wheel over the glyphs is a wheel over the CHART — the zoom is bound to the svg and this group
+  // is its sibling, so without this the corner is dead to a wheel and the page scrolls instead (see
+  // Chart.wheelInto). Only while the group is ON the plot: in the controls row it is a button like
+  // any other and the page is what a wheel there should move. preventDefault, or the page scrolls
+  // as well as the chart zooming — which is why the listener cannot be passive.
+  $("chart-tools").addEventListener("wheel", e => {
+    if ($("chart-tools").parentNode !== $("plot")) return;
+    e.preventDefault();
+    Chart.wheelInto(e);
+  }, { passive: false });
   $("theme").onclick = () => Theme.cycle();
   themeLabel();
 }
