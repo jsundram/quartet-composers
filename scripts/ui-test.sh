@@ -173,21 +173,29 @@ for p in "$CDP" "$PORT"; do
 done
 pkill -f "remote-debugging-port=$CDP" 2>/dev/null
 pkill -f "http.server $PORT" 2>/dev/null
-# Wait for the port to actually close rather than for half a second: nothing to kill costs nothing,
-# and a browser slow to die is waited for instead of raced (issue 48, the same shape as the
-# readiness loop below).
-for _ in $(seq 40); do
-  listening "$CDP" || break
-  sleep 0.1
-done
-# A port that never closed was never a leftover of OURS: the pkill matches a Chrome carrying this
-# debug port and frees nothing else, so whatever is there is still there. Falling through is the
-# trap the paragraph above argues against, arriving one door along — the new Chrome fails to bind,
-# the readiness loop below succeeds against the FOREIGN endpoint, and node drives that instead.
-# Nothing has been started yet, so stopping here has nothing to tear down (see the server launch).
+# WAIT FOR THE PROCESS, NOT FOR THE PORT, which is the difference between a signal and a budget
+# (issue 48's rule, applied to the one loop that still got it wrong). What is being waited for here
+# is OUR leftover dying, and `pgrep` answers that about the same pattern the kill just used:
+# usually there was nothing to kill and it costs one call, and a browser slow to die is waited for
+# instead of raced. Asking the PORT instead cannot tell our dying browser from a stranger's live
+# one, so it waited out the whole budget to say something the first pgrep already knew — 4s per
+# run that meets a squatter, and 8 of the 11 seconds its own suite spent proving it.
+reaped() {
+  for _ in $(seq 40); do
+    pgrep -f "$1" >/dev/null 2>&1 || return 0
+    sleep 0.1
+  done
+  return 1
+}
+reaped "remote-debugging-port=$CDP"
+reaped "http.server $PORT"        # the old server has to go before the new one can bind
+# So a port still held HERE is held by something the kill does not match — no wait will free it.
+# Falling through is the trap the paragraph above argues against, arriving one door along: the new
+# Chrome fails to bind, the readiness loop below succeeds against the FOREIGN endpoint, and node
+# drives that instead. Nothing has been started yet, so stopping costs nothing (see the server).
 if listening "$CDP"; then
-  die "ui-test: $CDP is still held after 4s, so it is not a browser this run can clear — the" \
-      "         pkill matches a Chrome carrying this debug port and frees nothing else, and" \
+  die "ui-test: $CDP is held by something this run cannot clear — the pkill matches a Chrome" \
+      "         carrying this debug port and nothing else remains under that pattern, and" \
       "         chromedriver's own default (9515) is inside the derived band. Chrome would fail" \
       "         to bind and node would drive whatever IS there, so this stops: pin CDP=<n>."
 fi

@@ -84,14 +84,28 @@ def stable(t):
     assert ports(d) == ports(d) == ports(d)
 
 
+# BUILT ONCE. `distinct` and `bands` ask different questions of the same derivation, and building
+# a set of 24 checkouts each was 48 runs to answer both. It outlives the per-case temp dirs on
+# purpose; python removes it when the process ends.
+_SAMPLE = []
+_SAMPLE_DIR = None
+
+
+def sample():
+    global _SAMPLE_DIR
+    if not _SAMPLE:
+        _SAMPLE_DIR = tempfile.TemporaryDirectory()
+        _SAMPLE.extend(ports(checkout(_SAMPLE_DIR.name, "w%d" % i)) for i in range(24))
+    return _SAMPLE
+
+
 @case("many checkouts land on many server ports AND on many devtools ports")
-def distinct(t):
+def distinct(_):
     # BOTH, separately. Asserting over the pair passes as soon as EITHER half varies, so a tree
     # that had gone back to `CDP=${CDP:-9333}` with PORT still derived scored 24 distinct pairs
     # and 1 debug port — which is #49 exactly, every checkout killing every other checkout's
     # browser, through a green suite.
-    pairs = [ports(checkout(t, "w%d" % i)) for i in range(24)]
-    for what, got in (("server", {p for p, _ in pairs}), ("devtools", {c for _, c in pairs})):
+    for what, got in (("server", {p for p, _ in sample()}), ("devtools", {c for _, c in sample()})):
         # 24 checkouts over 200 slots: ~23 distinct is the expectation and 12 is far below any run
         # this can have, while a fixed default scores exactly 1. A floor rather than "all 24
         # differ" because a hash into 200 slots collides sometimes — the residual the runner
@@ -100,11 +114,10 @@ def distinct(t):
 
 
 @case("the server band and the devtools band cannot overlap")
-def bands(t):
+def bands(_):
     # One run's server on another run's debug port would be the same cross-kill wearing a
     # different number — and worse, node would find an HTTP server where it expects CDP.
-    for i in range(24):
-        p, c = ports(checkout(t, "w%d" % i))
+    for p, c in sample():
         assert 8765 <= p <= 8964, p
         assert 9333 <= c <= 9532, c
 
@@ -209,6 +222,49 @@ def stopped(t, which, reply, says):
     assert os.path.exists(note) and (says % p) in open(note, encoding="utf-8").read(), note
 
 
+# The other side of every case below: a process the clear DOES match, holding the debug port with
+# that port on its command line — which is what a browser left behind by an interrupted run is.
+LEFTOVER = ("import socket,sys,time;"
+            "s=socket.socket();s.bind(('127.0.0.1',int(sys.argv[1])));s.listen(1);time.sleep(300)")
+
+
+@case("a leftover of THIS checkout is cleared and waited for, not read as a stranger")
+def own_leftover(t):
+    # THE DISTINCTION THE WHOLE CLEAR RESTS ON, and the reason it waits on `pgrep` and not on the
+    # port: our own leftover must be killed and waited out (node would otherwise connect to it and
+    # test the previous edit's JS from its service-worker cache), while a stranger must stop the
+    # run. A port probe cannot tell them apart, and answering "still held" by waiting out a budget
+    # was 4 seconds to say what the first pgrep knew.
+    #
+    # The server port is squatted as well, purely so the run has somewhere fast to stop: reaching
+    # THAT message is the proof it got past the debug-port guard rather than dying at it.
+    #
+    # WHAT THIS DOES NOT PROVE is the waiting itself. This leftover releases the port the moment it
+    # is killed, so it passes whether or not anything waits for the process to go, and making it
+    # slow to die costs every run the delay it is given — more than the guard is worth, because
+    # that failure is LOUD: a leftover still holding the port at the check stops the run with
+    # "cannot clear", which is a false alarm you read, not a silent pass.
+    d = checkout(t, "w")
+    port, cdp = ports(d)
+    mine = subprocess.Popen([sys.executable, "-c", LEFTOVER, str(cdp),
+                             "--remote-debugging-port=%d" % cdp],
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    for _ in range(100):
+        try:
+            socket.create_connection(("127.0.0.1", cdp), 0.2).close()
+            break
+        except OSError:
+            time.sleep(0.05)
+    try:
+        r = held(port, 200, lambda: full_run(d, os.path.join(t, "out")))
+    finally:
+        mine.terminate()
+        mine.wait(timeout=10)
+    assert "cannot clear" not in r.stdout, "read its own leftover as a stranger:\n" + r.stdout
+    assert "the server never took %d" % port in r.stdout, r.stdout
+    assert mine.poll() is not None, "the leftover outlived the clear"
+
+
 @case("a stranger ANSWERING on the server port stops the run, not just a silent one")
 def foreign_server_200(t):
     # The shape the first version of this guard let through, and the likelier of the two: whatever
@@ -230,14 +286,14 @@ def foreign_cdp_404(t):
     # chromedriver's shape, on a default port (9515) inside the derived band. It 404s on
     # /json/version, which `curl -sf` reports exactly as it reports an empty port — so the guard
     # asks what is HELD instead. The pkill frees only a Chrome carrying this debug port.
-    stopped(t, "cdp", 404, "%d is still held")
+    stopped(t, "cdp", 404, "%d is held by something this run cannot clear")
 
 
 @case("a browser-shaped stranger on the debug port stops it too")
 def foreign_cdp_200(t):
     # The other half: a live sibling's Chrome, or anything else answering 200 there. Driving it
     # would test a browser this run did not start, on a profile it did not clear.
-    stopped(t, "cdp", 200, "%d is still held")
+    stopped(t, "cdp", 200, "%d is held by something this run cannot clear")
 
 
 @case("the clear still matches BY the derived ports, not by a literal")
