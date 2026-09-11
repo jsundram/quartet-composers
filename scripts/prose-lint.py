@@ -37,11 +37,12 @@ reworded would silently retire its own check. So every claim must be FOUND and t
 Rewording is fine — update the pattern in the same commit, which is the point at which somebody
 is looking at the number anyway.
 
-The UI suite's own count is NOT here: some of its checks run in loops, so the literal `check(`
-count is not the number it reports and no offline count is exact. `scripts/ui.test.mjs` asserts it
-instead, at runtime where the real total is known — the same pin-it-where-the-file-settles-it rule
-og-lint.py uses for manifest.json. (Quoting the two numbers here went stale within this very
-branch, which is the Conventions rule about mechanical facts in comments, self-demonstrating.)
+The UI suite's own count is NOT here, and is no longer stated in the docs either. Some of its
+checks run in loops, so the literal `check(` count is not the number it reports and no offline
+count is exact; the suite prints its real total when it runs. A number only that run can produce
+is a number every added check makes somebody re-type, so the docs now say where to read it instead
+— the CUT branch of the built-or-cut rule, tried first. (Quoting it here went stale within a
+single branch, which is the Conventions rule about mechanical facts, self-demonstrating.)
 
     python3 scripts/prose-lint.py
 """
