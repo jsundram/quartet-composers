@@ -293,7 +293,7 @@ human grades. No test framework, and nothing to install:
   it is checked for rather than assumed: this Chromium drops a synthetic wheel now and then under
   emulation, so `wheel()` re-sends one that moved nothing and the run prints how often it had to.
 - `python3 scripts/ui-test.test.py` — the RUNNER rather than the app: the two ports
-  `ui-test.sh` derives from the checkout's own path, in eleven cases that need no browser. They
+  `ui-test.sh` derives from the checkout's own path, in twelve cases that need no browser. They
   were fixed at 8765/9333 and are cleared with a `pkill -f` that matches every process on the
   machine, so a second checkout starting up killed the first one's browser and server mid-run —
   and the victim was the run that had done nothing wrong (#49). Deriving the default gives every
@@ -312,6 +312,12 @@ human grades. No test framework, and nothing to install:
   own server being the oracle that needs no marker in the page, and every probe is bounded
   (`answers()`), because a process that accepts a connection and never replies hangs a bare
   `curl` for as long as it likes — which would be the same silence one step earlier.
+  **The clear waits on the PROCESS, not on the port** — `pgrep` over the pattern the kill just
+  used. What it waits for is OUR leftover dying, and a port probe cannot tell that from a
+  stranger's live socket, so it spent the whole budget to report something the first `pgrep`
+  already knew: 4s on every run that meets a squatter, and 8 of the 11 seconds this suite took to
+  prove it. That is issue 48's rule — a wait says what it is waiting for — reaching the one loop
+  that had kept a budget.
   **And the runner is SOURCE to the gates now**, not a test file beside the suite it launches:
   `ablate.py`'s `COVERS` maps `scripts/ui-test.sh` to these cases, so a change to it has to be
   proved by one of them. Filed as a test — which it was, back when it only started a server and a
