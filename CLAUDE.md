@@ -230,7 +230,10 @@ human grades. No test framework, and nothing to install:
   last of which is the suite asserting its OWN stated size against both docs — some checks run in
   loops, so the literal `check(` count is not the number it reports and no offline count is exact.
   It is the one total `prose-lint.py` cannot take, and this is where it is known. It starts
-  its own server and browser and skips cleanly (exit 0) if no Chromium is installed. Every check
+  its own server and browser and skips cleanly (exit 0) if no Chromium is installed — right for a
+  laptop and wrong for a runner, where a job that quietly lost its Chrome would go green having
+  tested nothing, so `REQUIRE_BROWSER=1` turns that skip and both pointer warnings into a failure
+  and `checks.yml` sets it in both jobs that reach here. Every check
   in it exists because something was actually broken; read the header before deleting one.
   **Every wait in it is a poll, not a budget** (#48): `settle()` re-asks the page for the state the
   next check reads, `goto()` polls for a drawn page, and `idle()` asks d3 whether the zoom tween

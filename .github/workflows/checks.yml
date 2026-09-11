@@ -1,8 +1,11 @@
 # pwa-starter: checks.yml @ d2fad01  (+ the og-lint step, the prose lint, the gates job, the ui job)
 name: checks
 
-# Guards for sw.js — the offline service worker. Its contract is subtle and easy to regress, so
-# both halves run on every push and PR with real exit codes:
+# The repo's checks, in four jobs: `sw` (the service worker, the link preview and the prose gate),
+# `gates` (the two branch gates, pull requests only), `ui` (the browser suite) and `data` (the data
+# gate and the pipeline's offline tests). Everything below runs with a real exit code on every push
+# and PR unless its own entry says otherwise. This was guards for sw.js alone when it was vendored
+# from pwa-starter, and the sentence saying so outlived three jobs growing underneath it:
 #   - node scripts/sw.test.mjs : behavioral tests of the fetch handler (cache-first, lie-fi
 #     bounds, offline fallbacks) against a mocked SW environment.
 #   - scripts/sw-lint.py       : the precache-contract checks (the pre-commit hook runs these
