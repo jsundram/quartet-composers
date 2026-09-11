@@ -2278,6 +2278,27 @@ check("...and covers nothing there either, in any view",
       lapDots === 0 && lapNames.length === 0,
       `worst view covers ${lapDots} dots; labels: ${lapNames.join(", ") || "none"}`);
 
+// COVERING NO DOT IS NOT THE SAME AS PASSING A GESTURE THROUGH. d3-zoom is bound to the svg and
+// this group is a SIBLING of it inside #plot, so a wheel that starts over a glyph reached no zoom
+// listener at all: the corner was dead and the page scrolled instead, two pixels from a spot in the
+// same band that zooms. Nothing saw it, because the taps 7c2 sends are the one gesture that DOES
+// work here and a phone has no wheel — it only became reachable when the layout reached a laptop.
+// Measured at both spots, because "the corner is dead" is only a defect against a corner that works.
+await view("fame");
+await ev(`Chart.resetZoom()`); await idle();
+const corner = await ev(`(()=>{const b=document.getElementById('share').getBoundingClientRect(),
+    t=document.querySelector('#plot svg text.ttl').getBoundingClientRect();
+  return {gx:b.left+b.width/2, gy:b.top+b.height/2, tx:t.left+5, ty:t.top+t.height/2}})()`);
+await wheel(corner.gx, corner.gy, -240);
+const kGlyph = await ev(`Chart.zoomK()`);
+await ev(`Chart.resetZoom()`); await idle();
+await wheel(corner.tx, corner.ty, -240);
+const kBand = await ev(`Chart.zoomK()`);
+await ev(`Chart.resetZoom()`); await idle();
+check("a wheel over the glyphs zooms the chart, like the band they sit in",
+      kGlyph > 1.05 && kBand > 1.05,
+      `k ${kGlyph.toFixed(2)} over the glyph, ${kBand.toFixed(2)} beside it`);
+
 // And above the breakpoint they go back to being words in the row, one element moved rather than
 // two drawn.
 await viewport(1280, 900, false);
@@ -2320,6 +2341,28 @@ const bandCopied = await rowH(), bandTxt = await ev(`document.querySelector('#sh
 check("the words are back in the row below the grid's own breakpoint, and stay on one line",
       bandRest <= 40 && bandCopied === bandRest && bandTxt === "Link copied",
       `row ${bandRest}px at rest, ${bandCopied}px showing "${bandTxt}"`);
+
+// FULL SCREEN HAS NO GRID, so the squeezed interval does not apply there. `body.fs .grid` is
+// display:block — the card is the window, and the row fits both words from 762px where the
+// two-column card does not until 1092. Without the carve-out a 1000px window in full screen spent
+// the 48px band on a row that would have held them, and it costs more there than at rest: #plot is
+// flex:1, so the band comes off a chart that is already the whole viewport.
+await viewport(1000, 800, false);
+await goto(BASE);
+await ev(`document.getElementById('fs').click()`);
+await relaid();
+const fsTools = await ev(`(()=>{const t=document.getElementById('chart-tools');
+  const tops=[...document.querySelectorAll('#plot svg > g')]
+    .map(g=>{const m=g.transform.baseVal.consolidate(); return m ? m.matrix.f : 0});
+  return {on: t.parentNode.id || t.parentNode.className,
+          words: getComputedStyle(document.querySelector('#share .btn-t')).clipPath === 'none',
+          band: Math.max(0, ...tops),
+          row: Math.round(document.querySelector('.controls').getBoundingClientRect().height)}})()`);
+check("a full-screen window whose row fits the words keeps them, and spends no band",
+      fsTools.on.includes("controls") && fsTools.words && fsTools.band < 40,
+      `in ${fsTools.on}, band ${fsTools.band}px, row ${fsTools.row}px`);
+await ev(`document.getElementById('fs').click()`);
+await relaid();
 
 // Back to the width 7d assumes, rather than leaving it at the boundary this check needed.
 await viewport(1280, 900, false);
