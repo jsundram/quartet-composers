@@ -307,6 +307,23 @@ It asserts that every page-view series is keyed by a canonical title *according 
 `people.json`*, so a stale `people.json` would satisfy it. The check that closes this is an online
 one: re-resolve a sample and confirm nothing moved. Worth a periodic job rather than the commit gate.
 
+### ~~The V bump was a chore in 8 of every 12 UI commits~~ — done, 2026-09-11
+Measured while grading the repo against "lean": a one-idea UI change edited five files, and three
+were bookkeeping — `sw.js` for the bump, plus the two docs. The bump is the one that is purely
+derivable, since `sw-lint.py` already knows which files are `SHELL` and which of them the commit
+stages, so the hook now runs `--fix` and writes it.
+**Auto-write rather than block, and decline rather than guess.** Blocking was the other option and
+is worse: the bump is not a decision, so stopping the commit to ask for one spends the author's
+attention on arithmetic. It declines in the three states where writing would be wrong — mid-merge
+(the resolution is the human's, and `--base` covers #32 in CI), with unstaged `sw.js` edits
+(`git add sw.js` would sweep in work the author left out), and with no numeric tail (check 4 owns
+that) — and in each it falls back to the old nag, so a decline is never silent.
+`refresh.py` lost its own copy of the increment and calls `--bump` instead: two pieces of code that
+rewrite the same declaration are two that can come to disagree about what it looks like.
+Known and accepted: `git commit --amend` that adds a further shell edit bumps a second time, because
+`HEAD` is then the commit being replaced. One extra cache generation costs one re-download, which is
+the cheap side of invariant 1.
+
 ### ~~A top-up refetched the 62 articles younger than the window~~ — done, 2026-09-06
 "Needs fetching" was `any(month not in cached)`, and an article created in 2019 never has a 2015
 month, so it was missing something forever. A month the API answered "nothing" for is recorded as a

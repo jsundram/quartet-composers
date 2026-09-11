@@ -48,9 +48,11 @@ paint without it. `readership.json` (487 KB) is the monthly history behind the s
 waits for it, so it is fetched after the first paint and the panel simply grows a line when it
 arrives. Both are precached; only the first is a boot dependency.
 
-Then run the data gate and **bump `V` in `sw.js`** — both files are precached, so without a bump the new numbers
-reach the repo and nobody's phone. `scripts/sw-lint.py` guards it; enable the hook with
-`git config core.hooksPath .githooks`.
+Then run the data gate. **`V` in `sw.js` has to move** — both files are precached, so without a bump
+the new numbers reach the repo and nobody's phone — and nothing about that needs a human:
+`refresh.py` bumps it after the gate passes, and for a hand-edit the pre-commit hook does
+(`sw-lint.py --fix` knows which files are precached and which of them you staged). Enable it once
+per clone with `git config core.hooksPath .githooks`.
 
 ### Keeping it current
 
@@ -184,9 +186,10 @@ scripts/ui-test.sh           # the behavioural suite in a real Chrome (lens, tap
                              #   all, and nine of these checks are about having one
 node scripts/sw.test.mjs     # 24 tests of the service worker's fetch handler
 python3 scripts/sw-lint.py   # precache contract: V bumped, SHELL paths exist, no cross-origin
+python3 scripts/sw-lint.py --fix  # ...and bump V yourself if a staged shell file needs one (the hook)
 python3 scripts/og-lint.py   # share card size (a card over ~250 KB previews as a grey box)
 python3 scripts/prose-lint.py # every number in these docs the repo can compute, vs the live value
-python3 scripts/prose-lint.test.py # its fold counter, which mirrors table.js (7 cases)
+python3 scripts/prose-lint.test.py # its fold counter (mirrors table.js) and its number words (10 cases)
 python3 scripts/fix-lint.test.py # the two branch gates below, on throwaway repos (42 cases)
 
 # The branch gates. They compare a branch against what it will merge into, so they need a base ref

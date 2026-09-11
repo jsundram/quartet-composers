@@ -49,10 +49,19 @@ single branch, which is the Conventions rule about mechanical facts, self-demons
 import json, os, re, subprocess, sys, unicodedata as ud
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
-         "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14,
-         "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19,
-         "twenty": 20, "twenty-one": 21, "twenty-two": 22, "twenty-five": 25}
+# BUILT, not listed. A literal map is a list of the numbers somebody happened to have written down,
+# and the next claim to pass twenty lands on a word it does not carry — which reports "not a number
+# this can check" about a sentence that is perfectly clear, in the file whose job is keeping the
+# docs honest. fix-lint.test.py builds its own for the same reason.
+ONES = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
+TEENS = ["ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
+         "eighteen", "nineteen"]
+WORDS = {w: i + 1 for i, w in enumerate(ONES[1:])}
+WORDS.update({w: 10 + i for i, w in enumerate(TEENS)})
+WORDS.update({f"{t}{'-' + o if o else ''}": b + i
+              for t, b in (("twenty", 20), ("thirty", 30), ("forty", 40), ("fifty", 50),
+                           ("sixty", 60), ("seventy", 70), ("eighty", 80), ("ninety", 90))
+              for i, o in enumerate(ONES)})
 
 
 def read(p):
@@ -144,7 +153,7 @@ CLAIMS = [
     ("CLAUDE.md", "OUTLIERS", r"`OUTLIERS` \((\w+)\)", "OUTLIERS' size"),
     ("CLAUDE.md", "WOMEN_CANON", r"`WOMEN_CANON` \((\w+),", "WOMEN_CANON's size"),
     ("CLAUDE.md", "all_curated", r"are ([\w-]+) canonical Wikipedia titles", "the three lists"),
-    ("CLAUDE.md", "sw_lint_cases", r"covers that sixth check alone, in ([\w-]+) cases",
+    ("CLAUDE.md", "sw_lint_cases", r"cannot check by eye, in ([\w-]+) cases",
      "sw-lint.test.py's cases"),
     ("CLAUDE.md", "testing_bullets", r"([\w-]+) entries, one per bullet below",
      "the Testing section's entries"),

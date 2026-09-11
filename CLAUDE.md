@@ -11,13 +11,20 @@ names the enforcement instead of repeating the arithmetic.
 
 ## Invariants — break these and it fails silently
 
-1. **Bump `V` in `sw.js` on every change to a `SHELL` file.** The shell is precached and served
-   cache-first, so without a bump the fix reaches the repo and nobody's installed copy. `app.js`'s
-   `VER_PREFIX` must keep matching `V`'s stem. `sw-lint.py` guards it in two places because one
-   commit is not enough information: the hook catches a staged SHELL file with an unchanged `V`,
-   and `--base REF` in CI catches a branch whose `V` does not clear the one its base is already on
-   — two PRs off one base each bumped `v32` -> `v33` byte-identically and merged to a net delta of
-   zero (#32).
+1. **`V` in `sw.js` moves on every change to a `SHELL` file — and the hook moves it for you.** The
+   shell is precached and served cache-first, so without a bump the fix reaches the repo and
+   nobody's installed copy. `app.js`'s `VER_PREFIX` must keep matching `V`'s stem, which is why only
+   the numeric TAIL is ever incremented.
+   Nothing about this needs a human: `sw-lint.py --fix`, which the pre-commit hook runs, knows which
+   files are `SHELL` and which of them this commit stages, so it bumps the tail and re-stages
+   `sw.js` in the same commit. It declines and falls back to nagging in exactly three cases — a
+   merge in progress, an `sw.js` carrying unstaged edits, or a `V` with no numeric tail — so a
+   decline is always a state where writing would have been wrong rather than a state where it gave
+   up. `--bump` is the same increment with no git in it, and is what `refresh.py` calls, so only one
+   piece of code knows how to move `V`.
+   That covers one commit. `--base REF` in CI covers the branch, because one commit is not enough
+   information: two PRs off one base each bumped `v32` -> `v33` byte-identically and merged to a net
+   delta of zero (#32), which looks correct from either side alone.
 
 2. **`sw.js`'s `BOOT` must list every script the page dies without.** Every pixel here is drawn by
    JS, so a cached `index.html` without `d3.v7.min.js` or `composers.json` is a headline over an
@@ -223,10 +230,12 @@ framework, and nothing to install:
   came from.
 - `python3 scripts/sw-lint.py` — the precache contract (invariant 1). Five of its six checks read
   one commit; the sixth, `--base REF`, reads two and takes the other as an argument, so CI runs it
-  on pull requests against the base sha. `python3 scripts/sw-lint.test.py`
-  covers that sixth check alone, in eighteen cases that each build a throwaway repo with real
-  branches — the failure it catches (#32) looks correct from either side alone. It is a vendored
-  pwa-starter file; keep the stamp current.
+  on pull requests against the base sha. `python3 scripts/sw-lint.test.py` covers the two halves a
+  reader cannot check by eye, in thirty-two cases that each build a throwaway repo with real
+  branches: the `--base` failure (#32), which looks correct from either side alone, and `--fix`,
+  which WRITES — so its cases assert the staged result, and five of them also pin the three
+  declines, the states where writing would be wrong. It is a vendored pwa-starter file; keep the
+  stamp current.
 - `python3 scripts/validate.py` — **the data gate**, and the most important thing here. Every
   serious defect this dataset has had was a plausible-looking wrong number no test caught, so this
   compares `composers.json` against its schema, the other caches, `readership.json` and the

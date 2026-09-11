@@ -34,7 +34,6 @@ import argparse
 import datetime as dt
 import json
 import os
-import re
 import subprocess
 import sys
 
@@ -61,22 +60,14 @@ def current_window_end():
 
 
 def bump_version():
-    """Increment the numeric tail of sw.js's V. Returns the new value, or None if it didn't move.
+    """sw.js's new V, or None if it didn't move. The bump itself lives in sw-lint.py.
 
-    Only the tail: sw-lint.py checks that app.js's VER_PREFIX still matches the STEM, so renaming
-    that half here would break the version tag in the header silently."""
-    path = os.path.join(ROOT, "sw.js")
-    with open(path, encoding="utf-8") as f:
-        src = f.read()
-    # Anchored to the declaration, like sw-lint.py's own reader: sw.js's comments cite version
-    # names as examples, so a first-match-anywhere scan would rewrite a comment.
-    m = re.search(r'(const V\s*=\s*")([^"]*?)(\d+)(";)', src)
-    if not m:
-        return None
-    new = "%s%s%d%s" % (m.group(1), m.group(2), int(m.group(3)) + 1, m.group(4))
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(src[:m.start()] + new + src[m.end():])
-    return m.group(2) + str(int(m.group(3)) + 1)
+    Shelled out rather than reimplemented: that file already owns the V declaration (it reads it
+    for five of its six checks and rewrites it for the hook), and two pieces of code that rewrite
+    the same line are two that can come to disagree about what the line looks like."""
+    out = subprocess.run([sys.executable, os.path.join(HERE, "sw-lint.py"), "--bump"],
+                         cwd=ROOT, capture_output=True, text=True)
+    return out.stdout.strip() or None if out.returncode == 0 else None
 
 
 def run(*cmd):
