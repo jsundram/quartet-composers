@@ -132,13 +132,6 @@ jobs:
   # gates, so it judges the tree in front of it and runs on pushes as well as pull requests.
   ui:
     runs-on: ubuntu-latest
-    # ONE literal for the screenshots' path. It was typed twice — once as the suite's OUT and once
-    # as the artifact's path — with nothing able to enforce the agreement, and the drift would have
-    # been silent in the worst place: rename it here, and the next FAILING run writes its evidence
-    # somewhere the upload does not look, on a job whose only red mark is the failure that evidence
-    # was meant to explain.
-    env:
-      UI_OUT: ${{ runner.temp }}/ui-test
     steps:
       - uses: actions/checkout@v4
       # THE PIN THAT BITES. ui.test.mjs has no dependencies because its whole ~25-line CDP client
@@ -147,6 +140,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      # ONE literal for the screenshots' path. It was typed twice — once as the suite's OUT and
+      # once as the artifact's path — with nothing able to enforce the agreement, and the drift
+      # would have been silent in the worst place: rename it there, and the next FAILING run writes
+      # its evidence somewhere the upload does not look, on a job whose only red mark is the
+      # failure that evidence was meant to explain.
+      #
+      # In a STEP because `runner.temp` is not reachable from a job-level `env:` — the runner
+      # context exists only inside steps, and a workflow that asks for it there does not fail the
+      # job, it fails to PARSE, which is a red X with no log to read. $GITHUB_ENV puts it where
+      # both steps below can read it, which is the same one place.
+      - name: where the screenshots go if this fails
+        run: echo "UI_OUT=$RUNNER_TEMP/ui-test" >> "$GITHUB_ENV"
       # ubuntu-latest ships /usr/bin/google-chrome AND xvfb, and find_chrome takes the first
       # without help — the premise that CI has no browser was false all along (#43). Both are
       # asserted rather than assumed, because the runner image is not this repo's to promise:
