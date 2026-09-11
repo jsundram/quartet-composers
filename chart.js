@@ -129,6 +129,12 @@ window.Chart = (function () {
   // can never be hovered, tapped or counted by eye. Kept small (half a year; ~9% in count-space,
   // well inside the gap between adjacent integer counts) and disclosed in the hint.
   //
+  function hash(s) {
+    let a = 2166136261;
+    for (let i = 0; i < s.length; i++) { a ^= s.charCodeAt(i); a = Math.imul(a, 16777619); }
+    return ((a >>> 0) / 4294967295) * 2 - 1;     // -1..1
+  }
+
   // RANKED, not hashed (#45). Quartet counts are integers, so on Fame's log x every composer with
   // the same count lands on one vertical stripe — and Fame has NO y jitter, so this offset is the
   // only thing holding apart two composers who wrote the same number and are read about equally. A
@@ -335,6 +341,7 @@ window.Chart = (function () {
   // a fraction of the plot's diagonal. Measured in SCREEN space because "on top of" is a claim about
   // pixels, not about data — and as a FRACTION so it means the same thing on a phone and in full
   // screen. The exact number is not delicate: 2.5% to 5% picks the same three on a desktop.
+  const MIN_SEP = 0.03;
   //
   // The floor in DOTS is a guard, not a fix for anything observed. The fame radius is FLOORED, so as
   // the plot shrinks the dots stop shrinking with it and the same fraction buys steadily less

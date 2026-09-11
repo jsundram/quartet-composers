@@ -599,6 +599,18 @@ check("search dims non-matching dots", await ev(`[...document.querySelectorAll('
   .filter(c=>+c.getAttribute('opacity')<0.2).length > 400`));
 check("search is in the URL", (await ev(`location.hash`)).includes("q=haydn"));
 check("filtered-out pin was dropped", !(await ev(`location.hash`)).includes("c="));
+// THE FOLD, ASKED OF THE APP (invariant 13). The FOLD table used to be pinned three ways in the
+// docs and the call site that uses it was pinned nowhere, so deleting the `.replace()` left every
+// check in the repo green — a transcription guarded, a behaviour not. Asked through Table.matches()
+// rather than by typing into the box, because the question is the string rule and not the plumbing
+// the checks above already cover. TRIMMED in the same breath: anyFilter() reads the query trimmed
+// so the Reset button cannot light over an unfiltered table, and matches() has to agree with it.
+const folded = await ev(`(()=>{const m=Table.matches('lutoslawski');
+  return m ? [...m].map(i=>ROWS[i].name) : null})()`);
+check("search folds a character NFD cannot decompose", JSON.stringify(folded) === '["Witold Lutosławski"]',
+      "lutoslawski → " + JSON.stringify(folded));
+check("...and a query with spaces round it matches the same rows",
+      await ev(`JSON.stringify([...Table.matches('  haydn  ')]) === JSON.stringify([...Table.matches('haydn')])`));
 
 // --- 4b. the readership histogram filter -------------------------------------------------------
 await rest();

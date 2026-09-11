@@ -355,10 +355,9 @@ section. What is still owed, in the order it is worth doing:
   `sw.js`, so dropping a script from `BOOT` passes; `fetch_views.test.py` derives its window from
   `months_back()`, so ending the window on the month in progress passes. Cross-check against an
   independent artifact instead — `index.html`'s script tags, and a frozen clock.
-- **The fold has no behavioural check.** `prose-lint.py` pins the `FOLD` table and the name count,
-  and deleting the `.replace()` that uses them leaves every suite green. Two lines:
-  `Table.matches('lutoslawski')` finds Lutosławski, and a query with surrounding spaces still
-  matches.
+- ~~The fold has no behavioural check~~ — done, 2026-09-11, with the prose-lint deletion below.
+  `ui.test.mjs` asks `Table.matches('lutoslawski')` for Lutosławski and asserts a padded query
+  matches the same rows as a bare one.
 - **Nothing pins the statistic window.** `STAT_MONTHS` 12 → 18 rebuilds, resizes every dot, and
   passes everything; `check_drift`'s 20x threshold is for wrong-article joins and will not see it.
   One line in `validate.py`: the shipped window is twelve months.
@@ -370,6 +369,32 @@ section. What is still owed, in the order it is worth doing:
   investigation rather than a command. A `scripts/mutate.py` with ~25 curated mutations and a stated
   floor makes it a command — and makes deleting a check safe, since the rate says whether anything
   else was holding the property up.
+
+### ~~prose-lint kept thirteen numbers honest that should not have been written~~ — done, 2026-09-11
+It was built to stop the docs lying, and it worked — it found three live drifts the day it was
+written. But it is the wrong branch of this repo's own built-or-cut rule: the cure for "a doc states
+a number that goes stale" is not a gate that checks the number, it is not writing the number.
+Eleven of its twelve distinct claims bought a reader nothing — four curated-list sizes, five suite
+case counts, a count of the bullets directly beneath it, and a `FOLD` name count. The twelfth,
+"twelve articles moved", carried the one real point (it was not one), and says so now without the
+integer.
+**The shape is `reserveLede()` again**, one file over: build a mechanism to make a sentence behave,
+then discover the sentence should not exist. It even argued for the wrong branch in its own
+docstring — "a claim can often be made checkable by being made precise… worth reaching for first."
+Cheaper than deriving it, more expensive than deleting it.
+What it cost, measured over one sitting: five forced doc edits, **two of which were pure line-wrap
+accidents** — a reflowed paragraph and a stale fact produce the same message, because the check
+cannot tell them apart. Against that, `chart.js` had the rule right about `CANON` before any of this
+existed: "deliberately NOT a count — every place that printed the number went stale in the same
+commit."
+So the numbers went, then the lint went: −301 lines, one hook step and two CI steps. What survives
+is the half that is not prose — `og-lint.py`'s `check_counts()`, which holds the totals in
+`manifest.json` and the two meta descriptions to something the data supports, because those strings
+SHIP to readers. And the `FOLD` transcription was replaced by a check of the fold itself, which is
+what should have guarded it all along.
+`fix-lint.test.py` lost its stated-size case for the same reason — its subject was a number in the
+docs — and prints its own total instead. A check goes when you delete what it was checking; not
+because it is annoying.
 
 ### ~~`ui-test.sh` scores 231/240 under CI's Linux headless Chrome~~ — done, 2026-09-10, [#50](https://github.com/jsundram/quartet-composers/issues/50), [#53](https://github.com/jsundram/quartet-composers/issues/53), [#56](https://github.com/jsundram/quartet-composers/issues/56)
 Never a browser problem: `ubuntu-latest` ships `/usr/bin/google-chrome` and `find_chrome` finds it.

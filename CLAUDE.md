@@ -9,6 +9,14 @@ the incident behind each. **A check: anything mechanical** — a count, a list, 
 offset — because a check can go red and a sentence cannot. So where a rule below is enforced, it
 names the enforcement instead of repeating the arithmetic.
 
+**Which means a number in here is a RECORD or it is absent.** A record is a measurement that
+happened — a run, an audit, an experiment — and cannot go stale, so it is safe to type. Anything the
+repo recomputes is not: a roster total, a list size, a suite's case count, a constant, a live
+statistic. Those are read from the thing that holds them, and writing one here buys a reader nothing
+while costing an edit every time the thing moves. `chart.js` had this right about `CANON` from the
+start — "deliberately NOT a count… every place that printed the number went stale in the same
+commit" — and the docs spent a 300-line lint keeping such numbers honest instead of not writing them.
+
 ## Invariants — break these and it fails silently
 
 1. **`V` in `sw.js` moves on every change to a `SHELL` file — and the hook moves it for you.** The
@@ -50,8 +58,8 @@ names the enforcement instead of repeating the arithmetic.
    "asked, and the answer belongs to neither title" (invariant 15). A MISSING month means "never
    asked". A title that did not ANSWER is DROPPED rather than written, because the flatten fills
    every month on the axis and writing it would null-pad the months it never answered for and read
-   as complete forever. One failure never aborts the run: that would discard the other 883 good
-   fetches.
+   as complete forever. One failure never aborts the run: that would discard the other eight
+   hundred-odd good fetches.
    **Every title is fetched over the whole AXIS, never over `--months`.** A flat array has no third
    value, so the file holds exactly one asked window; a narrower fetch writes nulls for months
    nobody asked about, and `--months 24` on a newly added composer would bury nine years of history
@@ -82,10 +90,9 @@ names the enforcement instead of repeating the arithmetic.
    `year_of()` drops deprecated, prefers `preferred`, and ignores novalue/somevalue snaks.
 
 7. **The Fame view is the default, and the only place the app hardcodes composer NAMES.**
-   `CANON` (the REPERTOIRE — ten composers a quartet actually plays, in birth order),
-   `OUTLIERS` (three) and `WOMEN_CANON` (nine, shown only under the Women filter) in `chart.js`
-   are twenty-two canonical Wikipedia titles, which change spelling when the pipeline runs
-   (invariant 4). `Chart.missingNames()` reports any that stop resolving and the UI suite asserts
+   `CANON` (the REPERTOIRE — the composers a quartet actually plays, in birth order),
+   `OUTLIERS` and `WOMEN_CANON` (shown only under the Women filter) in `chart.js` hold canonical
+   Wikipedia titles, which change spelling when the pipeline runs (invariant 4). `Chart.missingNames()` reports any that stop resolving and the UI suite asserts
    it empty, so a rename fails loudly instead of dropping a composer out of the argument the view
    is making — and it checks EVERY list, or a rename inside `WOMEN_CANON` would sit unreported
    until somebody pressed the pill. `names.js`'s `SURNAME` map carries the same contract through
@@ -107,7 +114,7 @@ names the enforcement instead of repeating the arithmetic.
 9. **Readership is a measure, not a tally — round it everywhere except the table.** It is the
    median of the last TWELVE monthly page-view counts (`STAT_MONTHS` in `build_data.py`): up to
    twelve strictly, since a null is dropped and a composer whose article moved inside the window
-   has one (invariant 15), so Fanny Hensel's median is over eleven. Not however many months
+   has one fewer (invariant 15). Not however many months
    `data/pageviews.json` happens to cache. Widening that window would resize every dot on the chart
    and bake a 2016 readership into a 2026 picture.
    Any one month runs ~12% off typical, so the detail panel states two significant figures floored
@@ -136,11 +143,12 @@ names the enforcement instead of repeating the arithmetic.
    them: the API has no per-article data before 2015-07, so they came from a different measurement
    system. Archived for provenance only.
 
-13. **Search folds `ł ø đ ð þ ß æ œ ı` before NFD** (`table.js`). Those have no Unicode
-   decomposition, so NFD alone leaves them intact and "lutoslawski" misses "Lutosławski". 8
-   names carry such characters; a new one means a new `FOLD` entry. `prose-lint.py` pins the list
-   and the count — both had drifted from `FOLD` before it existed. The fold's *behaviour* is a
-   different claim and needs its own check; see the Testing section.
+13. **Search folds the characters NFD cannot decompose, before NFD** — `ł`, `ø`, `ß` and the rest
+   of `FOLD` in `table.js`. They have no Unicode decomposition, so NFD alone leaves them intact and
+   "lutoslawski" misses "Lutosławski". A name that needs a new one means a new `FOLD` entry, and the
+   suite types a folded query so the RULE is what is checked rather than the table: a transcription
+   of `FOLD` in here was pinned three ways while the call site that uses it was pinned nowhere, and
+   deleting the `.replace()` left every check green.
 
 14. **`scripts/make-og-svg.py` duplicates chart.js's scales on purpose.** Same log domains, same
    jitter (`spread_jq()` there, `spreadJq()` here — ranked by readership within a quartet count, so
@@ -185,7 +193,8 @@ names the enforcement instead of repeating the arithmetic.
    Twelve articles in this roster moved; only Fanny's moved inside the twelve-month statistic
    window, so the other eleven changed the sparkline and not one dot.
    **Do not sum redirects generally.** That is a different policy, measured and rejected:
-   `audit_redirects.py` prices all 2,888 of them and the median correction is 1.024x, invisible on
+   `audit_redirects.py` priced every redirect into every article and the median correction was 1.02x,
+  invisible on
    a five-decade log axis, in exchange for a count that depends on how many aliases an article
    happened to accumulate. A move is not an alias; the article LIVED there.
 
@@ -211,17 +220,20 @@ script tags, a date function against a frozen clock).
 **Prefer a positive assertion.** `!panel.includes(exact)` passes when the formatting differs, not
 only when the rounding is right. Assert the shape you want, not the absence of one you don't.
 
-**A pinned number in prose is documentation, not coverage.** `prose-lint.py` keeps the docs honest
-and nothing more: invariant 13's `FOLD` table is pinned three ways while the call site that uses it
-is pinned nowhere. When a claim is about behaviour, test the behaviour.
+**A number the repo can compute does not belong in prose at all.** Pinning one with a lint is the
+wrong branch of the built-or-cut rule, and it was taken: thirteen claims across two docs, eleven of
+which bought a reader nothing, kept honest by 300 lines that could not tell a reflowed paragraph
+from a stale fact. The same mistake as `reserveLede()`, which built a `ResizeObserver` to manage a
+sentence that should not have existed. When a claim is about behaviour, test the behaviour; when it
+is a count, read it off the thing that holds it.
 
 And the growth rule: **a check earns its place by failing without the code it covers, and keeps it
 by being the only one that does.** `ablate.py` enforces the first half on every branch. The second
 half is why deletions are welcome — re-run the suite without a check, and if nothing else noticed,
 it was never the thing holding that property up.
 
-Eleven entries, one per bullet below — seven checks that run offline, one that needs a browser, one
-pair of branch gates only CI can run, the monthly top-up, and two audits a human grades. No test
+One entry per bullet below: the checks that run offline, the one that needs a browser, the pair of
+branch gates only CI can run, the monthly top-up, and the two audits a human grades. No test
 framework, and nothing to install:
 
 - `node scripts/sw.test.mjs` — the fetch handler under mocked SW globals: cache-first, lie-fi
@@ -231,8 +243,7 @@ framework, and nothing to install:
 - `python3 scripts/sw-lint.py` — the precache contract (invariant 1). Five of its six checks read
   one commit; the sixth, `--base REF`, reads two and takes the other as an argument, so CI runs it
   on pull requests against the base sha. `python3 scripts/sw-lint.test.py` covers the two halves a
-  reader cannot check by eye, in thirty-two cases that each build a throwaway repo with real
-  branches: the `--base` failure (#32), which looks correct from either side alone, and `--fix`,
+  reader cannot check by eye, in cases that each build a throwaway repo with real branches: the `--base` failure (#32), which looks correct from either side alone, and `--fix`,
   which WRITES — so its cases assert the staged result, and five of them also pin the three
   declines, the states where writing would be wrong. It is a vendored pwa-starter file; keep the
   stamp current.
@@ -261,8 +272,9 @@ framework, and nothing to install:
   CI, so "og:description is too long" is caught before a deploy rather than by pasting the live URL
   into a validator afterwards. `check_counts()` knows both live totals and requires a stated count
   to be one of them, because "884 quartet composers" and "790 quartet composers" are both
-  grammatical. It pins per FILE where the file settles the question: `manifest.json` holds exactly
-  one description and describes what the app DRAWS, so it may state only 790. The two descriptions
+  grammatical — and this is the one place a count is worth holding, because these strings SHIP to
+  readers. It pins per FILE where the file settles the question: `manifest.json` holds exactly one
+  description and describes what the app DRAWS, so it may state only the plottable total. The two descriptions
   in `index.html` are deliberately different lengths — a SERP snippet wants 120-160, a phone link
   preview truncates near 125 — and re-unifying them fails the lint. `check_card_axis()` refuses a
   card labelling a readership its own axis does not contain: `logscale()` clamps, so a tick under
@@ -272,12 +284,12 @@ framework, and nothing to install:
   exists because every defect that module has had is one the pipeline cannot show you — a dropped
   middle hop double-counting a month, a complete chain thrown away as truncated, a reverted move
   read as permanent. None crashes, none moves a number by an order of magnitude, and
-  the shipped twelve chains happen to miss all three.
+  the chains this roster ships happen to miss all three.
 - `python3 scripts/fetch_views.test.py` — the page-view cache's invariants, `fetch` stubbed and the
   cache in a temp file. It exists because the flat array has only two values and **every bug in
   that file has been a null no request justified** — invisible afterwards, because the array is the
   right length and every number in it is plausible, and the only symptom is that `todo` quietly
-  stops asking. Nine cases stub the move log and cover invariant 15: that a move is stitched and
+  stops asking. Some of its cases stub the move log and cover invariant 15: that a move is stitched and
   its month nulled, that the stitch is re-applied on every refetch, that a chain on record is not
   re-judged, that a logged move the traffic does not support is recorded and NOT stitched, that a
   source which does not answer leaves both series and record alone, that a log which could not be
@@ -304,14 +316,6 @@ framework, and nothing to install:
   both, so an untested source change is a sentence somebody wrote on purpose and a reviewer can
   read, not a silence. `scripts/fix-lint.test.py` covers both in throwaway repos with real
   branches.
-- `python3 scripts/prose-lint.py` — **every number in README.md and CLAUDE.md the repo can
-  COMPUTE**, against the live value: the curated list sizes, each suite's `len(CASES)` by importing
-  it, the recorded page-move chains, the `FOLD` characters and the names that need them, and —
-  permissively, the way `og-lint.py` does it — any stated composer count. A pinned claim that stops
-  MATCHING is a failure, not a pass: a check that can go vacuous proves nothing. It deliberately
-  does not pin anything with two readings, including which of 884 and 790 a sentence means.
-  `scripts/prose-lint.test.py` covers `fold_count`, the one part a reader cannot check by eye,
-  because it duplicates a rule written in another language in `table.js` (fold AFTER lowercasing).
 - `scripts/audit_counts.py` and `scripts/audit_redirects.py` — not automated, and not automatable:
   the first prints parsed quartet counts beside the sentence they came from so a human can grade
   them (run it after touching `scrape_list.py`), and the second answers a POLICY question by
@@ -382,7 +386,7 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   where recognising the person is the job.
   **One exception, in the chart form only: a surname only one composer is READ for prints bare.**
   "Haydn" is Joseph and "Tchaikovsky" is Pyotr Ilyich on any programme; the initial is what Michael
-  and Boris need. `DOMINANT_VIEWS` (10,000) is the test and it has to stay decisive — the most-read
+  and Boris need. `DOMINANT_VIEWS` in `names.js` is the test and it has to stay decisive — the most-read
   member takes it only if nobody in the group ties them, or two dots get the same label. Not in
   `filed()`: the table sorts on what it prints, and a bare "Haydn" beside "Haydn, Michael" is
   inconsistent about who gets a forename. This is why `Names.setData()` takes readership alongside
@@ -399,12 +403,13 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   at 390 AND 360 — at 360, the common Android width, the old table overflowed in every face
   including SF, so the 390 check was passing on the one width where the narrowest font clears.
 - **A number printed beside the chart counts the PLOTTABLE rows.** The empty panel said "884
-  composers, born 1582–1989" next to an x axis starting at 1709: the 94 rows with no stated quartet
-  count are in the table only, and three of them are the earliest births. `Chart.plottedStats()` is
+  composers, born 1582–1989" next to an x axis starting at 1709: the rows with no stated quartet
+  count are in the table only, and the roster's three earliest births are among them. `Chart.plottedStats()` is
   the one place that answers "what can the chart place", so the count, the birth span and the living
   count cannot disagree with each other or with `plottable()`. The same split governs the app's
-  stated claims — `manifest.json` and the link preview describe what the page DRAWS and say 790,
-  while `#count`, the search placeholder and the provenance line count the 884 rows the table holds.
+  stated claims — `manifest.json` and the link preview describe what the page DRAWS, while
+  `#count`, the search placeholder and the provenance line count every row the table holds, which is
+  more. `og-lint.py` holds those shipped strings to a total the data supports.
   They answer different questions, and the provenance line is where the difference is named.
 - **Prose the app can FALSIFY is built or cut; only prose it cannot is typed — and CUT is the first
   branch to try.** #24 found the case with no number in it: "across is how many quartets they wrote,
@@ -552,7 +557,7 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   entirely obituaries. The peak hairline is drawn ONLY in the spike branch — an annotation pointing
   at a month nothing mentions has no referent.
 - **The sparkline is the app's one optional part, in both halves.** Its data (`readership.json`,
-  487 KB against composers.json's 46) is precached but not a BOOT dep and is fetched after the first
+  an order of magnitude larger than the roster) is precached but not a BOOT dep and is fetched after the
   paint; `sparkline()` returns null when it has not arrived, when a composer has fewer than two
   months of data, and — via `tight()`'s early return — in the full-screen strip, whose height must
   not change. Its colours are the one drawn thing here NOT baked into the SVG by JS: it is plain
@@ -562,7 +567,7 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   five orders of magnitude, but within one composer the question is proportion, and a log baseline
   flattens exactly the spike the line exists to show.
 - **Every sparkline shares one month axis, so the blank left of a young article has to be named.** A
-  shared axis is what makes two composers comparable, and it means the 61 articles created after
+  shared axis is what makes two composers comparable, and it means the articles created after
   2015 draw over the right-hand end and leave the rest empty — which under a line chart reads as
   "nobody read this" rather than "not written yet". The label row prints `from Jul 2025` instead of
   the axis span in that case. A null month is a BREAK in the path for the same reason (invariant
@@ -579,7 +584,7 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   the same string — `pickLabels()` computes it once and carries it on the placement.
 - **Labels are a function of zoom, not a list.** `pickLabels()` spends a budget that grows with the
   zoom (`base × (1 + log₂ k)`) on frame-culled candidates, so pinching in names what is in the
-  frame. In Fame the curated thirteen are the SEED and fill the budget first; beyond them the
+  frame. In Fame the curated names are the SEED and fill the budget first; beyond them the
   ranking is `prom`, z-scored distance from the centre of the visible cloud, recomputed in
   `setFilter()`/`setData()` because a filter must rank its own group. The one special case is the
   resting unfiltered Fame view, where the budget is pinned to the seed so the view says exactly what
@@ -593,22 +598,22 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   from the crowd it is drawn in", and two Haydns are not a crowd. Every channel that follows
   emphasis — fill, stroke, radius, opacity, label colour, the table chip — reads `named()`, which
   reads the DERIVED set, so adding a channel needs no further wiring; `namedSet` stays the curated
-  thirteen where that is what is meant. Derived rings are seeds in `pickLabels()` too, because a dot
+  set where that is what is meant. Derived rings are seeds in `pickLabels()` too, because a dot
   the view rings and then declines to name points at a composer it refuses to identify.
   The FILL is never derived: it is an editorial claim about which quartets are played, which no
   ranking recomputes — Prokofiev is on it for two quartets and Debussy for one, and TODO records
-  that the best single scalar reproduces 8 of the 13. So the women's group got a SECOND hand-written
+  that no single scalar reproduces that set. So the women's group got a SECOND hand-written
   list (`WOMEN_CANON`), swapped in by `Chart.setRepertoire()`. The `--sel` fill and the sentence
   naming it are ONE claim, so `REPERTOIRES` carries both and `renderLegend()` prints
   `Chart.repertoireLabel()` — the suite reads the label off that function rather than quoting it, so
   rewording is free and printing a different noun than the chart is using is not. Both lists answer
   to the same neutral noun, which is the other way out of invariant 8's wrong-channel trap: "the
   repertoire" over nine women the repertoire never held was the failure. The gate is the point — not
-  one of the nine clears 10,000 readers a month (Price tops them at 8,001 against `CANON`'s median
-  of 58,023), so at rest they would be nine filled dots low in the densest part of the cloud,
+  one of them clears `DOMINANT_VIEWS`-scale readership — the best is an order of magnitude under
+  `CANON`'s median — so at rest they would be filled dots low in the densest part of the cloud,
   captioned as the set that holds Mozart. Filling a curated set also FEEDS the ring, since
   `refreshEmphasis` ranks over a pool that excludes `namedSet`.
-  **A derived ring must also stand APART — `MIN_SEP`, 3% of the plot diagonal, from every dot
+  **A derived ring must also stand APART — `MIN_SEP`, a fraction of the plot diagonal, from every dot
   already emphasised and every ring derived before it.** Prominence is distance from the CENTRE of
   the cloud, so a corner full of composers all scores high and the tie was broken by nothing visual:
   the ring landed on Monk, whose disc came within 4px of Beach's. Measured in SCREEN space from

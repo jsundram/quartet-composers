@@ -1,4 +1,4 @@
-# pwa-starter: checks.yml @ d2fad01  (+ the og-lint step, the prose lint, the gates job, the ui job)
+# pwa-starter: checks.yml @ d2fad01  (+ the og-lint step, the gates job, the ui job)
 name: checks
 
 # The repo's checks, in four jobs: `sw` (the service worker, the link preview and the prose gate),
@@ -28,10 +28,6 @@ name: checks
 #     the source to base and requiring a named check to go red. That second one is the gate PR #23
 #     needed and did not have: four of its six rounds fixed a defect in the previous round's fix,
 #     each shipped on a green suite. Both are skipped by a `No-test:` trailer.
-#   - scripts/prose-lint.py : every number in README/CLAUDE.md the repo can COMPUTE, against the
-#     live value. It reads the working tree, so it runs on pushes too. It found three drifts on
-#     the day it was written, one of which had been deferred to a follow-up during #23 and never
-#     done — which is the argument for a gate over a convention.
 #   - scripts/ui-test.sh : the browser suite, in a job of its own — see the note above it for why
 #     it is not steps in `sw`. It was kept out of CI for a long time on a premise that was simply
 #     false (that a runner has no browser); what was actually missing was a POINTER, and #50 fixed
@@ -80,10 +76,6 @@ jobs:
         run: python3 scripts/sw-lint.test.py
       - name: share-card + link-preview lint (scripts/og-lint.py)
         run: python3 scripts/og-lint.py
-      - name: computable prose (scripts/prose-lint.py)
-        run: python3 scripts/prose-lint.py
-      - name: the prose lint's own tests (scripts/prose-lint.test.py)
-        run: python3 scripts/prose-lint.test.py
 
   # The branch gates. A separate job so its failure reads as "this branch is unproven" rather than
   # as a broken service worker, and because both steps want the full history the sw job also asks
@@ -128,7 +120,7 @@ jobs:
 
   # The browser suite, against a real Chrome over CDP. It used to say how many checks, and that
   # was stale inside the PR that wrote it — nothing reads THIS file for the number (ui.test.mjs
-  # scans README and CLAUDE.md, prose-lint.py reads the same two), so it could only ever drift.
+  # scans README and CLAUDE.md for it), so it could only ever drift.
   # A count that no check can redden is written loosely or not at all; here, not at all. A separate job
   # rather than steps in `sw`, because its failure means "the app regressed" and not "the service
   # worker is broken" — and because it wants a different node (see below). No --base, unlike the

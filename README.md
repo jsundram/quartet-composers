@@ -2,8 +2,8 @@
 
 **[jsundram.github.io/quartet-composers](https://jsundram.github.io/quartet-composers/)**
 
-884 composers from Wikipedia's [List of String Quartet
-Composers](https://en.wikipedia.org/wiki/List_of_string_quartet_composers), plotted by how many
+Every composer on Wikipedia's [List of String Quartet
+Composers](https://en.wikipedia.org/wiki/List_of_string_quartet_composers) — about 880 of them — plotted by how many
 quartets they wrote against how much their article is read — with three other views of the same
 roster (a birth-year timeline, a swarm, a fisheye lens) and a searchable, sortable table underneath.
 
@@ -23,11 +23,11 @@ stable picture, hovering was the only way to learn anything, and a screenshot of
 | No labels | **Collision-avoided labels**, so the static view says something with no interaction at all |
 | Fixed 960px, desktop only | Responsive, dark mode, print stylesheet, and a CSS-driven full-screen chart |
 | Colour = lifespan on RdYlBu-9 | **Sequential** ramp (YlGnBu, stepped darker for contrast on this surface) over a fixed domain, with living composers off the ramp entirely — a diverging one needs a baseline, and pivoting on the dataset's own median moved the pivot whenever the data did |
-| 477 composers, frozen 2014 scrape | **884**, re-scraped, with a repeatable pipeline (below) |
+| 477 composers, frozen 2014 scrape | **the whole list**, re-scraped, with a repeatable pipeline (below) |
 | Dot size = one month of page views | **Median of 12 months** — a single month is 12% off typical, 29% at worst |
 | — | **A readership sparkline** in the detail panel — every month since 2015-07, hover or arrow-key any month to read it, and a caption that names the spike (Saariaho's obituary, 18× typical) or the trend (Haydn, down 42% since 2015) |
 | — | **Readership histogram with a drag-to-filter brush**, to get the long tail out of the way |
-| — | **Gender filter** from Wikidata [P21](https://www.wikidata.org/wiki/Property:P21) — 276 of the 884 are women, and the Fame view shows the band they occupy |
+| — | **Gender filter** from Wikidata [P21](https://www.wikidata.org/wiki/Property:P21) — a third of the roster, and the Fame view shows the band they occupy |
 | — | Shareable URLs (`#v=swarm&c=Joseph+Haydn&r=1500-200000`), a share card generated from the real data, installable + offline |
 
 ## The pipeline
@@ -44,9 +44,12 @@ python3 scripts/build_data.py       # combine the three -> composers.json + read
 
 `build_data.py` writes **two** files, because they are wanted at different moments.
 `composers.json` (46 KB) is the roster and carries one view number per composer — the page cannot
-paint without it. `readership.json` (487 KB) is the monthly history behind the sparkline: nothing
+paint without it. `readership.json`, an order of magnitude larger, is the monthly history behind the sparkline: nothing
 waits for it, so it is fetched after the first paint and the panel simply grows a line when it
 arrives. Both are precached; only the first is a boot dependency.
+
+Each suite prints its own total; none of those numbers is written down here, because a count only
+the run can produce is a count every added case makes somebody re-type.
 
 Then run the data gate. **`V` in `sw.js` has to move** — both files are precached, so without a bump
 the new numbers reach the repo and nobody's phone — and nothing about that needs a human:
@@ -79,15 +82,15 @@ Two review tools that are not part of the build:
 
 ```sh
 python3 scripts/audit_counts.py     # sample parsed counts beside their source sentence, to grade
-python3 scripts/audit_redirects.py  # price every redirect: what summing them would change (1.024x)
+python3 scripts/audit_redirects.py  # price every redirect: what summing them would change
 python3 scripts/compare_2014.py     # diff against the archived 2014 snapshot, with reasons
 ```
 
 ## Five data elements, five different problems
 
 **(a) The roster** and **(b) quartet counts** come from the list page, which is *prose, not a
-table*: `*[[Joseph Haydn]] (1732–1809): Wrote sixty-eight string quartets…`. Seven rules read a count for
-790 of the 884 composers; the rest return **null** and appear in the table but not the chart,
+table*: `*[[Joseph Haydn]] (1732–1809): Wrote sixty-eight string quartets…`. Seven rules read a count for most of
+them; the rest return **null** and appear in the table but not the chart,
 because a wrong count ships as a confident dot while a null is merely honest. Graded by hand on a random sample:
 25 exactly right, 4 correctly null, 1 arguable. *Wikidata is not an alternative here* — Beethoven's
 quartets are typed as generic "musical work/composition" with nothing linking them to the genre, so
@@ -110,8 +113,8 @@ traps, all of which this repo fell into first:
   so every month before a page **move** was counted under the name the article held then. Fanny
   Hensel's article sat at "Fanny Mendelssohn" until March 2026 and shipped a median of **500**
   against a real **5,217** — and the sparkline caption, which names a spike when a month clears 3×
-  the composer's own 95th percentile, obligingly captioned the rename as an obituary. Twelve of the
-  884 articles have moved. `scripts/pagemoves.py` finds them (a level shift proposes, the MediaWiki
+  the composer's own 95th percentile, obligingly captioned the rename as an obituary. A dozen of the
+  roster's articles have moved. `scripts/pagemoves.py` finds them (a level shift proposes, the MediaWiki
   move log decides, and a traffic-handover test throws out the moves that were reverted an hour
   later), and each month is counted under the title the article actually occupied.
 - *One month is weather.* Measured against a 12-month window, a single month is 12% off the median
@@ -122,7 +125,7 @@ traps, all of which this repo fell into first:
 The cache now holds **every month the API has** — 2015-07 onward — for the same one-request reason,
 and the detail panel draws it as a sparkline. Each series is a **flat array aligned to a shared
 `months` axis**, null where the API had nothing: the obvious `{month: count}` object repeats the key
-884 times per month, cost 1.9 MB against 0.5 MB, and had to be rewritten whole every month. The
+once per composer per month, cost 1.9 MB against 0.5 MB, and had to be rewritten whole every month. The
 three states are what make a top-up cheap — a **null** is *asked, and there was nothing there*, a
 **missing** month is *never asked*, and a title that did not **answer** is dropped rather than
 written, so the next run asks for it again in full. Without that distinction the articles created
@@ -147,7 +150,7 @@ from names or pronouns** for the composers who have no claim: `null` is a fact h
 is for an unstated quartet count. A value outside the label map ships as its raw QID rather than
 as a null — a stated fact filed under "not stated" is the one outcome that is wrong about someone
 rather than merely incomplete — and `validate.py` fails on it, so the fix is a label, not a
-mystery. 276 of the 884 are women, 219 of them plottable. A composer with no claim at all is in
+mystery. A composer with no claim at all is in
 neither filter, so the provenance line states how many there are rather than letting silence read
 as none — with a branch for when there are none, which is where the roster stands today.
 
@@ -157,8 +160,8 @@ UI says so in the legend ("EN Wikipedia readers / mo"), the lede, and the proven
 than letting "views" imply importance. A per-language fan-out via Wikidata sitelinks would trade
 one bias for a messier one and is deliberately not attempted.
 
-Readership spans 1 to 186,772 monthly views with a **median of 233**: half the roster is composers
-essentially nobody reads, and at 884 dots they are most of the ink. Hence `histogram.js` — a
+Readership spans **five orders of magnitude**, and the median composer is read a couple of hundred
+times a month: half the roster is composers essentially nobody reads, and they are most of the ink. Hence `histogram.js` — a
 log-scale histogram of the distribution with a drag-to-select brush, which is the control and the
 context in one 56px strip. It intersects with the search box and the gender pills; none of the three knows the others exist —
 each returns "a Set of row indices, or null for everything" and `applyFilters()` intersects them.
@@ -176,21 +179,19 @@ matched to the same human.
 
 ```sh
 python3 scripts/validate.py       # THE DATA GATE — see below; run it after every rebuild
-python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (26 + a clean pass)
-python3 scripts/fetch_views.test.py  # the page-view cache's invariants, network stubbed (17 cases)
-python3 scripts/pagemoves.test.py # the page-move rule, offline (9 cases)
+python3 scripts/validate.test.py  # proves the gate still catches each bug it claims to
+python3 scripts/fetch_views.test.py  # the page-view cache's invariants, network stubbed
+python3 scripts/pagemoves.test.py # the page-move rule, offline
 scripts/ui-test.sh           # the behavioural suite in a real Chrome (lens, tap-to-pin, the three
                              #   filters, theme repaint, 390/360px layout, offline, print) — no deps.
                              #   It prints its own total; that is where the count lives.
                              #   On Linux it wants xvfb-run: headless there reports no pointer at
                              #   all, and nine of these checks are about having one
-node scripts/sw.test.mjs     # 24 tests of the service worker's fetch handler
+node scripts/sw.test.mjs     # the service worker's fetch handler
 python3 scripts/sw-lint.py   # precache contract: V bumped, SHELL paths exist, no cross-origin
 python3 scripts/sw-lint.py --fix  # ...and bump V yourself if a staged shell file needs one (the hook)
 python3 scripts/og-lint.py   # share card size (a card over ~250 KB previews as a grey box)
-python3 scripts/prose-lint.py # every number in these docs the repo can compute, vs the live value
-python3 scripts/prose-lint.test.py # its fold counter (mirrors table.js) and its number words (10 cases)
-python3 scripts/fix-lint.test.py # the two branch gates below, on throwaway repos (42 cases)
+python3 scripts/fix-lint.test.py # the two branch gates below, on throwaway repos
 
 # The branch gates. They compare a branch against what it will merge into, so they need a base ref
 # and run on pull requests in CI; by hand, point them at main.

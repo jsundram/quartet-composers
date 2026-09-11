@@ -72,12 +72,11 @@ COVERS = [
     # ablated against the suite written for it, which is the failure the whole PR is about.
     (("scripts/ablate.py", "scripts/fix-lint.py"),
                                       ["python3 scripts/fix-lint.test.py"]),
-    (("scripts/prose-lint.py",),      ["python3 scripts/prose-lint.test.py"]),
 ]
 
 # Load-bearing source that genuinely has no suite. plan() no longer READS this — anything unmapped
-# defaults to reported — so it would be pure decoration, and decoration is what let prose-lint.py
-# sit here through the very commit that gave it a suite. It is an ASSERTION now, checked by
+# defaults to reported — so it would be pure decoration, and a decorative list once kept a name in
+# it through the very commit that gave that file a suite. It is an ASSERTION now, checked by
 # unsuited() below: a name here that has a test file beside it, or that COVERS already maps, is a
 # stale claim that this file has nothing to prove, which is exactly the silence the gate is for.
 UNCOVERED = ("scripts/build_data.py", "scripts/scrape_list.py", "scripts/fetch_wikidata.py",
@@ -97,7 +96,7 @@ SOURCE = re.compile(
     r"^(app|chart|table|histogram|names|theme|sw|ping)\.js$"
     r"|^(styles\.css|index\.html|manifest\.json)$"
     r"|^scripts/(validate|pagemoves|fetch_views|fetch_wikidata|build_data|scrape_list"
-    r"|make-og-svg|og-lint|sw-lint|refresh|ablate|fix-lint|prose-lint)\.py$")
+    r"|make-og-svg|og-lint|sw-lint|refresh|ablate|fix-lint)\.py$")
 TESTS = re.compile(r"^scripts/.*(\.test\.(py|mjs)|ui-test\.sh)$")
 # Both halves of the line matter: `FAIL` at the head, and the name with any trailing detail cut.
 # The detail carries measured numbers that differ between two runs of the same suite, so a set

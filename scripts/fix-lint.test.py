@@ -402,32 +402,13 @@ with tempfile.TemporaryDirectory() as tmp:
     _abl = _il.module_from_spec(_spec); _spec.loader.exec_module(_abl)
     case("no name in UNCOVERED has a suite or a COVERS entry", _abl.unsuited(), [])
 
-    # --- THIS SUITE'S OWN STATED SIZE -------------------------------------------------------------
-    # Counted at RUNTIME, not by grepping for `case(`: these cases are inline rather than
-    # registered, so a static count reads 23 against a real 25 — which is the very defect
-    # prose-lint.py exists to catch, so it declines to count this file and this does it instead.
-    #
-    # ONE stated count is enough, and that is a deliberate loosening. This used to require the number
-    # in BOTH docs, which made every added case a three-file edit and made the docs the reason to
-    # skip writing one — the same tax that got the UI suite's size dropped from the docs entirely.
-    # A count that IS stated still has to be right, so a stale one fails exactly as before; what no
-    # longer fails is a doc that simply does not bring it up.
-    total = len(printed) + 1   # +1: this case is about to be printed
-    stated = []
-    for f in ("README.md", "CLAUDE.md"):
-        src = open(os.path.join(os.path.dirname(HERE), f), encoding="utf-8").read()
-        for m in re.finditer(r"fix-lint\.test\.py.*?\((\d+) cases\)|covers both in\s+([\w-]+)\s+cases",
-                             src, re.S):
-            stated.append((f, m.group(1) or m.group(2)))
-    # Spelled out, because CLAUDE.md writes numbers as words. Built rather than listed, so the
-    # next case added cannot land on a word this map happens not to carry and report -1.
-    ones = ["", "-one", "-two", "-three", "-four", "-five", "-six", "-seven", "-eight", "-nine"]
-    words = {f"{t}{o}": b + i
-             for t, b in (("twenty", 20), ("thirty", 30), ("forty", 40), ("fifty", 50))
-             for i, o in enumerate(ones)}
-    nums = [(f, int(v) if v.isdigit() else words.get(v, -1)) for f, v in stated]
-    case("every stated size of this suite is its real one", nums and all(n == total for _f, n in nums),
-         True, ", ".join(f"{f} says {n}" for f, n in nums) + f" — it is {total}")
+    # --- THIS SUITE'S OWN SIZE, PRINTED ----------------------------------------------------------
+    # It used to be asserted against a count typed into the docs, which made every added case a
+    # three-file edit — and a count only this run can produce is exactly the kind nobody should be
+    # re-typing. So the number is REPORTED here and stated nowhere: a reader who wants it runs the
+    # suite. (Counted at runtime rather than by grepping for `case(`, because these cases are inline
+    # and a static count reads low.)
+    print(f"\n{len(printed) + 1} cases")
 
 print(("\nFAIL: " + ", ".join(fails)) if fails else "\nall ok")
 sys.exit(1 if fails else 0)

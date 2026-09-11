@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pwa-starter: pre-commit @ d2fad01  (+ the prose lint, + sw-lint --fix)
+# pwa-starter: pre-commit @ d2fad01  (+ sw-lint --fix)
 # Warn-only pre-commit guard. Enable once per clone:
 #   git config core.hooksPath .githooks
 # Never blocks a commit — it nags. CI (.github/workflows/checks.yml) runs the lint + tests with
@@ -12,11 +12,6 @@
 python3 scripts/sw-lint.py --fix || true
 python3 scripts/og-lint.py || true
 
-# Every number in README/CLAUDE.md the repo can compute, against the live value. It reads the
-# working tree, so unlike the two BRANCH gates (fix-lint.py, ablate.py) it can answer here —
-# those need both sides of a merge and run in CI only.
-python3 scripts/prose-lint.py || true
-python3 scripts/prose-lint.test.py >/dev/null 2>&1 || echo "  (warning only — prose-lint tests failed; run python3 scripts/prose-lint.test.py)"
 
 # The data gate. Every serious defect this dataset has had was a plausible-looking wrong NUMBER
 # that no test caught; validate.py compares composers.json against its schema, the other caches,
