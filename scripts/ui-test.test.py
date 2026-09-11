@@ -57,12 +57,12 @@ def checkout(root, name):
     return d
 
 
-def run(d, env=None, via=None, timeout=20):
+def run(d, env=None, via=None, timeout=20, arg="--ports"):
     # TIMED, because the failure this asks about includes "the runner did not answer": a build
     # that no longer knows --ports takes it for a normal run and opens a browser.
     e = {k: v for k, v in os.environ.items() if k not in ("PORT", "CDP")}
     e.update(env or {})
-    return subprocess.run([via or os.path.join(d, "scripts", "ui-test.sh"), "--ports"],
+    return subprocess.run([via or os.path.join(d, "scripts", "ui-test.sh"), arg],
                           capture_output=True, text=True, env=e, timeout=timeout)
 
 
@@ -200,10 +200,28 @@ def held(port, reply, run_it):
             s.wait(timeout=10)
 
 
-def full_run(d, out):
+def free_port():
+    """A port the OS hands out, which is ABOVE both derived bands — and that is the point.
+
+    A full run clears its ports with a machine-wide `pkill -f`. Pointed at a DERIVED pair, these
+    cases would fire that at an effectively random slot in 8765-9532, and a sibling worktree
+    holding that slot would be killed mid-run by the suite written to prove #49 is fixed. The
+    ephemeral range starts at 32768 on Linux and higher on macOS, so nothing a real run can be
+    using is reachable from here. The derivation is covered by the cases above, which start
+    nothing; what these need is a pair, not that pair.
+    """
+    s = socket.socket()
+    s.bind(("127.0.0.1", 0))
+    p = s.getsockname()[1]
+    s.close()
+    return p
+
+
+def full_run(d, out, pins):
     """The whole runner, with a browser it will never reach: both guards stop before the launch."""
     e = {k: v for k, v in os.environ.items() if k not in ("PORT", "CDP", "REQUIRE_BROWSER", "KEEP")}
     e.update({"CHROME": "/bin/echo", "OUT": out})
+    e.update(pins)
     return subprocess.run([os.path.join(d, "scripts", "ui-test.sh")],
                           capture_output=True, text=True, env=e, timeout=120)
 
@@ -211,9 +229,10 @@ def full_run(d, out):
 def stopped(t, which, reply, says):
     """One full run against a squatter on one of the two ports. It must stop, and say which."""
     d = checkout(t, "w")
-    port, cdp = ports(d)
+    port, cdp = free_port(), free_port()
     p = port if which == "server" else cdp
-    r = held(p, reply, lambda: full_run(d, os.path.join(t, "out")))
+    r = held(p, reply, lambda: full_run(d, os.path.join(t, "out"),
+                                        {"PORT": str(port), "CDP": str(cdp)}))
     assert r.returncode == 1, "exited %d, not 1:\n%s%s" % (r.returncode, r.stdout, r.stderr)
     assert says % p in r.stdout, r.stdout
     # The reason has to reach $OUT as well: in CI that directory IS the artifact, and a run which
@@ -245,7 +264,8 @@ def own_leftover(t):
     # that failure is LOUD: a leftover still holding the port at the check stops the run with
     # "cannot clear", which is a false alarm you read, not a silent pass.
     d = checkout(t, "w")
-    port, cdp = ports(d)
+    port, cdp = free_port(), free_port()
+    pins = {"PORT": str(port), "CDP": str(cdp)}
     mine = subprocess.Popen([sys.executable, "-c", LEFTOVER, str(cdp),
                              "--remote-debugging-port=%d" % cdp],
                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -256,7 +276,7 @@ def own_leftover(t):
         except OSError:
             time.sleep(0.05)
     try:
-        r = held(port, 200, lambda: full_run(d, os.path.join(t, "out")))
+        r = held(port, 200, lambda: full_run(d, os.path.join(t, "out"), pins))
     finally:
         mine.terminate()
         mine.wait(timeout=10)
@@ -294,6 +314,20 @@ def foreign_cdp_200(t):
     # The other half: a live sibling's Chrome, or anything else answering 200 there. Driving it
     # would test a browser this run did not start, on a profile it did not clear.
     stopped(t, "cdp", 200, "%d is held by something this run cannot clear")
+
+
+@case("an argument the runner does not know is answered, not run")
+def unknown_argument(t):
+    # `--port`, `--help`, something a wrapper passed: taking it for a bare run means the person
+    # asking what this script does gets a browser instead of an answer — and it is the shape
+    # preflight() detects on a build that has forgotten --ports, which is worth being sure about.
+    # Pinned to ephemeral ports for the same reason full_run() is: if this guard were ever
+    # missing, the run it starts would clear a DERIVED pair machine-wide, and a case proving the
+    # runner is polite must not be rude in its own failure path.
+    r = run(checkout(t, "w"), env={"PORT": str(free_port()), "CDP": str(free_port())},
+            arg="--port")
+    assert r.returncode == 2, "exited %d, not 2:\n%s%s" % (r.returncode, r.stdout, r.stderr)
+    assert "unknown argument" in r.stdout, r.stdout
 
 
 @case("the clear still matches BY the derived ports, not by a literal")
