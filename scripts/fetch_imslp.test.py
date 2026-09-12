@@ -75,6 +75,9 @@ class Wiki:
 
     def __init__(self, cats, pages, marks=None, wp=None, p839=None):
         self.cats = cats            # category title -> [full page title]
+        self.page = 500             # cmlimit, so a listing longer than this needs continuing
+        self.cont = "query-continue"     # the shape IMSLP sends today; MediaWiki >=1.26 sends
+                                         # "continue" instead, and the walk has to follow both
         self.pages = pages          # IMSLP page title -> wikitext; absent = no such page
         self.marks = marks or {}    # IMSLP page title -> [marker category titles]
         self.wp = wp or {}          # en.wikipedia title -> QID; absent = no such article
@@ -103,8 +106,17 @@ class Wiki:
                 for v in self.p839.get(q, [])]}} for q in params["ids"].split("|")}}
         titles = [t for t in params.get("titles", "").split("|") if t]
         if params.get("list") == "categorymembers":
-            return {"query": {"categorymembers": [
-                {"pageid": self.pid(t), "title": t} for t in self.cats[params["cmtitle"]]]}}
+            rows = self.cats[params["cmtitle"]]
+            at = int(params.get("cmcontinue") or 0)
+            d = {"query": {"categorymembers": [
+                {"pageid": self.pid(t), "title": t} for t in rows[at:at + self.page]]}}
+            if at + self.page < len(rows):
+                # The two shapes nest differently, which is the whole reason a reader can miss
+                # one: 1.18 puts the token under the list name, later versions do not.
+                d[self.cont] = ({"categorymembers": {"cmcontinue": str(at + self.page)}}
+                                if self.cont == "query-continue"
+                                else {"cmcontinue": str(at + self.page), "continue": "-||"})
+            return d
         if params.get("prop") == "pageprops":
             return self._pages([
                 (t, {"pageprops": {"wikibase_item": self.wp[t]}} if t in self.wp else None)
@@ -258,6 +270,12 @@ def discovers_new_page(fi, w):
 
 @case("a page that left the category leaves the listing")
 def drops_removed_page(fi, w):
+    # Padded well clear of MIN_KEEP: what this asserts is that the listing REPLACES, and it must
+    # not start failing the day somebody raises the floor for a reason of its own.
+    bulk = ["Quartet No.%d (Beethoven, Ludwig van)" % n for n in range(3, 11)]
+    for t in bulk:
+        w.pages[t] = "|Work Title=%s\n" % t
+    w.cats[fi.ORIG] += bulk
     run(fi, w)
     w.cats[fi.ORIG].remove(BEACH_Q)                   # recategorised: it was never a quartet
     cache, _log = run(fi, w)
@@ -317,6 +335,23 @@ def rescues_unidentified(fi, w):
         "catalogue fields are what make a count possible")
 
 
+@case("a composer page naming only an interwiki article is asked again too")
+def interwiki_is_not_a_key(fi, w):
+    # 204 of the cached pages name a {{wp|de:…}}, en.wikipedia has no such title, and fetch_wp
+    # resolved every one of them to nothing. They are as unplaced as a page naming nothing at
+    # all — and reading the mere PRESENCE of a wp value as an identifier shut the one group that
+    # needed asking out of the re-ask permanently.
+    w.pages["Category:Beach, Amy Marcy"] = BEACH + "{{wp|de:Amy Beach}}\n"
+    cache, _log = run(fi, w)
+    assert cache["wp"]["de:Amy Beach"] is None, (
+        "the fixture's interwiki link resolved after all: %r" % (cache["wp"]["de:Amy Beach"],))
+    w.asked.clear()
+    run(fi, w)
+    assert "Category:Beach, Amy Marcy" in read(w), (
+        "a page whose only link resolves to nothing was treated as joined: %r. Naming an article "
+        "is not having a key, and nothing else will ever look at that page again." % read(w))
+
+
 @case("a composer page already stating an identifier is never asked again")
 def identified_is_not_reasked(fi, w):
     run(fi, w)
@@ -340,6 +375,46 @@ def warm_run_is_cheap(fi, w):
         "markers or Wikipedia titles were re-resolved: %r / %r" % (marked(w), resolved(w)))
     assert not [p for _a, p in w.asked if p.get("action") == "wbgetentities"], (
         "P839 was re-asked for QIDs already on record")
+
+
+@case("a continuation token in the modern shape is followed")
+def follows_both_continuations(fi, w):
+    # IMSLP answers like MediaWiki 1.18 today and pages with `query-continue`; every version since
+    # 1.26 sends `continue` instead. Reading only the old shape ends the walk normally after the
+    # first page — no error, no exception — and since the crawl REPLACES the listing, that is the
+    # one failure here that writes a wrong answer rather than none.
+    w.cont, w.page = "continue", 1
+    cache, _log = run(fi, w)
+    assert titles(cache) == {BEETHOVEN_Q1, BEACH_Q}, (
+        "the walk stopped at the first page of the listing: %r. It ends without raising, so the "
+        "only symptom is a category that came back 12%% of its real size." % sorted(titles(cache)))
+
+
+@case("a listing that came back short does not replace the one on record")
+def short_crawl_is_refused(fi, w):
+    # The floor, and the reason it is not redundant with the case above: the walk has more than
+    # one way to end early and only one of them is a continuation shape somebody can fix. members()
+    # raises on a transport failure, but a 200 that ends the walk SUCCEEDS, and against a pass that
+    # replaces the listing that retires every page it did not reach — after which every pass below
+    # tops up against the remains and nothing is ever red.
+    bulk = ["Quartet No.%d (Beethoven, Ludwig van)" % n for n in range(3, 11)]
+    for t in bulk:
+        w.pages[t] = "|Work Title=%s\n" % t
+    w.cats[fi.ORIG] += bulk
+    cache, _log = run(fi, w)
+    assert len(cache["works"]["orig"]) == 10, "the fixture did not cache ten pages"
+    w.cats[fi.ORIG] = [BEETHOVEN_Q1]                  # the walk comes back with one of ten
+    try:
+        run(fi, w)
+    except ValueError as e:
+        assert "NOT replaced" in str(e), "the refusal does not say what it did: %s" % e
+    else:
+        raise AssertionError("a listing that lost nine tenths of its pages was written anyway")
+    with open(fi.OUT, encoding="utf-8") as f:
+        cache = json.load(f)
+    assert len(cache["works"]["orig"]) == 10, (
+        "the short listing was saved before the floor was checked: %d pages left"
+        % len(cache["works"]["orig"]))
 
 
 @case("a reply that does not mention a composer does not blank the text already cached")
