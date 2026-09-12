@@ -556,34 +556,39 @@ function placeFilters() {
 // run yet drew the icon look in the row.
 //
 // TWO intervals, because the row's width is not monotonic in the viewport's. What decides the row is
-// the CARD, and the two-column grid at 900px takes 194px off it. Measured with the words in the row,
-// stepping 4px:
+// the CARD, and the two-column grid at 900px takes 194px off it. Measured with the words in the row
+// and share()'s "Link copied" showing — the widest state the row ever has — stepping 2px:
 //
-//     641- 743   card  582- 681   two lines
-//     744- 899   card  682- 837   ONE line (780 up, once share()'s "Link copied" is allowed for)
-//     900-1055   card  524- 679   two lines
-//     1056+      card  680+       ONE line (1092 up, same allowance)
+//     641- 807   card  609- 775   two lines
+//     808- 899   card  776- 867   ONE line
+//     900-1121   card  554- 775   two lines
+//     1122+      card  776+       ONE line
 //
-// So the words fit in two bands and the icons are right in the other two. "Link copied" is the
-// widest state the row ever has, and it is the one that matters: a row that wraps on the PRESS drops
+// One card width decides both bands: 776px. So the words fit in two of them and the icons are right
+// in the other two. Measuring at the widest LABEL rather than allowing for it afterwards is the
+// point — a row that wraps on the PRESS drops
 // the plot 44px under the cursor that just pressed it, which is the rule the chart's controls
 // already follow one row down (see index.html). Both numbers here sit clear of the measured edge on
 // the ICON side, because the two errors are not equal — words where they do not fit is that shift,
 // while icons where words would have fitted costs 26px of data height and nothing else.
-// Those widths are one machine's font metrics, so ui.test.mjs presses Share at 800 and at 1101 —
-// the first width in each band that draws the words — and fails if the row grows.
+// Those widths are one machine's font metrics, so ui.test.mjs presses Share at 820 and at 1140 —
+// the first width in each band that draws the words — and fails if the row grows. It has: the
+// lens stopped being a fourth PILL and became a checkbox in this row, 28px wider than the pill it
+// replaced, and both edges moved with it (778 -> 808, 1092 -> 1122, re-measured the same way).
+// That is what those two checks are for — the arithmetic here cannot notice a control being
+// added, and the reader who adds one is not the reader who measured this.
 //
 // They are TWO queries and not one list, because only the second one is about the grid.
 // `body.fs .grid{ display:block }` — in full screen the card IS the window, so the 194px is never
-// taken and the row is back to the 1056+ geometry. Measured the same way, words in the row with the
-// widest label: full screen fits them from 762px, where the two-column card does not until 1092. So
+// taken and the row is back to the 1122+ geometry. Measured the same way, words in the row with the
+// widest label: full screen fits them from 794px, where the two-column card does not until 1122. So
 // the squeezed interval is skipped there, and a 1000px window in full screen keeps its words instead
 // of spending the 48px band on a row that would have held them. That band costs MORE in full screen
 // than at rest — #plot is flex:1 there, so it comes off a chart that is already the whole viewport.
-// The narrow interval still applies, conservatively: full screen fits from 762 and this draws icons
-// to 799, which errs 38px toward the icons, the side that cannot wrap a row under a cursor.
-const NARROW = matchMedia("(max-width:799px)");
-const SQUEEZED = matchMedia("(min-width:900px) and (max-width:1100px)");
+// The narrow interval still applies, conservatively: full screen fits from 794 and this draws icons
+// to 819, which errs 25px toward the icons, the side that cannot wrap a row under a cursor.
+const NARROW = matchMedia("(max-width:819px)");
+const SQUEEZED = matchMedia("(min-width:900px) and (max-width:1139px)");
 const iconsOnPlot = () =>
   NARROW.matches || (SQUEEZED.matches && !document.body.classList.contains("fs"));
 
@@ -635,6 +640,7 @@ function placeDetail() {
 function writeHash() {
   const p = new URLSearchParams();
   if (Chart.getMode() !== Chart.defaultMode()) p.set("v", Chart.getMode());
+  if (Chart.lensOn()) p.set("l", "1");
   const q = $("q").value.trim();
   if (q) p.set("q", q);
   const r = Histogram.getRange();
@@ -650,6 +656,7 @@ function readHash() {
   const r = (p.get("r") || "").match(/^(\d+)-(\d+)$/);
   return { v: p.get("v"), q: p.get("q") || "", c: p.get("c"),
            r: r ? [+r[1], +r[2]] : null,
+           l: p.get("l") === "1",
            // Whitelisted, not trusted: a hand-edited #g=anything would otherwise leave three
            // unpressed pills over an empty table with no visible reason and no way back. The
            // whitelist is READ OFF THE PILLS rather than written out again — a second copy of the
@@ -711,7 +718,7 @@ async function share() {
 // "Link copied" where nobody could see it. The glyph has to acknowledge as well. It is not a
 // phone-only gap, and never was — navigator.share returns before either branch on a real phone, so
 // the two branches that reach here are exactly the ones that run where it is missing, which is most
-// of the desktops now under the 1100px breakpoint.
+// of the desktops now under the 1139px breakpoint.
 function copied(btn) {
   label(btn, "Link copied");
   btn.classList.add("copied");
@@ -1009,8 +1016,13 @@ async function start() {
   // DEFAULT mode, which this is, so nothing the app ever produced carries it — but a link
   // shared back when the timeline was the default does, and dropping it would open that
   // link on the wrong chart rather than fail visibly.
-  const v = link.v === "readers" ? "fame" : link.v;
-  if (v && ["fame", "scatter", "swarm", "lens"].includes(v)) setMode(v);
+  //
+  // "lens" was a fourth VIEW until the magnifier became a toggle over the three. It was the
+  // timeline's picture with the fisheye on, so that is what the old link still opens: the same
+  // two facts it named, now carried by `v` and `l` instead of by one word.
+  const v = link.v === "readers" ? "fame" : link.v === "lens" ? "scatter" : link.v;
+  if (v && ["fame", "scatter", "swarm"].includes(v)) setMode(v);
+  if (link.l || link.v === "lens") setLens(true);
   if (link.q) $("q").value = link.q;
   if (link.r) Histogram.setRange(link.r);
   if (link.g) setGender(link.g);
@@ -1074,6 +1086,7 @@ function wire() {
   document.querySelectorAll(".controls .seg button").forEach(b => {
     b.onclick = () => setMode(b.dataset.mode);
   });
+  $("lens").onchange = () => setLens($("lens").checked);
   $("reset-filters").onclick = resetFilters;
   $("share").onclick = share;
   $("reset").onclick = () => { Chart.resetZoom(); setTimeout(() => { $("reset").disabled = !Chart.zoomed(); }, 450); };
@@ -1131,7 +1144,7 @@ function wire() {
   // why this listener cannot be passive. "Took it" is narrower than "a zoom is bound" — at rest the
   // zoom declines every scroll DOWN, because k is already at scaleExtent's floor — and cancelling
   // on the wider test left a hole in the page's scrolling under these two buttons, in the resting
-  // default view and in lens both.
+  // default view and under the lens both (there nothing is bound at all).
   $("chart-tools").addEventListener("wheel", e => {
     if ($("chart-tools").parentNode !== $("plot")) return;
     if (Chart.wheelInto(e)) e.preventDefault();
@@ -1148,6 +1161,18 @@ function setMode(mode) {
   // rebuilds ~880 rows -- which resets the scroll box to the top and destroys the focused row
   // under anyone who tabbed into the table. Only the colours change, so only repaint those.
   Table.repaintChips();
+  $("hint").textContent = Chart.hint();
+  $("reset").disabled = !Chart.zoomed();
+  writeHash();
+}
+
+// The magnifier, over whatever view is drawn. It is not a mode, so nothing here re-renders the
+// legend or the table: the lens changes no encoding, only where the pixels are. The reset button
+// is asked again because the zoom is suspended while it is on (see applyZoomBehavior in chart.js),
+// and the hint because the second half of it is the instructions.
+function setLens(on) {
+  $("lens").checked = on;
+  Chart.setLens(on);
   $("hint").textContent = Chart.hint();
   $("reset").disabled = !Chart.zoomed();
   writeHash();
