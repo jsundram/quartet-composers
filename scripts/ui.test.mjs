@@ -524,6 +524,55 @@ check("the arrows still step the selection with the lens checkbox focused",
       `focus on the box: ${focused}, ${beforeArrow} -> ${afterArrow}`);
 await rest();
 
+// AND AN AIMED LENS LEAVES THE RESTING VIEW'S NAMES ALONE — which is a decision, not an accident,
+// and the reverse was tried on this branch. The Fame view pins its label budget to the curated
+// seeds at rest so a bare URL says exactly what the view is about, and that is the picture the
+// share card draws. Unpinning it for an aimed lens named nothing extra (13 before, 13 after): a
+// ZOOM earns names by culling the frame so the ranking is over what is left, while the lens moves
+// pixels and culls nothing. What identifies the crowd it opens is the FLAG, which follows the
+// pointer — so this asserts the pin holds and that the dot under the glass is named, together,
+// because the first is only defensible while the second is true.
+const seedCount = await ev(`Chart.seedNames().length`);
+const namedDots = () => ev(`[...document.querySelectorAll('#plot svg text')]
+  .filter(t=>new Set(ROWS.map(d=>Names.short(d.name))).has(t.textContent)).length`);
+await rest();
+const seedLabels = await namedDots();
+await ev(`(()=>{const b=document.getElementById('lens'); if (b && !b.checked) b.click()})()`);
+await laidOut();
+const checkedLabels = await namedDots();
+const lensAimed = await aim();
+const aimedLabels = await namedDots();
+check("an aimed lens leaves the resting view saying exactly what it says",
+      lensAimed && seedLabels === seedCount && checkedLabels === seedLabels
+        && aimedLabels === seedLabels,
+      `${seedLabels} names at rest, ${checkedLabels} with the box checked, ${aimedLabels} aimed`);
+// The other half: the crowd it opens is identified by the flag that follows the pointer, which
+// also proves the hit test reads the WARPED positions rather than the ones underneath.
+const flagUnderLens = await ev(`(()=>{const f=document.getElementById('flag');
+  return f.classList.contains('on') ? f.textContent.trim() : null})()`);
+check("...because the dot under the glass is named by the flag instead",
+      flagUnderLens !== null && flagUnderLens.length > 1, `flag reads ${JSON.stringify(flagUnderLens)}`);
+await rest();
+
+// AND THE KEYBOARD RING SURVIVES AN ENGINE WITHOUT `:has()`. The pill wears the ring because
+// :focus-visible lands on a 14px box inside it — but the rule that takes the input's own ring away
+// has to be dropped by the same engines that drop the pill's, or a browser without :has() shows no
+// focus at all. Simulated the way such an engine behaves: delete every :has() rule this page has
+// and look again. The page is booted afterwards, because this edits the stylesheet.
+await ev(`(()=>{for (const sh of document.styleSheets) {
+  for (let i = sh.cssRules.length - 1; i >= 0; i--)
+    if ((sh.cssRules[i].selectorText || '').includes(':has(')) sh.deleteRule(i);
+}})()`);
+await ev(`document.getElementById('lens')?.focus()`);
+const ring = await ev(`(()=>{const i=document.getElementById('lens'); if (!i) return null;
+  const on = el => { const s=getComputedStyle(el);
+    return s.outlineStyle !== 'none' && parseFloat(s.outlineWidth) > 0 };
+  return JSON.stringify({input:on(i), pill:on(i.closest('.btn'))})})()`);
+check("the keyboard focus ring survives an engine with no :has()",
+      ring !== null && JSON.parse(ring).input,
+      ring === null ? "" : `with every :has() rule dropped: ${ring}`);
+await goto(BASE);
+
 // THE ZOOM IS STILL ANCHORED TO THE BOX WHILE THE LENS HAS IT UNBOUND. d3 constrains every
 // transform it is handed against the extent it was last given, and resize() and goTo() hand it
 // one with no listeners attached — so `zoom.extent()` has to be called outside the "not the lens"
@@ -1974,6 +2023,29 @@ await goto(BASE);
 check("the phone viewport really reports a touch pointer",
       await ev(`matchMedia('(pointer:coarse)').matches && matchMedia('(hover:none)').matches`),
       "setDeviceMetricsOverride alone does NOT: chart.js's TOUCH and the compact panel both key off this");
+
+// A ROTATION UN-AIMS THE LENS, and this is the section that can prove it. The aim is a point in a
+// box that is going away — setMode() drops it for the same reason — and on a PHONE nothing takes
+// it back: `pointerleave` is `!TOUCH`, so the fisheye went on magnifying a spot the reader never
+// pointed at, with its boundary circle clipped off by a box that had shrunk under it. The same
+// check at 1280 passed without the fix, because a desktop's aim is cleared anyway by the pointer
+// move the metrics change synthesises — which is the whole reason it is written here instead.
+await ev(`(()=>{const b=document.getElementById('lens'); if (b && !b.checked) b.click()})()`);
+const lensPlot = await ev(`(()=>{const r=document.querySelector('#plot svg').getBoundingClientRect();
+  return {x:r.x,y:r.y,w:r.width,h:r.height}})()`);
+await mouse("mousePressed", lensPlot.x + lensPlot.w * 0.5, lensPlot.y + lensPlot.h * 0.6);
+await mouse("mouseReleased", lensPlot.x + lensPlot.w * 0.5, lensPlot.y + lensPlot.h * 0.6);
+const aimedByTap = await settle(`document.querySelector('#plot svg circle.lens-edge')?.style.display === ''`);
+await viewport(844, 390, true);                       // a rotation, which is the case it protects
+await relaid();
+const afterRotation = await ev(`document.querySelector('#plot svg circle.lens-edge')?.style.display`);
+check("a rotation un-aims the lens, which a finger cannot do for itself",
+      aimedByTap && afterRotation === "none",
+      `a tap aimed it: ${!!aimedByTap}, after the rotation: ${afterRotation}`);
+await viewport(390, 844, true);
+await relaid();
+await ev(`(()=>{const b=document.getElementById('lens'); if (b?.checked) b.click(); show(null, false)})()`);
+await settle(`selected == null && !Chart.lensOn?.()`);
 // offsetParent is null while an element is `hidden`, so this scan only ever sees the controls that
 // are on screen RIGHT NOW. It ran at BASE with no range applied, and the readership brush's own
 // Clear button was the one control not on screen there — 28px for as long as this check existed,
