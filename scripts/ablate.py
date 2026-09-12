@@ -31,10 +31,11 @@ Three things about the shape, each of which is the difference between a gate and
   below maps source to suite; a source file no suite covers is reported and does not fail, which
   is honest rather than silent — see the note there.
 
-  ONE ESCAPE HATCH, SHARED WITH fix-lint.py. A `No-test:` trailer on any commit in the range
+  ONE ESCAPE HATCH, SHARED WITH fix-lint.py. A `No-test:` trailer on a commit that CHANGED SOURCE
   skips both gates and prints the stated reason. A pure refactor and a comment fix are real, and
   the point is not to forbid them — it is to make an untested source change a sentence somebody
-  wrote on purpose and a reviewer can read, rather than a silence.
+  wrote on purpose and a reviewer can read, rather than a silence. On a commit that changed no
+  source it excuses nothing: see excused().
 
 The working tree is rewritten in place and restored in a `finally`, so it REFUSES to run on a
 dirty tree: restoring means `git checkout HEAD -- <file>`, which would take uncommitted work with
@@ -178,12 +179,27 @@ def changed(base):
 
 
 def excused(base_mb):
-    """A `No-test:` trailer anywhere in the range, and the reason it gives."""
-    log = sh("git", "log", "--format=%B", f"{base_mb}..HEAD")
-    for line in log.stdout.splitlines():
-        m = re.match(r"^\s*No-test:\s*(.+?)\s*$", line, re.I)
-        if m:
-            return m.group(1)
+    """A `No-test:` trailer on a commit that CHANGED SOURCE, and the reason it gives.
+
+    SCOPED TO SUCH COMMITS, because the trailer is a sentence about an untested source change and it
+    used to be read anywhere in the range. A docs-only commit carrying one then disarmed both gates
+    for every source change on the branch — and this repo's own history has two of those, both
+    reading "No-test: TODO.md only", each one silently excusing the code that followed it. A commit
+    that touched no source has nothing to excuse, so its trailer is not an excuse for somebody
+    else's code: the trailer has to ride with the change it speaks for.
+    """
+    for sha in sh("git", "log", "--format=%H", f"{base_mb}..HEAD").stdout.split():
+        why = None
+        for line in sh("git", "log", "-1", "--format=%B", sha).stdout.splitlines():
+            m = re.match(r"^\s*No-test:\s*(.+?)\s*$", line, re.I)
+            if m:
+                why = m.group(1)
+                break
+        if not why:
+            continue
+        touched = sh("git", "show", "--name-only", "--format=", sha).stdout.split("\n")
+        if any(SOURCE.match(f.strip()) for f in touched if f.strip()):
+            return why
     return None
 
 

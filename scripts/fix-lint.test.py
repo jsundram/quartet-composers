@@ -118,6 +118,23 @@ with tempfile.TemporaryDirectory() as tmp:
     case("a No-test: trailer excuses it", (code, "excused" in out), (0, True))
     case("...and the stated reason is printed", "nothing to assert" in out, True)
 
+    # --- fix-lint: THE TRAILER HAS TO RIDE WITH THE CHANGE ---------------------------------------
+    # A trailer was honoured ANYWHERE in the range, so a docs-only commit carrying one disarmed both
+    # gates for every source change on the branch — which this repo did to itself twice in one
+    # sitting, with commits reading "No-test: TODO.md only". The trailer is a sentence about an
+    # untested source change, so it only excuses a commit that made one.
+    git(repo, "commit", "-q", "--amend", "-m", "fix it")
+    write(repo, "TODO.md", "a note, and nothing a test could catch\n")
+    commit(repo, "write it down\n\nNo-test: TODO.md only")
+    code, out = run(repo, os.path.join(repo, "scripts/fix-lint.py"))
+    case("a trailer on a docs-only commit does not excuse the branch's source",
+         (code, "excused" in out), (1, False), out.splitlines()[-1][:60] if out else "")
+    git(repo, "reset", "-q", "--hard", "HEAD~1")
+    git(repo, "commit", "-q", "--amend", "-m", "fix it\n\nNo-test: TODO.md only")
+    code, out = run(repo, os.path.join(repo, "scripts/fix-lint.py"))
+    case("...and moving that same trailer onto the source commit does", (code, "excused" in out),
+         (0, True))
+
     # --- fix-lint: A TEST WAS TOUCHED ------------------------------------------------------------
     repo = new_repo(tmp)
     git(repo, "checkout", "-q", "-b", "b2")
