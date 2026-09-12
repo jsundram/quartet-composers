@@ -17,7 +17,7 @@ window.Chart = (function () {
   // stretch where the chart can never draw a dot. Snapped out to a 50-year grid so the ticks stay
   // round; make-og-svg.py derives the same domain the same way.
   let X_DOMAIN = [1700, 2000];
-  const Y_DOMAIN = [0.85, 170];         // log; the largest stated count is 149 (Cambini)
+  const Y_DOMAIN = [0.85, 170];         // log, with headroom over the largest stated count
   const Y_TICKS = [1, 2, 3, 5, 10, 20, 30, 50, 100];
   // FIXED stops, evenly spaced across the lifespan range. The middle one used to be the median
   // recomputed from the data, so the same composer changed colour when somebody else joined the
@@ -28,7 +28,7 @@ window.Chart = (function () {
   // ---- the Fame view -------------------------------------------------------
   // Output ACROSS, attention UP, so readers-per-quartet is a diagonal and the distance above one is
   // the argument. The other views ask "when, and how much"; this one asks "and did it land".
-  const QX_DOMAIN = [0.85, 200];        // quartets written; largest stated is 149
+  const QX_DOMAIN = [0.85, 200];        // quartets written, with the same headroom
   const QX_TICKS = [1, 2, 3, 5, 10, 20, 30, 50, 100];
   // A FIXED floor: a readership this low is not worth resolving, and a fixed one does not move when
   // the roster does (issue 38).
