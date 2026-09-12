@@ -1,20 +1,29 @@
-// The chart: three ways to read the same ~880 dots, sharing one layout + hit-test core.
+// The chart: three ways to read the same ~880 dots, sharing one layout + hit-test core, plus a
+// magnifier that can be switched on over any of them.
 //
 // WHY THREE. The 2014 original had exactly one: a *cartesian* fisheye that distorted both axes
 // continuously under the cursor. It magnified beautifully and read terribly — with the axes
 // moving there was no stable picture to look at, and a screenshot of it is nonsense. So:
 //
-//   scatter  the default and the honest one. Axes are FIXED (birth year, log quartets) so the
-//            static view is a real chart you can screenshot, print, or link. Detail comes from
-//            ordinary pan/zoom you opt into, not from a distortion that is always on.
+//   fame     the default and the one that makes the page's claim: quartets written across,
+//            monthly readers up, so readers-per-quartet is a diagonal.
+//   scatter  the honest overview. Axes are FIXED (birth year, log quartets) so the static view is
+//            a real chart you can screenshot, print, or link. Detail comes from ordinary pan/zoom
+//            you opt into, not from a distortion that is always on.
 //   swarm    force-collided along the birth-year axis. Nothing overlaps, ever — the answer to
 //            "most composers here wrote three quartets or fewer and pile onto three log bands".
 //            Costs the quartet-count axis, which is why it isn't the default.
-//   lens     the experiment, rehabilitated. A CIRCULAR fisheye over a fixed base chart: the
-//            axes never move, the magnifier is a lens you drag around. This is what the original
-//            was reaching for.
 //
-// Two things are shared by all three and are most of the value:
+// THE LENS IS NOT A FOURTH VIEW. It was one, and the difference between it and the timeline came
+// to two things: that view drew a CIRCULAR fisheye over the base picture, and it had no zoom. But
+// a magnifier is not a way of reading the data — it is a way of reading a crowd, and all three of
+// these pictures have crowds (the Fame view's is the worst of them, ~600 dots in the low-left
+// corner). So it is a toggle that applies over whatever mode is drawn: `layout()` lays the picture
+// out and the warp is applied LAST, in screen space, which is what lets one fisheye serve three
+// modes with no per-mode case at all. What it keeps from the old view is the contract that made it
+// readable: while it is on, the base picture is FIXED (see applyZoomBehavior).
+//
+// Two things are shared by every view and are most of the value:
 //   - hit-testing via a Delaunay over the CURRENT screen positions, so the tap target for a dot
 //     is its whole Voronoi cell rather than its 2.5px radius. On a phone that is the difference
 //     between "usable" and "not".
@@ -136,6 +145,7 @@ window.Chart = (function () {
   let transform = d3.zoomIdentity, zoom;
   let swarmY = null, swarmKey = "";      // memo: the sim is expensive, size/radius are its inputs
   let lens = null;                       // {x,y} focus in plot coords, or null
+  let lensOn = false;                    // the magnifier toggle; orthogonal to `mode`
   let pos = [], idx = [], delaunay = null;
 
   // ---- data prep ----------------------------------------------------------
@@ -275,7 +285,7 @@ window.Chart = (function () {
     return visible ? 0.55 : 0.22;
   }
   // Both branches are Fame-only: --sel is the PINNED colour, so tinting the repertoire with it in
-  // Timeline/Swarm/Lens made ten composers look pinned with nothing pinned, and made the real
+  // Timeline or Swarm made ten composers look pinned with nothing pinned, and made the real
   // pin unidentifiable once there was one.
   function labelColorOf(d) {
     if (mode !== "fame") return C.ink;
@@ -526,8 +536,10 @@ window.Chart = (function () {
              b: { x: a.x + t1 * dx, y: a.y + t1 * dy } };
   }
 
-  // Screen positions for the current mode + transform. One function, three modes — everything
-  // downstream (dots, labels, Delaunay hit-testing, the selection ring) reads only this.
+  // Screen positions for the current mode + transform, with the lens applied LAST if it is on and
+  // aimed. One function, three modes — everything downstream (dots, labels, Delaunay hit-testing,
+  // the selection ring) reads only this, which is why the magnifier needs no wiring of its own:
+  // what it warps is pixels, so what you click is what you see.
   function layout() {
     const tx = transform.rescaleX(x0);
     const out = new Array(rows.length);
@@ -547,17 +559,23 @@ window.Chart = (function () {
     } else if (mode === "swarm") {
       ensureSwarm();
       for (const d of rows) out[d.i] = { x: tx(d.birth + d.jx), y: swarmY[d.i], r: rScale(d.views) };
-    } else if (mode === "lens" && lens) {
-      const f = makeLens(lensRadius(), 2.2);
-      for (const d of rows) {
-        const p = f(x0(d.birth + d.jx), y0((d.quartets || 1) * d.jy), lens.x, lens.y);
-        out[d.i] = { x: p.x, y: p.y, r: rScale(d.views) * Math.max(1, Math.min(p.z, 2.6)) };
-      }
-    } else if (mode === "lens") {
-      for (const d of rows) out[d.i] = { x: x0(d.birth + d.jx), y: y0((d.quartets || 1) * d.jy), r: rScale(d.views) };
     } else {
       const ty = transform.rescaleY(y0);
       for (const d of rows) out[d.i] = { x: tx(d.birth + d.jx), y: ty((d.quartets || 1) * d.jy), r: rScale(d.views) };
+    }
+    return lensOn && lens ? warp(out) : out;
+  }
+
+  // The fisheye, over a picture that is already laid out. The RADIUS follows the local
+  // magnification and not just the position: a dot pushed outward but drawn the same size reads as
+  // displaced rather than as nearer, which is the artefact that made the 2014 chart hard to read.
+  // Clamped at 2.6 because the focus magnifies ~6x and a 6x dot is a blob with a name under it.
+  function warp(out) {
+    const f = makeLens(lensRadius(), 2.2);
+    for (const p of out) {
+      if (!p.r) continue;                  // parked at -9e9: no position to warp (see fame, above)
+      const q = f(p.x, p.y, lens.x, lens.y);
+      p.x = q.x; p.y = q.y; p.r *= Math.max(1, Math.min(q.z, 2.6));
     }
     return out;
   }
@@ -697,11 +715,16 @@ window.Chart = (function () {
   // Measured from a layout() at zoomIdentity rather than from the scales, so the box is in the
   // same geometry the dots are drawn in — three modes, one source of truth, and a fourth encoding
   // cannot forget to update this. Costs one extra pass over 884 rows per settled filter change.
+  // The picture at rest: no transform, and no LENS either. Both callers — the fit in
+  // computeResting() and the MIN_SEP separation refreshEmphasis() ranks rings by — are asking
+  // about the chart, not about where the pointer happens to be sitting. A warped answer would fit
+  // the frame to a magnified cloud and choose rings that stand apart only while the lens is aimed
+  // at them, and both results outlive the pointer move that produced them.
   function baseLayout() {
-    const t = transform;
-    transform = d3.zoomIdentity;
+    const t = transform, aim = lens;
+    transform = d3.zoomIdentity; lens = null;
     const p = layout();
-    transform = t;
+    transform = t; lens = aim;
     return p;
   }
 
@@ -722,7 +745,7 @@ window.Chart = (function () {
   }
 
   function computeResting() {
-    if (mode === "lens" || !visible || !rows.length) return d3.zoomIdentity;
+    if (!visible || !rows.length) return d3.zoomIdentity;
     const p = baseLayout();
     let x1 = Infinity, x2 = -Infinity, y1 = Infinity, y2 = -Infinity, rMaxSeen = 0, n = 0;
     for (const d of rows) {
@@ -833,9 +856,9 @@ window.Chart = (function () {
   //
   // ASKING is the whole point. d3-zoom cancels what it acts on, so the synthetic event carries the
   // answer and no second copy of d3's clamp has to live here — predicting "would this move k?" is
-  // exactly the duplication that goes stale when scaleExtent changes. It also makes lens fall out
-  // rather than be named: applyZoomBehavior() binds nothing there, so nothing cancels, so this
-  // returns false and the page scrolls, which is what the bare plot does in that view.
+  // exactly the duplication that goes stale when scaleExtent changes. It also makes the LENS fall
+  // out rather than be named: applyZoomBehavior() binds nothing while it is on, so nothing cancels,
+  // so this returns false and the page scrolls, which is what the bare plot does there.
   function wheelInto(e) {
     if (!svg) return false;
     const w = new WheelEvent("wheel", e);
@@ -843,12 +866,30 @@ window.Chart = (function () {
     return w.defaultPrevented;
   }
 
+  // THE LENS SUSPENDS THE ZOOM rather than composing with it, which is the one thing the old lens
+  // VIEW is worth keeping: a fisheye is a magnifier over a picture that holds still, and the 2014
+  // chart's lesson is that a magnified view of a moving one cannot be read at all. On a touch
+  // screen the two are also the same gesture — one finger aims the lens — so a pan would fight
+  // every drag for it. The transform is left exactly where it was rather than reset, so the lens
+  // magnifies whatever the reader had framed and unchecking the box hands the zoom back unchanged.
   function applyZoomBehavior() {
     if (!svg) return;
     svg.on(".zoom", null);
-    if (mode === "lens") { transform = d3.zoomIdentity; return; }
+    // THE BOX IS TOLD TO d3 WHETHER OR NOT THE BEHAVIOUR IS BOUND, because the gestures are not
+    // the only thing that reads it: d3 reads `extent` again when it SCHEDULES A TRANSITION, for
+    // the centroid and the width its interpolation travels through. goTo() animates — a filter
+    // fitting, a reset — so with these setters inside the branch below, a fit taken after a resize
+    // under the lens tweened along a path computed for a box that was gone. Measured rather than
+    // reasoned: `zoom.transform` itself does NOT constrain (a transform applied against an extent
+    // ten times too small survives intact), so the frame it LANDS on is right either way, which is
+    // why fourteen resize-and-filter pairs were probed for a wrong frame and none of them found
+    // one. What was wrong was the journey, and the fix is one line rather than a caveat.
     zoom.extent([[0, 0], [w, h]]).translateExtent([[0, 0], [w, h]]);
-    svg.call(zoom).call(zoom.transform, transform);
+    if (!lensOn) svg.call(zoom);
+    // The node's own __zoom is synced whether the behaviour is bound or not: goTo() tweens FROM
+    // it, so a frame fitted to a filter while the lens was on would otherwise animate from a
+    // transform nothing has drawn since.
+    svg.call(zoom.transform, transform);
   }
 
   function draw() {
@@ -875,8 +916,10 @@ window.Chart = (function () {
     // axes ---------------------------------------------------------------
     const fame = mode === "fame";
     const tx = fame ? transform.rescaleX(qx) : transform.rescaleX(x0);
-    const ty = fame ? transform.rescaleY(vy)
-             : mode === "scatter" ? transform.rescaleY(y0) : y0;
+    // The swarm's y is not under the zoom and draws no ticks at all (see below), so it does not
+    // need a case here — the one that used to sit here was the lens, whose base picture was
+    // unzoomable by construction and is now the timeline's, transform and all.
+    const ty = fame ? transform.rescaleY(vy) : transform.rescaleY(y0);
     // Tolerant at the ends: rescaleY() recomputes the domain from inverted pixels, so a tick lying
     // exactly ON the floor comes back a hair outside it and the axis stops labelling its own bottom.
     const inDom = (sc, v) => { const [a, b] = sc.domain();
@@ -998,7 +1041,7 @@ window.Chart = (function () {
       .text(d => d.text);
 
     gLens.attr("class", "lens-edge")
-      .style("display", mode === "lens" && lens ? null : "none")
+      .style("display", lensOn && lens ? null : "none")
       .attr("cx", lens ? lens.x : 0).attr("cy", lens ? lens.y : 0).attr("r", lensRadius())
       .attr("stroke", C.grid).attr("stroke-dasharray", "3 4");
 
@@ -1044,7 +1087,7 @@ window.Chart = (function () {
     svg.on("pointermove", ev => {
       const p = local(ev);
       if (down && Math.hypot(p.x - down.x, p.y - down.y) > 8) moved = true;
-      if (mode === "lens" && (!TOUCH || down)) {          // on touch the lens is dragged, not followed
+      if (lensOn && (!TOUCH || down)) {                   // on touch the lens is dragged, not followed
         lens = (p.x >= -40 && p.x <= w + 40 && p.y >= -40 && p.y <= h + 40) ? p : null;
         draw();
       }
@@ -1054,7 +1097,7 @@ window.Chart = (function () {
       else if (i != null) showFlag(i, p);
     });
     svg.on("pointerleave", () => {
-      if (mode === "lens" && !TOUCH) { lens = null; draw(); }
+      if (lensOn && !TOUCH) { lens = null; draw(); }
       if (TOUCH) return;
       hovered = null; showFlag(null); cbHover && cbHover(null);
     });
@@ -1065,7 +1108,7 @@ window.Chart = (function () {
       if (!wasTap) return;                                 // a pan/pinch is not a selection
       const i = nearest(p.x, p.y);
       cbSelect && cbSelect(i, false);
-      if (TOUCH && mode === "lens") { lens = p; draw(); }
+      if (TOUCH && lensOn) { lens = p; draw(); }
     });
     svg.on("pointercancel", () => { down = null; });
   }
@@ -1116,6 +1159,9 @@ window.Chart = (function () {
 
   function setMode(mNew) {
     if (mNew === mode) return;
+    // The lens SURVIVES a view change; its aim does not. The focus is a point in screen space and
+    // the next mode puts different composers under it, so keeping it would magnify a spot the
+    // reader chose in a picture that is gone. The pointer re-aims it on the next move.
     mode = mNew; lens = null; transform = d3.zoomIdentity;
     measure();
     restingT = null;
@@ -1160,6 +1206,18 @@ window.Chart = (function () {
     refreshEmphasis();
     draw();
   }
+  // The magnifier, over whichever view is drawn. It needs no measure(): the plot's box is a
+  // function of the MODE (see measure()), so switching the lens on and off moves nothing — which
+  // is what lets its control live in the row above the plot, where a box that resized under the
+  // press that caused it would break the rule that row exists to keep (see index.html).
+  function setLens(on) {
+    on = !!on;
+    if (on === lensOn) return;
+    lensOn = on; lens = null;
+    applyZoomBehavior();
+    draw();
+    cbZoom && cbZoom(zoomed());
+  }
   function setSelected(i) { selected = i; draw(); }
   // "Reset" means back to where this filter opens, not back to the whole field: the fitted box IS
   // the resting view while a filter is on, and dropping the reader out to the full extent would
@@ -1172,23 +1230,34 @@ window.Chart = (function () {
     resize();
   }
 
-  function resetZoom() {
-    if (mode === "lens") { lens = null; draw(); return; }
-    goTo(restingTransform(), true);
-  }
-  function zoomed() { return mode !== "lens" && !sameTransform(transform, restingTransform()); }
+  // Neither of these asks about the lens. "Zoomed" is a claim about the FRAME, and the frame is
+  // still whatever the reader left it at while the magnifier is on — a button that greyed out
+  // there would be lying about a chart it can still return to, and resetZoom() still gets there
+  // because goTo() drives zoom.transform, which does not need the behaviour bound to fire.
+  function resetZoom() { goTo(restingTransform(), true); }
+  function zoomed() { return !sameTransform(transform, restingTransform()); }
   function getMode() { return mode; }
 
-  const HINTS = {
-    fame: "Views vs Quartets written. Drag to pan, scroll or pinch to "
-        + "zoom, tap a dot for more info and to pin it.",
-    scatter: "Fixed axes. Drag to pan, scroll or pinch to zoom, tap or click a dot to pin it.",
-    swarm: "A timeline of how crowded each generation was. Drag or pinch to spread it further.",
-    lens: "A circular magnifier over a fixed chart: the axes never move. Move the pointer (or drag on a touch screen) to aim it; tap to pin a composer.",
+  // Two halves per view: what it shows, and how to drive it. The lens REPLACES the second half
+  // rather than adding a sentence to it — it suspends the zoom, so "scroll or pinch to zoom" is an
+  // instruction the chart would no longer obey, and a hint that tells you to do something that
+  // does nothing is worse than a shorter one.
+  const SHOWS = {
+    fame: "Views vs Quartets written.",
+    scatter: "Fixed axes: birth year across, quartets written up.",
+    swarm: "A timeline of how crowded each generation was.",
   };
-  function hint() { return HINTS[mode]; }
+  const DRIVE = {
+    fame: "Drag to pan, scroll or pinch to zoom, tap a dot for more info and to pin it.",
+    scatter: "Drag to pan, scroll or pinch to zoom, tap or click a dot to pin it.",
+    swarm: "Drag or pinch to spread it further.",
+  };
+  const LENS_HINT = "The magnifier follows the pointer — drag it on a touch screen — and the "
+                  + "picture underneath holds still. Tap a dot to pin it.";
+  function hint() { return SHOWS[mode] + " " + (lensOn ? LENS_HINT : DRIVE[mode]); }
 
   return { init, setData, setMode, getMode, setFilter, setSelected, resize, rerender,
+           setLens, lensOn: () => lensOn,
            defaultMode: () => DEFAULT_MODE,
            // Empty unless a pipeline run renamed one of the composers the Fame view argues
            // about; the UI suite asserts it, so a rename fails loudly instead of dropping a dot.
@@ -1208,6 +1277,11 @@ window.Chart = (function () {
            // claim about this number, and reading it off the axis ticks would be reading a
            // rendering of it.
            zoomK: () => transform.k,
+           // The box d3-zoom currently holds, for the suite. It is the one thing the lens can
+           // silently desynchronise: the behaviour is unbound while the magnifier is on, so no
+           // gesture can reveal a stale one, and what a stale one costs is the PATH of the next
+           // animated fit rather than where it lands.
+           zoomBox: () => (svg ? zoom.extent().apply(svg.node()) : null),
            lifeDomain: () => LIFE_DOMAIN.slice(),
            // How many of the rings the current filter derived. Nothing on the page reads it now
            // that the legend has stopped captioning the ring; the suite asks it to tell a derived

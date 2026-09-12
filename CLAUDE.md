@@ -493,6 +493,59 @@ would not have worked.
   of the chart card or the table card — all THREE filters (search, readership brush, gender pills)
   scope both views, and a filter drawn inside one card says otherwise. `placeFilters()` moves it into `#viz` in full screen (where the chart
   is everything) and CSS drops its search half there to keep the chart's height.
+- **The lens is an OVERLAY, not a view — a checkbox in the controls row, over all three modes.**
+  It was a fourth pill, and as a view it differed from Timeline in exactly two things: it drew a
+  circular fisheye, and it had no zoom. Neither is a way of reading the DATA, which is what the
+  other three pills each are, so the switcher claimed four pictures where there are three — and the
+  crowd the magnifier could not reach was the Fame cloud, ~600 dots in one corner and the densest
+  thing the app draws. `layout()` in `chart.js` lays the picture out per mode and `warp()` applies
+  the fisheye LAST, in screen space, which is what lets one lens serve three modes with no per-mode
+  case at all: what it moves is pixels, so what you click is still what you see (the Delaunay is
+  built over the warped positions like everything else).
+  Three things it keeps from the view it replaced. **The picture holds still while it is on** —
+  `applyZoomBehavior()` binds nothing, because a magnifier over a moving chart is the 2014 original
+  and on a touch screen the pan and the aim are the same one-finger drag. The transform is LEFT
+  where it was rather than reset, so the lens magnifies whatever the reader had framed and
+  unchecking hands the zoom back unchanged; `zoomed()` and `resetZoom()` therefore ask nothing
+  about the lens, since the frame is still the frame. The one thing unbinding does NOT excuse is
+  telling d3 the box, because the gestures are not the only thing that reads it: d3 reads `extent`
+  again when it SCHEDULES A TRANSITION, for the centroid and the width its interpolation travels
+  through — and `goTo()` animates. So `zoom.extent()` is called whether or not the behaviour is
+  bound; left inside the bound branch, a filter fitted after a resize under the lens tweened along
+  a path computed for a box that was gone. **Only the path**: `zoom.transform` does not constrain
+  (probed — a transform applied against an extent ten times too small survives intact), so the
+  frame it lands on was right either way, which is why fourteen resize-and-filter pairs were probed
+  for a wrong frame and none of them found one. `Chart.zoomBox()` exists so the suite can assert
+  the invariant at the cause rather than chase an artefact that only shows while it moves.
+  **`baseLayout()` un-aims it**, because the
+  filter fit and the ring separation are claims about the chart that outlive a pointer move.
+  And **`#v=lens` still resolves** — to the timeline with `l=1`, which is the picture that link
+  named — the same shape of alias as `#v=readers`, one vocabulary over.
+  Two costs, both paid in the row rather than in the chart. It is 28px wider than the pill it
+  replaced, which moved both edges of the icons-on-plot measurement (see that entry); and it is a
+  CHECKBOX rather than a pressed `.btn` or a fourth pill because it is a thing you leave on, not a
+  picture you switch to — the box says so with no copy, and carries the state to the accessibility
+  tree without anything here keeping it in sync. Switching it re-lays out nothing (the plot's box
+  is a function of the MODE), which is what makes it safe in a row above the plot at all: see the
+  next entry for the rule it would otherwise break, and `ui.test.mjs` 4m4 for the check.
+  One detail the eye finds before any of that, and it is a lesson about constants rather than about
+  checkboxes: the box is centred on the WORD and not on the word's line box. `align-items:center`
+  centres boxes, and "Lens" has no descender, so the line box runs past the ink it draws and the
+  checkbox hung 1px low. **The first fix was a -1px nudge, and it was wrong** — HOW low is a fact
+  about the FACE, and `system-ui` is a different one per platform (#53 again): measured at 13px,
+  DejaVu and FreeSans hang it 1.0px low, Liberation Sans 0.5px HIGH, and SF's metrics put it within
+  a tenth of centred — so the constant fixed the machine it was measured on and would have doubled
+  the error on the Mac it was written on, with the suite going red there. `text-box-trim`/
+  `text-box-edge: cap alphabetic` asks the font instead and lands within 0.3px in every face
+  measured; a browser without it centres line boxes exactly as before.
+  It is applied to EVERY label in `.controls`, not to this one, because trimming moves a word down
+  onto the band it draws (1.23px in DejaVu, nothing in the faces that were already symmetric) and
+  one label doing that alone breaks the baseline it shares with the pills beside it — `ui.test.mjs`
+  asserts both halves, the box against its own cap band and the five labels against each other.
+  That rule is also why `#reset` and `#reset-filters` keep their labels in a `span`: bare text in an
+  inline-flex button lands in an anonymous flex item, which no selector reaches and which
+  `text-box-trim` does not inherit into, so those two stayed put while the pills moved.
+
 - **The chart's controls sit ABOVE the plot, because the plot's height is a function of the VIEW.**
   `measure()` in `chart.js` gives each mode its own aspect ratio (0.98 for Fame against 0.82 for
   the timeline on a phone, 0.44 for the swarm), which is right — the picture is a different shape
@@ -579,7 +632,8 @@ would not have worked.
   data. "Across is how many quartets they wrote, up is how much their article is read" was typed,
   and true in Fame only — across is birth year in Timeline and Swarm, up means nothing at all in
   Swarm. It was cut rather than derived per mode, because the axes are already stated twice on
-  screen by whichever view is drawn (the axis titles in `chart.js` and the per-mode `HINTS`), so a
+  screen by whichever view is drawn (the axis titles in `chart.js` and the per-mode hint it builds
+  from `SHOWS`/`DRIVE`), so a
   third statement could only ever be the copy that goes stale.
   **Issue #35 applied the same test to the built half and it failed too.** The lede carried a
   sentence generated from `Chart.emphasisStats()` — which set is picked out, its birth span, a
@@ -641,28 +695,31 @@ would not have worked.
   was `(max-width:640px)` while this was read as a phone fix, but the row is two lines well past a
   phone. What decides it is the CARD, not the viewport, and the two are not monotonic in each other:
   the `(min-width:900px)` two-column grid takes 194px off the card. Measured with the words in the
-  row, stepping 4px — 641-743 wraps (card 582-681), **744-899 fits** (682-837), 900-1055 wraps
-  (524-679), 1056+ fits (680+). So the words belong in two bands and the icons in the other two, and
-  `iconsOnPlot()` in `app.js` is `NARROW` (`max-width:799px`) or `SQUEEZED`
-  (`min-width:900px and max-width:1100px`). A single
-  `(max-width:1100px)` was the first answer and it was wrong in a 120px band: 780-899 would have
-  spent 26px of DATA height to buy no page height at all, which is the exact trade this rule refuses
-  at the top end. The numbers are 799 and 1100 rather than the 743 and 1055 the row wraps at because
-  `share()` swaps the label to "Link copied", which is wider than "Share" and moves both edges out
-  (to 780 and 1092); both sit clear of the measured edge on the ICON side, because the two errors are
-  not equal — words where they do not fit means a PRESS on Share wraps the row and drops the plot
+  row and `share()`'s "Link copied" showing — the widest state the row ever has — stepping 2px:
+  641-807 wraps (card 609-775), **808-899 fits** (776-867), 900-1121 wraps (554-775), 1122+ fits
+  (776+). One card width decides both bands, 776px. So the words belong in two bands and the icons
+  in the other two, and `iconsOnPlot()` in `app.js` is `NARROW` (`max-width:819px`) or `SQUEEZED`
+  (`min-width:900px and max-width:1139px`). A single
+  `(max-width:1139px)` would be wrong in a 92px band: 808-899 would spend 26px of DATA height to
+  buy no page height at all, which is the exact trade this rule refuses at the top end. The two
+  numbers sit clear of the measured edges on the ICON side, because the two errors are not equal —
+  words where they do not fit means a PRESS on Share wraps the row and drops the plot
   44px under the cursor that just pressed it, while icons where words would have fitted costs the
   26px and nothing else. Those widths are one machine's font metrics, so they are defended by checks
-  rather than by arithmetic: `ui.test.mjs` presses Share at 800 and at 1101 — the first width in each
-  band that draws the words — and fails if the row grows.
+  rather than by arithmetic: `ui.test.mjs` presses Share at 820 and at 1140 — the first width in each
+  band that draws the words — and fails if the row grows. **It has, once, and that is the entry
+  worth reading**: the lens stopped being a fourth pill and became a checkbox in this row (see the
+  lens entry below), 28px wider than the pill it replaced, and both edges moved with it — 778 to
+  808 and 1092 to 1122, re-measured the same way. Nothing in the arithmetic above could have
+  noticed; the two Share presses did, on the branch that made the change.
   **They are two QUERIES and not one list, because only the second one is about the grid.**
   `body.fs .grid{ display:block }` — full screen has no two-column grid, so the card is the window
-  and the row has its 1056+ geometry back. Measured the same way, full screen fits both words from
-  762px, where the two-column card does not until 1092. So `SQUEEZED` is skipped under `.fs`, or a
+  and the row has its 1122+ geometry back. Measured the same way, full screen fits both words from
+  794px, where the two-column card does not until 1122. So `SQUEEZED` is skipped under `.fs`, or a
   1000px window in full screen spends the 48px band on a row that would have held them — and that
   costs MORE there than at rest, because `#plot` is `flex:1` and the band comes off a chart that is
   already the whole viewport. `NARROW` still applies in full screen, conservatively: it fits from
-  762 and this draws icons to 799, erring 38px toward the side that cannot wrap a row under a
+  794 and this draws icons to 819, erring 25px toward the side that cannot wrap a row under a
   cursor. The suite enters full screen at 1000px and asserts the words stayed and no band was spent.
   **A wheel over the glyphs is a wheel over the CHART, and that needs saying in code.** d3-zoom is
   bound to the svg and `#chart-tools` is a SIBLING of it, so a wheel starting over a glyph reached
@@ -692,12 +749,13 @@ would not have worked.
   phone it is no longer inside it. And they sit in the AXIS-TITLE BAND, over no dot in any view:
   `placeChartTools()` asks `Chart.setTopReserve(48)` and `measure()` widens `m.top` from 22 to fit a
   touch target. Every corner was measured first and every one covers something — dots the group
-  would sit on, summed over the four views at 390: top-left 11, top-right 90, bottom-right 239,
-  bottom-left 3. **Top right is the trap**: it reads as empty in Fame and is exactly where the SWARM
+  would sit on, summed over Fame, Timeline, Swarm and the lens at 390: top-left 11, top-right 90,
+  bottom-right 239, bottom-left 3 (the lens was a view of its own when that was measured; as a
+  toggle it warps nothing until it is aimed, so it adds no layout to the sum). **Top right is the trap**: it reads as empty in Fame and is exactly where the SWARM
   piles up, 90 dots and the "Rachmaninoff" label, which is what judging a shared overlay from one
   view gets you. The band costs 26px of DATA height and no page height — the plot's outer box is a
   function of the aspect ratio, so the dots' area gives up the pixels and the card is the size it
-  was. `ui.test.mjs` 7c2 asserts zero coverage across all four views AND that the buttons fit inside
+  was. `ui.test.mjs` 7c2 asserts zero coverage across all three views AND that the buttons fit inside
   the reservation, because the second is the cause and the first only the symptom.
   They are drawn as BARE GLYPHS — 16px in an invisible 40px hit target, no border, no background,
   `var(--muted)` like every other `.btn` label and like the axis title beside them. That is the
@@ -751,10 +809,10 @@ would not have worked.
   platform that does it, since on macOS the real write rejects and a check written around the Linux
   behaviour would leave the fix unproven on every machine it is developed on. It is not phone-only:
   `navigator.share` returns before either fallback on a real phone, so the branches that reach the
-  swap are exactly the ones that run where it is missing — which, at 1100px, is most of the desktops
+  swap are exactly the ones that run where it is missing — which, at 1139px, is most of the desktops
   that see this layout.
   The other consequence is the TOOLTIP. A clipped label is a name a screen reader can read and a
-  pointer cannot, and up to 1100px that pointer is usually a mouse — so both buttons carry a
+  pointer cannot, and up to 1139px that pointer is usually a mouse — so both buttons carry a
   `title`, and `label()` writes it with the span in one call rather than the markup carrying it
   alone. `#fs`'s name changes with its state, and a tooltip still reading "Full screen" over the
   exit glyph would be worse than none. It is written at every width, including where the word beside
@@ -802,7 +860,12 @@ would not have worked.
   keydown listener steps the SELECTION on left/right, and its old guard was
   `matches("input, textarea")` — so the first focusable thing that was neither had its keys stolen:
   arrowing along the sparkline changed the composer instead of the month, and the readout answered
-  about someone else. Escape is handled before the guard, because it means "back out of this"
+  about someone else. The guard has since failed the other way round too, which is the same
+  mistake inverted: `input` is a proxy for "this control handles the key", and a CHECKBOX matches
+  it while answering to Space alone — so the lens toggle, a pill until it became an input, ate both
+  arrows for as long as focus sat on it. It is `input:not([type="checkbox"])` now, which still
+  covers the search box and anything that really does step with the arrows (a range, a radio
+  group), and `ui.test.mjs` presses a key with the box focused rather than trusting the selector. Escape is handled before the guard, because it means "back out of this"
   wherever focus is. The readership brush still owes a keyboard path (TODO); when it gets one it
   needs the attribute and no edit to the listener.
 - **The sparkline is the app's one optional part, in both halves.** Its data

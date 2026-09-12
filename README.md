@@ -16,7 +16,7 @@ stable picture, hovering was the only way to learn anything, and a screenshot of
 
 | 2014 | now |
 |---|---|
-| One view: cartesian fisheye, always on | Three: **scatter** (fixed axes, ordinary pan/zoom), **swarm** (force-collided, nothing overlaps), **lens** (a *circular* fisheye over a fixed chart) |
+| One view: cartesian fisheye, always on | Three: **fame** (quartets written against monthly readers), **scatter** (fixed axes, ordinary pan/zoom), **swarm** (force-collided, nothing overlaps) — plus a **lens** you switch on over any of them: a *circular* fisheye over a picture that holds still |
 | Linear y, 0–200 | **Log y** — most composers here wrote three quartets or fewer, and a linear axis crushed them into one line |
 | Tap target = the dot (2.5px for most) | **Voronoi hit-testing** — a Delaunay over current screen positions, so the target is the dot's whole cell |
 | Hover-only tooltip | **A persistent detail panel.** Hover previews it, click/tap pins it — which is also why there's no hover bubble to double-fire on touch |
