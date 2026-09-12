@@ -1,62 +1,48 @@
-// The chart: four ways to read the same ~880 dots, sharing one layout + hit-test core.
+// The chart: four ways to read one roster of dots (fame, scatter, swarm, lens — README says what
+// each is for), sharing one layout + hit-test core.
 //
-//   fame     the DEFAULT, and the one that makes the page's claim: output ACROSS, attention UP, so
-//            readers-per-quartet is a diagonal and the distance a composer sits above one is the
-//            argument — Mozart near 10,000 readers a quartet, Cambini on 1.
-//   scatter  the honest overview, and one tap away. Axes FIXED (birth year, log quartets), so the
-//            static view is a real chart you can screenshot, print or link; detail comes from
-//            ordinary pan/zoom you opt into, not from a distortion that is always on.
-//   swarm    force-collided along the birth-year axis. Nothing overlaps, ever — the answer to
-//            "most composers here wrote three quartets or fewer and pile onto three log bands".
-//            Costs the quartet-count axis, which is why it is not the default.
-//   lens     the 2014 experiment rehabilitated. A CIRCULAR fisheye over a fixed base chart: the
-//            axes never move and the magnifier is a lens you drag around.
+// Two things shared by all four, and most of the value: hit-testing via a Delaunay over the CURRENT
+// screen positions, so a dot's tap target is its whole Voronoi cell rather than its radius — on a
+// phone, the difference between usable and not — and greedy collision-avoided labels, so the chart
+// says something with no interaction at all.
 //
-// Two things are shared by all four and are most of the value: hit-testing via a Delaunay over the
-// CURRENT screen positions, so a dot's tap target is its whole Voronoi cell rather than its 2.5px
-// radius (on a phone that is the difference between usable and not); and greedy collision-avoided
-// labels, so the chart says something with no interaction at all.
-//
-// Colors are read INTO JS here (Theme.getCssColor), so a theme flip cannot reach them via CSS —
-// app.js calls rerender() on every theme change and this file re-reads them. See theme.js.
+// Colors are read INTO JS here (Theme.getCssColor), so a theme flip cannot reach them via CSS: app.js
+// calls rerender() on every theme change and this file re-reads them (invariant 3).
 
 window.Chart = (function () {
   const TOUCH = !matchMedia("(hover: hover) and (pointer: fine)").matches;
 
-  // Set from the data in setData(). It covers the PLOTTABLE rows only, which is not the same as
-  // the roster: the three names born before 1700 (Allegri 1582, Scarlatti 1660, Telemann 1681)
-  // have no stated quartet count, so a domain starting at 1580 spent a third of the width on a
+  // Set from the data in setData(), over the PLOTTABLE rows only — the roster's earliest births
+  // have no stated quartet count, and a domain that included them spent a third of the width on a
   // stretch where the chart can never draw a dot. Snapped out to a 50-year grid so the ticks stay
   // round; make-og-svg.py derives the same domain the same way.
   let X_DOMAIN = [1700, 2000];
   const Y_DOMAIN = [0.85, 170];         // log; the largest stated count is 149 (Cambini)
   const Y_TICKS = [1, 2, 3, 5, 10, 20, 30, 50, 100];
-  // The colour ramp's stops are FIXED, evenly spaced across the lifespan range. They used to sit
-  // at [20, median, 104] with the median recomputed from the data, which meant the same composer
-  // changed colour when somebody else joined the list -- the same "the pivot moves when the data
-  // does" problem the diverging ramp had, surviving the switch to a sequential one.
+  // FIXED stops, evenly spaced across the lifespan range. The middle one used to be the median
+  // recomputed from the data, so the same composer changed colour when somebody else joined the
+  // list -- "the pivot moves when the data does", which survived the switch from a diverging ramp
+  // to a sequential one.
   const LIFE_DOMAIN = [20, 62, 104];
 
   // ---- the Fame view -------------------------------------------------------
-  // Output ACROSS, attention UP, so readers-per-quartet is a diagonal and the distance a composer
-  // sits above one is the argument: Mozart near 10,000 readers a quartet, Cambini on 1. The other
-  // views ask "when, and how much"; this one asks "and did it land".
+  // Output ACROSS, attention UP, so readers-per-quartet is a diagonal and the distance above one is
+  // the argument. The other views ask "when, and how much"; this one asks "and did it land".
   const QX_DOMAIN = [0.85, 200];        // quartets written; largest stated is 149
   const QX_TICKS = [1, 2, 3, 5, 10, 20, 30, 50, 100];
-  // Floor at 10: under ten readers a month is not a readership worth resolving, and a fixed floor
-  // does not move when the roster does (issue 38).
+  // A FIXED floor: a readership this low is not worth resolving, and a fixed one does not move when
+  // the roster does (issue 38).
   const VY_DOMAIN = [10, 260000];       // readers/mo
   const FUZZ = 1e-6;                    // px, for comparisons against a rescaled edge
   const VY_TICKS = [1, 10, 100, 1000, 10000, 100000];
   const RATIOS = [1, 10, 100, 1000, 10000];   // the readers-per-quartet diagonals
 
-  // THE REPERTOIRE: the composers a quartet actually plays, in birth order, and the only
-  // hardcoded composer NAMES in the app. Deliberately NOT a count -- it was "the seven" until
-  // Tchaikovsky, Debussy and Prokofiev joined it, and every place that printed the number went
-  // stale in the same commit. Prokofiev is here on two quartets and Debussy on one: the claim is
-  // that the quartets are played, not that the composer wrote many. They are canonical
-  // Wikipedia titles, which change spelling when the pipeline runs (see invariant 4), so a name
-  // that stops resolving is reported by missingNames() and asserted empty in the UI suite rather
+  // THE REPERTOIRE: the composers a quartet actually plays, in birth order, and the only hardcoded
+  // composer NAMES in the app. Deliberately NOT a count -- it was "the seven" until three more
+  // joined, and every place that printed the number went stale in the same commit. Debussy is here
+  // on one quartet: the claim is that the quartets are PLAYED, not that the composer wrote many.
+  // Canonical Wikipedia titles, which change spelling when the pipeline runs (invariant 4), so a
+  // name that stops resolving is reported by missingNames() and asserted empty by the suite rather
   // than quietly dropping a composer out of the argument.
   const CANON = ["Franz Xaver Richter", "Joseph Haydn", "Luigi Boccherini",
                  "Wolfgang Amadeus Mozart", "Ludwig van Beethoven",
@@ -64,57 +50,48 @@ window.Chart = (function () {
                  "Sergei Prokofiev", "Dmitri Shostakovich"];
   const OUTLIERS = ["Giuseppe Cambini", "Franz Krommer", "John Lodge Ellerton"];
 
-  // A SECOND repertoire, shown only while the Women filter is on (issue #7). Every name in CANON
-  // is a man, so the women's group was filled with nothing at all. Deriving one was rejected — a
-  // canon is a claim about what gets played, which is taste, and no single ranking reproduces one
-  // (the best recovers 8 of 13) — so this is a second hand-written list, by the same taste, about
-  // the group the filter is showing. Nine, in birth order, spanning 1805 to 1962.
+  // A SECOND repertoire, in birth order, shown only under the Women filter (issue #7): every name in
+  // CANON is a man, so that group was filled with nothing at all. Hand-written for the same reason
+  // CANON is — a canon is a claim about what gets PLAYED, which no ranking reproduces.
   //
-  // GATED TO THE FILTER, and that is the whole design: none of the nine clears 10,000 readers a
-  // month, so at rest they would be nine filled dots low in the densest part of the cloud under a
-  // key that holds Mozart and Beethoven. It is a different claim, and it is legible exactly when
-  // the women are the picture — so the resting view, "Men" and the share card are untouched.
-  //
-  // Keyed by the gender pill VALUE, so this table and index.html's pills are one vocabulary; a key
-  // no pill can reach is dead code, which app.js asserts against (invariant 7).
+  // GATED TO THE FILTER by design: none of them is read anywhere near CANON's scale, so at rest they
+  // would be filled dots low in the densest part of the cloud under a key that holds Mozart. Keyed by
+  // the gender pill VALUE, so this table and index.html's pills are one vocabulary (invariant 7).
   const WOMEN_CANON = ["Fanny Hensel", "Amy Beach", "Rebecca Clarke", "Florence Price",
                        "Elizabeth Maconchy", "Grażyna Bacewicz", "Sofia Gubaidulina",
                        "Elena Kats-Chernin", "Jennifer Higdon"];
-  // The list and the sentence that names it are ONE editorial claim, so they live together: a key
-  // still reading "the repertoire" over nine women the repertoire never held would be labelling the
-  // wrong channel, which is the failure invariant 8 exists to prevent. `noun` is separate from the
-  // legend's phrasing so the two cannot come to disagree about what the filled dots ARE.
+  // The list and the sentence naming it are ONE editorial claim, so they live together: a key still
+  // reading "the repertoire" over a list the repertoire never held labels the wrong channel, the
+  // failure invariant 8 exists to prevent. `noun` is separate from the legend's phrasing so the two
+  // cannot disagree about what the filled dots ARE.
   const REPERTOIRES = { female: { names: WOMEN_CANON, noun: "the notables" } };
   const DEFAULT_REPERTOIRE = { names: CANON, noun: "the notables" };
   let repertoire = DEFAULT_REPERTOIRE;
-  // Sets, not arrays: isCanon/named are called per DOT per FRAME from layout() and from all four
-  // paint functions -- about 4,000 calls a frame in the Fame view, and an Array.includes scan
-  // in each of them is work a phone does not need to do while a pinch is in flight.
+  // Sets, not arrays: isCanon/named run per DOT per FRAME from layout() and all four paint
+  // functions, so an Array.includes scan in each is work a phone does not need during a pinch.
   let canonIdx = [], outlierIdx = [], canonSet = new Set(), namedSet = new Set(), missing = [];
-  // What the view is RINGING right now. Unfiltered that is exactly `namedSet`, the curated
-  // thirteen; under a filter it is the curated ones the filter kept plus enough derived ones to
-  // refill the ring budget (refreshEmphasis). `named()` reads this, not namedSet, so every channel
-  // that follows the emphasis — fill, stroke, radius, opacity, label colour, the table chip —
-  // follows the filter with no further wiring.
+  // What the view is RINGING right now: unfiltered, exactly `namedSet`; under a filter, the curated
+  // ones the filter kept plus enough derived ones to refill the ring budget (refreshEmphasis).
+  // `named()` reads this rather than namedSet, so every channel that follows the emphasis — fill,
+  // stroke, radius, opacity, label colour, the table chip — follows the filter with no wiring.
   let ringIdx = [], emphOrder = [], emphSet = new Set();
   // name -> row index, kept from setData so a repertoire swap does not need the raw rows again.
   let at = new Map();
   const resolve = list => list.filter(n => at.has(n)).map(n => at.get(n));
 
   let el, flagEl, cbHover, cbSelect, cbZoom;
-  // The Fame view is the DEFAULT: it is the one that makes the page's claim. The timeline is
-  // one tap away and still the honest overview of when the form was written.
+  // Fame is the DEFAULT because it is the view that makes the page's claim; the timeline is one tap
+  // away and still the honest overview.
   const DEFAULT_MODE = "fame";
   let rows = [], mode = DEFAULT_MODE, visible = null, selected = null, hovered = null;
   let svg, gPlot, gDots, gLabels, gAxX, gAxY, gGrid, gLens, gSel;
   let w = 0, h = 0, m = { top: 22, right: 14, bottom: 32, left: 46 };
-  // Extra room at the TOP, requested by whoever draws something there. app.js asks for it when it
-  // moves Share and Full screen onto the plot (placeChartTools), so those buttons sit in the same
-  // band as the y-axis title instead of floating over the dots. It is a REQUEST rather than a media
-  // query read here, because the breakpoint that decides it belongs to the code doing the drawing —
-  // two copies of it is two things that can disagree, and this file would be the one that silently
-  // kept reserving space for a control that had moved away. That paid off the day the breakpoint
-  // moved from 640 to 1100: nothing in here changed.
+  // Extra room at the TOP, requested by whoever draws something there — app.js, when it moves Share
+  // and Full screen onto the plot (placeChartTools), so they sit in the y-axis title's band instead
+  // of over the dots. A REQUEST rather than a media query read here, because the breakpoint belongs
+  // to the code doing the drawing: two copies can disagree, and this file would be the one silently
+  // reserving space for a control that had moved away. It has survived one move of that breakpoint
+  // with no edit here.
   let topReserve = 0;
   let x0, y0, qx, vy, rScale, colorScale, C = {};
   let transform = d3.zoomIdentity, zoom;
@@ -124,10 +101,9 @@ window.Chart = (function () {
 
   // ---- data prep ----------------------------------------------------------
   // A deterministic offset per row, so ties separate without the picture changing between renders.
-  // Ties are very common — many cells hold several composers at one birth year AND count — and an
-  // un-jittered scatter hides them completely: one dot is drawn over another and the one underneath
-  // can never be hovered, tapped or counted by eye. Kept small (half a year; ~9% in count-space,
-  // well inside the gap between adjacent integer counts) and disclosed in the hint.
+  // Ties are common, and an un-jittered scatter hides them completely: one dot is drawn over
+  // another and the one underneath can never be hovered, tapped or counted by eye. Kept small — half
+  // a year, inside the gap between adjacent integer counts — and disclosed in the hint.
   //
   function hash(s) {
     let a = 2166136261;
@@ -136,16 +112,16 @@ window.Chart = (function () {
   }
 
   // RANKED, not hashed (#45). Quartet counts are integers, so on Fame's log x every composer with
-  // the same count lands on one vertical stripe — and Fame has NO y jitter, so this offset is the
-  // only thing holding apart two composers who wrote the same number and are read about equally. A
-  // hash is an independent draw per name, which separates ties on AVERAGE and not in particular:
-  // Debussy and Gershwin (one quartet each, 0.5% apart in readership) drew 0.47px apart, close
-  // enough that the Delaunay bisector ran through the middle of the visible disc and its right half
-  // selected the composer you could not see. So within a stripe, order by readership and walk
-  // frac(k·φ): by the three-distance theorem consecutive terms sit ~0.382 or ~0.618 of the range
-  // apart, so the dots ADJACENT IN Y — the only ones that can collide — are pushed as far apart in
-  // x as the range allows. Ordered by readership and then by NAME, never by row order: build_data.py
-  // is free to reorder its rows, and a jitter that followed would move dots for no reason.
+  // the same count lands on one vertical stripe, and Fame has NO y jitter — this offset is the only
+  // thing holding apart two composers who wrote the same number and are read about equally. A hash
+  // is an independent draw per name, so it separates ties on AVERAGE and not in particular: Debussy
+  // and Gershwin drew 0.47px apart, close enough that the Delaunay bisector ran through the visible
+  // disc and its right half selected the composer you could not see. So within a stripe, order by
+  // readership and walk frac(k·φ): by the three-distance theorem consecutive terms sit ~0.382 or
+  // ~0.618 of the range apart, so the dots ADJACENT IN Y — the only ones that can collide — are
+  // pushed as far apart in x as the range allows. By readership then NAME, never row order:
+  // build_data.py is free to reorder its rows and a jitter that followed would move dots for
+  // nothing.
   const PHI = (Math.sqrt(5) - 1) / 2;
   function spreadJq() {
     const stripes = new Map();
@@ -159,10 +135,10 @@ window.Chart = (function () {
     for (const grp of stripes.values()) {
       grp.sort((a, b) => a.views - b.views || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
       // Recentred on the stripe's own mean, because frac(0·φ) is 0: un-shifted, the first term is
-      // the extreme −0.045 decades and every stripe leans left. A stripe of ONE then drew a lone dot
-      // a full 9.8% below its own count while having no tie to break at all — Cambini's 149 quartets
-      // rendered at 134, on a dot the view rings and labels. A constant shift leaves every
-      // consecutive-rank gap untouched.
+      // the extreme of the range and every stripe leans left. A stripe of ONE then drew its lone dot
+      // ~9.8% below its own count with no tie to break at all — Cambini's 149 quartets rendered at
+      // 134, on a dot the view rings and labels. A constant shift leaves every consecutive-rank gap
+      // untouched.
       const off = grp.map((_, k) => ((k * PHI) % 1) * 2 - 1);
       const mid = off.reduce((a, b) => a + b, 0) / off.length;
       grp.forEach((d, k) => { d.jq = Math.pow(10, (off[k] - mid) * 0.045); });
@@ -171,9 +147,9 @@ window.Chart = (function () {
 
   // [name, birth, death, quartets, views, views_lo, views_hi, gender]; death, quartets and gender
   // may be null. This comment IS the schema for every positional read below — keep it in step with
-  // build_data.py's `fields`, which validate.py pins.
-  // "living" is now simply the absence of a death date on Wikidata — a fact about today, not the
-  // 2014 dataset's inference from a field that overloaded lifespan with age-in-2014.
+  // build_data.py's `fields`, which validate.py pins. "living" is the ABSENCE of a death date on
+  // Wikidata, a fact about today, not the 2014 dataset's inference from a field that overloaded
+  // lifespan with age-in-2014.
   function setData(raw) {
     rows = raw.map((r, i) => {
       const j = hash(r[0]);
@@ -221,13 +197,12 @@ window.Chart = (function () {
       .clamp(true);
   }
 
-  // Living composers are NOT on the ramp, because their final lifespan does not exist yet —
-  // colouring a 40-year-old as "died young" states something untrue. They get an open circle: a
-  // SHAPE difference, which also satisfies "never encode meaning in color alone" and survives
-  // both color-blindness and a black-and-white print.
-  // The Fame view spends colour on the ARGUMENT rather than on lifespan: the repertoire filled
-  // in the selection orange, the outliers ringed in the accent, and the rest in one recessive
-  // grey. Emphasis, not eight hues — the point of the view is a handful of names against a field.
+  // Living composers are NOT on the ramp: their final lifespan does not exist yet, and colouring a
+  // 40-year-old as "died young" states something untrue. They get an open circle — a SHAPE
+  // difference, which also survives colour-blindness and a black-and-white print.
+  // The Fame view spends colour on the ARGUMENT instead of on lifespan: the repertoire filled in the
+  // selection orange, the outliers ringed in the accent, the rest one recessive grey. Emphasis, not
+  // hues — the point of the view is a handful of names against a field.
   function fillOf(d) {
     if (mode !== "fame") return d.living ? C.plot : colorScale(d.lifespan);
     return isCanon(d.i) ? C.sel : named(d.i) ? "none" : C.muted;
@@ -240,48 +215,44 @@ window.Chart = (function () {
     if (mode !== "fame") return d.living ? 1.4 : 1;
     return isCanon(d.i) ? 1.6 : named(d.i) ? 2 : 0;
   }
-  // A FILTER HERE IS A HIGHLIGHT, not a subtraction: nothing is removed, the rest drops to 0.07.
-  // So in the Fame view the filtered-IN dots have to carry the answer, and at the resting 0.22
-  // they could not — 219 women at 0.22 against 571 ghosts at 0.07 is a difference you have to
-  // hunt for, in the one view whose whole point is where a group sits against the field. While a
-  // filter is on they come up to 0.55; with no filter, 0.22 is right, because then the recessive
-  // mass IS the field the thirteen named composers are being read against.
+  // A FILTER HERE IS A HIGHLIGHT, not a subtraction: nothing is removed, the rest drops to 0.07. So
+  // the filtered-IN dots carry the answer, and at the resting 0.22 they could not — a fifth of the
+  // roster at 0.22 against the rest at 0.07 is a difference you have to hunt for, in the one view
+  // whose point is where a group sits against the field. Under a filter they come up to 0.55;
+  // unfiltered, 0.22 is right, because then the recessive mass IS the field the named composers are
+  // being read against.
   function opacityOf(d) {
     if (visible && !visible.has(d.i)) return 0.07;
     if (mode !== "fame") return 0.92;
     if (named(d.i)) return 1;
     return visible ? 0.55 : 0.22;
   }
-  // Both branches are Fame-only: --sel is the PINNED colour, so tinting the repertoire with it in
-  // Timeline/Swarm/Lens made ten composers look pinned with nothing pinned, and made the real
-  // pin unidentifiable once there was one.
+  // Fame-only, both branches: --sel is the PINNED colour, so tinting the repertoire with it in
+  // Timeline/Swarm/Lens made a handful of composers look pinned with nothing pinned, and made the
+  // real pin unidentifiable once there was one.
   function labelColorOf(d) {
     if (mode !== "fame") return C.ink;
     return isCanon(d.i) ? C.sel : named(d.i) ? C.accent : C.ink;
   }
-  // table.js paints its row chip with this, on the promise that a row and its dot are
-  // recognisably the same thing. So it follows the CURRENT view's encoding, not lifespan always —
-  // in the Fame view that means the thirteen named composers are findable in the table by
-  // colour, and everyone else is the same recessive grey they are on the chart.
+  // table.js paints its row chip with this, on the promise that a row and its dot are recognisably
+  // the same thing — so it follows the CURRENT view's encoding rather than lifespan always. In Fame
+  // that makes the named composers findable in the table by colour, and everyone else the same
+  // recessive grey they are on the chart.
   function colorOf(d) {
     if (mode === "fame") return isCanon(d.i) ? C.sel : named(d.i) ? C.accent : C.muted;
     return d.living ? C.living : colorScale(d.lifespan);
   }
 
   // ---- label priority -----------------------------------------------------
-  // LABELS ARE A FUNCTION OF ZOOM, like a map. A fixed set answers a pinch with the same names
-  // larger, which makes the zoom decorative: the interaction promises detail and delivers scale. So
-  // the budget grows with the zoom (pickLabels) and this decides who fills it.
+  // LABELS ARE A FUNCTION OF ZOOM, like a map: a fixed set answers a pinch with the same names
+  // larger, which promises detail and delivers scale. The budget grows with the zoom (pickLabels) and
+  // this decides who fills it.
   //
-  // PROMINENCE is how far a dot stands out from the crowd it is drawn in: z-scored on each axis,
-  // then the distance from the centre. Z-scores rather than raw decades because the two axes have
-  // different spreads, and a rule that ignores that just ranks whichever axis is wider.
-  //
-  // Recomputed over the VISIBLE set, so a filter ranks that group against ITSELF. That is why it
-  // beats readership here: filtered to the women, readership names whoever has the largest article
-  // (Beach, Monk — famous for other work, one quartet each), while prominence names Kats-Chernin and
-  // Vrebalov, who wrote 25 and 18 of them. Against the full roster it recovers eight of the thirteen
-  // curated names, including the prolific end readership is blind to.
+  // PROMINENCE is z-scored distance from the centre of the visible cloud — z-scored because the two
+  // axes have different spreads, and a rule that ignores that ranks whichever axis is wider.
+  // Recomputed over the VISIBLE set, so a filter ranks its group against ITSELF. That is why it beats
+  // readership here: filtered to the women, readership names whoever has the largest ARTICLE (famous
+  // for other work, one quartet each) while prominence finds the ones who wrote dozens.
   let prom = new Map();
   // Below this a "prominent" dot is a data hole rather than a composer: prominence is distance
   // from the centre, so an article with no real number ranks high on one it does not have. Still
@@ -305,19 +276,12 @@ window.Chart = (function () {
     refreshEmphasis();
   }
 
-  // THE RING FOLLOWS THE FILTER. Every one of the curated thirteen is a man, so "Women" used to ring
-  // nobody: it dimmed every accented dot to 0.07 and offered the group no emphasis of its own, in
-  // the one view whose job is picking a few names out of a field. The ring now says the same thing
-  // about whatever group is on screen — "these stand out from the crowd they are drawn in" — which
-  // is what it always meant; it was just frozen to one crowd.
-  //
-  // Same seed-then-rank shape as the label budget, and deliberately the same size as OUTLIERS:
-  // filtering to the men (who include all three) changes nothing, filtering to the women derives all
-  // three. Keep the two in step, or "Women" gets more emphasis than the resting view has. Only the
-  // ring is derived — the fill is an editorial claim no ranking can recompute (issue #7).
-  // setData() calls this for the opening view and setRepertoire() when the filter swaps the claim;
-  // both then go through refreshEmphasis(), so curating Kats-Chernin and Price hands their ring
-  // slots on rather than ringing a dot that is already filled.
+  // THE RING FOLLOWS THE FILTER, because "stands out from the crowd it is drawn in" is what a ring
+  // always meant and it was frozen to one crowd: every curated name is a man, so "Women" ringed
+  // nobody. Seed-then-rank, like the label budget, with a budget deliberately the SIZE of OUTLIERS —
+  // keep those in step or a filter gets more emphasis than the resting view has. Only the RING is
+  // derived; the fill is editorial (issue #7). Curating a composer hands her ring slot on rather than
+  // ringing a dot that is already filled.
   function applyRepertoire() {
     canonIdx = resolve(repertoire.names);
     canonSet = new Set(canonIdx);
@@ -327,29 +291,24 @@ window.Chart = (function () {
   }
 
   const RINGS = 3;
-  // A ring means "stands out from the crowd", so it needs a crowd. Below this the filtered group
-  // IS the picture — every dot is already legible and separately labelled — and ringing three of
-  // eight would be pointing at almost everything.
+  // A ring means "stands out from the crowd", so it needs a crowd. Below this the filtered group IS
+  // the picture — every dot already legible and separately labelled — and ringing the budget would be
+  // pointing at almost everything.
   const MIN_FIELD = 20;
-  // ...and it has to stand APART. Prominence is distance from the CENTRE of the visible cloud, so a
-  // corner full of composers all scores high and the tie was broken by nothing visual at all: under
-  // "Women" the ring landed on a dot 4px from a filled one — two discs with a hairline between them,
-  // one filled and one ringed. A ring that close to a dot the view has already picked out says
-  // nothing the picture was not already saying, and reads as clutter rather than as emphasis.
-  //
-  // So a derived ring must clear every dot already emphasised, and every ring derived before it, by
-  // a fraction of the plot's diagonal. Measured in SCREEN space because "on top of" is a claim about
-  // pixels, not about data — and as a FRACTION so it means the same thing on a phone and in full
-  // screen. The exact number is not delicate: 2.5% to 5% picks the same three on a desktop.
+  // ...and it has to stand APART: prominence is distance from the CENTRE, so a crowded corner all
+  // scores high and the tie was broken by nothing visual — a derived ring landed 4px from a filled
+  // dot, two discs with a hairline between them, saying nothing the picture had not said. So it must
+  // clear every dot already emphasised, and every ring derived before it, by a fraction of the plot
+  // diagonal: SCREEN space because "on top of" is about pixels, a FRACTION so it means the same on a
+  // phone. Not delicate — 2.5% to 5% picks the same dots.
   const MIN_SEP = 0.03;
   //
   // The floor in DOTS is a guard, not a fix for anything observed. The fame radius is FLOORED, so as
-  // the plot shrinks the dots stop shrinking with it and the same fraction buys steadily less
-  // daylight relative to the things it is separating — at 320px a margin of about one pixel. Probed
-  // across eight viewports the fraction alone still clears the bar by 20px or more; what actually
-  // produced a violation on a phone was the STALE GEOMETRY above, fixed where it was caused, in
-  // setMode/resize. Stated in dot radii to say what it buys: a whole dot's width of daylight between
-  // the edges, which is the bar ui.test.mjs measures.
+  // the plot shrinks the dots stop shrinking with it and the same fraction buys less daylight
+  // relative to what it is separating — about a pixel at 320px. Probed across eight viewports the
+  // fraction alone still cleared the bar by 20px or more; the violation seen on a phone came from
+  // STALE GEOMETRY, fixed where it was caused in setMode/resize. Stated in dot radii to say what it
+  // buys: a dot's width of daylight between the edges, which is what ui.test.mjs measures.
   const GAP_DOTS = 4;
   // ONE definition, shared with layout(): the separation floor is expressed in the radius of the
   // dot it is separating, so the two cannot drift.
@@ -395,13 +354,13 @@ window.Chart = (function () {
     const box = el.getBoundingClientRect();
     const full = document.body.classList.contains("fs");
     const cw = Math.max(240, Math.round(box.width));
-    // The swarm is naturally short — it only needs the height its collisions demand — so giving
-    // it the scatter's aspect ratio leaves a third of the panel empty above and below the blob.
-    // A portrait phone gets a TALLER scatter (0.8): the same 0.6 that reads well on a laptop
-    // squeezes 466 dots into ~200px there and the log bands merge into stripes.
+    // The swarm is naturally short — it needs only the height its collisions demand — so the
+    // scatter's aspect ratio leaves a third of the panel empty above and below the blob. A portrait
+    // phone gets a TALLER scatter: the ratio that reads well on a laptop squeezes the cloud into
+    // ~200px there and the log bands merge into stripes.
     const narrow = cw < 560;
-    // The Fame view is a square-ish cloud over five decades of y and two of x, so it wants a
-    // taller box than the timeline, which is naturally wide.
+    // Fame is a square-ish cloud over five decades of y and two of x, so it wants a taller box than
+    // the timeline, which is naturally wide.
     const aspect = mode === "swarm" ? (narrow ? 0.58 : 0.44)
                  : mode === "fame" ? (narrow ? 0.98 : 0.62)
                  : (narrow ? 0.82 : 0.6);
@@ -428,16 +387,16 @@ window.Chart = (function () {
     vy = d3.scaleLog().domain(VY_DOMAIN).range([h, 0]);
     const maxViews = d3.max(rows, d => d.views) || 1;
     const rMax = Math.max(11, Math.min(26, w / 44));
-    // Exponent 0.35, not the textbook 0.5: views span three orders of magnitude, and a true area
-    // encoding collapses the entire middle of the distribution onto the minimum radius. This keeps
-    // Mozart obviously large and the median composer still visibly a disc.
+    // Exponent 0.35, not the textbook 0.5: readership spans orders of magnitude, and a true area
+    // encoding collapses the whole middle of the distribution onto the minimum radius. This keeps the
+    // top obviously large and the median composer still visibly a disc.
     rScale = d3.scalePow().exponent(0.35).domain([0, maxViews]).range([2.2, rMax]).clamp(true);
     return ch;
   }
 
-  // Beeswarm: one force run, memoized on the inputs that can change it. 466 nodes x 220 ticks is
-  // ~40ms — fine once, not fine on every zoom frame, hence the memo and hence why zoom in swarm
-  // mode only rescales x (widening the axis can only REDUCE collisions, never create them).
+  // Beeswarm: one force run, memoized on the inputs that can change it. The whole roster x 220 ticks
+  // is ~40ms — fine once, not on every zoom frame. Hence the memo, and hence zoom in swarm mode
+  // rescaling x only: widening the axis can only REDUCE collisions, never create them.
   function ensureSwarm() {
     const key = w + "x" + h + ":" + rScale.range()[1];
     if (swarmY && swarmKey === key) return;
@@ -492,10 +451,10 @@ window.Chart = (function () {
     const tx = transform.rescaleX(x0);
     const out = new Array(rows.length);
     if (mode === "fame") {
-      // Size is FREE here: readership is the y axis, so a radius that repeated it would double-
-      // encode one variable and spend the only channel left. Emphasis carries the argument
-      // instead. A composer with no page-view figure has no y at all, so park them off-frame and
-      // let inFrame() drop them from the paint, the hit test and the labels.
+      // Size is FREE here: readership is the y axis, so a radius repeating it would double-encode one
+      // variable and spend the only channel left. Emphasis carries the argument instead. A composer
+      // with no page-view figure has no y, so park them off-frame and let inFrame() drop them from
+      // the paint, the hit test and the labels.
       const rx = transform.rescaleX(qx), ry = transform.rescaleY(vy);
       const base = dotRadius();
       for (const d of rows) {
@@ -539,15 +498,16 @@ window.Chart = (function () {
 
   // ---- labels -------------------------------------------------------------
   // Greedy, most-viewed first, first-come-first-served on space. This is what makes the STATIC view
-  // worth looking at: with no interaction the chart already says "Haydn, Boccherini, Cambini,
-  // Beethoven". Width is ESTIMATED rather than measured — a getBBox() per candidate would force ~30
-  // synchronous layouts per frame during a zoom, and being 10% off just costs a little whitespace.
-  // The selected composer is placed FIRST so it never loses its label to a rival. Every label prints
-  // the SHORT name (names.js), 7 characters instead of 15: halving every box is what lets the names
-  // behind it find room at all, and the full title is one tap away in the panel.
+  // worth looking at: with no interaction the chart is already naming composers. Width is ESTIMATED
+  // rather than measured — a getBBox() per candidate would force a synchronous layout per candidate
+  // per frame during a zoom, and being 10% off costs a little whitespace. The selected composer is
+  // placed FIRST so it never loses its label to a rival. Labels print the SHORT name (names.js),
+  // roughly half the characters: that is what lets the names behind them find room at all, and the
+  // full title is one tap away in the panel.
   function pickLabels(p, diag) {
-    // Full screen earns more labels, but not proportionally more: a phone in full screen is TALL
-    // and narrow, and 40+ names there collide with dots even when they miss each other.
+    // Full screen earns more labels, but not proportionally: a phone in full screen is TALL and
+    // narrow, and a desktop-sized budget there collides with dots even where the names miss each
+    // other.
     const full = document.body.classList.contains("fs");
     const base = full ? (w < 560 ? 20 : 42) : Math.max(4, Math.round(w / 62));
     // THE BUDGET GROWS WITH THE ZOOM. Pinching in is a request for detail, and answering it with
@@ -555,18 +515,17 @@ window.Chart = (function () {
     // about five times the names, not twenty-four times, and the greedy placer still has to find
     // room for each one.
     let cap = Math.round(base * (1 + Math.log2(Math.max(1, transform.k))));
-    // AT FIRST SIGHT the Fame view says exactly what it is about: the thirteen curated names,
-    // and nothing else. That set is a judgment no single ranking reproduces — the best one
-    // recovers eight of them — so it stays as the SEED rather than being derived away, and this
-    // one case pins the budget to it so the resting picture is what it always was.
+    // AT REST the Fame view says exactly what it is about: the curated names and nothing else. That
+    // set is a judgment no single ranking reproduces, so it stays as the SEED rather than being
+    // derived away, and this one case pins the budget to it — the resting picture is what it always
+    // was, and it is what make-og-svg.py draws.
     //
-    // Every other state fills the budget from the seed and then by prominence: zoomed in, where
-    // the space is real and the reader has asked for detail, and filtered, where the seed is
-    // mostly gone — every one of the thirteen is a man, so "Women" used to leave 219 emphasised
-    // dots with no name on any of them, answering "where are they" while refusing to say "who".
-    // The derived rings are seeds too: a dot the view has decided to ring and then declined to
-    // name is pointing at a composer it refuses to identify, which is the exact complaint that
-    // put the rings on the filtered view in the first place.
+    // Every other state fills the budget from the seed and then by prominence: zoomed in, where the
+    // space is real and the reader has asked for detail, and filtered, where the seed is mostly gone
+    // — every curated name is a man, so "Women" used to leave a fifth of the roster emphasised with
+    // no name on any of it, answering "where are they" while refusing to say "who". The derived rings
+    // are seeds too: a dot the view rings and then declines to name points at a composer it refuses
+    // to identify, which is the complaint that put the rings on the filtered view to begin with.
     const seeds = emphOrder.map(i => rows[i]).filter(isVisible);
     const first = mode === "fame" && !visible && transform.k === 1;
     if (first) cap = seeds.length;
@@ -575,28 +534,26 @@ window.Chart = (function () {
           : rows.filter(d => isVisible(d) && !named(d.i) && prom.has(d.i))
                 .sort((a, b) => prom.get(b.i) - prom.get(a.i)))
       : rows.filter(isVisible).sort((a, b) => b.views - a.views);
-    // The selected composer is placed FIRST so it never loses its label to a rival -- but it is
-    // only in `cands` if it was a candidate. In the Fame view the list is the 13 named, so
-    // pinning any of the other 777 gave indexOf === -1, and splice(-1, 1) deletes the LAST
-    // element: Ravel silently lost his label every time you clicked an unnamed dot.
+    // The selected composer is placed FIRST so it never loses its label to a rival -- but it is only
+    // in `cands` if it was a candidate. At rest in Fame the list is the seeds alone, so pinning any
+    // other dot gave indexOf === -1, and splice(-1, 1) deletes the LAST element: one seed silently
+    // lost its label every time you clicked an unnamed dot.
     if (selected != null && rows[selected] && isVisible(rows[selected])) {
       const at = cands.indexOf(rows[selected]);
       if (at >= 0) cands.splice(at, 1);
-      // A PIN IS A GUEST, not a replacement. In the resting view the budget is exactly the seed
-      // count, so unshifting a composer who is NOT a seed spends a slot the seeds were promised
-      // and the last one placed loses its name. That was invisible while two seeds failed to fit
-      // anyway — the left-edge dots left slack in the budget — and became a real defect the
-      // moment the diagonal spots let all thirteen place: pinning any ordinary dot un-named
-      // Ellerton.
+      // A PIN IS A GUEST, not a replacement. At rest the budget is exactly the seed count, so
+      // unshifting a non-seed spends a slot the seeds were promised and the last one placed loses its
+      // name. Invisible while some seeds failed to fit anyway — the left-edge dots left slack in the
+      // budget — and a real defect the moment the diagonal spots let them all place.
       else if (first) cap += 1;
       cands.unshift(rows[selected]);
     }
     const placed = [], boxes = [];
     // The diagonal captions are drawn in the grid layer, so they were never candidates and nothing
-    // kept a name off them: "Florence Price" printed straight through "10k readers per quartet".
-    // Rare before, because the thirteen sit in open space — systematic the moment a filter puts
-    // ten names in the crowded left band, which is where those captions start. Same width estimate
-    // the names use, one font size down (9.5 vs 10.5).
+    // kept a name off them: a composer's name printed straight through "10k readers per quartet".
+    // Rare while only the seeds were named, since those sit in open space — systematic the moment a
+    // filter puts names in the crowded left band, where those captions start. Same width estimate the
+    // names use, one font size down.
     for (const d of (diag || [])) {
       boxes.push({ x: d.a.x + 2, y: d.a.y - 16, w: d.label.length * 5 + 6, h: 13 });
     }
@@ -610,17 +567,11 @@ window.Chart = (function () {
       const text = Names.short(d.name);
       const tw = text.length * 5.5 + 6, th = 12;
       // Above, then below, then beside, then the four diagonals. "Above" alone silently dropped
-      // exactly the composers the chart is about: Mozart sits 2.6% from the top of the Fame view,
-      // Cambini hard against the right edge, Debussy against the left — every one of them had a
-      // dot and no room over it, so the name went missing from the argument it was making.
-      //
-      // The diagonals answer the LEFT EDGE (issue #10). A dot at x = 1 quartet sits ~9px from the
-      // plot's left side, so a centred box (above, below) starts at a negative x and the
-      // left-hand spot is worse: only "beside, right" is on the plot at all, one slot for a
-      // column that holds Debussy, Gershwin and Ravel. Whoever came first took it and the rest
-      // were ringed with no name — the exact thing the rings exist to avoid. Four corners cost
-      // nothing (the loop breaks on the first fit) and take the resting desktop view from 11
-      // names of 13 to 13 of 13.
+      // exactly the composers the chart is about, the ones at the edges of the cloud where the
+      // argument is: a dot, no room over it, name gone. The diagonals answer the LEFT EDGE (#10) —
+      // a dot at one quartet sits ~9px from the plot's side, so a centred box starts at a negative x
+      // and only "beside, right" is on the plot at all, one slot for a whole column. Four corners cost
+      // nothing (the loop breaks on the first fit) and are what let every seed place at rest.
       const spots = [[q.x - tw / 2, q.y - q.r - 4 - th],
                      [q.x - tw / 2, q.y + q.r + 4],
                      [q.x + q.r + 5, q.y - th / 2],
@@ -643,17 +594,13 @@ window.Chart = (function () {
   }
 
   // ---- fitting the frame to the filter ------------------------------------
-  // A filter closes the frame in on what it kept. That reads as a subtraction only if you forget
-  // that a filter here is a HIGHLIGHT: the other 600 dots are still drawn at 0.07, so what fills
-  // the box is the group you asked for against the GHOST of the field it came from, which is the
-  // comparison the filter was asking for in the first place. Clearing the filter opens back out.
+  // A filter closes the frame in on what it kept. Not a subtraction: the rest of the cloud is still
+  // drawn at 0.07, so the box holds the group you asked for against the GHOST of its field. It also
+  // feeds the labels, whose budget grows with the zoom — closing in is what buys a filtered group
+  // names instead of an anonymous emphasised cloud.
   //
-  // It also feeds the labels. The budget is a function of the zoom (pickLabels), so closing in on
-  // 219 women is what buys them names instead of an anonymous emphasised cloud.
-  //
-  // Measured from a layout() at zoomIdentity rather than from the scales, so the box is in the
-  // same geometry the dots are drawn in — three modes, one source of truth, and a fourth encoding
-  // cannot forget to update this. Costs one extra pass over 884 rows per settled filter change.
+  // Measured from a layout() at zoomIdentity rather than from the scales, so the box is in the same
+  // geometry the dots are drawn in and a fourth encoding cannot forget to update this.
   function baseLayout() {
     const t = transform;
     transform = d3.zoomIdentity;
@@ -670,7 +617,7 @@ window.Chart = (function () {
   // 4x does not light up the reset button as though the reader had pinched.
   //
   // MEMOIZED, because zoomed() is asked on every frame of a pinch (it drives the reset button) and
-  // computing it means a second full layout pass over 884 rows. Invalidated by the only three
+  // computing it means a second full layout pass over the roster. Invalidated by the only three
   // things it depends on: the filter, the mode and the box.
   let restingT = null;
   function restingTransform() {
@@ -695,19 +642,17 @@ window.Chart = (function () {
       n++;
     }
     if (x1 > x2) return d3.zoomIdentity;      // the filter kept nothing this chart can place
-    // A handful of dots is not a box worth fitting. One match has a zero-width box, so fit()
-    // returns Infinity on both axes and k lands on the 24x clamp — searching a composer threw the
-    // reader to maximum magnification, where the surrounding cloud they are being compared
-    // AGAINST is off screen. Below MIN_FIT the fit is skipped and the filter does its other job:
-    // the match comes up to 0.55 while the field it belongs to stays drawn at 0.07 behind it.
-    // Counted from the dots this chart can actually PLACE, not from visible.size — a filter can
-    // keep rows the Fame view has no y for.
+    // A handful of dots is not a box worth fitting. One match has a zero-width box, so fit() returns
+    // Infinity on both axes and k lands on the 24x clamp — searching a composer threw the reader to
+    // maximum magnification, where the cloud that dot is being compared AGAINST is off screen. Below
+    // MIN_FIT the fit is skipped and the filter does its other job: the match comes up to 0.55 with
+    // the field still drawn at 0.07 behind it. Counted from the dots this chart can PLACE, not from
+    // visible.size — a filter can keep rows the Fame view has no y for.
     //
-    // Skipping the fit means the FULL EXTENT, not the reader's current transform: a reader
-    // pinched to 6x who then searches a name is zoomed back out to see where that dot sits in the
-    // field. That is deliberate and not a detail of this guard — restingTransform() has to be a
-    // pure function of the filter, the mode and the box or the memo above is meaningless and
-    // "reset" has nothing to return to. It is also the same thing clearing a filter does.
+    // Skipping the fit means the FULL EXTENT, not the reader's current transform: pinched to 6x and
+    // then searching a name zooms back out to show where that dot sits in the field. Deliberate, and
+    // not a detail of this guard — restingTransform() has to be a pure function of the filter, the
+    // mode and the box or the memo is meaningless and "reset" has nothing to return to.
     if (n < MIN_FIT) return d3.zoomIdentity;
     // Pad by the largest dot so the discs at the edge are whole, plus a little air for a label.
     const pad = rMaxSeen + 10;
@@ -738,19 +683,18 @@ window.Chart = (function () {
   // ---- render -------------------------------------------------------------
   function build() {
     // BY REFERENCE, not by query. `selectAll("svg")` is a DESCENDANT query, and #plot also hosts
-    // #chart-tools in the icon layout (placeChartTools) — so it matched the chart's svg and the
-    // three .ico glyphs inside Share and Full screen, and removed all four. Nothing showed it,
-    // because build() only runs from init() and init() runs before the move; the day anything
-    // rebuilds the svg the icons vanish wherever the group is on the plot. This removes the one
-    // svg this module made, which no overlay can ever be.
+    // #chart-tools in the icon layout (placeChartTools) — so it matched the chart's svg AND the .ico
+    // glyphs inside Share and Full screen, and removed them all. Nothing showed it, because build()
+    // runs from init() and init() runs before the move; the day anything else rebuilds the svg the
+    // icons vanish wherever the group is on the plot. This removes the one svg this module made,
+    // which no overlay can ever be.
     if (svg) svg.remove();
     svg = d3.select(el).append("svg").attr("role", "img");
-    // Everything that MOVES under a zoom is clipped to the plot rectangle. Without this a pinch
-    // pushed dots and their labels out into the margins, over the axis ticks and the y-axis title,
-    // where they read as stray ink belonging to no chart. (styles.css also stops the <svg> itself
-    // from overflowing, but that only catches what escapes the whole frame — the margins are
-    // inside it.) The axes and the grid are drawn from the CURRENT transform's ticks, so they are
-    // inside the box by construction and are left unclipped.
+    // Everything that MOVES under a zoom is clipped to the plot rectangle, or a pinch lays dots and
+    // labels out across the margins, over the axis ticks and the y-axis title, where they read as
+    // stray ink belonging to no chart. (styles.css stops the <svg> itself from overflowing, but that
+    // only catches what escapes the whole frame; the margins are inside it.) The axes and grid are
+    // drawn from the CURRENT transform's ticks, so they are inside the box by construction.
     svg.append("defs").append("clipPath").attr("id", "plot-clip").append("rect").attr("class", "clip");
     gPlot = svg.append("g");
     gPlot.append("rect").attr("class", "bg");
@@ -770,29 +714,17 @@ window.Chart = (function () {
     bindPointer();
   }
 
-  // A wheel that starts over the chart's own two buttons is a wheel over the CHART. The zoom is
-  // bound to the SVG and app.js parks #chart-tools in #plot as a SIBLING of it, so such a wheel
-  // reaches no zoom listener at all: it bubbles to the document and scrolls the page, two pixels
-  // from a spot in the same band that zooms. It cost nothing while the icons were a phone layout —
-  // there is no wheel on a phone, and the trade-off measured for that layout was all about dots
-  // COVERED — and became a dead corner under a mouse the moment the layout reached a laptop.
-  // The event is re-dispatched into the CURRENT svg rather than app.js holding a reference to one:
-  // build() makes a new svg on every setData/setMode, and a captured node is the same stale-handle
-  // trap that `selectAll("svg")` was.
+  // A wheel over the chart's own buttons is a wheel over the CHART: #chart-tools is a SIBLING of the
+  // svg the zoom is bound to, so that wheel reaches no zoom listener and scrolls the page, two pixels
+  // from a spot that zooms. Re-dispatched into the CURRENT svg rather than a node app.js captured —
+  // build() makes a new one on every setData/setMode, the `selectAll("svg")` trap again.
   //
   // It reports whether the zoom TOOK the event, not whether one is bound, because the caller may
-  // cancel the page scroll only in the first case. Those are different far more often than they
-  // look: `scaleExtent` starts at 1 and the resting view is already there, so every scroll DOWN at
-  // rest asks for a scale d3 will not go to — it declines and, correctly, does NOT cancel, leaving
-  // the page to scroll. A forward that reported "bound" cancelled those too, and the DEFAULT view
-  // at rest got an 86x40 hole where scrolling the page down did nothing while a pixel to the left
-  // it worked. Measured at 1024: 0px under the glyphs against 120px beside them.
-  //
-  // ASKING is the whole point. d3-zoom cancels what it acts on, so the synthetic event carries the
-  // answer and no second copy of d3's clamp has to live here — predicting "would this move k?" is
-  // exactly the duplication that goes stale when scaleExtent changes. It also makes lens fall out
-  // rather than be named: applyZoomBehavior() binds nothing there, so nothing cancels, so this
-  // returns false and the page scrolls, which is what the bare plot does in that view.
+  // cancel the page scroll only in the first case. ASKING is the point: d3-zoom cancels what it acts
+  // on, so the synthetic event carries the answer and no copy of d3's clamp lives here. A scroll down
+  // at rest is already at scaleExtent's floor, declines, and correctly scrolls the page; reporting
+  // "bound" cancelled those and left a dead hole in the default view. Lens falls out for free —
+  // nothing is bound there, so this returns false and the page scrolls.
   function wheelInto(e) {
     if (!svg) return false;
     const w = new WheelEvent("wheel", e);
@@ -820,11 +752,11 @@ window.Chart = (function () {
     // The clip lives in <defs> but is referenced from inside gPlot, so it is measured in gPlot's
     // (translated) coordinate system — the same one the dots are placed in.
     //
-    // It is inset OUTWARD by one maximum radius rather than drawn on the frame. A dot sits on its
-    // value, not inside it: Y_DOMAIN starts at 0.85, so a one-quartet composer's centre is ~1.3%
-    // of h above the bottom edge and a tight clip sliced Gershwin, Debussy and Ravel flat where
-    // they were never displaced by anything. Strays are handled by the frame test below instead,
-    // which is the right test anyway — a dot belongs on screen when its CENTRE is on screen.
+    // It is inset OUTWARD by one maximum radius rather than drawn on the frame. A dot sits ON its
+    // value, not inside it: the bottom of Y_DOMAIN is barely under 1, so a one-quartet composer's
+    // centre is a hair above the bottom edge and a tight clip sliced those dots flat where nothing
+    // had displaced them. Strays are left to the frame test below, which is the right test anyway —
+    // a dot belongs on screen when its CENTRE is.
     const over = rScale.range()[1];
     svg.select("clipPath rect.clip")
        .attr("x", -over).attr("y", -over).attr("width", w + over * 2).attr("height", h + over * 2);
@@ -854,10 +786,10 @@ window.Chart = (function () {
       .attr("y1", ty).attr("y2", ty).attr("x1", 0).attr("x2", w)
       .attr("stroke", C.grid).attr("stroke-width", 1);
 
-    // The readers-per-quartet diagonals. Both axes are log, so v = ratio x q is a straight line
-    // on screen and two endpoints define it -- but those endpoints are usually far outside the
-    // box, so each is trimmed to the plot rather than drawn and clipped: gGrid is not clipped,
-    // and the label has to sit where the line actually ENTERS the picture.
+    // The readers-per-quartet diagonals. Both axes are log, so v = ratio x q is a straight line and
+    // two endpoints define it -- but those endpoints are usually far outside the box, so each is
+    // trimmed to the plot rather than drawn and clipped: gGrid is unclipped, and the label has to sit
+    // where the line ENTERS the picture.
     const diag = [];
     if (fame) {
       for (const k of RATIOS) {
@@ -913,9 +845,9 @@ window.Chart = (function () {
     }
 
     // dots ---------------------------------------------------------------
-    // EVERY row is drawn, not just the visible ones: a search dims the rest to 12% rather than
-    // deleting them, so "the three Haydns" still reads as three dots in a field of 466 instead of
-    // three dots floating in an empty box. Only hit-testing and labels honor the filter.
+    // EVERY row is drawn, not just the visible ones: a search dims the rest rather than deleting
+    // them, so "the three Haydns" reads as three dots in a field instead of three dots in an empty
+    // box. Only hit-testing and labels honour the filter.
     // Sorted big-behind-small so a large famous disc never buries a small one it fully covers.
     const order = rows.filter(plottable).sort((a, b) => b.views - a.views);
     const sel = gDots.selectAll("circle.dot").data(order, d => d.i);
@@ -925,9 +857,9 @@ window.Chart = (function () {
       .attr("cx", d => pos[d.i].x).attr("cy", d => pos[d.i].y).attr("r", d => pos[d.i].r)
       .attr("fill", fillOf).attr("stroke", strokeOf)
       .attr("stroke-width", widthOf)
-      // 0.07, not the 0.12 that read fine at 466 dots: at 884 the filtered-out mass is most of
-      // the ink, and the readership brush exists precisely to get it out of the way. Still drawn
-      // rather than removed, so you can see WHERE in the field the survivors sit.
+      // 0.07, not the 0.12 that read fine on half this roster: the filtered-out mass is most of the
+      // ink, and the readership brush exists to get it out of the way. Still drawn rather than
+      // removed, so you can see WHERE in the field the survivors sit.
       .attr("opacity", opacityOf)
       .attr("display", d => (inFrame(pos[d.i]) ? null : "none"));
 
@@ -959,9 +891,9 @@ window.Chart = (function () {
       .attr("cx", lens ? lens.x : 0).attr("cy", lens ? lens.y : 0).attr("r", lensRadius())
       .attr("stroke", C.grid).attr("stroke-dasharray", "3 4");
 
-    // Hit-test index over the CURRENT screen positions and the CURRENT visible subset — this is
-    // what makes the whole canvas a tap target instead of the 2.2px discs. Rebuilt every draw;
-    // Delaunay.from on 466 points is well under a millisecond.
+    // Hit-test index over the CURRENT screen positions and the CURRENT visible subset — what makes the
+    // whole canvas a tap target instead of the bare discs. Rebuilt every draw; Delaunay.from over
+    // this roster is well under a millisecond.
     idx = vis.filter(d => inFrame(pos[d.i])).map(d => d.i);
     delaunay = idx.length > 1 ? d3.Delaunay.from(idx, i => pos[i].x, i => pos[i].y) : null;
   }
@@ -1076,16 +1008,16 @@ window.Chart = (function () {
     mode = mNew; lens = null; transform = d3.zoomIdentity;
     measure();
     restingT = null;
-    // The ring is derived against the PICTURE — MIN_SEP is a distance in the layout that is
-    // actually on screen — and every mode lays the same dots out differently, in a differently
-    // shaped box. refreshEmphasis() was reached only from setFilter(), so a filter applied in the
-    // timeline picked its three rings from a geometry where nothing is ringed at all (fill,
-    // stroke, width, opacity and the label colour are all Fame-only), and those picks were then
-    // drawn unchanged in Fame. `#v=scatter&g=female` then Fame put a ring 3.1px from a filled dot,
-    // against a bar of 13.5 — the exact defect MIN_SEP exists to remove, reachable from a link.
+    // The ring is derived against the PICTURE — MIN_SEP is a distance in the layout actually on
+    // screen — and every mode lays the same dots out differently, in a differently shaped box.
+    // refreshEmphasis() was reached only from setFilter(), so a filter applied in the timeline chose
+    // its rings in a geometry where nothing is ringed at all (fill, stroke, width, opacity and label
+    // colour are Fame-only), and those picks were drawn unchanged in Fame: `#v=scatter&g=female` then
+    // Fame put a ring 3.1px from a filled dot against a bar of 13.5 — the defect MIN_SEP exists to
+    // remove, reachable from a link.
     refreshEmphasis();
-    // Each view fits its own filter: the same 219 composers occupy a different box in a timeline
-    // than in a log-log readership cloud, so the frame is recomputed rather than carried over.
+    // Each view fits its own filter: the same composers occupy a different box in a timeline than in
+    // a log-log readership cloud, so the frame is recomputed rather than carried over.
     transform = restingTransform();
     applyZoomBehavior(); draw();
   }
@@ -1121,8 +1053,8 @@ window.Chart = (function () {
   // "Reset" means back to where this filter opens, not back to the whole field: the fitted box IS
   // the resting view while a filter is on, and dropping the reader out to the full extent would
   // undo the filter's answer rather than their pinch.
-  // Idempotent, because placeChartTools() calls it on every boot, rotation and full-screen toggle
-  // and a re-measure at this size is a full re-layout of 790 dots.
+  // Idempotent, because placeChartTools() calls it on every boot, rotation and full-screen toggle,
+  // and a re-measure is a full re-layout of every plottable dot.
   function setTopReserve(px) {
     if (px === topReserve) return;
     topReserve = px;
@@ -1170,12 +1102,11 @@ window.Chart = (function () {
            // that the legend has stopped captioning the ring; the suite asks it to tell a derived
            // set from the curated one.
            derivedRings: () => ringIdx.length,
-           // What the chart can actually place — the table shows more (see isVisible). The birth
-           // extent is the PLOTTABLE one and the living count is of those same rows, because the
-           // empty detail panel describes the dots: it read "884 composers, born 1582-1989" over
-           // a chart whose x axis starts at 1709, the three names born before 1700 having no
-           // quartet count. Static on purpose — a filter changes what is highlighted, not what
-           // the chart can draw.
+           // What the chart can actually place — the table shows more (see isVisible). The birth extent
+           // is the PLOTTABLE one and the living count is of those same rows, because the empty detail
+           // panel describes the DOTS: it used to state the whole roster and a birth span starting
+           // before the x axis does, the earliest births having no quartet count. Static on purpose —
+           // a filter changes what is highlighted, not what the chart can draw.
            plottedStats: () => {
              const p = rows.filter(plottable);
              return { n: p.length, from: d3.min(p, d => d.birth), to: d3.max(p, d => d.birth),

@@ -56,13 +56,13 @@ function selectFromTable(i) {
 }
 
 // ---- readership, stated to the precision it actually has --------------------
-// The view count is a MEASURE, not a tally: the median of twelve monthly page-view totals, where
-// any single month runs about 12% off typical. "186,772" claims six significant figures for a
-// number that has about two, and it is stale the next time fetch_views.py runs. So the panel
-// quantizes to two figures and rounds DOWN — "180k+" is a claim that survives a refresh.
+// The view count is a MEASURE, not a tally: a median of monthly totals, any one of which runs ~12%
+// off typical. "186,772" claims six significant figures for a number that has two, and it is stale
+// the next time fetch_views.py runs. So the panel quantizes to two figures and rounds DOWN — "180k+"
+// survives a refresh (invariant 9).
 //
-// The TABLE keeps the exact figure. That is the row-by-row data view: it sorts on this column, and
-// a column reading "1.2k+" eleven times in a row hides the ordering it was sorted by.
+// The TABLE keeps the exact figure: it sorts on that column, and a column reading "1.2k+" eleven times
+// hides the ordering it was sorted by.
 function twoSig(n, dir) {                       // dir: -1 rounds down, +1 rounds up
   if (n < 100) return Math.round(n);            // already two figures or fewer
   const p = Math.pow(10, Math.floor(Math.log10(n)) - 1);
@@ -76,16 +76,13 @@ const atLeast = v => Histogram.fmt(twoSig(v, -1)) + "+";
 const spread = (lo, hi) => `${Histogram.fmt(twoSig(lo, -1))}–${Histogram.fmt(twoSig(hi, 1))}`;
 
 // ---- readership history ----------------------------------------------------
-// One line per composer, over every month the pageviews API has (2015-07 onward). The panel's
-// numbers answer "how much read, now"; this answers the question they cannot — steady, climbing,
-// or one obituary. Saariaho sits at ~2,000 a month for eight years and touches 42,195 in June
-// 2023, the month she died; Haydn slides from 32,000 to 20,000 across the decade.
+// One line per composer, over every month the pageviews API has. The panel's numbers answer "how much
+// read, now"; this answers what they cannot — steady, climbing, or one obituary.
 //
-// LINEAR y, zero-based, unlike the chart's log readership axis. The log scale is there because
-// the roster spans five orders of magnitude BETWEEN composers; within one composer the question
-// is proportion — "how much bigger was that month than a normal one" — and a log baseline would
-// flatten exactly the spike the line exists to show. Zero-based for the same reason: a min-max
-// sparkline turns a steady composer's 5% wobble into a mountain range.
+// LINEAR y, zero-based, unlike the chart's log readership axis: the log scale is there because the
+// roster spans orders of magnitude BETWEEN composers, while within one composer the question is
+// proportion and a log baseline flattens exactly the spike the line exists to show. Zero-based for the
+// same reason — a min-max sparkline turns a steady composer's 5% wobble into a mountain range.
 const SPARK_W = 240, SPARK_H = 34;      // viewBox units; the CSS stretches it to the panel width
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                 "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -126,17 +123,15 @@ const svgEl = (tag, attrs) => {
   return n;
 };
 
-// WHAT THE CAPTION NAMES: the spike if there is one, otherwise the trend. A fixed "peak N×
-// typical" was the wrong sentence for most of the roster — the median composer's biggest month is
-// 3.1× their typical one, because a composer read thirty times a month hits ninety by chance, so
-// naming a peak said "spike!" about noise on half the list. And it buried the real story for the
-// steady ones: Haydn's peak is 1.7× and meaningless, while his line has slid a third since 2015.
+// WHAT THE CAPTION NAMES: the spike if there is one, otherwise the trend. A fixed "peak N× typical"
+// was the wrong sentence for most of the roster — the median composer's biggest month is 3.1× their
+// typical one, because a composer read thirty times a month hits ninety by chance, so it cried spike
+// about noise on half the list, and it buried the real story for the steady ones (Haydn's peak is 1.7×
+// and meaningless; his line has slid a third since 2015).
 //
-// The test is the peak against the 95th PERCENTILE of the composer's own months — how far the
-// biggest month towers over even a busy one — which is scale-free and self-calibrating, so a
-// small noisy article is judged against its own noise. At 3× it fires on 18% of the roster, and
-// what it selects is almost entirely obituaries: Payne, Coates, Schnebel, Erőd, Van de Vate,
-// Charrière, all of whom died inside the window.
+// So the test is the peak against the 95th PERCENTILE of that composer's own months — how far the
+// biggest month towers over even a busy one — which is scale-free, judging a small noisy article
+// against its own noise. At 3× it fires on 18% of the roster and selects almost entirely obituaries.
 const SPIKE = 3;
 
 // Percent change between the first and last twelve months of the record. Needs two full years to
@@ -492,23 +487,16 @@ function renderLegend() {
 }
 
 // ---- where the detail panel lives -------------------------------------------
-// On a wide screen it is the second grid column, sitting beside the chart. Below 900px it is a
-// full screen-height BELOW the chart — you tap a dot and the answer is somewhere off-screen — and
-// in full screen the grid column is display:none, so a tap produced no visible answer at all.
-// So on a phone, and in full screen at any width, the SAME element moves inside the chart card.
-// Moving it rather than rendering a second compact copy keeps one detail view, one selection, and
-// one set of Prev/Next buttons; styles.css does the rest.
+// Beside the chart in the second grid column on a wide screen; below 900px that column is a whole
+// screen-height away, and in full screen it is display:none, so a tap produced no visible answer at
+// all. On a phone, and in full screen at any width, the SAME element moves into the chart card —
+// moved, never a second copy, so there is one selection and one set of Prev/Next buttons.
 //
 // The two in-card positions are NOT interchangeable:
-//   phone, in flow   BELOW the plot, free to be as tall as the content. Nothing above it moves
-//                    when it grows, so the chart stays exactly where the eye left it — and since
-//                    the view switcher moved above the plot (issue 29), nothing it pushes down is
-//                    a control either.
-//   full screen      ABOVE the plot, between the readership filter and the chart, at a FIXED
-//                    height that is drawn whether or not anything is pinned. Every pixel there is
-//                    a pixel of chart, and a box that changed size would re-lay out the chart on
-//                    every tap and on every hover — the dot moving out from under the finger that
-//                    just tapped it is exactly the churn this avoids.
+//   phone, in flow   BELOW the plot, free to grow: nothing above it moves when it does.
+//   full screen      ABOVE the plot at a FIXED height, drawn whether or not anything is pinned.
+//                    Every pixel there is a pixel of chart, and a box that changed size would
+//                    re-lay out the chart under the finger that just tapped it.
 const WIDE = matchMedia("(min-width:900px)");
 
 // The filter row is a sibling of .grid, which body.fs hides outright — so in full screen it moves
@@ -528,49 +516,43 @@ function placeFilters() {
 }
 
 // The third of these, on the same contract as placeFilters() and placeDetail(): one element, moved,
-// never a second copy — #fs holds the pressed state and share() a timeout on its own label, so two of
-// either would drift apart. They leave the controls row wherever it will not hold them on one line,
-// which is what PAYS for Reset filters beside Reset zoom; CLAUDE.md's placeChartTools() bullet has the
-// rest of the why, and they sit in the band chart.js already spends on the y-axis title, so the cost
-// is 26px of data area rather than a covered dot.
+// never a second copy — #fs holds the pressed state and share() a timeout on its own label. They
+// leave the row wherever it will not hold them on one line, which is what PAYS for Reset filters
+// beside Reset zoom; CLAUDE.md's placeChartTools() bullet carries the rest of the why.
 //
 // THE ONLY COPY OF THIS BREAKPOINT: styles.css scopes the icon look to `#plot > #chart-tools`, so the
-// look follows the DOM rather than re-deciding the width. It answered on width once, and then every
-// state where this had not run yet drew the icon look in the row.
+// look follows the DOM rather than re-deciding the width. Answering on width here drew the icon look
+// in the row in every state where this had not run yet.
 //
-// TWO intervals, because the row's width is not monotonic in the viewport's: what decides the row is
-// the CARD, and the two-column grid at 900px takes 194px off it. Measured with the words in the row,
-// stepping 4px — the numbers in parentheses allow for share()'s wider "Link copied", which is the
-// state that matters, since a row that wraps on the PRESS drops the plot 44px under the cursor that
-// just pressed it:
+// TWO intervals, because the row's width is not monotonic in the viewport's: what decides it is the
+// CARD, and the two-column grid at 900px takes 194px off that. Measured with the words in the row,
+// stepping 4px; the parenthesised numbers allow for share()'s wider "Link copied", which is the state
+// that matters — a row that wraps on the PRESS drops the plot 44px under the cursor:
 //
 //     641- 743   card  582- 681   two lines
 //     744- 899   card  682- 837   ONE line (780 up)
 //     900-1055   card  524- 679   two lines
 //     1056+      card  680+       ONE line (1092 up)
 //
-// Both thresholds sit clear of the measured edge on the ICON side, because the two errors are not
-// equal: words that do not fit is that 44px shift, while icons where words would have fitted costs
-// 26px of data height and nothing else. One machine's font metrics, so ui.test.mjs presses Share at
-// the first width in each band and fails if the row grows.
+// Both thresholds err toward ICONS, because the two mistakes are not equal: words that do not fit is
+// that 44px shift, icons where words would have fitted costs 26px of data height and nothing else.
+// One machine's font metrics, so ui.test.mjs presses Share at the first width in each band and fails
+// if the row grows.
 //
-// TWO queries and not one list, because only the second is about the grid: `body.fs .grid` is
-// `display:block`, so full screen never pays the 194px and fits both words from 762px. The squeezed
-// interval is skipped there, or a 1000px full-screen window spends the band on a row that would have
-// held them — and it costs more there, off a flex:1 chart that is already the whole viewport. The
-// narrow interval still applies, erring 38px toward the side that cannot wrap a row under a cursor.
+// TWO queries rather than one list, because only the second is about the grid: `body.fs .grid` is
+// `display:block`, so full screen never pays the 194px and the squeezed interval is skipped there —
+// it would spend the band off a flex:1 chart that is already the whole viewport.
 const NARROW = matchMedia("(max-width:799px)");
 const SQUEEZED = matchMedia("(min-width:900px) and (max-width:1100px)");
 const iconsOnPlot = () =>
   NARROW.matches || (SQUEEZED.matches && !document.body.classList.contains("fs"));
 
 // 40px of touch target, CENTRED on the axis title's line, with the whole target clear of the plot
-// area. styles.css carries the derivation from the title's own box; what matters here is why the
-// clearance is not cosmetic. The target is invisible, so anything it overlaps is a dot that silently
-// stops being tappable — one pixel lower, the target's bottom landed ON the plot area and shadowed 12
-// dots in the swarm, whose blob reaches the top of its box. The margin it leaves is the whole margin:
-// a dot's clip is inset outward by a radius, so the sliver of one at the very top edge can still
-// reach under the target under a pinch. Never its centre — see styles.css.
+// area. styles.css carries the derivation from the title's own box; what matters here is that the
+// clearance is not cosmetic. The target is INVISIBLE, so anything it overlaps is a dot that silently
+// stops being tappable — one pixel lower it shadowed 12 dots in the swarm, whose blob reaches the top
+// of its box. Nothing is left over: a dot's clip is inset outward by a radius, so the sliver of an
+// edge dot can still reach under the target during a pinch, though never its centre.
 const TOOLS_BAND = 48;
 
 function placeChartTools() {
@@ -640,10 +622,9 @@ function readHash() {
 // because #fs's label changes with its state: a tooltip that still said "Full screen" over the
 // exit glyph would be worse than none. One call, so the two can never disagree.
 //
-// Unconditionally, including where the word beside it is visible and the tooltip only repeats it.
-// That is the cheaper of the two errors: scoping it to the clipped layout means asking this code
-// which layout it is in, which is a second copy of a breakpoint that now lives in exactly one
-// place — and a native tooltip echoing a visible label is what a browser does anyway.
+// Unconditionally, even where the word beside it is visible: scoping it to the clipped layout means
+// asking which layout this is, a second copy of a breakpoint that lives in one place — and a tooltip
+// echoing a visible label is what a browser does anyway.
 function label(btn, text) {
   const t = btn.querySelector(".btn-t");
   if (!t) { btn.textContent = text; return; }
@@ -665,11 +646,10 @@ async function share() {
   // failure. Clipboard is the fallback, and the visible confirmation is the point either way.
   try {
     if (navigator.share) { await navigator.share(payload); return; }
-    // A WRITE THAT NEVER SETTLES IS NOT A REJECTION, and there is no catch for one. Chrome under
-    // a bare X server leaves writeText pending indefinitely rather than resolving or refusing —
-    // measured on this repo's own CI runner, where the button sat unacknowledged with the promise
-    // still pending four seconds after the press. An unraced await here is a Share button that
-    // promises nothing and delivers nothing, on a platform nobody would think to test.
+    // A WRITE THAT NEVER SETTLES IS NOT A REJECTION, and there is no catch for one. Chrome under a
+    // bare X server leaves writeText pending indefinitely — measured on this repo's own CI runner,
+    // the promise still pending four seconds after the press. An unraced await is a Share button that
+    // promises nothing, on a platform nobody would think to test.
     await Promise.race([navigator.clipboard.writeText(location.href),
                         new Promise((_, no) => setTimeout(no, STALL))]);
     copied(btn);
@@ -678,12 +658,10 @@ async function share() {
   }
 }
 
-// The confirmation, in both halves of the button, because in the icon layout the half that carried
-// it is clipped: .btn-t is the accessible NAME there, not the face, so swapping its text wrote
-// "Link copied" where nobody could see it. The glyph has to acknowledge as well. It is not a
-// phone-only gap, and never was — navigator.share returns before either branch on a real phone, so
-// the two branches that reach here are exactly the ones that run where it is missing, which is most
-// of the desktops now under the 1100px breakpoint.
+// The confirmation, in both halves of the button: in the icon layout .btn-t is the accessible NAME
+// and not the face, so swapping its text wrote "Link copied" where nobody could see it. Never a
+// phone-only gap — navigator.share returns before either branch on a real phone, so the branches that
+// reach here are the ones that run where it is missing.
 function copied(btn) {
   label(btn, "Link copied");
   btn.classList.add("copied");
@@ -707,12 +685,11 @@ function intersect(a, b) {
 const pillValues = () => [...document.querySelectorAll("#gender button")]
   .map(b => b.dataset.g).filter(Boolean);
 
-// Every gender the data STATES that no pill can reach. fetch_wikidata.py labels eight P21 items
-// and index.html has two pills, so the two vocabularies can drift — and the drift is silent in the
-// worst way: the composer is in neither filter while the provenance line, which counts only the
-// composers with NO claim, still implies everyone else is reachable. validate.py fails the build
-// on it; this is the same assertion on the app's side, and the UI suite asserts it empty. Exactly
-// the job Chart.missingNames() and Names.staleOverrides() do for the other hardcoded vocabularies.
+// Every gender the data STATES that no pill can reach. fetch_wikidata.py labels more P21 items than
+// index.html has pills, so the vocabularies can drift, and the drift is silent in the worst way: the
+// composer is in neither filter while the provenance line, which counts only the composers with NO
+// claim, implies everyone else is reachable. validate.py fails the build on it; this is the same
+// assertion on the app's side, the job Chart.missingNames() does for the curated lists.
 function unfilterableGenders() {
   const reach = new Set(pillValues());
   return [...new Set(ROWS.filter(d => d.gender != null && !reach.has(d.gender)).map(d => d.gender))];
@@ -727,12 +704,11 @@ function unreachableRepertoires() {
   return Chart.repertoireKeys().filter(k => !reach.has(k));
 }
 
-// The third filter. It is the only one with no module of its own, because it has nothing to
-// render and no data to hold — three buttons and a string. It still returns the same "a Set of
-// indices, or null for everything" the other two do, so intersect() never learns it exists.
+// The third filter, and the only one with no module of its own: nothing to render and no data to hold,
+// three buttons and a string. Same contract as the other two, so intersect() never learns it exists.
 //
-// A composer with no P21 claim is in NEITHER set. That is the null rule (invariant 10) applied to
-// a filter: "Women" means Wikidata says female, not "everyone we didn't call a man".
+// A composer with no P21 claim is in NEITHER set — the null rule (invariant 10) applied to a filter:
+// "Women" means Wikidata says female, not "everyone we didn't call a man".
 function genderMatches() {
   if (!gender) return null;
   const set = new Set();
@@ -749,21 +725,17 @@ function anyFilter() {
   return !!$("q").value.trim() || !!Histogram.getRange() || !!gender;
 }
 
-// All three, search included: the name is plural and a typed query is a filter. A button that sat
-// lit while a search was active and then did not clear it would be worse than the inconsistency it
-// replaces — the search box keeps its own × for clearing just the text.
+// All three, search included: the name is plural and a typed query is a filter. The search box keeps
+// its own × for clearing just the text.
 //
-// It does NOT focus the search box afterwards, though #clear does. #clear sits INSIDE the search
-// row, so the focus it moves is already on screen; this button is in .controls, a card below
-// #filters, where focus() defaults to preventScroll:false — pressing it at the chart yanked the
-// viewport back up and opened the soft keyboard over the box. In full screen it failed the other
-// way round: `body.fs #filters .tablehead` hides #q, so the call was a no-op. Nothing is left to
-// reset, so the button disabling itself out of the tab order is the honest end state.
+// It does NOT focus the search box afterwards, though #clear does: #clear sits INSIDE the search row,
+// so the focus it moves is already on screen, while this button is a card below, where focus() scrolls
+// the viewport back up and opens the soft keyboard over a box the reader had left. In full screen #q
+// is hidden outright, so the call would be a no-op.
 //
-// Exactly ONE applyFilters() runs, which is what the branch is for. Histogram.clear() moves the
-// brush to null, and d3-brush emits "end" for a programmatic move, so it comes back through
-// onChange -> applyFilters(true) on its own; calling it as well would rebuild ~880 table rows a
-// second time. With no range there is nothing to emit, so this side makes the call itself.
+// Exactly ONE applyFilters() runs, which is what the branch is for: d3-brush emits "end" for a
+// programmatic move, so Histogram.clear() comes back through onChange on its own and calling it too
+// would rebuild every table row twice. With no range there is nothing to emit.
 function resetFilters() {
   $("q").value = "";
   setGender("", false);
@@ -806,21 +778,17 @@ function applyFilters(settled) {
   const n = visible ? visible.size : ROWS.length;
   $("count").textContent = visible ? `${n} of ${ROWS.length}` : `${ROWS.length} composers`;
   if (settled !== false) {
-    // Inside the guard, not above it: appearing on the first frame of a brush drag makes this
-    // button a box that the press it is reacting to resizes. It shared line one of `.filterbar`
-    // with the "Readership" label, so unhiding it took that line from a 17.4px label to a 40px
-    // button and dropped the brush under the finger by 22.6px, with the gender pills and the view
-    // switcher going with it (#31). Nothing WRAPPED — below 640px the row is already three lines,
-    // pinned by `order` — which is why the fix on the CSS side was to give the button the pills'
-    // line rather than to reserve its width; styles.css carries that half. Waiting for the gesture
-    // costs nothing: the only caller that passes false is Histogram's own `onChange` mid-drag, and
-    // the `#r=` deep link boots through applyFilters(true), which the guard passes.
+    // Inside the guard, not above it: appearing on the first frame of a brush drag would make this a
+    // box that the press it is reacting to resizes. It shared line one of `.filterbar` with the
+    // "Readership" label, so unhiding it dropped the brush 22.6px under the finger, with the pills and
+    // the view switcher going too (#31). Waiting for the gesture costs nothing — the only caller that
+    // passes false is Histogram's own mid-drag `onChange`, and the `#r=` deep link boots through
+    // applyFilters(true).
     //
-    // Its two siblings ABOVE the guard are safe for reasons worth stating, since the split is the
-    // first thing a reader will question here. `#hist-read` is `.sr-only`, so Histogram.label()
-    // writes into a box with no layout; and `#count` only ever goes from the longest string it has
-    // ("884 composers") to a shorter one ("181 of 884"), so `.tablehead` cannot gain a line. A
-    // third live write that has a BOX belongs below the guard with this one.
+    // Its two siblings ABOVE the guard are safe, and the split is the first thing a reader will
+    // question: `#hist-read` is `.sr-only`, so it writes into a box with no layout, and `#count` only
+    // ever shortens, so `.tablehead` cannot gain a line. A third live write that HAS a box belongs
+    // below the guard with this one.
     // The ring is derived from the filtered group, so the key that explains it and the row chips
     // that repeat it both move when the filter does. Table.render() repaints the chips anyway.
     renderLegend();
