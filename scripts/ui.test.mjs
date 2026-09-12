@@ -437,6 +437,31 @@ check("the lens stays on across a view switch",
                 && !!document.getElementById('lens')?.checked`),
       await ev(`Chart.getMode() + ", lens " + !!Chart.lensOn?.()`));
 
+// AND IT IS CENTRED ON THE WORD, not on the word's line box. `align-items:center` centres boxes,
+// and "Lens" has no descender — so its ink ends at the baseline while the box it sits in runs
+// further down to hold one, which hung the checkbox 1px low against the letters. Measured the way
+// the chart's glyph alignment is: off a real baseline probe and the FONT's own ascent and descent,
+// rather than against the constant in styles.css, so a face whose ratio differs fails here instead
+// of drifting — and so this reads the drawn control, which is what the eye complained about.
+const lensOffset = await ev(`(()=>{
+  const l=document.getElementById('lens-t'); if (!l) return null;
+  const sp=l.querySelector('span'), i=l.querySelector('input');
+  const probe=document.createElement('span');       // an inline-block of zero size sits ON the baseline
+  probe.style.cssText='display:inline-block;width:0;height:0';
+  sp.appendChild(probe);
+  const base=probe.getBoundingClientRect().bottom;
+  probe.remove();
+  const cs=getComputedStyle(sp), cv=document.createElement('canvas').getContext('2d');
+  cv.font=cs.fontWeight+' '+cs.fontSize+' '+cs.fontFamily;
+  const m=cv.measureText(sp.textContent);
+  const b=i.getBoundingClientRect();
+  return +(((b.top+b.bottom)/2)
+         - ((base-m.actualBoundingBoxAscent + base+m.actualBoundingBoxDescent)/2)).toFixed(2);
+})()`);
+check("the lens checkbox is centred on the word, not on its line box",
+      lensOffset !== null && Math.abs(lensOffset) <= 0.75,
+      lensOffset === null ? "" : `box centre ${lensOffset > 0 ? "+" : ""}${lensOffset}px from the ink centre`);
+
 // It suspends the zoom rather than composing with it: a magnifier over a picture that moves is
 // the 2014 chart, and on a touch screen the pan and the aim are the same one-finger drag. The
 // frame is left where it was, so unchecking the box hands the zoom back — both halves asserted,
