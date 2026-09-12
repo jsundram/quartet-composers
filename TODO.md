@@ -146,13 +146,22 @@ Documented in the hint text, but a reader landing on `#v=swarm` has to read the 
 vertical axis means nothing. Consider dimming or removing the y-axis label there; absent is quieter
 than it should be.
 
-### Surname extraction is a heuristic on 884 human names
-`SURNAME` in `names.js` overrides the eight the "last word" rule gets wrong today. There will be
-more nobody has noticed: French particles are dropped where a French index would keep them
+### Surname extraction is a heuristic on human names
+`SURNAME` in `names.js` overrides the names the "last word" rule gets wrong. There will be more
+nobody has noticed: French particles are dropped where a French index would keep them
 (`de la Tombelle` → `Tombelle`), and a future non-Western name order will be silently reversed.
 `Names.staleOverrides()` catches renames, not misjudgements. The stakes rose when the chart started
 printing the same short form — a misjudged surname is now on the plot, not only in a table cell
 whose `title` carries the full name.
+
+**AUDITED against the whole roster, 2026-09-05**, and worth redoing after a re-scrape rather than
+trusting. This is the record; `names.js` points here rather than carrying it, because the audit is
+history and the rules it produced are in `scripts/names.test.mjs`. Two classes can break the rule
+and both were checked exhaustively:
+- **family-name-first** — only "Chen Yi". "Isang Yun", "Unsuk Chin" and "Shigeru Kan-no" carry
+  Westernised article titles, so the last word IS the family name and the rule is right.
+- **compound surnames** — found by listing the penultimate word of every 3-or-more-word name. Most
+  are ordinary middle names; the overrides in `SURNAME` are the ones that are not.
 
 ### Two Fame dots can still overlap, in ways the golden-ratio jitter does not cover — **known defect**
 [#45](https://github.com/jsundram/quartet-composers/issues/45) replaced per-name hash jitter with

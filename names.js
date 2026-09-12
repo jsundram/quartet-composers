@@ -1,33 +1,17 @@
 // Display names: one canonical Wikipedia title, two shortened forms.
 //
-// The table files composers by SURNAME so the name column sorts the way a reader expects (all
-// three Haydns together, not filed under J, M and F). The chart labels them by surname for the
-// other half of the same reason: "Wolfgang Amadeus Mozart" is ~120px of ink laid across a plot
-// where "Mozart" says the same thing in 40, and the labeller is a greedy first-come placer, so
-// every pixel a name does not need is a pixel another name can have.
+// The table files by SURNAME so the column sorts the way a reader expects -- all three Haydns
+// together, not under J, M and F. The chart shortens for pixels: "Wolfgang Amadeus Mozart" is ~120px
+// of ink where "Mozart" says it in 40, and the labeller is a greedy first-come placer, so a pixel
+// one name does not need is one another name can have. Both forms come from ONE shared-surname map,
+// so they can never disagree about who needs more than a surname. (The search fold stays in
+// table.js: only search uses it.)
 //
-// Both are the same judgment about the same 884 human names, so it lives here rather than twice.
-// The search fold (norm/FOLD) stays in table.js because only search uses it; which word is the
-// surname -- and which composers the rule is wrong about -- is shared.
-//
-// The two forms are derived from ONE shared-surname map, so the table and the chart can never
-// disagree about who needs more than a surname to be identified.
-//
-// It is a HEURISTIC on 884 human names. The rule is "the last word", which is right about 870
-// times; SURNAME holds the ones it is wrong about. That list is a judgment call, not a fact, and
-// staleOverrides() reports any entry that no longer names a composer so a pipeline rename shows
-// up instead of silently doing nothing.
-//
-// AUDITED against all 884 (2026-09-05), which is worth redoing after a re-scrape rather than
-// trusting. Two classes can break the rule and both were checked exhaustively:
-//   family-name-first -- only "Chen Yi". "Isang Yun", "Unsuk Chin" and "Shigeru Kan-no" carry
-//     Westernised article titles, so the last word IS the family name and the rule is right.
-//   compound surnames -- found by listing the penultimate word of every 3+ word name; ~80 are
-//     ordinary middle names and the five below are not.
-// Left deliberately alone: French and Dutch particles file under the last word here
-// ("Fernand de La Tombelle" -> Tombelle, "Louise Haenel de Cronenthall" -> Cronenthall), where a
-// French index would keep the particle. Both are still recognisable, and the whole point is to
-// be narrow.
+// It is a HEURISTIC -- "the last word", with SURNAME holding the names that rule is wrong about,
+// which is a judgment call and not a fact. The rules and their exceptions are pinned in
+// scripts/names.test.mjs; the audit behind the exception list is history, so it is in TODO.md.
+// French and Dutch particles are left filing under the last word ("Fernand de La Tombelle" ->
+// Tombelle) where a French index would keep them: still recognisable, and the point is to be narrow.
 window.Names = (function () {
   const SUFFIXES = new Set(["junior", "jr", "jr.", "sr", "sr.", "ii", "iii", "iv"]);
   const SURNAME = {
@@ -44,25 +28,12 @@ window.Names = (function () {
     "Chen Yi": "Chen",
   };
 
-  // A surname a reader already attaches to ONE composer does not need the initial that separates
-  // them from the rest of it. "Haydn" is Joseph and "Tchaikovsky" is Pyotr Ilyich on any concert
-  // programme; the initial is what Michael and Boris need. The test is READERSHIP, because that is
-  // the only measure this dataset has of who a name lands on, and it has to be decisive: the
-  // group's most-read member takes the bare surname if they clear DOMINANT_VIEWS and nobody in the
-  // group comes close, so two composers can never be handed a label the reader cannot resolve
-  // between them. Two groups of the 884 qualify today (Haydn 28,938 against 2,268; Tchaikovsky
-  // 58,023 against 418).
-  //
-  // The MARGIN is the half that has to be there. A floor alone would hand the bare surname to
-  // whoever led by a single view once both members cleared it, which is a label that identifies
-  // nobody -- and readership is refetched every month, so that is a matter of drift, not of
-  // hypothesis. The nearest group today is Adams (8,252 against 1,341), one 21% month away from
-  // crossing the floor. Every group that clears it now leads by 12x or more, so the margin costs
-  // nothing today and is what keeps the rule honest when the numbers move.
-  //
-  // CHART ONLY -- short(), not filed(). The table column sorts on the string it prints, and a bare
-  // "Haydn" filed beside "Haydn, Michael" makes it inconsistent about who gets a forename in order
-  // to save width a table has anyway. The plot is where the pixels are scarce.
+  // "Haydn" is Joseph on any concert programme; the initial is what Michael needs. READERSHIP
+  // decides because it is the only measure here of who a name lands on, and the MARGIN is the half
+  // that has to be there: a floor alone hands the bare surname to whoever leads by one view once
+  // both clear it, and readership is refetched monthly, so that is drift, not hypothesis.
+  // CHART ONLY -- a bare "Haydn" filed beside "Haydn, Michael" is inconsistent about who gets a
+  // forename, to save width a table has anyway.
   const DOMINANT_VIEWS = 10000, DOMINANT_MARGIN = 3;
 
   let names = [];
@@ -82,16 +53,15 @@ window.Names = (function () {
   }
 
   // Everything before the surname, wherever the surname sits. NOT a suffix slice off the end: the
-  // family-name-first override puts it at the front, so "Chen Yi" with surname "Chen" was
-  // yielding a forename of "Che". Inert today only because no other composer's name ends in
-  // "Chen" -- exactly the kind of thing a re-scrape changes.
+  // family-name-first override puts the surname at the FRONT, and slicing gave "Chen Yi" a forename
+  // of "Che" -- inert only while no other composer's name ends in "Chen", which is exactly what a
+  // re-scrape changes.
   const forenameOf = (name, sur) => bare(name).replace(sur, "").replace(/\s+/g, " ").trim();
 
-  // `views` is a PARALLEL array of readership medians because that is the shape the caller has --
-  // a row array per composer -- not because it protects against anything the rest of this module
-  // does not. Every lookup here is keyed by the canonical name (filedOf, shortOf and surOf all
-  // are), which is safe for exactly one reason: build_data.py refuses to write two rows that print
-  // the same name. If that guarantee ever goes, this module breaks in four places, not one.
+  // `views` is a PARALLEL array of readership medians because that is the shape the caller has: a
+  // row per composer. Every lookup here is keyed by the canonical NAME, which is safe for exactly
+  // one reason -- build_data.py refuses to write two rows that print the same name. If that
+  // guarantee goes, this module breaks in four places, not one.
   function setData(list, views) {
     names = list.slice();
     filedOf.clear(); shortOf.clear(); surOf.clear(); viewsOf.clear();
@@ -104,8 +74,8 @@ window.Names = (function () {
       group.get(s).push(n);
     }
     for (const [sur, members] of group) {
-      // A UNIQUE surname is the whole display name in both forms -- the column stays as narrow as
-      // it can be and the chart label is one word.
+      // A UNIQUE surname is the whole display name in both forms: the narrowest the column can be,
+      // and a one-word chart label.
       if (members.length < 2) {
         const only = members[0];
         filedOf.set(only, sur);
@@ -113,17 +83,16 @@ window.Names = (function () {
         continue;
       }
       // Shared. The table appends the forename ("Haydn, Joseph") because it sorts on this string
-      // and the surnames have to stay adjacent. The chart keeps reading order and spends as little
-      // as it can get away with: an INITIAL where that identifies the person ("J. Haydn" against
-      // "M. Haydn"), and the full name only where it does not -- Ferdinand and Félicien David,
-      // Rebecca and Rhona Clarke, John and John Luther Adams. Eight rows in 884.
+      // and the group has to stay adjacent. The chart keeps reading order and spends as little as
+      // it can: an INITIAL where that identifies the person ("J. Haydn" against "M. Haydn"), the
+      // full name only where it does not -- Ferdinand and Félicien David.
       const initial = new Map();
       for (const n of members) {
         const f = forenameOf(n, sur);
         const k = f ? f[0] : "";
         initial.set(k, (initial.get(k) || 0) + 1);
       }
-      // The one member the bare surname already means, if the group has one (DOMINANT_VIEWS).
+      // The one member the bare surname already means, if the group has one.
       const rank = members.slice().sort((a, b) => viewsOf.get(b) - viewsOf.get(a));
       const dominant = viewsOf.get(rank[0]) >= DOMINANT_VIEWS
                     && viewsOf.get(rank[0]) >= DOMINANT_MARGIN * viewsOf.get(rank[1])
@@ -131,9 +100,8 @@ window.Names = (function () {
       for (const n of members) {
         const f = forenameOf(n, sur);
         filedOf.set(n, f ? `${sur}, ${f}` : sur);
-        // A family-name-first title ("Chen Yi") is already in its own order; prefixing an initial
-        // would print "Y. Chen", which reorders a name nobody writes that way. Fall through to
-        // the full title instead.
+        // A family-name-first title ("Chen Yi") is already in its own order; an initial would print
+        // "Y. Chen", reordering a name nobody writes that way. Fall through to the full title.
         const lead = bare(n).startsWith(sur);
         shortOf.set(n, !f ? sur
                    : n === dominant ? sur
@@ -151,8 +119,8 @@ window.Names = (function () {
     // "J. Haydn" -- for a label that has to fit next to the dot it names.
     short: n => shortOf.get(n) || surnameOf(n),
     surname: n => surOf.get(n) || surnameOf(n),
-    // Override keys that no longer name a composer -- a pipeline rename, asserted empty by the UI
-    // suite so the entry cannot sit there doing nothing.
+    // Override keys that no longer name a composer -- a pipeline rename. Asserted empty by both
+    // suites.
     staleOverrides: () => Object.keys(SURNAME).filter(n => !names.includes(n)),
     // For the suite, which checks each override against the rule it overrides. Read-only by
     // convention, like Chart.colorOf.
