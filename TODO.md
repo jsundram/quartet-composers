@@ -340,21 +340,49 @@ lines instead of 118k. The price is that alignment is load-bearing, so `build_da
 
 ## Testing
 
+### The leanness pass, mid-flight — read this before touching the branch
+Branch `claude/test-suite-effectiveness-5nmyk0`, pushed, no PR. Four commits, in order: cut the
+prose; derive the `V` bump; delete the numbers and the lint that kept them (and repair `chart.js`);
+prove a comments-only change. The brief: this repo is a small visualization that had become half
+comments and half tests, and a lot of its history is edits to docs for numbers that move — apply the
+data-ink ratio to the codebase, aggressively but respectfully, by DELETION.
+
+**Done.** CLAUDE.md keeps every rule and lost every recomputable number (the three-way split is
+stated at its top: rules here, history here, anything mechanical in a check). TODO.md's closed
+entries are decision-plus-evidence. `prose-lint.py` and its suite are gone, with the thirteen doc
+numbers they guarded. The `V` bump is `sw-lint.py --fix` in the hook, so it is not a human step and
+`refresh.py` no longer carries a second copy of the regex. `codehash.py` proves a comments-only
+change and both branch gates exempt one on that proof.
+
+**Not done, and it is the half the brief was about: the APP comments.** `chart.js` and `app.js` are
+still roughly half comment, and `names.js` — 79 of 158 lines — is comment-dense enough that the code
+is hard to find, which is a readability defect in the most heuristic file here. The rule to apply is
+the one already in Conventions: a comment may not assert a mechanical fact (that becomes a check or
+it goes), and WHY survives. Do it per file, run `codehash.py` on the staged result, and expect the
+removals to be large.
+**Test code has GROWN on this branch**, which is the other half owed: `codehash.py` plus its suite
+is 508 lines added to prove a property only this kind of pass needs. Decide its fate deliberately —
+it is a real gate now, imported by both branch gates, so the options are keep, or slim to the gate
+integration and drop the scenario suite.
+
+**Two traps, both paid for once.** `git add -A` before running any harness that mutates the tree:
+`git checkout --` restores from the INDEX, so a repair that is not staged is silently undone — that
+is how an un-bootable `chart.js` shipped for two commits. And **a suite that dies at boot reddens
+everything and is a VOID result, not a catch**: PAGE ERRORS in place of named failures, and a
+mutation "caught" in a fraction of the usual time, is the tell.
+
 ### The suite misses pure functions, and nothing measures that but a mutation run
 Measured Sep 2026: 39 one-line bugs injected, 25 caught. The data gate caught 6 of 7, the browser
 suite 13 of 22, `sw.test.mjs` 1 of 5 — and every miss was a pure function or an untested entry
 point, not one a layout or interaction bug. The rules that came out of it are in CLAUDE.md's Testing
 section. What is still owed, in the order it is worth doing:
 
-- **`sw.js` install/activate are unexercised.** `sw.test.mjs` drives the `fetch` listener only, and
-  its `caches` mock is one cache whose `open()` ignores the version — so `cachePut`'s SHELL refusal
-  and `cacheLookup`'s version scoping cannot be tested as written. Keying the mock by name is ~15
-  lines and makes three real checks possible. This is the file whose failures are invisible until
-  somebody else's installed client breaks, which is where coverage should be deepest and is not.
-- **Two checks cannot fail for the value they are named after.** `sw.test.mjs` reads `BOOT` out of
-  `sw.js`, so dropping a script from `BOOT` passes; `fetch_views.test.py` derives its window from
+- **`fetch_views.test.py` cannot fail for the value it is named after.** It derives its window from
   `months_back()`, so ending the window on the month in progress passes. Cross-check against an
-  independent artifact instead — `index.html`'s script tags, and a frozen clock.
+  independent artifact instead — a frozen clock.
+  (The same charge against `sw.test.mjs` reading `BOOT` out of `sw.js` is WITHDRAWN, with the
+  install/activate coverage gap behind it: both files are vendored pwa-starter, stamped, and belong
+  upstream. `sw.js`'s 588 lines are the most under-covered here and are deliberately not ours.)
 - ~~The fold has no behavioural check~~ — done, 2026-09-11, with the prose-lint deletion below.
   `ui.test.mjs` asks `Table.matches('lutoslawski')` for Lutosławski and asserts a padded query
   matches the same rows as a bare one.
