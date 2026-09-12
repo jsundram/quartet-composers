@@ -1,0 +1,160 @@
+{
+ "generated": "2026-09-12",
+ "imslp_pages": 4215,
+ "imslp_composers": 1771,
+ "imslp_arr_pages": 722,
+ "roster": 884,
+ "attributable_pages": 1673,
+ "attributable_works": 2076,
+ "attributable_arr": 189,
+ "placed": 462,
+ "placed_with_pages": 307,
+ "placed_without_pages": 155,
+ "unplaced": 422,
+ "offroster_composers": 1464,
+ "offroster_pages": 2554,
+ "no_score_file": 0,
+ "sources": {
+  "imslp-qid": 34,
+  "wp-qid": 273,
+  "p839": 101,
+  "cand-qid": 51,
+  "name+dates": 2,
+  "name+stale-death": 1
+ },
+ "date_conflicts": [
+  {
+   "name": "Tommaso Giordani",
+   "cat": "Giordani, Tommaso",
+   "field": "birth",
+   "wikidata": 1733,
+   "imslp": 1738,
+   "via": "imslp-qid"
+  },
+  {
+   "name": "Antonín Kammel",
+   "cat": "Kammel, Antonín",
+   "field": "death",
+   "wikidata": 1788,
+   "imslp": 1784,
+   "via": "wp-qid"
+  },
+  {
+   "name": "Leo Ornstein",
+   "cat": "Ornstein, Leo",
+   "field": "birth",
+   "wikidata": 1893,
+   "imslp": 1895,
+   "via": "wp-qid"
+  },
+  {
+   "name": "Pierre Vachon",
+   "cat": "Vachon, Pierre",
+   "field": "birth",
+   "wikidata": 1738,
+   "imslp": 1731,
+   "via": "wp-qid"
+  }
+ ],
+ "rejected": [
+  {
+   "name": "Jonathan Harvey",
+   "cat": "Harvey, Jonathan",
+   "birth": 1939,
+   "death": 2012,
+   "imslp_born": null,
+   "imslp_died": null,
+   "imslp_wp": null
+  },
+  {
+   "name": "Julia Smith",
+   "cat": "Smith, Julia",
+   "birth": 1905,
+   "death": 1989,
+   "imslp_born": null,
+   "imslp_died": null,
+   "imslp_wp": null
+  },
+  {
+   "name": "Stephen Brown",
+   "cat": "Brown, Stephen",
+   "birth": 1948,
+   "death": null,
+   "imslp_born": null,
+   "imslp_died": null,
+   "imslp_wp": null
+  },
+  {
+   "name": "Thomas Wilson",
+   "cat": "Wilson, Thomas",
+   "birth": 1927,
+   "death": 2001,
+   "imslp_born": null,
+   "imslp_died": null,
+   "imslp_wp": null
+  }
+ ],
+ "unattributed": [],
+ "offroster_top": [
+  {
+   "cat": "Beatty, Stephen W.",
+   "pages": 43
+  },
+  {
+   "cat": "Turchetto, Andrea",
+   "pages": 33
+  },
+  {
+   "cat": "Tavares, Luciano",
+   "pages": 30
+  },
+  {
+   "cat": "Omid, Aryan",
+   "pages": 19
+  },
+  {
+   "cat": "Ugoletti, Paolo",
+   "pages": 19
+  },
+  {
+   "cat": "Zintl, Frank",
+   "pages": 18
+  },
+  {
+   "cat": "Anzoletti, Marco",
+   "pages": 17
+  },
+  {
+   "cat": "Kowalewski, Jakub",
+   "pages": 17
+  },
+  {
+   "cat": "Gerber, Edward Enrico",
+   "pages": 15
+  },
+  {
+   "cat": "Praeger, Ferdinand",
+   "pages": 15
+  },
+  {
+   "cat": "Alıcıoğlu, Şafak",
+   "pages": 14
+  },
+  {
+   "cat": "Massun, Ignacio",
+   "pages": 13
+  },
+  {
+   "cat": "Sysmoebius, Z Q",
+   "pages": 13
+  },
+  {
+   "cat": "Harrington, Jeffrey Michael",
+   "pages": 12
+  },
+  {
+   "cat": "Plante, Cyril",
+   "pages": 12
+  }
+ ]
+}

@@ -925,6 +925,300 @@ job has stopped printing "no CI-runnable suite covers this branch's source" for 
 branches that change what the page LOOKS like. #55's own ablation was owed locally and run by
 hand; it went red in the right two places, and nothing in CI could have known that.
 
+## IMSLP
+
+### The dataset is built and joined; nothing is wired into the app yet — 2026-09-11
+`scripts/fetch_imslp.py` (network, cached in `data/imslp.json`) and `scripts/build_imslp.py`
+(offline, writes `imslp.json`) exist and run. `imslp.json` is NOT referenced by `index.html`,
+`sw.js` or any module, so nothing about the shipped app has changed and `V` has not moved.
+
+**What is in it.** IMSLP catalogues 4,215 work pages under its own instrumentation category
+`For 2 violins, viola, cello`, plus 722 more under the `(arr)` category, spread over 1,771
+composer categories. 1,658 of those pages belong to people on this roster; 461 roster rows are
+placed on IMSLP at all, 302 of them with at least one quartet page. Every one of the 4,926 pages
+carries at least one score file, so "has a page" and "has a score" are the same question today.
+
+**The join matches no names.** Work title → `(Surname, Forename)` → that IMSLP category page →
+its `{{Wikidata|Q…}}` or `[[wikipedia:…]]` link → resolved through en.wikipedia to a canonical
+title and QID → our `people.json` QID. Four rungs, in evidence order, counted over the composers
+they placed: `wp-qid` 272, `p839` 102, `name+dates` 53, `imslp-qid` 34. Only the last rung starts
+from a spelling, and it is accepted only when IMSLP's birth AND death years agree with Wikidata's
+— five candidates were rejected on exactly that and are printed by name.
+
+**Three things a UI must not get wrong.**
+
+1. *A page is not a quartet, and nothing in the data can tell you which.* IMSLP's unit is a
+   publication entry: Beethoven's 16 quartets occupy 23 pages — three of which are complete-set
+   editions (`Sämtliche Streichquartette`, `17 Streichquartette`, `Trios, Quartette und Quintette`),
+   two are multi-work opus pages, one is the Grosse Fuge and one a fragment. Haydn's 68 occupy 97.
+   It runs the other way too: Giuseppe Cambini's stated 149 quartets are 14 pages. Of the 297 rows
+   with both numbers, 61 have more pages than stated quartets and 129 have fewer.
+   **There is no honest "% of their quartets you can download."** The two columns count different
+   things and dividing them is a confident wrong number on every row. Show the page count, label
+   it "score pages on IMSLP", and let the two sit side by side.
+   The obvious repair — flag the collections and subtract them — **was tried and does not work**:
+   IMSLP's own `Category:Collections` holds 22 of the 4,926 pages and none of Beethoven's three.
+   The flag is fetched and shipped because it is free, and it must not be used as though it were
+   complete. Deciding set-vs-single per page would mean parsing work titles ("6 String Quartets,
+   Op.18"), which is a counting heuristic on top of a page count, and invariant 11's rule applies:
+   grade it against the pages before believing it.
+
+2. *Null, zero and absent are three answers.* `pages: 0` means IMSLP holds this composer and none
+   of their quartets (159 rows — Stravinsky, Glass, Cage, Copland, Barber: all in copyright, which
+   is the real finding and a good one). A row **missing from `imslp.json` entirely** means we could
+   not place them at all (423 rows), which is unknown, not empty. Colouring those two the same way
+   states something false about 423 composers. This is invariant 10 arriving in a new field.
+
+3. *The 423 is soft evidence, not proof.* It means: no Wikidata P839, no IMSLP composer page
+   linking their article, and no page under any one-, two- or three-token `Surname, Forename`
+   inversion of their name. That is decent evidence of absence and it is not the same as asking.
+   Any copy on the page has to say "no IMSLP page found", never "not on IMSLP".
+
+**What shipping it needs**, roughly in order:
+- `build_data.py` writes the per-composer count into `composers.json` as a new field, and
+  `imslp.json` becomes the lazily-fetched companion the way `readership.json` already is — SHELL
+  but NOT BOOT (invariant 2), since links in the detail panel are decoration nothing waits for.
+- `sw.js`: add `imslp.json` to `SHELL`, leave it out of `BOOT`, bump `V` (invariant 1).
+- `validate.py`: the gate this needs is that every `imslp.json` key is a row name in
+  `composers.json` and every `cats` entry is one the cache actually holds — the drift invariant 4
+  warns about, one file over.
+- Detail panel: the composer's IMSLP category link plus their work pages, which is the feature's
+  actual point and the cheapest half.
+- Table column: the page count, sortable, `—` where absent.
+- A fourth filter would need its own module on the `applyFilters()` contract (a Set of indices or
+  null), not another special case in `app.js`.
+- `og-lint.py`'s stated-count rule and `prose-lint.py`'s composer-count rule both need to know
+  about any new total that reaches the docs.
+- **A colour channel is the expensive option and should be argued for separately.** Fame already
+  spends hue on emphasis and the timeline spends it on the lifespan ramp (invariant 8), so
+  availability would be a fourth encoding competing for the one channel that is already carrying
+  the view's argument — and it is a three-state fact with a 423-row "unknown" bucket, which is the
+  hardest kind of thing to put in a legend honestly.
+
+### ~~Catalogue numbers de-duplicate the sets~~ — done, 2026-09-12
+The page count is no longer the only number: `build_imslp.py` now reads `Opus/Catalogue Number`
+off each work page and counts DISTINCT WORKS. **1,658 pages hold 2,046 works.** The mechanism is
+that a set page states the designation its members share — `6 String Quartets, Op.18` carries
+`Op.18` while the six individual pages carry `Op.18 No.1` through `No.6` — so expanding the set
+and merging by id makes those six works rather than twelve.
+
+Beethoven lands on 18: his 16 quartets plus the Große Fuge and the Hess 30 fugue, which is exactly
+what IMSLP's own `Sämtliche Streichquartette` says it contains, and it explains the "18 quartets"
+that looked like an error. Dvořák lands on 14 against a stated 14, Villa-Lobos 17 against 17,
+Myaskovsky 13 against 13. The correction runs both ways and that is the point: Cambini's 14 pages
+carry **76** works (his Trimpert numbers are what make that readable), Pleyel's 22 carry 68 against
+a stated 70, while Boccherini's 79 pages collapse to 75 works. Exact agreement with the stated
+count rose from 107 composers to 121.
+
+Three rules are load-bearing and each has a case in `imslp.test.py` that goes red without it:
+
+- **Alternate catalogues zip POSITIONALLY.** A page naming `Op.24 ; G.183-188` is six works named
+  twice, not twelve; counting them separately put Boccherini at 153. Designations that disagree
+  about how many works are present cannot be aligned, so the longest wins and the others are
+  dropped rather than added.
+- **Expansion needs evidence that N WORKS are present**, not merely a plural noun. `Echo of Songs,
+  B.152` says "12 pieces" and is one work in twelve movements; expanding it invented eleven Dvořák
+  quartets. The evidence accepted is IMSLP typing the page a Collection, or a title that opens
+  with a number and names quartets — which is how Vachon Op.11 and both Kammel sets are caught,
+  since they leave `Page Type` blank.
+- **An anthology with no catalogue number is dropped, not counted.** `Selected String Quartets`
+  reprints works that already have pages of their own, so adding it re-counts them.
+
+**`works_n` is still not `quartets`.** 67 of the 297 composers with both numbers now exceed their
+stated count, and the page is usually the better source: Rigel and Förster each hold three pages
+of six-quartet sets against a stated six, and IMSLP's instrumentation category legitimately holds
+fugues, fragments and single movements no numbered list counts. Invariant 11's rule applies to
+this parse as much as to `scrape_list.py` — grade it against the page, not against the other
+number. **An `audit_catalogue.py` that prints the parsed work ids beside their source field, for
+a human to grade, is the honest next step** and is not written yet.
+
+Two sources not yet used, both suggested during review: IMSLP's `List of works by <composer>`
+pages enumerate a full catalogue and would give a better denominator than Wikipedia prose; and the
+`Year/Date of Composition` field is already cached in `data/imslp.json` and unread.
+
+### Parsing the work page: what the fields do and do not settle
+Answered with a 100-page sample, 2026-09-11. IMSLP work pages carry two structured fields the
+crawl does not read yet, and they are much better than anything the title or the categories give:
+
+- **`Page Type=Collection`** is the set marker, and it beats `Category:Collections` by a mile —
+  34 of 100 sampled pages against 22 of all 4,926. It is still not reliable: `3 String Quartets,
+  Op.2 (Fesca)`, `6 String Quartets, Op.11 (Vachon)` and both Kammel sets state a count in the
+  title and leave the field blank.
+- **`Number of Movements/Sections`** starts with a digit on 91 of 100, and — this is the useful
+  part — it names its own UNIT in words. `String Quartet No.14, Op.131` says "7 movements";
+  `6 String Quartets, Op.2` says "6 quartets". So a parse can tell a set from a single work, which
+  is exactly what the page count cannot.
+
+So yes, parsing helps a lot: 660 of the 4,215 pages state a leading count in the title, 55 more
+imply one with no digit at all (`Sämtliche Streichquartette`, `Complete String Quartets`,
+`Ausgewählte Quartette`), and the field would resolve most of both.
+
+**What it does not fix is the double counting, which is the whole problem.** Beethoven's complete
+editions overlap his individual pages, and the fields say so out loud: `Sämtliche Streichquartette`
+= "18 quartets (score) in 4 volumes", `17 Streichquartette` = "17 pieces", `6 String Quartets,
+Op.18` = "6 quartets", plus sixteen `String Quartet No.N` pages. Summing the parsed counts gives
+about 67 for a composer who wrote 16. Deciding which page subsumes which is a bibliographic
+containment problem and IMSLP has no field for it.
+
+And the residue is genuinely ambiguous, not merely unparsed. Real values from the sample:
+`"3 quartets (or six?)"` (Hoffmeister Op.11 — IMSLP itself is unsure), `"4 quartets, 2 quintets"`
+(Cambini Op.23 — the page is not all quartets), `"19 pieces"`, `"3 sets of variations"`,
+`"30 canons"`, and `"6 pieces"` on a page titled `6 String Quartets`. Note also that IMSLP's own
+"18 quartets" for Beethoven disagrees with the canonical 16.
+
+Done, above: the fields are fetched for the attributable pages and `works_n` ships beside `pages`.
+`pages` stays the headline on the coverage report because it is the number IMSLP itself can be
+checked against by clicking a link.
+
+### ~~A candidate page's own identity was ignored~~ — done, 2026-09-11
+`fetch_wp` resolved the Wikipedia articles named by composer pages that HAD a quartet and not the
+ones reached by name guess, so 58 pages that state their own Wikidata item or Wikipedia article
+were judged on birth and death years alone. Fixed: candidates go through the same resolution and
+the identifier rung is tried first. 51 of the 53 name-reached matches are now confirmed by an
+identifier rather than by a guess (`cand-qid`), which is the difference between evidence and a
+coincidence of spelling.
+
+The same fix surfaced a second rule. **IMSLP not knowing about a RECENT death is staleness, not
+disagreement** — Sofia Gubaidulina's page is locked, states 1931 and no death, and she died in
+2025, so an exact name and an exact birth year were being rejected by a page nobody has edited
+since. `STALE_DEATH` is 4 years and the birth year must then match EXACTLY rather than within the
+usual slack. It stays bounded on purpose: Thomas Wilson died in 2001 and IMSLP still calls him
+living, and at twenty-five years a score has plausibly been uploaded since, so the silence is
+evidence against the match rather than lag. Four rejections remain and all four are pages that
+state no dates at all.
+
+### The 27 pre-1900 absences are verified, and they are the only real gaps
+After 1900 an absence is a copyright boundary. Before it, checked by exact prefix listing over
+`Category:<Surname>,` rather than by guessing full titles: IMSLP files other people under 15 of
+those 27 surnames (`Still, John`, twenty `Thompson, …`) and not one of these composers, so this is
+absence and not a spelling the join failed to guess. 21 of the 27 were born after 1870, most are
+women, and none is read more than four thousand times a month — Nancy Dalberg, Mary Lucas, Eva
+Ruth Spalding, Frida Kern, Dorothy Gow. If this project ever wants a contribution target rather
+than a visualisation, that list is it.
+
+**A better candidate generator follows from the same check.** Prefix listing finds a composer whose
+FORENAME is spelled differently on IMSLP, which exact-title guessing cannot; the complete IMSLP
+person index is also available in bulk (`API.ISCR.php` `type=1`, 1,000 per request, ~28 requests
+for the whole site), which would turn all 422 unknowns into offline-answerable facts instead of
+one prefix query each.
+
+**The audit page sorts and compacts.** Each composer's table sorts on any column independently —
+a sort across the page would interleave composers and answer nothing — and runs of ids collapse
+(`Op.72 No.1, Op.72 No.2, Op.72 No.3` reads `Op.72 No.1–3`). Only CONSECUTIVE numbers on an
+identical stem collapse, so `G.183–185, G.188` keeps its gap visible, which is the point.
+
+**The parse is graded on a page, not against another number.** `scripts/imslp-audit.py` renders
+every quartet page of the 22 composers the chart highlights — `CANON`, `OUTLIERS` and
+`WOMEN_CANON`, READ out of `chart.js` rather than copied, since they change spelling when the
+pipeline runs (invariant 7) — with the raw `Opus/Catalogue Number` field beside the work ids
+derived from it and a link to settle a disagreement by looking. That is invariant 11's rule
+applied to the second parser this repo has: `audit_counts.py` does it for `scrape_list.py`, and
+this does it for the catalogue reader.
+
+403 pages and 426 works across the 22, and the counts are split by KIND because conflating them
+was itself a defect the first version shipped: 6 pages state no catalogue number at all (counted as
+one work each), 23 are anthologies stating none (dropped), and **14 state one the parser could not
+read**. That last group is the point of the page and was being labelled "no catalogue number —
+counted as one", which is a parse failure reported as an absent field, by the one page whose job is
+to surface parse failures. Haydn's `{{HaydnHob|n383|III:1-83}}` is a three-argument template the
+`{{X|Y}}` reader does not match; those Hoboken numbers still go unread, and now say so.
+
+### ~~A Wikidata IMSLP id kept its namespace and matched nothing~~ — done, 2026-09-12
+P839 states `Category:Stravinsky,_Igor`; a work title's parenthetical is the bare
+`Stravinsky, Igor`. Comparing them unstripped meant a composer joined ONLY by P839 never matched
+the works crawl, so they read "on IMSLP, no quartets" while holding some. Five composers lost 15
+pages between them and Stravinsky was one of them — silent, because zero quartets is exactly the
+answer nobody questions for a 20th-century composer. `strip_ns()` and a case in `imslp.test.py`.
+Roster coverage went from 302 composers to **307**, 1,658 pages to 1,673, 2,046 works to 2,061.
+
+### Canada's public domain is the rule that predicts this dataset
+IMSLP is hosted in Canada and follows Canadian PD: free once the last surviving author **died
+before 1972** (life + 50). Canada moved to life + 70 in 2023 but NOT retroactively, so it binds
+only people who died in 1972 or later — which means the 1972 line is fixed and does not advance
+each January the way a rolling term would. Cross-tabbed against this roster:
+
+| | with scores | on IMSLP, none | no page found | share |
+|---|---|---|---|---|
+| died before 1972 | 280 | 70 | 21 | **75%** |
+| died 1972+ | 25 | 73 | 137 | 10% |
+| living | 2 | 12 | 264 | 1% |
+
+So **91 composers are free to host and are not there** — that is the gap worth naming, and it is
+a better target than the 27 pre-1900 absences because it is the set IMSLP could legally hold
+today. Everything after 1972 is a waiting list rather than a gap; the earliest becomes free in
+2043. This should replace "born before 1900" as the report's framing of absence, and it now does.
+
+Two cautions. 27 composers have scores despite not being PD in Canada, led by Shostakovich
+(died 1975) and Milhaud (died 1974); their files carry a mix of Public Domain, Creative Commons
+and BSD tags, so it is freely licensed modern engraving plus edition-specific claims rather than
+one rule. And the rule is about the last surviving AUTHOR — editor and arranger included — so a
+modern edition of an old work is not automatically free.
+
+### `icatno` is IMSLP's own work number, and it is available in bulk
+The "Internal Ref. No." on a work page (`IGB 12` on Bottesini's Gran Duo Concertante) is
+`I` + the composer's initials + a sequence, assigned by IMSLP to works that have no published
+catalogue number; a page without one renders `None [force assignment]`. It is NOT in the page
+wikitext — the `#fte:imslppage` extension generates it — but `API.ISCR.php` `type=2` returns it as
+`intvals.icatno` for every work on the site, 1,000 per request.
+
+**Not fetched, deliberately.** It identifies a PAGE, and an uncatalogued page already counts as one
+work, so it would not change a single count; the whole list is ~230 requests and ~70 MB against a
+volunteer-funded server. It would be worth having as a stable per-page key if this ever needs one
+that survives a page MOVE, which is the same problem invariant 15 solves for article titles — at
+which point fetch it once and cache it, rather than re-deriving.
+
+### ~~Two bugs the works-file sample exposed~~ — done, 2026-09-12
+Both found by writing out real rows for #61 rather than by any check, which is the argument for
+showing sample data before agreeing a format.
+
+- **The collection flag read the wrong source.** Bit 4 came from `Category:Collections` (22 of
+  4,926 pages) instead of the page's own `Page Type=Collection`, so `17 Streichquartette` was
+  going to ship with `works: 0` and nothing on the row to explain the zero.
+- **`str.title()` mangled a mixed-case catalogue prefix.** Fanny Hensel's `HelH 277`
+  (Hellwig-Unruh) printed as `Helh.277`. Normalising only the first letter fixes it and retires
+  the `WoO` special case, which existed only to survive `.title()`. The work total is unchanged at
+  2,061, so nothing was merging on the mangled form.
+
+### Exposing it in the app is [#61](https://github.com/jsundram/quartet-composers/issues/61)
+The spec lives there, not here: two shipped files and their exact shapes, the precache and `V`
+contract, the `validate.py` checks, the table column and the detail-panel pill. This file is for
+the reasoning behind decisions already taken; a spec for work not started belongs where it can be
+closed.
+
+Two things found while writing it that are defects in what already exists, not part of that work:
+
+- **`fetch_works()` skips the category crawl when the cache has it, so a monthly run would never
+  discover a new work page.** Every other pass is keyed by title and tops up correctly — only
+  discovery is broken, and it is the cheapest pass on the list (~12 requests). This has to be
+  fixed before `refresh.py` can sensibly run the IMSLP stages monthly.
+- **`data/imslp.json` is the scrape cache and collides by name with the shipped file #61 adds.**
+  Rename to `data/imslp-scrape.json`. It is also 3.5 MB and badly encoded — `markers` spends
+  648 KB on four named booleans per page where an int bitmask would do, and `works` repeats three
+  key names 4,937 times. Under 2 MB is easily reachable without giving up the raw wikitext, which
+  must stay raw: a better parser must never cost a request.
+
+**The coverage report is generated, not written.** `scripts/build_imslp.py` writes the audit to
+`data/imslp-audit.json` and `scripts/imslp-report.py` renders it to a self-contained
+`imslp-coverage.html`. No figure on that page is typed — every one is computed at render time from
+`composers.json`, `imslp.json` and the audit, because the roster grows, the monthly top-up moves
+every readership number and IMSLP gains scores. A coverage report typed once is wrong by the next
+run, which is the built-or-cut rule applied to a page that is nothing but falsifiable prose.
+
+Making it a page **inside the app** is a separate and more expensive decision, and it should not be
+taken just because the report exists. This is a single-page PWA with a precache manifest: a second
+route means another `SHELL` entry, another `V` bump on every edit to it (invariant 1), a decision
+about whether it is a `BOOT` dep, and a navigation affordance on a page whose first screen is
+already fought over (issue 29). The standalone file costs none of that and is the right home until
+somebody wants the coverage numbers *while looking at the chart* — at which point the answer is
+probably the detail panel and a table column, not a second page.
+
+**Cost of a refresh.** ~165 requests, one per second, everything cached and never refetched;
+`--refresh` is the only way to re-ask. It does not belong in the monthly `refresh.py` job yet —
+IMSLP's catalogue moves slowly and the run is the one part of this pipeline that talks to a
+volunteer-funded server.
+
+---
+
 ## Deliberately not doing
 
 **Per-language page views.** English Wikipedia readership systematically undercounts non-Anglophone

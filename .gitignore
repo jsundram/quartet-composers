@@ -16,3 +16,10 @@ mocks/chart-*.svg
 mocks/*.png
 mocks/stats.json
 mocks/*-directions.html
+
+# Generated IMSLP pages (scripts/imslp-report.py, scripts/imslp-audit.py). NOT committed and not
+# deployed: sw.js serves any root .html cache-first with no revalidation until a V bump, so a
+# report regenerated on every pipeline run would be frozen for an installed visitor. They are
+# read as artifacts or over file://, never from the site.
+/imslp-coverage.html
+/imslp-audit.html
