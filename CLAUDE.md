@@ -209,7 +209,7 @@ plain static assets. Read README.md first for what the app is.
 
 ## Testing
 
-Thirteen entries, one per bullet below — eight checks that run offline, one that needs a
+Fourteen entries, one per bullet below — nine checks that run offline, one that needs a
 browser, one pair of branch gates only CI can run, the monthly top-up, and two audits a
 human grades. No test framework, and nothing to install:
 
@@ -359,6 +359,16 @@ human grades. No test framework, and nothing to install:
   alone, that a log which could not be READ is not written down as "no move" (the `None`/`[]`
   distinction invariant 15 turns on), that what gets RECORDED names only boundaries the article
   actually crossed, and that a record collapsing to nothing is not written down either.
+- `python3 scripts/imslp.test.py` — the IMSLP join's pure half, offline: `template_fields`,
+  `parse_person`, `candidates` and `confirms` read strings, so it needs no network. It exists
+  because every defect that join has had was a wrong PARSE presenting as a missing row, and a
+  missing row here is invisible — there is no baseline saying how many rows there should be. A
+  line-anchored field reader turned every IMSLP date into `None` (the person template packs three
+  fields onto one line); a pattern that stopped at the first `|` read the article title out of
+  `[[wikipedia:{{#iflang:…}}]]` as the literal `{{`, which took out Beethoven, Mozart, Haydn,
+  Bach, Brahms and Dvořák — the six biggest quartet catalogues on the site — while eleven hundred
+  lesser names joined fine and the totals looked healthy. Neither crashed. The join itself is not
+  shipped yet; see TODO.md.
 - `scripts/refresh.py` — not a test but the same discipline: it decides whether a top-up is DUE
   (does `composers.json` already cover the last complete month?), runs the three pipeline stages,
   refuses to bump `V` if `validate.py` fails, and is a pure no-op otherwise.
