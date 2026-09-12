@@ -899,8 +899,14 @@ window.Chart = (function () {
     if (!lensOn) svg.call(zoom);
     // The node's own __zoom is synced whether the behaviour is bound or not: goTo() tweens FROM
     // it, so a frame fitted to a filter while the lens was on would otherwise animate from a
-    // transform nothing has drawn since.
-    svg.call(zoom.transform, transform);
+    // transform nothing has drawn since. ONLY WHEN IT WOULD CHANGE SOMETHING, though —
+    // `zoom.transform` interrupts any transition on the node, which is d3's contract and not an
+    // accident, so syncing a value that already matches is a no-op that cancels a fit in flight.
+    // setMode() and resize() assign a new transform before they arrive here and still sync;
+    // setLens() changes nothing about the frame, and pressing it inside a filter's 420ms fit
+    // stopped the chart dead at k=1 with Reset zoom lit over it.
+    const cur = svg.node().__zoom;
+    if (!cur || !sameTransform(cur, transform)) svg.call(zoom.transform, transform);
   }
 
   function draw() {
