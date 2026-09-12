@@ -1192,10 +1192,16 @@ closed.
 
 Two things found while writing it that are defects in what already exists, not part of that work:
 
-- **`fetch_works()` skips the category crawl when the cache has it, so a monthly run would never
-  discover a new work page.** Every other pass is keyed by title and tops up correctly — only
-  discovery is broken, and it is the cheapest pass on the list (~12 requests). This has to be
-  fixed before `refresh.py` can sensibly run the IMSLP stages monthly.
+- **~~`fetch_works()` skips the category crawl when the cache has it, so a monthly run would never
+  discover a new work page.~~** — done, 2026-09-12 (#62). The crawl always runs now and prints
+  what it found; `fetch_composers()` re-asks the pages naming neither a QID nor an article, which
+  are the only ones a volunteer could have rescued. A warm run is 23 requests, measured against
+  the shipped cache. `scripts/fetch_imslp.test.py` is what keeps it that way — the defect was a
+  property of the request SEQUENCE and nothing that reads the cache can see it. Two things the
+  re-asking made reachable came out with it: `fetch_composers()` overwriting a page we hold with
+  None when a reply failed to mention it, and `get()` demanding a `query` block of a
+  `wbgetentities` reply that carries `entities` instead, which would have broken the P839 pass
+  the first time the roster gained a composer.
 - **`data/imslp.json` is the scrape cache and collides by name with the shipped file #61 adds.**
   Rename to `data/imslp-scrape.json`. It is also 3.5 MB and badly encoded — `markers` spends
   648 KB on four named booleans per page where an int bitmask would do, and `works` repeats three
@@ -1217,10 +1223,14 @@ already fought over (issue 29). The standalone file costs none of that and is th
 somebody wants the coverage numbers *while looking at the chart* — at which point the answer is
 probably the detail panel and a table column, not a second page.
 
-**Cost of a refresh.** ~165 requests, one per second, everything cached and never refetched;
-`--refresh` is the only way to re-ask. It does not belong in the monthly `refresh.py` job yet —
-IMSLP's catalogue moves slowly and the run is the one part of this pipeline that talks to a
-volunteer-funded server.
+**Cost of a refresh.** ~165 requests for a cold crawl, one per second. A warm one is 23: the two
+instrumentation categories, because they are the only place a new work page can appear, and the
+593 composer pages naming no identifier, because they are the only ones worth re-reading.
+Everything else tops up by page title and `--refresh` is still the only way to make it re-ask,
+which is what keeps 3.5 MB of unchanged wikitext off a volunteer-funded server. Joining the
+monthly `refresh.py` job is #61's step 4 — what is left is deciding when an IMSLP top-up is DUE,
+and that needs the shipped file that issue adds, since the pageview window cannot answer for a
+catalogue that moves on nobody's schedule.
 
 ---
 
