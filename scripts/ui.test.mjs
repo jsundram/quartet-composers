@@ -506,6 +506,21 @@ check("the lens suspends the zoom, and gives it back when it is switched off",
       `k ${kLensOn.toFixed(2)} with the lens on, ${kLensOff.toFixed(2)} with it off`);
 await rest();
 
+// ARROWS OVER THE CHECKBOX ARE STILL THE PAGE'S ARROWS. app.js's document listener steps the
+// SELECTION and bows out of anything focused that handles the key itself — `input, textarea,
+// [data-keys]` — and a checkbox matches `input` while answering to Space alone. As a fourth PILL
+// this control was a `button` and passed the arrows through; making it an input took them away
+// for as long as focus sat on it, silently, in the one component whose contract this is.
+await pin("John Verrall");
+const beforeArrow = await ev(`ROWS[selected].name`);
+await ev(`document.getElementById('lens')?.focus()`);
+await key("ArrowRight");
+const afterArrow = await ev(`selected == null ? null : ROWS[selected].name`);
+check("the arrows still step the selection with the lens checkbox focused",
+      afterArrow !== null && afterArrow !== beforeArrow,
+      `${beforeArrow} -> ${afterArrow}`);
+await rest();
+
 // THE ZOOM IS STILL ANCHORED TO THE BOX WHILE THE LENS HAS IT UNBOUND. d3 constrains every
 // transform it is handed against the extent it was last given, and resize() and goTo() hand it
 // one with no listeners attached — so `zoom.extent()` has to be called outside the "not the lens"
@@ -534,6 +549,13 @@ const anchorPlain = await anchorAfterResize(false), anchorLensed = await anchorA
 check("a resize under the lens still re-anchors the zoom to the new box",
       anchorPlain !== "null" && anchorLensed === anchorPlain,
       `${anchorPlain} without the lens, ${anchorLensed} with it`);
+// BACK TO THE BOX THE REST OF THIS FILE ASSUMES. rest() returns the app's state and not the
+// window's, so a section that resizes owes the next one its viewport back — this one finished at
+// 760x1100, where the detail panel is compact and the chart's two buttons are on the plot, and
+// the thirty checks after it went on measuring a desktop layout that was no longer being drawn.
+// Nothing went red, which is what makes it worth a sentence: they passed in the wrong place.
+await viewport(1280, 900, false);
+await relaid();
 await rest();
 
 // The URL carries it, and the link that named it a VIEW still opens the picture it named: the

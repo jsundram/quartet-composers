@@ -875,11 +875,15 @@ window.Chart = (function () {
   function applyZoomBehavior() {
     if (!svg) return;
     svg.on(".zoom", null);
-    // THE BOX IS TOLD TO d3 WHETHER OR NOT THE BEHAVIOUR IS BOUND. `constrain` runs on every
-    // transform d3 applies — including the ones goTo() and resize() apply here with no listeners
-    // attached — and it measures against the extent it was last given. Left inside the branch
-    // below, a resize or a full-screen toggle taken with the lens ON left the chart being fitted
-    // to the box it used to be in: no error, no visible cause, just the wrong frame.
+    // THE BOX IS TOLD TO d3 WHETHER OR NOT THE BEHAVIOUR IS BOUND, because the gestures are not
+    // the only thing that reads it: d3 reads `extent` again when it SCHEDULES A TRANSITION, for
+    // the centroid and the width its interpolation travels through. goTo() animates — a filter
+    // fitting, a reset — so with these setters inside the branch below, a fit taken after a resize
+    // under the lens tweened along a path computed for a box that was gone. Measured rather than
+    // reasoned: `zoom.transform` itself does NOT constrain (a transform applied against an extent
+    // ten times too small survives intact), so the frame it LANDS on is right either way, which is
+    // why fourteen resize-and-filter pairs were probed for a wrong frame and none of them found
+    // one. What was wrong was the journey, and the fix is one line rather than a caveat.
     zoom.extent([[0, 0], [w, h]]).translateExtent([[0, 0], [w, h]]);
     if (!lensOn) svg.call(zoom);
     // The node's own __zoom is synced whether the behaviour is bound or not: goTo() tweens FROM
@@ -1273,10 +1277,10 @@ window.Chart = (function () {
            // claim about this number, and reading it off the axis ticks would be reading a
            // rendering of it.
            zoomK: () => transform.k,
-           // The box d3-zoom is currently constraining against, for the suite. It is the one
-           // thing the lens can silently desynchronise — the behaviour is unbound while it is on,
-           // so nothing a gesture does can reveal a stale one — and the frame it produces differs
-           // only in the corner cases where a fit is already hard against an edge.
+           // The box d3-zoom currently holds, for the suite. It is the one thing the lens can
+           // silently desynchronise: the behaviour is unbound while the magnifier is on, so no
+           // gesture can reveal a stale one, and what a stale one costs is the PATH of the next
+           // animated fit rather than where it lands.
            zoomBox: () => (svg ? zoom.extent().apply(svg.node()) : null),
            lifeDomain: () => LIFE_DOMAIN.slice(),
            // How many of the rings the current filter derived. Nothing on the page reads it now

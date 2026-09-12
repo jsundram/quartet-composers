@@ -497,13 +497,15 @@ would not have worked.
   where it was rather than reset, so the lens magnifies whatever the reader had framed and
   unchecking hands the zoom back unchanged; `zoomed()` and `resetZoom()` therefore ask nothing
   about the lens, since the frame is still the frame. The one thing unbinding does NOT excuse is
-  telling d3 the box: `constrain` runs on every transform the module applies, including the ones
-  `resize()` and `goTo()` apply with no listeners attached, so `zoom.extent()` is called whether or
-  not the behaviour is bound. Left inside the bound branch, a resize under the lens went on fitting
-  the chart to the box it used to be in — 776x452 against a real 638x341, with nothing on screen to
-  say so. `Chart.zoomBox()` exists so the suite can assert that at the cause: the frame it produces
-  differs only where a fit is already hard against an edge, and fourteen resize-and-filter pairs
-  were probed for a visible difference without reaching one.
+  telling d3 the box, because the gestures are not the only thing that reads it: d3 reads `extent`
+  again when it SCHEDULES A TRANSITION, for the centroid and the width its interpolation travels
+  through — and `goTo()` animates. So `zoom.extent()` is called whether or not the behaviour is
+  bound; left inside the bound branch, a filter fitted after a resize under the lens tweened along
+  a path computed for a box that was gone. **Only the path**: `zoom.transform` does not constrain
+  (probed — a transform applied against an extent ten times too small survives intact), so the
+  frame it lands on was right either way, which is why fourteen resize-and-filter pairs were probed
+  for a wrong frame and none of them found one. `Chart.zoomBox()` exists so the suite can assert
+  the invariant at the cause rather than chase an artefact that only shows while it moves.
   **`baseLayout()` un-aims it**, because the
   filter fit and the ring separation are claims about the chart that outlive a pointer move.
   And **`#v=lens` still resolves** — to the timeline with `l=1`, which is the picture that link
@@ -847,7 +849,12 @@ would not have worked.
   keydown listener steps the SELECTION on left/right, and its old guard was
   `matches("input, textarea")` — so the first focusable thing that was neither had its keys stolen:
   arrowing along the sparkline changed the composer instead of the month, and the readout answered
-  about someone else. Escape is handled before the guard, because it means "back out of this"
+  about someone else. The guard has since failed the other way round too, which is the same
+  mistake inverted: `input` is a proxy for "this control handles the key", and a CHECKBOX matches
+  it while answering to Space alone — so the lens toggle, a pill until it became an input, ate both
+  arrows for as long as focus sat on it. It is `input:not([type="checkbox"])` now, which still
+  covers the search box and anything that really does step with the arrows (a range, a radio
+  group), and `ui.test.mjs` presses a key with the box focused rather than trusting the selector. Escape is handled before the guard, because it means "back out of this"
   wherever focus is. The readership brush still owes a keyboard path (TODO); when it gets one it
   needs the attribute and no edit to the listener.
 - **The sparkline is the app's one optional part, in both halves.** Its data

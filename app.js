@@ -1022,7 +1022,11 @@ async function start() {
   // two facts it named, now carried by `v` and `l` instead of by one word.
   const v = link.v === "readers" ? "fame" : link.v === "lens" ? "scatter" : link.v;
   if (v && ["fame", "scatter", "swarm"].includes(v)) setMode(v);
-  if (link.l || link.v === "lens") setLens(true);
+  // Unconditional, not `if (link.l) setLens(true)`: a browser that restores form state across a
+  // reload (Firefox does; this Chromium did not when it was probed) brings the checkbox back
+  // CHECKED over a chart with no lens on it, and `setLens`'s early return then eats the first
+  // click as well. The boot says what the link says, either way.
+  setLens(!!link.l || link.v === "lens");
   if (link.q) $("q").value = link.q;
   if (link.r) Histogram.setRange(link.r);
   if (link.g) setGender(link.g);
@@ -1109,7 +1113,13 @@ function wire() {
     // of the month, so the readout answered about someone else. [data-keys] is the contract —
     // anything that handles its own arrows marks itself, and the next one (the readership brush
     // still owes a keyboard path) needs no edit here.
-    if (ev.target.closest("input, textarea, [data-keys]")) return;
+    //
+    // A CHECKBOX IS NOT ONE OF THEM. `input` covers the search box and anything that steps with
+    // the arrows itself (a range, a radio group), but a checkbox answers to Space alone — so the
+    // lens toggle, which was a pill until it became an input, swallowed both arrows for as long as
+    // focus sat on it and did nothing with them. Bowing out of a control that handles the key is
+    // the rule; bowing out of every `input` was a proxy for it that stopped being true.
+    if (ev.target.closest('input:not([type="checkbox"]), textarea, [data-keys]')) return;
     if (ev.key === "ArrowRight") { ev.preventDefault(); step_(1); }
     if (ev.key === "ArrowLeft") { ev.preventDefault(); step_(-1); }
   });
