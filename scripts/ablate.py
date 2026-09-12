@@ -31,11 +31,11 @@ Three things about the shape, each of which is the difference between a gate and
   below maps source to suite; a source file no suite covers is reported and does not fail, which
   is honest rather than silent — see the note there.
 
-  ONE ESCAPE HATCH, SHARED WITH fix-lint.py. A `No-test:` trailer on a commit that CHANGED SOURCE
-  skips both gates and prints the stated reason. A pure refactor and a comment fix are real, and
-  the point is not to forbid them — it is to make an untested source change a sentence somebody
-  wrote on purpose and a reviewer can read, rather than a silence. On a commit that changed no
-  source it excuses nothing: see excused().
+  ONE ESCAPE HATCH, SHARED WITH fix-lint.py. A `No-test:` trailer skips both gates and prints the
+  stated reason, for the FILES its own commit touched. A pure refactor and a comment fix are real,
+  and the point is not to forbid them — it is to make an untested source change a sentence somebody
+  wrote on purpose and a reviewer can read, rather than a silence. It excuses nothing on a commit
+  that changed no source, and nothing beside the files it names: see excused().
 
 The working tree is rewritten in place and restored in a `finally`, so it REFUSES to run on a
 dirty tree: restoring means `git checkout HEAD -- <file>`, which would take uncommitted work with
@@ -179,15 +179,20 @@ def changed(base):
 
 
 def excused(base_mb):
-    """A `No-test:` trailer on a commit that CHANGED SOURCE, and the reason it gives.
+    """{source file: reason} for files whose every change in this range says there is nothing to assert.
 
-    SCOPED TO SUCH COMMITS, because the trailer is a sentence about an untested source change and it
-    used to be read anywhere in the range. A docs-only commit carrying one then disarmed both gates
-    for every source change on the branch — and this repo's own history has two of those, both
-    reading "No-test: TODO.md only", each one silently excusing the code that followed it. A commit
-    that touched no source has nothing to excuse, so its trailer is not an excuse for somebody
-    else's code: the trailer has to ride with the change it speaks for.
+    PER FILE, and only where EVERY commit that touched it carries the trailer. Two coarser rules
+    came before it and each was a hole. Honoured anywhere in the range, a docs-only commit's
+    trailer disarmed both gates for all of a branch's source — this repo did that to itself twice
+    in one sitting with commits reading "No-test: TODO.md only". Scoped to commits that change
+    source, one legitimately excused file still excused every other file beside it, which on a
+    branch that deletes some prose and rewrites a gate is most of the diff.
+
+    So a trailer speaks for the files its own commit touched, and a file edited again without one
+    is back in the gate: the second edit is the unexplained one. The reason is carried through so
+    the gate can print which file it let past and why, rather than a single branch-wide sentence.
     """
+    out = {}
     for sha in sh("git", "log", "--format=%H", f"{base_mb}..HEAD").stdout.split():
         why = None
         for line in sh("git", "log", "-1", "--format=%B", sha).stdout.splitlines():
@@ -195,12 +200,14 @@ def excused(base_mb):
             if m:
                 why = m.group(1)
                 break
-        if not why:
-            continue
-        touched = sh("git", "show", "--name-only", "--format=", sha).stdout.split("\n")
-        if any(SOURCE.match(f.strip()) for f in touched if f.strip()):
-            return why
-    return None
+        touched = [f.strip() for f in sh("git", "show", "--name-only", "--format=", sha)
+                   .stdout.split("\n") if f.strip() and SOURCE.match(f.strip())]
+        for f in touched:
+            if why is None:
+                out[f] = None          # an edit nobody excused; it outranks any trailer beside it
+            else:
+                out.setdefault(f, why)
+    return {f: why for f, why in out.items() if why}
 
 
 def only_comments(base_mb, f):
@@ -237,7 +244,7 @@ def only_a_version_bump(base_mb):
 
 
 def plan(files, base_mb=None):
-    """Which suites this branch's source changes are answerable by, and what nothing covers."""
+    """Which suites this branch's source changes are answerable by, what nothing covers, what is excused."""
     # A file the branch ADDED has no version at base, so there is nothing to revert it TO — the
     # ablated tree simply lacks the module, every suite that imports it dies on import, and the
     # verdict is INCONCLUSIVE forever. That would fire on every genuinely new module, which is
@@ -260,6 +267,10 @@ def plan(files, base_mb=None):
     # still ablated on the second.
     if base_mb:
         src = [f for f in src if not only_comments(base_mb, f)]
+    # The third exemption, and the only one that is a SENTENCE rather than a proof — so it is per
+    # file, like the other two, rather than per branch (see excused()).
+    ex = excused(base_mb) if base_mb else {}
+    src = [f for f in src if f not in ex]
     suites, uncovered = [], []
     for f in src:
         hit = next((cmds for pats, cmds in COVERS if f in pats), None)
@@ -272,7 +283,7 @@ def plan(files, base_mb=None):
             # neither table and so passed in total silence, which is the opposite of what the
             # docstring promises. UNCOVERED is documentation now; this branch is the guarantee.
             uncovered.append(f)
-    return src, suites, uncovered, added, renamed_from
+    return src, suites, uncovered, added, renamed_from, ex
 
 
 def at(ref, path):
@@ -366,9 +377,14 @@ def main():
         print(f"  ablate:\n   - {err}")
         return 2
     base_mb, files = got
-    src, suites, uncovered, added_src, renamed = plan(files, base_mb)
+    src, suites, uncovered, added_src, renamed, ex = plan(files, base_mb)
+    for f, why in ex.items():
+        print(f"   - excused by a No-test: trailer — {f}: {why}")
 
     if not src:
+        if ex:
+            print("  ablate: every source change on this branch is excused by a No-test: trailer")
+            return 0
         if added_src:
             print("  ablate: every source file this branch changed is NEW, so there is no "
                   "before-state to ablate against:")
@@ -378,10 +394,9 @@ def main():
         print("  ablate: no source changes on this branch — nothing to prove")
         return 0
 
-    why = excused(base_mb)
-    if why:
-        print(f"  ablate: skipped by a No-test: trailer — {why}")
-        return 0
+    src, suites, uncovered, added_src, renamed, ex = plan(files, base_mb)
+    for f, why in ex.items():
+        print(f"   - excused by a No-test: trailer — {f}: {why}")
 
     browser = [s.split(":", 1)[1] for s in suites if s.startswith("BROWSER:")]
     runnable = [s for s in suites if not s.startswith("BROWSER:")]

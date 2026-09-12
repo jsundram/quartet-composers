@@ -135,6 +135,19 @@ with tempfile.TemporaryDirectory() as tmp:
     case("...and moving that same trailer onto the source commit does", (code, "excused" in out),
          (0, True))
 
+    # --- fix-lint: AND IT SPEAKS FOR ITS OWN FILES ONLY -------------------------------------------
+    # One excused file used to excuse every other source file on the branch, which on a branch that
+    # deletes some prose and rewrites a module is most of the diff. A second file, edited without a
+    # trailer, is the unexplained change and the gate says so — naming that file and not the one it
+    # let past.
+    write(repo, "chart.js", "const m = 2;  // a second, unexplained change\n")
+    commit(repo, "and this")
+    code, out = run(repo, os.path.join(repo, "scripts/fix-lint.py"))
+    case("a trailer on one file does not excuse a second file beside it",
+         (code, "chart.js" in out), (1, True))
+    case("...and the excused file is named as excused, not as owing a test",
+         out.count("app.js"), 1, out.replace("\n", " ")[:70])
+
     # --- fix-lint: A TEST WAS TOUCHED ------------------------------------------------------------
     repo = new_repo(tmp)
     git(repo, "checkout", "-q", "-b", "b2")

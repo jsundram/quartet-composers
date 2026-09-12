@@ -13,7 +13,7 @@ does — what the branch changed is read from the merge base, which is the diff 
 and a stacked branch all leave alone. The pre-commit hook can never answer it: a branch's first
 commit legitimately has no test yet.
 
-The escape hatch is a `No-test: <reason>` trailer on the commit that changed source, shared with
+The escape hatch is a `No-test: <reason>` trailer on the commit that changed the file, shared with
 ablate.py so there is one sentence to write and one place to look. It is deliberately a trailer
 and not a path allowlist: a comment fix, a pure rename and a data regeneration are all real, and
 each is a judgement about THIS change that belongs in the log where a reviewer reads it. An
@@ -79,11 +79,15 @@ def main():
         return 0
 
     # ablate.excused(), imported rather than restated — the third exemption shared with the other
-    # gate, and the one that had drifted into two copies of the same regex. It is scoped to commits
-    # that changed SOURCE, so a docs-only commit's trailer no longer excuses somebody else's code.
-    why = ablate.excused(mb)
-    if why:
-        print(f"  fix-lint: no test on this branch, excused — {why}")
+    # gate, and the one that had drifted into two copies of the same regex. PER FILE: a trailer
+    # speaks for the files its own commit touched, so a docs-only commit's "No-test: TODO.md only"
+    # does not excuse somebody else's code, and one excused file does not cover the rest.
+    ex = ablate.excused(mb)
+    for f in src:
+        if f in ex:
+            print(f"  fix-lint: excused — {f}: {ex[f]}")
+    src = [f for f in src if f not in ex]
+    if not src:
         return 0
 
     print("  fix-lint:")

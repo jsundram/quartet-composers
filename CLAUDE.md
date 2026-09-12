@@ -345,10 +345,12 @@ framework, and nothing to install:
   exit, because an ablated tree can die on import while proving nothing (INCONCLUSIVE, which also
   fails). It refuses a dirty tree, because restoring means `git checkout HEAD --`. `--with-ui` adds
   the browser suite and the `gates` job passes it, so a UI branch is ablated by CI rather than told
-  its ablation is owed locally. One `No-test: <reason>` trailer skips both, so an untested source
-  change is a sentence somebody wrote on purpose and a reviewer can read, not a silence — but only on
-  a commit that CHANGED SOURCE: read anywhere in the range, a docs-only "No-test: TODO.md only"
-  disarmed both gates for every source change on the branch. `scripts/fix-lint.test.py` covers both in throwaway repos with real
+  its ablation is owed locally. A `No-test: <reason>` trailer skips them, so an untested source
+  change is a sentence somebody wrote on purpose and a reviewer can read, not a silence — and it is
+  scoped PER FILE, to the ones its own commit touched. Read anywhere in the range it was two holes at
+  once: a docs-only "No-test: TODO.md only" disarmed both gates for every source change on the
+  branch, and one legitimately excused file excused every file beside it. A file edited again with no
+  trailer is back in the gate, because the second edit is the unexplained one. `scripts/fix-lint.test.py` covers both in throwaway repos with real
   branches.
 - `scripts/audit_counts.py` and `scripts/audit_redirects.py` — not automated, and not automatable:
   the first prints parsed quartet counts beside the sentence they came from so a human can grade
