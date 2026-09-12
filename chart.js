@@ -875,10 +875,13 @@ window.Chart = (function () {
   function applyZoomBehavior() {
     if (!svg) return;
     svg.on(".zoom", null);
-    if (!lensOn) {
-      zoom.extent([[0, 0], [w, h]]).translateExtent([[0, 0], [w, h]]);
-      svg.call(zoom);
-    }
+    // THE BOX IS TOLD TO d3 WHETHER OR NOT THE BEHAVIOUR IS BOUND. `constrain` runs on every
+    // transform d3 applies — including the ones goTo() and resize() apply here with no listeners
+    // attached — and it measures against the extent it was last given. Left inside the branch
+    // below, a resize or a full-screen toggle taken with the lens ON left the chart being fitted
+    // to the box it used to be in: no error, no visible cause, just the wrong frame.
+    zoom.extent([[0, 0], [w, h]]).translateExtent([[0, 0], [w, h]]);
+    if (!lensOn) svg.call(zoom);
     // The node's own __zoom is synced whether the behaviour is bound or not: goTo() tweens FROM
     // it, so a frame fitted to a filter while the lens was on would otherwise animate from a
     // transform nothing has drawn since.
@@ -1270,6 +1273,11 @@ window.Chart = (function () {
            // claim about this number, and reading it off the axis ticks would be reading a
            // rendering of it.
            zoomK: () => transform.k,
+           // The box d3-zoom is currently constraining against, for the suite. It is the one
+           // thing the lens can silently desynchronise — the behaviour is unbound while it is on,
+           // so nothing a gesture does can reveal a stale one — and the frame it produces differs
+           // only in the corner cases where a fit is already hard against an edge.
+           zoomBox: () => (svg ? zoom.extent().apply(svg.node()) : null),
            lifeDomain: () => LIFE_DOMAIN.slice(),
            // How many of the rings the current filter derived. Nothing on the page reads it now
            // that the legend has stopped captioning the ring; the suite asks it to tell a derived
