@@ -425,6 +425,15 @@ with tempfile.TemporaryDirectory() as tmp:
     import ablate as _ab
     _mapped = [f for files, _cmds in _ab.COVERS for f in files]
     _inert = sorted(f for f in _mapped if not _ab.SOURCE.match(f) and not _ab.TESTS.match(f))
+    # And the IMSLP join specifically. The property case above cannot go red for the branch that
+    # introduces the mistake — COVERS and SOURCE both live in ablate.py, so reverting the source
+    # reverts both halves and the property holds again. It guards the tree AT REST, where adding
+    # to COVERS and forgetting SOURCE is exactly what happened; this one guards the branch.
+    case("the IMSLP join is reachable by the gate that claims to cover it",
+         [bool(_ab.SOURCE.match(f)) and any(f in files for files, _c in _ab.COVERS)
+          for f in ("scripts/build_imslp.py", "scripts/fetch_imslp.py")], [True, True],
+         "SOURCE must match a file for plan() to route it to its COVERS suite")
+
     case("every file COVERS maps is one plan() can actually see", _inert, [],
          "plan() reads SOURCE, so an unmatched COVERS name is coverage that cannot fire"
          + (f" — {_inert}" if _inert else ""))
