@@ -253,8 +253,8 @@ window.Chart = (function () {
   }
 
   // THE RING FOLLOWS THE FILTER: "stands out from the crowd it is drawn in" is what it always meant,
-  // and it was frozen to one crowd (#7). The budget is deliberately the SIZE of OUTLIERS — keep those
-  // in step, or a filter gets more emphasis than the resting view has.
+  // and it was frozen to one crowd (#7). The budget IS the size of OUTLIERS, so "Men" derives nothing
+  // and "Women" derives the lot.
   function applyRepertoire() {
     canonIdx = resolve(repertoire.names);
     canonSet = new Set(canonIdx);
@@ -263,7 +263,10 @@ window.Chart = (function () {
     emphSet = new Set(emphOrder);
   }
 
-  const RINGS = 3;
+  // DERIVED, not a literal: the budget has to equal the curated set's size, or a filter carries more
+  // emphasis than the resting view (fewer names here) or less (more). Two independent constants asked
+  // a reader to keep them in step; this cannot drift.
+  const RINGS = OUTLIERS.length;
   // A ring means "stands out from the crowd", so it needs a crowd: below this the filtered group IS the
   // picture and ringing the budget would point at almost everything.
   const MIN_FIELD = 20;

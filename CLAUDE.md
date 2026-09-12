@@ -633,9 +633,9 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   resting unfiltered Fame view, where the budget is pinned to the seed so the view says exactly what
   it is about — also the state `make-og-svg.py` draws (invariant 14).
 - **The ring follows the filter by RANKING; the fill follows it by TASTE.** That is #7's answer, and
-  the two halves are deliberately different mechanisms. `refreshEmphasis()` keeps a ring budget the
-  size of `OUTLIERS` — keep those two in step — filled first by the curated outliers the filter kept
-  and then by `prom`, the same seed-then-rank shape the label budget has.
+  the two halves are deliberately different mechanisms. `refreshEmphasis()` keeps a ring budget
+  DERIVED from `OUTLIERS` (`RINGS = OUTLIERS.length`, so the two cannot drift), filled first by the
+  curated outliers the filter kept and then by `prom`, the same seed-then-rank shape the labels have.
   So the resting view and the share card are what they were, "Men" changes nothing, and "Women"
   derives all three. Below `MIN_FIELD` visible dots nothing is derived: a ring means "stands out
   from the crowd it is drawn in", and two Haydns are not a crowd. Every channel that follows
