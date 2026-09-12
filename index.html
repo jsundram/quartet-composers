@@ -111,7 +111,7 @@
            row rose 52px into the finger that had just pressed it — 150px at 1280 for the swarm.
            That is the same double-tap trap the full-screen strip's fixed height and .compact's
            reserved box answer elsewhere, arriving through the layout instead of through a panel.
-           It used to sit below the plot, and the reason was real: four pills and three buttons are
+           It used to sit below the plot, and the reason was real: the pills and the buttons are
            82px on a phone, which is 82px of the first screen spent before a single dot. The fix
            costs exactly that (294 of the plot's 321px above the fold instead of all 321) and it is
            the cheaper half of the trade — the picture is honestly a different shape per view, so
@@ -126,8 +126,20 @@
                   title="Quartets written against monthly readers">Fame</button>
           <button type="button" id="m-scatter" data-mode="scatter" aria-pressed="false">Timeline</button>
           <button type="button" id="m-swarm"   data-mode="swarm"   aria-pressed="false">Swarm</button>
-          <button type="button" id="m-lens"    data-mode="lens"    aria-pressed="false">Lens</button>
         </div>
+        <!-- The magnifier, and the one control here that is not a view. It was a fourth pill, and
+             as a view it differed from Timeline in exactly two things: the fisheye, and having no
+             zoom — so a reader who wanted the magnifier over the Fame cloud, which is the most
+             crowded of the three, could not have it, and the switcher claimed four pictures where
+             there are three. A CHECKBOX rather than a fourth pill or a `.btn` with aria-pressed:
+             it is an overlay you leave on, not a picture you switch to, and the box is the one
+             control shape that says so without a word of copy. It carries the accessible state
+             itself, so nothing here has to be kept in sync by hand.
+             Switching it moves no box — the plot's height is a function of the VIEW (chart.js's
+             measure()), and the lens is not one — so it is safe in this row under the rule the
+             comment above states: nothing a finger rests on may be placed by a box the same press
+             resizes. -->
+        <label id="lens-t" class="btn"><input type="checkbox" id="lens"><span>Lens</span></label>
         <button type="button" id="reset" class="btn" disabled>Reset zoom</button>
         <!-- All THREE filters, search included, because the name is plural and a typed query is a
              filter: a button sitting lit while a search is active and then not clearing it would be
