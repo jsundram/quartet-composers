@@ -540,7 +540,24 @@ const seedLabels = await namedDots();
 await ev(`(()=>{const b=document.getElementById('lens'); if (b && !b.checked) b.click()})()`);
 await laidOut();
 const checkedLabels = await namedDots();
-const lensAimed = await aim();
+// The dot to aim AT, read while the lens is on but not yet aimed — so these are the positions the
+// warp starts from. A dot at the focus is the one thing the fisheye does not move (`makeLens`
+// returns it untouched at dd === 0), so aiming at its resting centre puts it exactly under the
+// pointer; aiming at where a warped dot APPEARS re-centres the lens and moves it out from under
+// you, which is what the first attempt at this check did — it named a neighbour.
+const underGlass = await ev(`(()=>{
+  const s=document.querySelector('#plot svg'), b=s.getBoundingClientRect();
+  const c=[...s.querySelectorAll('circle.dot')].filter(e=>e.getAttribute('display') !== 'none');
+  if (!c.length) return null;
+  const mid={x:b.x+b.width*0.55, y:b.y+b.height*0.72};   // the crowded corner this section is about
+  const near=c.map(e=>{const r=e.getBoundingClientRect();
+      const x=r.x+r.width/2, y=r.y+r.height/2;
+      return {e, x, y, d:Math.hypot(x-mid.x, y-mid.y)}}).sort((p,q)=>p.d-q.d)[0];
+  return JSON.stringify({name:d3.select(near.e).datum().name,
+                         x:Math.round(near.x), y:Math.round(near.y)})})()`);
+const dotUnder = underGlass && JSON.parse(underGlass);
+if (dotUnder) await mouse("mouseMoved", dotUnder.x, dotUnder.y);
+const lensAimed = await settle(`document.querySelector('#plot svg circle.lens-edge')?.style.display === ''`);
 const aimedLabels = await namedDots();
 check("an aimed lens leaves the resting view saying exactly what it says",
       lensAimed && seedLabels === seedCount && checkedLabels === seedLabels
@@ -548,10 +565,36 @@ check("an aimed lens leaves the resting view saying exactly what it says",
       `${seedLabels} names at rest, ${checkedLabels} with the box checked, ${aimedLabels} aimed`);
 // The other half: the crowd it opens is identified by the flag that follows the pointer, which
 // also proves the hit test reads the WARPED positions rather than the ones underneath.
+await settle(`document.getElementById('flag').classList.contains('on')`);
 const flagUnderLens = await ev(`(()=>{const f=document.getElementById('flag');
   return f.classList.contains('on') ? f.textContent.trim() : null})()`);
 check("...because the dot under the glass is named by the flag instead",
-      flagUnderLens !== null && flagUnderLens.length > 1, `flag reads ${JSON.stringify(flagUnderLens)}`);
+      !!dotUnder && flagUnderLens !== null && flagUnderLens.startsWith(dotUnder.name),
+      `aimed at ${dotUnder ? dotUnder.name : "no dot"}, flag reads ${JSON.stringify(flagUnderLens)}`);
+await rest();
+
+// A FIT IN FLIGHT SURVIVES THE TOGGLE. `zoom.transform` INTERRUPTS any transition on the node —
+// that is d3's own contract, not an accident — so a sync applied while a filter's 420ms fit is
+// still flying cancels it and leaves the chart frozen at whatever partial transform the tween had
+// reached, with Reset zoom lit over a frame nobody asked for. setMode() and resize() assign a new
+// transform before they sync, so theirs is a real move; the lens changes nothing about the frame,
+// which makes its sync a no-op whose only effect was the interrupt. Both presses go in ONE
+// evaluation so the toggle lands inside the tween rather than near it.
+await rest();
+await ev(`document.querySelector('#gender button[data-g="female"]').click()`);
+await idle();
+const fitAlone = await ev(`Chart.zoomK().toFixed(3)`);
+await rest();
+await ev(`(()=>{document.querySelector('#gender button[data-g="female"]').click();
+  document.getElementById('lens')?.click()})()`);
+await idle();
+await settle(`Chart.zoomK().toFixed(3) === ${JSON.stringify(fitAlone)}`, 1500);
+const fitToggled = await ev(`Chart.zoomK().toFixed(3)`);
+const resetLit = await ev(`!document.getElementById('reset').disabled`);
+check("checking the lens mid-fit does not cancel the fit",
+      fitAlone !== "1.000" && fitToggled === fitAlone && !resetLit,
+      `k ${fitAlone} fitting alone, ${fitToggled} with the lens checked mid-tween` +
+      `${resetLit ? ", and Reset zoom is lit over it" : ""}`);
 await rest();
 
 // AND THE KEYBOARD RING SURVIVES AN ENGINE WITHOUT `:has()`. The pill wears the ring because
@@ -2629,9 +2672,10 @@ check("on a desktop they are words in the controls row again",
           && document.querySelector('#share .btn-t').offsetParent !== null})()`),
       "parent = " + await ev(`document.getElementById('chart-tools').parentNode.className`));
 
-// 1140 is the FIRST width that draws the words, and the reason the breakpoint is not the 1056 the
-// row actually wraps at: share() swaps the label to "Link copied", which is wider than "Share" and
-// wraps the row up to 1122. A row that wraps on the PRESS drops the plot 44px under the cursor that
+// 1140 is the FIRST width that draws the words, and the reason the breakpoint is not 1086, where
+// the row fits them AT REST: share() swaps the label to "Link copied", which is wider than "Share"
+// and pushes the edge out 36px, to 1122. (The low band pays the same 36: 772 at rest, 808 with the
+// swap.) A row that wraps on the PRESS drops the plot 44px under the cursor that
 // just pressed it — the rule the chart's controls already follow one row down (see index.html).
 // Measured at the boundary, because that is the only width where a few pixels of drift show up.
 // Both numbers moved when the lens became a checkbox in this row, which is the whole reason they
@@ -2664,8 +2708,8 @@ check("the words are back in the row below the grid's own breakpoint, and stay o
       `row ${bandRest}px at rest, ${bandCopied}px showing "${bandTxt}"`);
 
 // FULL SCREEN HAS NO GRID, so the squeezed interval does not apply there. `body.fs .grid` is
-// display:block — the card is the window, and the row fits both words from 762px where the
-// two-column card does not until 1092. Without the carve-out a 1000px window in full screen spent
+// display:block — the card is the window, and the row fits both words from 794px where the
+// two-column card does not until 1122. Without the carve-out a 1000px window in full screen spent
 // the 48px band on a row that would have held them, and it costs more there than at rest: #plot is
 // flex:1, so the band comes off a chart that is already the whole viewport.
 await viewport(1000, 800, false);

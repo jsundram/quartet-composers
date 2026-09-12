@@ -517,6 +517,12 @@ would not have worked.
   frame it lands on was right either way, which is why fourteen resize-and-filter pairs were probed
   for a wrong frame and none of them found one. `Chart.zoomBox()` exists so the suite can assert
   the invariant at the cause rather than chase an artefact that only shows while it moves.
+  **What `zoom.transform` DOES do is interrupt**, which is its contract and not an accident — so
+  the `__zoom` sync beside those setters runs only when it would change something. `setMode()` and
+  `resize()` assign a new transform before they get there and still sync; `setLens()` changes
+  nothing about the frame, so its sync was a no-op whose only effect was to cancel a transition —
+  check the box inside a filter's 420ms fit and the chart stopped dead at k=1 with Reset zoom lit
+  over a frame nobody asked for. A no-op that interrupts is not a no-op.
   **`baseLayout()` un-aims it**, because the
   filter fit and the ring separation are claims about the chart that outlive a pointer move.
   **And `resize()` drops the aim outright**, for the reason `setMode()` does: it is a point in a box
