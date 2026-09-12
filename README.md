@@ -195,7 +195,7 @@ python3 scripts/prose-lint.test.py # its fold counter, and that every stated cou
 python3 scripts/ui-test.test.py # the runner's per-checkout ports, so two runs on one machine
                              #   do not kill each other, and it stops rather than driving a
                              #   stranger's server or browser — no browser needed (13 cases)
-python3 scripts/fix-lint.test.py # the two branch gates below, on throwaway repos (44 cases)
+python3 scripts/fix-lint.test.py # the two branch gates below, on throwaway repos (45 cases)
 
 # The branch gates. They compare a branch against what it will merge into, so they need a base ref
 # and run on pull requests in CI; by hand, point them at main.

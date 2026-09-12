@@ -3,12 +3,13 @@
 # /// script
 # requires-python = ">=3.9"
 # ///
-"""Prove the four pure judgements in scripts/build_imslp.py, offline.
+"""Prove the judgements in scripts/build_imslp.py, offline.
 
     python3 scripts/imslp.test.py
 
-NO NETWORK: `template_fields`, `parse_person`, `candidates` and `confirms` read strings, so the
-whole file runs in CI beside the other suites.
+NO NETWORK. Everything under test reads strings — the wikitext readers, the catalogue parse, the
+work counting and the date confirmation — so the whole file runs in CI beside the other suites.
+One case reads data/people.json for a QID, which is a cached file and not a request.
 
 WHY IT EXISTS. Every defect this join has had was a WRONG PARSE that looked like a missing row,
 and a missing row on a 884-composer page looks like nothing at all. The first reader used a

@@ -93,7 +93,13 @@ def get(api, params):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": UA})
             with urllib.request.urlopen(req, timeout=60) as r:
-                return json.loads(r.read().decode("utf-8"))
+                data = json.loads(r.read().decode("utf-8"))
+            # A MediaWiki error is a 200 carrying valid JSON, and a reply with no `query` block
+            # answered nothing. Both have to look like failures here or the retry ladder never
+            # fires and the caller reads "no such page" out of a hiccup.
+            if "error" in data or "query" not in data:
+                raise ValueError("no query block: %s" % json.dumps(data)[:200])
+            return data
         # Broad on purpose. A truncated chunked response arrives as http.client.IncompleteRead,
         # which is neither a URLError nor a ValueError, so a narrow tuple let one dropped reply
         # end a 165-request crawl with a traceback and no cache file written.
@@ -121,6 +127,36 @@ def members(cat):
         if not cont:
             return out
         time.sleep(PAUSE)
+
+
+def reported(d, prefix=""):
+    """-> ({title: wikitext}, {every title the reply accounted for}).
+
+    The second half is the point. Writing `got.get(title)` for each title in the BATCH records
+    None — "this page does not exist" — for a title the wiki never mentioned, and `todo` filters
+    on presence, so one malformed reply retires up to 50 composers until the next --refresh.
+    MediaWiki names every requested title, `missing` for the ones that are not there, so a title
+    absent from the reply has not been asked and must stay that way. Invariant 4 states the same
+    rule for page views: a title that did not ANSWER is dropped rather than written.
+    """
+    q = d.get("query", {})
+    got, seen = {}, set()
+    for pg in q.get("pages", {}).values():
+        title = pg.get("title", "")
+        if prefix and not title.startswith(prefix):
+            continue
+        key = title[len(prefix):]
+        seen.add(key)
+        revs = pg.get("revisions")
+        if revs:
+            got[key] = revs[0]["*"]
+    for norm in q.get("normalized", []):
+        f, t = norm["from"][len(prefix):], norm["to"][len(prefix):]
+        if t in seen:
+            seen.add(f)
+            if t in got:
+                got[f] = got[t]
+    return got, seen
 
 
 def chunks(seq, n):
@@ -259,7 +295,9 @@ def fetch_wp(cache):
                     break
                 cur = alias[cur]
             pg = pages.get(cur)
-            cache["wp"][t] = None if not pg or "missing" in pg else {
+            if pg is None:
+                continue                        # not mentioned in the reply: still un-asked
+            cache["wp"][t] = None if "missing" in pg else {
                 "title": pg["title"],
                 "qid": pg.get("pageprops", {}).get("wikibase_item"),
             }
@@ -326,18 +364,10 @@ def fetch_candidates(cache):
     for batch in chunks(todo, BATCH):
         d = get(IMSLP_API, {"action": "query", "prop": "revisions", "rvprop": "content",
                             "titles": "|".join("Category:" + c for c in batch)})
-        q = d.get("query", {})
-        got = {}
-        for pg in q.get("pages", {}).values():
-            revs = pg.get("revisions")
-            if revs:
-                got[pg["title"][len("Category:"):]] = revs[0]["*"]
-        for norm in q.get("normalized", []):
-            f_, t_ = norm["from"][len("Category:"):], norm["to"][len("Category:"):]
-            if t_ in got:
-                got[f_] = got[t_]
+        got, seen = reported(d, prefix="Category:")
         for c in batch:
-            cache["candidates"][c] = got.get(c)      # None: no such category on IMSLP
+            if c in seen:
+                cache["candidates"][c] = got.get(c)
         save(cache)
         print(f"\r  candidates: {len(cache['candidates'])}/{len(want)}", end="", file=sys.stderr)
         time.sleep(PAUSE)
@@ -396,8 +426,14 @@ def main():
 
     cache = {"works": {}, "markers": {}, "wikitext": {}, "wp": {},
              "p839": {}, "candidates": {}, "workinfo": {}}
+    KEEP = set(cache) | {"categories"}
     if os.path.exists(OUT) and not a.refresh:
-        cache.update(json.load(open(OUT, encoding="utf-8")))
+        loaded = json.load(open(OUT, encoding="utf-8"))
+        # Only keys something still writes. `composers` held a PARSE — 1,771 entries of the first,
+        # broken reader, dates null for every one of them — and update() preserved it through
+        # every save after the parse moved to build_imslp.py. A stale answer nothing reads is a
+        # trap for whoever opens the cache next.
+        cache.update({k: v for k, v in loaded.items() if k in KEEP})
         for k in ("works", "markers", "wikitext", "wp", "p839", "candidates",
                   "workinfo"):
             cache.setdefault(k, {})
