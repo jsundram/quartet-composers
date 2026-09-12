@@ -514,11 +514,14 @@ await rest();
 await pin("John Verrall");
 const beforeArrow = await ev(`ROWS[selected].name`);
 await ev(`document.getElementById('lens')?.focus()`);
+// The premise, asserted rather than assumed — the same half-a-check 4m4 was missing. Without it
+// this passes on a page with no checkbox to focus, where the arrows were never in danger.
+const focused = await ev(`document.activeElement?.id === 'lens'`);
 await key("ArrowRight");
 const afterArrow = await ev(`selected == null ? null : ROWS[selected].name`);
 check("the arrows still step the selection with the lens checkbox focused",
-      afterArrow !== null && afterArrow !== beforeArrow,
-      `${beforeArrow} -> ${afterArrow}`);
+      focused && afterArrow !== null && afterArrow !== beforeArrow,
+      `focus on the box: ${focused}, ${beforeArrow} -> ${afterArrow}`);
 await rest();
 
 // THE ZOOM IS STILL ANCHORED TO THE BOX WHILE THE LENS HAS IT UNBOUND. d3 constrains every
