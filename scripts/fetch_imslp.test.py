@@ -28,6 +28,7 @@ crawl is ~165 requests, and the reason the fix is "always re-crawl" rather than 
 monthly" is that re-asking everything would download 3.5 MB of wikitext that has not changed. A
 case that only proved re-asking would be satisfied by --refresh.
 """
+import gzip
 import importlib.util
 import io
 import json
@@ -208,15 +209,21 @@ class replies:
     the whole process, so leaving it patched would reach the next case.
     """
 
-    def __init__(self, fi, payload):
+    def __init__(self, fi, payload, encoding=None):
         self.n, self.payload = 0, payload
+        self.headers = {"Content-Encoding": encoding} if encoding else {}
         self.real = fi.urllib.request.urlopen
         self.fi = fi
-        fi.urllib.request.urlopen = lambda req, timeout=None: self
+        self.req = None
+        def opened(req, timeout=None):
+            self.req = req      # so a case can assert what was ASKED for
+            return self
+        fi.urllib.request.urlopen = opened
 
     def read(self):
         self.n += 1
-        return json.dumps(self.payload).encode("utf-8")
+        body = json.dumps(self.payload).encode("utf-8")
+        return gzip.compress(body) if self.headers.get("Content-Encoding") == "gzip" else body
 
     def __enter__(self):
         return self
@@ -381,7 +388,7 @@ def identified_is_not_reasked(fi, w):
         "change nothing reads, against a volunteer-funded server." % read(w))
 
 
-@case("a warm run asks for the three kinds of absence and nothing else")
+@case("a warm run asks for the absences and nothing else")
 def warm_run_is_cheap(fi, w):
     # The budget half, and it is not decoration: re-asking everything is what --refresh is for,
     # and it costs 3.5 MB of unchanged wikitext against a volunteer-funded server. What a warm run
@@ -445,6 +452,70 @@ def candidate_absence_is_reasked(fi, w):
         % (cache["candidates"]["Barber, Samuel"],))
 
 
+@case("a Wikipedia article IMSLP names but does not exist is asked again")
+def wp_absence_is_reasked(fi, w):
+    # The fourth absence, and the one that decides whether the second can ever finish its job:
+    # 204 composer pages are re-downloaded every month precisely BECAUSE their only link resolved
+    # to nothing, so leaving the call that could change that answer un-rerun makes the re-ask
+    # above unable to conclude anything. "Gubaidulina, Sofia" is the live shape — IMSLP names an
+    # article that does not exist, and a redirect created since is all it would take.
+    w.pages["Category:Beach, Amy Marcy"] = BEACH + "{{wp|Amy Marcy Beach}}\n"
+    cache, _log = run(fi)
+    assert cache["wp"]["Amy Marcy Beach"] is None, (
+        "the fixture's article resolved after all: %r" % (cache["wp"]["Amy Marcy Beach"],))
+    w.wp["Amy Marcy Beach"] = "Q235066"               # a redirect created since
+    w.asked.clear()
+    cache, _log = run(fi)
+    assert "Amy Marcy Beach" in resolved(w), (
+        "a title that resolved to nothing was never asked again: %r" % resolved(w))
+    assert (cache["wp"]["Amy Marcy Beach"] or {}).get("qid") == "Q235066", (
+        "the redirect created since was not followed: %r" % (cache["wp"]["Amy Marcy Beach"],))
+    assert BEACH_Q in cache["workinfo"], (
+        "resolving the title placed her but nothing downstream followed")
+
+
+@case("a guessed page that exists but yields no key is asked again")
+def candidate_without_key_is_reasked(fi, w):
+    # The same rule fetch_composers uses, because these are the same kind of page — 7 in the
+    # shipped cache exist and state nothing joinable, and build_imslp joins on this rung
+    # (`cand-qid`), so a volunteer adding {{Wikidata|Q…}} to one is exactly what it is for.
+    # Re-asking only the guesses that came back EMPTY would miss every one of them.
+    roster(fi, **{"Samuel Barber": {"canonical": "Samuel Barber", "qid": "Q234151"}})
+    w.pages["Category:Barber, Samuel"] = "{{#fte:person\n|Born Year=1910\n}}\n"
+    cache, _log = run(fi)
+    assert cache["candidates"]["Barber, Samuel"], (
+        "the fixture's guessed page was not found: %r" % (cache["candidates"]["Barber, Samuel"],))
+    w.pages["Category:Barber, Samuel"] += "{{Wikidata|Q234151}}\n"
+    w.asked.clear()
+    cache, _log = run(fi)
+    assert "Category:Barber, Samuel" in read(w), (
+        "a guessed page stating nothing joinable was never re-read: %r. It is the same page "
+        "fetch_composers re-asks; only the pass that found it differs." % read(w))
+    assert "Q234151" in (cache["candidates"]["Barber, Samuel"] or ""), (
+        "the claim added since was not stored: %r" % (cache["candidates"]["Barber, Samuel"],))
+
+
+@case("the request asks for gzip, and a gzipped reply is decoded")
+def gzip_round_trip(fi, w):
+    # urllib does not ask for it, and one pass here is enormous without it: wbgetentities has no
+    # per-property filter, so asking 50 items for their P839 returns their complete claim sets —
+    # 24.6 MB for the 485 the monthly run re-asks, against 4.0 MB compressed. Both halves are
+    # asserted, because asking without decoding is a crash and decoding without asking is a
+    # header nobody sends.
+    fi.TRIES = 1
+    reads = replies(fi, {"query": {"pages": {}}}, encoding="gzip")
+    try:
+        d = fi._get(fi.IMSLP_API, {"action": "query", "titles": "X"})
+    except (ValueError, OSError) as e:
+        raise AssertionError("a gzipped reply was not decoded: %s" % e)
+    finally:
+        reads.restore()
+    assert d == {"query": {"pages": {}}}, "the decoded reply was not returned: %r" % (d,)
+    assert reads.req.get_header("Accept-encoding") == "gzip", (
+        "the request never asked for compression, so a server that offers it will not: %r"
+        % (dict(reads.req.headers),))
+
+
 @case("a continuation token in the modern shape is followed")
 def follows_both_continuations(fi, w):
     # IMSLP answers like MediaWiki 1.18 today and pages with `query-continue`; every version since
@@ -476,6 +547,9 @@ def short_crawl_is_refused(fi, w):
         run(fi)
     except ValueError as e:
         assert "NOT replaced" in str(e), "the refusal does not say what it did: %s" % e
+        assert "delete this category's entry" in str(e), (
+            "the refusal offers no way through proportionate to the problem: %s. --refresh alone "
+            "means re-asking everything to accept one category that legitimately shrank." % e)
     else:
         raise AssertionError(
             "a listing 80% of its cached size was written. The loss this guard is named for is "
