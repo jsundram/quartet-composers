@@ -66,6 +66,18 @@ GENDER_QID = re.compile(r"^Q\d+$")
 # Widening this means adding a pill in index.html AND the value to app.js's readHash whitelist.
 FILTERABLE = ("female", "male")
 
+# THE STATISTIC WINDOW. Readership is the median of the last TWELVE monthly counts, and nothing else
+# here can see that change: `STAT_MONTHS = 12` -> `18` in build_data.py rebuilds cleanly, both
+# shipped files stay internally consistent, check_history still agrees with itself, check_drift's
+# threshold is for wrong-article joins — and every dot on the chart moves, because a wider window
+# averages a 2016 readership into a 2026 picture. Three artifacts state the window and all three
+# have to agree with this number: composers.json's `views_months` axis, readership.json's
+# `stat_months`, and the `views_stat` PROSE the provenance line prints to a reader.
+#
+# Typed here rather than imported from build_data.py on purpose: a check that reads its expectation
+# out of the code under test can only ever agree with itself.
+STAT_WINDOW = 12
+
 
 def err(msg):
     ERRORS.append(msg)
@@ -304,6 +316,15 @@ def check_history(rows, meta, hist, pv):
     if stat and months[-len(stat):] != stat:
         err("readership.json ends %s but composers.json's statistic window ends %s — the two were "
             "built from different fetches" % (months[-1], stat[-1]))
+    if stat and len(stat) != STAT_WINDOW:
+        err("composers.json's statistic window is %d months, not %d — widening it resizes every dot "
+            "on the chart and nothing else here would notice" % (len(stat), STAT_WINDOW))
+    said = (hist.get("meta") or {}).get("stat_months")
+    if said is not None and said != STAT_WINDOW:
+        err("readership.json states a %s-month statistic window, not %d" % (said, STAT_WINDOW))
+    if str(STAT_WINDOW) not in (meta.get("views_stat") or ""):
+        err("composers.json's views_stat reads %r, which does not state the %d-month window the "
+            "provenance line prints it as" % (meta.get("views_stat"), STAT_WINDOW))
     if pv and pv.get("months") and pv["months"] != months:
         err("readership.json covers %d months, data/pageviews.json caches %d — rebuild"
             % (len(months), len(pv["months"])))

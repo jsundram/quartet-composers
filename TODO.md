@@ -395,9 +395,12 @@ section. What is still owed, in the order it is worth doing:
 - ~~The fold has no behavioural check~~ — done, 2026-09-11, with the prose-lint deletion below.
   `ui.test.mjs` asks `Table.matches('lutoslawski')` for Lutosławski and asserts a padded query
   matches the same rows as a bare one.
-- **Nothing pins the statistic window.** `STAT_MONTHS` 12 → 18 rebuilds, resizes every dot, and
-  passes everything; `check_drift`'s 20x threshold is for wrong-article joins and will not see it.
-  One line in `validate.py`: the shipped window is twelve months.
+- ~~Nothing pins the statistic window~~ — done, 2026-09-12. `STAT_WINDOW` in `validate.py` holds
+  the three artifacts that state it to twelve: the `views_months` axis, `readership.json`'s
+  `stat_months`, and the `views_stat` prose the provenance line PRINTS, which is the one a reader
+  can see. Two cases in `validate.test.py`, both red without it — one widens the window to 18 and
+  rebuilds every median so the dataset is internally consistent, which is exactly what the
+  one-character edit to `STAT_MONTHS` ships.
 - ~~`names.js` has no suite~~ — done, 2026-09-12. `scripts/names.test.mjs` loads the module under a
   `window` stub and covers the last-word rule, both display forms, the floor-and-margin award, and
   three properties of the SHIPPED roster (no two composers share a chart label or a filed name; the

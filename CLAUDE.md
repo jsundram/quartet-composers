@@ -116,7 +116,11 @@ commit" — and the docs spent a 300-line lint keeping such numbers honest inste
    twelve strictly, since a null is dropped and a composer whose article moved inside the window
    has one fewer (invariant 15). Not however many months
    `data/pageviews.json` happens to cache. Widening that window would resize every dot on the chart
-   and bake a 2016 readership into a 2026 picture.
+   and bake a 2016 readership into a 2026 picture — and it rebuilds CLEANLY, both files internally
+   consistent, so `validate.py`'s `STAT_WINDOW` pins it in all three places that state it: the
+   `views_months` axis, `readership.json`'s `stat_months`, and the `views_stat` prose the provenance
+   line prints to a reader. Typed there rather than imported from `build_data.py`, or the check could
+   only agree with the code it is checking.
    Any one month runs ~12% off typical, so the detail panel states two significant figures floored
    plus a "+" (`twoSig`/`atLeast` in `app.js`), formatted through `Histogram.fmt` so the brush
    readout and the panel agree. A new place that prints a view count almost certainly wants

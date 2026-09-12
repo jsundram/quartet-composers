@@ -198,6 +198,28 @@ def unsettled_month(d):
         v[-1] = None
 
 
+@case("the statistic window widened, and every file agreed with the new one", "not 12")
+def wider_window(d):
+    # `STAT_MONTHS = 12` -> `18` in build_data.py is a one-character edit that rebuilds CLEANLY:
+    # this is what it ships. Both files stay internally consistent, check_history recomputes each
+    # median from the same series and agrees, and every dot on the chart has changed size because a
+    # 2016 readership is now averaged into a 2026 picture. Nothing but the pin can see it.
+    import statistics
+    W = 18
+    d["composers"]["meta"]["views_months"] = d["history"]["months"][-W:]
+    for r in d["composers"]["rows"]:
+        vals = [v for v in (d["history"]["series"].get(r[0]) or [])[-W:] if v is not None]
+        if vals:
+            r[4], r[5], r[6] = int(statistics.median(vals)), min(vals), max(vals)
+
+
+@case("the window stayed twelve and the provenance line stopped saying so", "views_stat")
+def unstated_window(d):
+    # views_stat is PRINTED: "Readership is the median of up to 12 monthly counts...". A reader
+    # cannot check the window any other way, so the string is held to the same number as the data.
+    d["composers"]["meta"]["views_stat"] = "median"
+
+
 @case("a rename that only landed in one file", "name nobody in composers.json")
 def history_rename(d):
     ser = d["history"]["series"]
