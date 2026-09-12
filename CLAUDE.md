@@ -507,6 +507,12 @@ would not have worked.
   tree without anything here keeping it in sync. Switching it re-lays out nothing (the plot's box
   is a function of the MODE), which is what makes it safe in a row above the plot at all: see the
   next entry for the rule it would otherwise break, and `ui.test.mjs` 4m4 for the check.
+  One detail the eye finds before any of that: the box is centred on the WORD and not on the word's
+  line box. `align-items:center` centres boxes, and "Lens" has no descender, so the line box runs
+  2.3px past the ink it draws and the checkbox hung 1px low. That is the chart glyphs' optical rule
+  on a control a tenth their size, and it is defended the same way — the suite probes the real
+  baseline and reads the font's own ascent and descent, so the constant in `styles.css` is never
+  what the check compares against.
 
 - **The chart's controls sit ABOVE the plot, because the plot's height is a function of the VIEW.**
   `measure()` in `chart.js` gives each mode its own aspect ratio (0.98 for Fame against 0.82 for

@@ -133,7 +133,15 @@ body.fs #filters .tablehead{ display:none }
    of the same idea, and it leaves the fill meaning one thing.
    `accent-color` is what paints the tick, so the check follows the theme with nothing baked. */
 #lens-t{ gap:7px; padding-right:14px }
-#lens-t input{ accent-color:var(--accent); width:14px; height:14px; margin:0; cursor:pointer }
+/* CENTRED ON THE WORD, not on the word's line box. `align-items:center` centres boxes, and a line
+   box is not what a reader sees: "Lens" has no descender, so its ink ends at the baseline while the
+   box it sits in runs a further 2.3px down for one. Centring against that hung the checkbox 1px
+   low — small, and the first thing the eye finds on a control this size, which is the same optical
+   rule the chart's glyphs follow against the axis title. The suite measures it off the FONT's own
+   ascent and descent against a baseline probe, not against this 1px, so a face with a different
+   ratio fails here instead of drifting. */
+#lens-t input{ accent-color:var(--accent); width:14px; height:14px; margin:0; cursor:pointer;
+               position:relative; top:-1px }
 #lens-t:has(input:checked){ color:var(--ink); border-color:var(--accent) }
 /* The ring goes round the PILL, not round a 14px box inside it: :focus-visible lands on the input,
    which is the small half of a control whose hit area is the whole label. */
