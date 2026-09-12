@@ -1195,8 +1195,11 @@ Two things found while writing it that are defects in what already exists, not p
 - **~~`fetch_works()` skips the category crawl when the cache has it, so a monthly run would never
   discover a new work page.~~** — done, 2026-09-12 (#62). The crawl always runs now and prints
   what it found; `fetch_composers()` re-asks the pages naming neither a QID nor an article, which
-  yield no key — no QID, and no article that resolves — because they are the only ones a
-  volunteer could rescue. A warm run is 27 requests, measured against the shipped cache. `scripts/fetch_imslp.test.py` is what keeps it that way — the defect was a
+  yield no key — no QID, and no article that resolves — and so do the two passes that answer
+  PRESENCE rather than content: a P839 Wikidata does not state and a guessed category with no
+  page behind it are absences an editor can turn into answers, and a cache that never re-asks
+  them has #62's defect one pass over. A warm run is 47 requests, measured against the shipped
+  cache. `scripts/fetch_imslp.test.py` is what keeps it that way — the defect was a
   property of the request SEQUENCE and nothing that reads the cache can see it. Two things the
   re-asking made reachable came out with it: `fetch_composers()` overwriting a page we hold with
   None when a reply failed to mention it, and `get()` demanding a `query` block of a
@@ -1223,9 +1226,10 @@ already fought over (issue 29). The standalone file costs none of that and is th
 somebody wants the coverage numbers *while looking at the chart* — at which point the answer is
 probably the detail panel and a table column, not a second page.
 
-**Cost of a refresh.** ~165 requests for a cold crawl, one per second. A warm one is 27: the two
-instrumentation categories, because they are the only place a new work page can appear, and the
-797 composer pages that yield no key, because they are the only ones worth re-reading.
+**Cost of a refresh.** ~165 requests for a cold crawl, one per second. A warm one is 47: the two
+instrumentation categories, because they are the only place a new work page can appear, and every
+ABSENCE — the 797 composer pages that yield no key, the 485 roster QIDs stating no P839, the 470
+guesses with no page behind them.
 Everything else tops up by page title and `--refresh` is still the only way to make it re-ask,
 which is what keeps 3.5 MB of unchanged wikitext off a volunteer-funded server. Joining the
 monthly `refresh.py` job is #61's step 4 — what is left is deciding when an IMSLP top-up is DUE,

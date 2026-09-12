@@ -8,12 +8,15 @@
     python3 scripts/fetch_imslp.py --refresh  # ignore the cache and re-ask for everything
 
 Four passes over two APIs, ~165 requests for a COLD crawl, all cached in data/imslp.json so a
-rebuild is offline. A WARM run re-asks two things and only two: the instrumentation categories,
-because they are the only place a new work page can appear, and the composer pages that name no
-identifier, because they are the only ones a volunteer could have rescued since. Everything else
-tops up by page title and --refresh is the only way to make it re-ask. That is what makes a
-monthly run possible — the earlier rule, "nothing is refetched once it is in the cache", meant a
-second run reported `cached: orig (4215)` and discovered nothing, forever, while exiting 0 (#62).
+rebuild is offline. A WARM run costs 47 and re-asks exactly two kinds of thing: the
+instrumentation categories, because they are the only place a new work page can appear, and every
+ABSENCE — a composer page yielding no key, a P839 claim Wikidata does not state, a guessed
+category with no page behind it. Those are the answers a volunteer or a Wikidata editor changes,
+and a cache that never re-asks them cannot tell "nothing to do" from "nothing exists". Everything
+else tops up by page title and --refresh is the only way to make it re-ask, which is what keeps
+3.5 MB of unchanged wikitext off a volunteer-funded server. That is what makes a monthly run
+possible — the earlier rule, "nothing is refetched once it is in the cache", meant a second run
+reported `cached: orig (4215)` and discovered nothing, forever, while exiting 0 (#62).
 
 WHAT COUNTS AS A QUARTET IS IMSLP'S OWN ANSWER, not a title match. IMSLP categorises every work
 by scoring, and "Category:For 2 violins, viola, cello" IS the string quartet. Reading titles
@@ -89,10 +92,14 @@ BACKOFF = [2, 5, 15, 40]
 
 TITLE = re.compile(r"^(.*) \(([^()]*)\)$")
 # How much of a cached listing a re-crawl has to bring back before it is allowed to replace it.
-# A backstop, not a threshold anybody tuned: a curated category twenty years in the making does
-# not halve in a month, so nothing real is near it, and what it catches is a walk that ended
-# early and came back looking like an answer.
-MIN_KEEP = 0.5
+# It is TIGHT because the failure it catches is not usually a big loss. A walk that stops
+# following the continuation returns one batch, and one batch is `cmlimit` pages whatever the
+# category holds: 500 of `orig`'s 4,215 is 12% and would trip anything, but 500 of `arr`'s 722 is
+# 69% and sailed straight through the 0.5 this started at — 222 arrangement pages retired in
+# silence by the guard written to stop exactly that. So the question it asks is "did this come
+# back whole", not "did this survive", and a curated category twenty years in the making does not
+# lose a tenth of itself in a month. --refresh is the way through if IMSLP ever does gut one.
+MIN_KEEP = 0.9
 
 
 def get(api, params):
@@ -228,10 +235,10 @@ def fetch_works(cache):
         now = {w["id"] for w in rows}
         if was and len(now) < MIN_KEEP * len(was):
             raise ValueError(
-                "%s came back with %d pages against %d cached. A category does not lose that "
-                "much in a month, so this is a walk that ended early looking like an answer — "
-                "the listing was NOT replaced. Check the continuation shape in members(), then "
-                "--refresh if the loss is real." % (cat, len(now), len(was)))
+                "%s came back with %d pages against %d cached. A category does not lose a tenth "
+                "of itself in a month, so this is a walk that ended early looking like an "
+                "answer — the listing was NOT replaced. Check the continuation shape in "
+                "members(), then --refresh if the loss is real." % (cat, len(now), len(was)))
         cache["works"][key] = rows
         # What the run DISCOVERED, which is the whole reason this pass re-runs. A warm run that
         # prints (0 new, 0 gone) has asked and been told nothing changed; the line it replaced
@@ -248,6 +255,7 @@ def fetch_markers(cache):
             for k in ("orig", "arr") for w in cache["works"][k] if w["composer"]]
     todo = [t for t in want if t not in cache["markers"]]
     print(f"  markers: {len(want)} works, {len(todo)} to ask", file=sys.stderr)
+    done = 0
     for i, batch in enumerate(chunks(todo, BATCH)):
         d = get(IMSLP_API, {"action": "query", "prop": "categories",
                             "titles": "|".join(batch),
@@ -272,7 +280,8 @@ def fetch_markers(cache):
                 cache["markers"][t] = got[t]
         if i % 10 == 9:
             save(cache)
-        print(f"\r  markers: {len(cache['markers'])}/{len(want)}", end="", file=sys.stderr)
+        done += len(batch)
+        print(f"\r  markers: {done}/{len(todo)} asked", end="", file=sys.stderr)
         time.sleep(PAUSE)
     print(file=sys.stderr)
     save(cache)
@@ -359,6 +368,7 @@ def fetch_wp(cache):
     todo = [t for t in titles if t not in cache["wp"]]
     print(f"  wikipedia: {len(titles)} articles named by IMSLP, {len(todo)} to resolve",
           file=sys.stderr)
+    done = 0
     for batch in chunks(todo, BATCH):
         d = get(WIKI_API, {"action": "query", "titles": "|".join(batch), "redirects": "1",
                            "prop": "pageprops", "ppprop": "wikibase_item"})
@@ -383,7 +393,8 @@ def fetch_wp(cache):
                 "qid": pg.get("pageprops", {}).get("wikibase_item"),
             }
         save(cache)
-        print(f"\r  wikipedia: {len(cache['wp'])}/{len(titles)}", end="", file=sys.stderr)
+        done += len(batch)
+        print(f"\r  wikipedia: {done}/{len(todo)} asked", end="", file=sys.stderr)
         time.sleep(PAUSE)
     print(file=sys.stderr)
 
@@ -391,11 +402,20 @@ def fetch_wp(cache):
 def fetch_p839(cache):
     """The reverse pointer, from Wikidata, for OUR roster. It is the only thing that can tell a
     roster composer IMSLP holds but has no quartets by from one IMSLP has never heard of — the
-    works crawl above can only ever see the composers who have a quartet."""
+    works crawl above can only ever see the composers who have a quartet.
+
+    NO CLAIM IS RE-ASKED, because this pass answers PRESENCE and absence is the answer that can
+    change. 485 of the 884 roster QIDs are stored as None — Wikidata states no P839 for them —
+    and a `None` nobody re-asks is #62's own defect one pass over: an editor adding the claim
+    would never be noticed, and the composer would read as "not on IMSLP" forever. It costs ~10
+    requests. A claim we HOLD is not re-asked: it is an identifier, not a fact that ages."""
     people = json.load(open(PEOPLE, encoding="utf-8"))
     qids = sorted({v["qid"] for v in people.values() if v.get("qid")})
-    todo = [q for q in qids if q not in cache["p839"]]
-    print(f"  P839: {len(qids)} roster QIDs, {len(todo)} to ask", file=sys.stderr)
+    todo = [q for q in qids if not cache["p839"].get(q)]
+    new = sum(1 for q in todo if q not in cache["p839"])
+    print(f"  P839: {len(qids)} roster QIDs, {len(todo)} to ask "
+          f"({new} new, {len(todo) - new} still stating none)", file=sys.stderr)
+    done = 0
     for batch in chunks(todo, BATCH):
         d = get(WD_API, {"action": "wbgetentities", "ids": "|".join(batch), "props": "claims"})
         for qid, e in d.get("entities", {}).items():
@@ -405,7 +425,8 @@ def fetch_p839(cache):
             # An IMSLP ID is stored with underscores; the API and our titles use spaces.
             cache["p839"][qid] = [v.replace("_", " ") for v in vals] or None
         save(cache)
-        print(f"\r  P839: {len(cache['p839'])}/{len(qids)}", end="", file=sys.stderr)
+        done += len(batch)
+        print(f"\r  P839: {done}/{len(todo)} asked", end="", file=sys.stderr)
         time.sleep(PAUSE)
     print(file=sys.stderr)
 
@@ -439,14 +460,20 @@ def fetch_candidates(cache):
             continue
         want += candidates(QUALIFIER.sub("", v.get("canonical") or listed))
     want = sorted(set(want))
-    # Re-derived every run, so a composer who stops being placed is guessed at again — but a guess
-    # already ANSWERED is not re-asked, and that is a decision rather than the oversight #62 was
-    # about. What it would buy is the composer with no quartets whose IMSLP page appeared since,
-    # and the count is 0 for them either way: a new quartet page reaches the works crawl above,
-    # which is where a number comes from.
-    todo = [c for c in want if c not in cache["candidates"]]
+    # A GUESS THAT CAME BACK EMPTY IS RE-ASKED. `want` is re-derived every run, so a composer
+    # rescued above drops out of it — but the 470 guesses stored as None are "IMSLP has no page
+    # by this name", and that is the one answer here that a volunteer changes. Leaving them was
+    # #62's defect in the pass whose entire purpose is making "not on IMSLP" an ANSWER, and it is
+    # not covered by the works crawl: a composer with no quartets is invisible to it by
+    # construction, which is the sentence at the top of this docstring. ~10 requests. A guess that
+    # FOUND a page is not re-asked — fetch_wp reads it from here and the wikitext is not a fact
+    # that ages.
+    todo = [c for c in want if cache["candidates"].get(c) is None]
+    new = sum(1 for c in todo if c not in cache["candidates"])
     print(f"  candidates: {len(want)} guesses for the composers nothing found, "
-          f"{len(todo)} to ask", file=sys.stderr)
+          f"{len(todo)} to ask ({new} new, {len(todo) - new} still naming no page)",
+          file=sys.stderr)
+    done = 0
     for batch in chunks(todo, BATCH):
         d = get(IMSLP_API, {"action": "query", "prop": "revisions", "rvprop": "content",
                             "titles": "|".join("Category:" + c for c in batch)})
@@ -455,7 +482,8 @@ def fetch_candidates(cache):
             if c in seen:
                 cache["candidates"][c] = got.get(c)
         save(cache)
-        print(f"\r  candidates: {len(cache['candidates'])}/{len(want)}", end="", file=sys.stderr)
+        done += len(batch)
+        print(f"\r  candidates: {done}/{len(todo)} asked", end="", file=sys.stderr)
         time.sleep(PAUSE)
     print(file=sys.stderr)
 
@@ -475,6 +503,7 @@ def fetch_workinfo(cache, titles):
     """
     todo = [t for t in titles if t not in cache["workinfo"]]
     print(f"  work info: {len(titles)} attributable pages, {len(todo)} to ask", file=sys.stderr)
+    done = 0
     for batch in chunks(todo, BATCH):
         d = get(IMSLP_API, {"action": "query", "prop": "revisions", "rvprop": "content",
                             "titles": "|".join(batch)})
@@ -493,7 +522,8 @@ def fetch_workinfo(cache, titles):
             if t in got:
                 cache["workinfo"][t] = got[t]
         save(cache)
-        print(f"\r  work info: {len(cache['workinfo'])}/{len(titles)}", end="", file=sys.stderr)
+        done += len(batch)
+        print(f"\r  work info: {done}/{len(todo)} asked", end="", file=sys.stderr)
         time.sleep(PAUSE)
     print(file=sys.stderr)
 

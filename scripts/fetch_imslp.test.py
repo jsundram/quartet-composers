@@ -148,6 +148,14 @@ def wiki(orig=(BEETHOVEN_Q1, BEACH_Q), arr=()):
         p839={"Q255": ["Beethoven,_Ludwig_van"]})     # underscores, the way Wikidata stores it
 
 
+def roster(fi, **extra):
+    """Rewrite the people file for this run. A case needing a composer with NO quartets adds one
+    here: the works crawl cannot see them by construction, which is the whole reason the candidate
+    pass exists."""
+    with open(fi.PEOPLE, "w", encoding="utf-8") as f:
+        json.dump(dict(PEOPLE, **extra), f)
+
+
 def load(tmp, w):
     """A fresh copy of the module, pointed at a temp cache, with the network stubbed.
 
@@ -172,8 +180,14 @@ def load(tmp, w):
     return fi
 
 
-def run(fi, w=None, argv=()):
-    """Run main() and return (the cache it wrote, what it printed). Clears the request log after."""
+def run(fi, argv=()):
+    """Run main() and return (the cache it wrote, what it printed).
+
+    It does NOT clear the request log — a case that wants one run's requests clears it itself,
+    before the run it is asking about. Said here because the sentence that used to be here
+    claimed the opposite, and a case written trusting it would read two runs' requests as one and
+    pass without asserting anything.
+    """
     argv_, out_, err_ = sys.argv, sys.stdout, sys.stderr
     sys.argv = ["fetch_imslp.py"] + list(argv)
     buf = io.StringIO()
@@ -235,6 +249,11 @@ def resolved(w):
             for t in p["titles"].split("|")]
 
 
+def entities(w):
+    """The QID batches asked of Wikidata."""
+    return [p["ids"] for _api, p in w.asked if p.get("action") == "wbgetentities"]
+
+
 def titles(cache, key="orig"):
     return {w["title"] + " (" + w["composer"] + ")" for w in cache["works"][key]}
 
@@ -243,9 +262,9 @@ def titles(cache, key="orig"):
 
 @case("a warm run asks the category again")
 def recrawls(fi, w):
-    run(fi, w)
+    run(fi)
     w.asked.clear()
-    _cache, log = run(fi, w)
+    _cache, log = run(fi)
     assert crawled(w) == [fi.ORIG, fi.ARR], (
         "a second run listed %r. The crawl is the only pass that can see a page nothing else "
         "knows the title of, so skipping it makes a monthly run a guaranteed no-op." % crawled(w))
@@ -254,10 +273,10 @@ def recrawls(fi, w):
 
 @case("a work page that appeared between runs reaches every pass downstream of the crawl")
 def discovers_new_page(fi, w):
-    run(fi, w)
+    run(fi)
     w.cats[fi.ORIG].append(BEETHOVEN_Q2)              # somebody uploaded a score this month
     w.asked.clear()
-    cache, _log = run(fi, w)
+    cache, _log = run(fi)
     assert BEETHOVEN_Q2 in titles(cache), (
         "the new page never entered the listing: %r" % sorted(titles(cache)))
     assert BEETHOVEN_Q2 in cache["markers"], "no markers were fetched for the new page"
@@ -276,9 +295,9 @@ def drops_removed_page(fi, w):
     for t in bulk:
         w.pages[t] = "|Work Title=%s\n" % t
     w.cats[fi.ORIG] += bulk
-    run(fi, w)
+    run(fi)
     w.cats[fi.ORIG].remove(BEACH_Q)                   # recategorised: it was never a quartet
-    cache, _log = run(fi, w)
+    cache, _log = run(fi)
     assert BEACH_Q not in titles(cache), (
         "the listing merged instead of replacing: %r. The category is the live answer to what is "
         "in it, and a page that is out of it is not a quartet any more." % sorted(titles(cache)))
@@ -289,7 +308,7 @@ def drops_removed_page(fi, w):
 
 @case("a crawl that fails leaves the cached listing alone")
 def failed_crawl_keeps_listing(fi, w):
-    run(fi, w)
+    run(fi)
     good = w.get
 
     def broken(api, params):
@@ -299,7 +318,7 @@ def failed_crawl_keeps_listing(fi, w):
 
     fi.get = broken
     try:
-        run(fi, w)
+        run(fi)
     except OSError:
         pass
     else:
@@ -314,7 +333,7 @@ def failed_crawl_keeps_listing(fi, w):
 
 @case("a composer page naming no identifier is asked again, and a link added since is followed")
 def rescues_unidentified(fi, w):
-    cache, _log = run(fi, w)
+    cache, _log = run(fi)
     assert cache["wikitext"]["Beach, Amy Marcy"] == BEACH, (
         "the fixture did not cache the unidentified page: %r"
         % (cache["wikitext"].get("Beach, Amy Marcy"),))
@@ -323,7 +342,7 @@ def rescues_unidentified(fi, w):
         "testing what the next assertion thinks it is")
     w.pages["Category:Beach, Amy Marcy"] = BEACH_LINKED
     w.asked.clear()
-    cache, _log = run(fi, w)
+    cache, _log = run(fi)
     assert "Category:Beach, Amy Marcy" in read(w), (
         "a page stating no QID and no article was never re-read: %r. It is the only shape a "
         "volunteer can rescue, and no other pass looks at it." % read(w))
@@ -342,11 +361,11 @@ def interwiki_is_not_a_key(fi, w):
     # all — and reading the mere PRESENCE of a wp value as an identifier shut the one group that
     # needed asking out of the re-ask permanently.
     w.pages["Category:Beach, Amy Marcy"] = BEACH + "{{wp|de:Amy Beach}}\n"
-    cache, _log = run(fi, w)
+    cache, _log = run(fi)
     assert cache["wp"]["de:Amy Beach"] is None, (
         "the fixture's interwiki link resolved after all: %r" % (cache["wp"]["de:Amy Beach"],))
     w.asked.clear()
-    run(fi, w)
+    run(fi)
     assert "Category:Beach, Amy Marcy" in read(w), (
         "a page whose only link resolves to nothing was treated as joined: %r. Naming an article "
         "is not having a key, and nothing else will ever look at that page again." % read(w))
@@ -354,27 +373,76 @@ def interwiki_is_not_a_key(fi, w):
 
 @case("a composer page already stating an identifier is never asked again")
 def identified_is_not_reasked(fi, w):
-    run(fi, w)
+    run(fi)
     w.asked.clear()
-    run(fi, w)
+    run(fi)
     assert "Category:Beethoven, Ludwig van" not in read(w), (
         "a page joined by QID was re-downloaded: %r. That is 1.1 MB of wikitext for a spelling "
         "change nothing reads, against a volunteer-funded server." % read(w))
 
 
-@case("a warm run with nothing new asks for nothing but the categories and the unplaced")
+@case("a warm run asks for the three kinds of absence and nothing else")
 def warm_run_is_cheap(fi, w):
-    run(fi, w)
+    # The budget half, and it is not decoration: re-asking everything is what --refresh is for,
+    # and it costs 3.5 MB of unchanged wikitext against a volunteer-funded server. What a warm run
+    # may ask for is the categories, because that is where a new page appears, and the three
+    # absences that a volunteer or a Wikidata editor can turn into answers.
+    run(fi)
     w.asked.clear()
-    run(fi, w)
+    run(fi)
     assert crawled(w) == [fi.ORIG, fi.ARR], (
         "the categories were not both listed: %r" % crawled(w))
-    assert read(w) == ["Category:Beach, Amy Marcy"], (
-        "a run that discovered nothing still asked for content: %r" % read(w))
+    assert read(w) == ["Category:Beach, Amy Marcy",      # yields no key
+                       "Category:Beach, Amy"], (        # a guess that found no page
+        "a warm run asked for content it already holds, or stopped asking for an absence: %r"
+        % read(w))
+    assert entities(w) == ["Q235066"], (
+        "P839 was re-asked for a QID already stating a claim, or stopped re-asking one stating "
+        "none: %r" % entities(w))
     assert not marked(w) and not resolved(w), (
         "markers or Wikipedia titles were re-resolved: %r / %r" % (marked(w), resolved(w)))
-    assert not [p for _a, p in w.asked if p.get("action") == "wbgetentities"], (
-        "P839 was re-asked for QIDs already on record")
+
+
+@case("a P839 claim Wikidata did not state is asked again")
+def p839_absence_is_reasked(fi, w):
+    # This pass answers PRESENCE — it is the only thing that can tell a composer IMSLP holds with
+    # no quartets from one IMSLP has never heard of. 485 of the 884 roster QIDs are stored as
+    # None, and a None nobody re-asks is #62 one pass over: the editor who adds the claim is never
+    # noticed and the composer reads as absent forever.
+    cache, _log = run(fi)
+    assert cache["p839"]["Q235066"] is None, (
+        "the fixture already had a claim for her: %r" % (cache["p839"]["Q235066"],))
+    w.p839["Q235066"] = ["Beach, Amy Marcy"]
+    w.asked.clear()
+    cache, _log = run(fi)
+    assert cache["p839"]["Q235066"] == ["Beach, Amy Marcy"], (
+        "a claim added since the last run was never asked for: %r"
+        % (cache["p839"]["Q235066"],))
+    assert entities(w) == ["Q235066"], (
+        "the QIDs already stating a claim were re-asked as well: %r" % entities(w))
+    assert BEACH_Q in cache["workinfo"], (
+        "the new identifier placed her but nothing downstream followed: her quartet page is "
+        "attributable now and its catalogue fields are what make a count possible")
+
+
+@case("a candidate guess that found no page is asked again")
+def candidate_absence_is_reasked(fi, w):
+    # The composer with no quartets is invisible to the works crawl BY CONSTRUCTION, so this is
+    # the only pass that can ever place them — and its answer for 470 of 528 guesses is "IMSLP has
+    # no page by this name", which is exactly the answer a volunteer changes.
+    roster(fi, **{"Samuel Barber": {"canonical": "Samuel Barber", "qid": "Q234151"}})
+    cache, _log = run(fi)
+    assert cache["candidates"]["Barber, Samuel"] is None, (
+        "the fixture already had a page for him: %r" % (cache["candidates"]["Barber, Samuel"],))
+    w.pages["Category:Barber, Samuel"] = "{{#fte:person\n|Born Year=1910\n}}\n{{Wikidata|Q234151}}\n"
+    w.asked.clear()
+    cache, _log = run(fi)
+    assert "Category:Barber, Samuel" in read(w), (
+        "a guess that came back empty was never asked again: %r. Nothing else looks for a "
+        "composer with no quartets, so 'not on IMSLP' would be permanent." % read(w))
+    assert cache["candidates"]["Barber, Samuel"], (
+        "the page that appeared at the guessed title was not stored: %r"
+        % (cache["candidates"]["Barber, Samuel"],))
 
 
 @case("a continuation token in the modern shape is followed")
@@ -384,7 +452,7 @@ def follows_both_continuations(fi, w):
     # first page — no error, no exception — and since the crawl REPLACES the listing, that is the
     # one failure here that writes a wrong answer rather than none.
     w.cont, w.page = "continue", 1
-    cache, _log = run(fi, w)
+    cache, _log = run(fi)
     assert titles(cache) == {BEETHOVEN_Q1, BEACH_Q}, (
         "the walk stopped at the first page of the listing: %r. It ends without raising, so the "
         "only symptom is a category that came back 12%% of its real size." % sorted(titles(cache)))
@@ -401,15 +469,18 @@ def short_crawl_is_refused(fi, w):
     for t in bulk:
         w.pages[t] = "|Work Title=%s\n" % t
     w.cats[fi.ORIG] += bulk
-    cache, _log = run(fi, w)
+    cache, _log = run(fi)
     assert len(cache["works"]["orig"]) == 10, "the fixture did not cache ten pages"
-    w.cats[fi.ORIG] = [BEETHOVEN_Q1]                  # the walk comes back with one of ten
+    w.cats[fi.ORIG] = w.cats[fi.ORIG][:8]             # the walk comes back with eight of ten
     try:
-        run(fi, w)
+        run(fi)
     except ValueError as e:
         assert "NOT replaced" in str(e), "the refusal does not say what it did: %s" % e
     else:
-        raise AssertionError("a listing that lost nine tenths of its pages was written anyway")
+        raise AssertionError(
+            "a listing 80% of its cached size was written. The loss this guard is named for is "
+            "not usually a big one: a walk that stops following the continuation returns ONE "
+            "batch, and one batch is 500 pages whatever the category holds — 69% of `arr`.")
     with open(fi.OUT, encoding="utf-8") as f:
         cache = json.load(f)
     assert len(cache["works"]["orig"]) == 10, (
@@ -419,7 +490,7 @@ def short_crawl_is_refused(fi, w):
 
 @case("a reply that does not mention a composer does not blank the text already cached")
 def unmentioned_is_not_blanked(fi, w):
-    run(fi, w)
+    run(fi)
     good = w.get
 
     def drops_beach(api, params):
@@ -430,7 +501,7 @@ def unmentioned_is_not_blanked(fi, w):
         return d
 
     fi.get = drops_beach
-    cache, _log = run(fi, w)
+    cache, _log = run(fi)
     assert cache["wikitext"]["Beach, Amy Marcy"] == BEACH, (
         "a malformed reply overwrote a page we hold with None: %r. Re-asking is what makes this "
         "reachable — before it, the worst a missing title cost was a composer never asked for."
