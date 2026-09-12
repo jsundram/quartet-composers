@@ -7,8 +7,13 @@
     python3 scripts/fetch_imslp.py            # writes data/imslp.json
     python3 scripts/fetch_imslp.py --refresh  # ignore the cache and re-ask for everything
 
-Four passes over two APIs, ~165 requests in total, all cached in data/imslp.json so a rebuild is
-offline. Nothing here is refetched once it is in the cache; --refresh is the only way to re-ask.
+Four passes over two APIs, ~165 requests for a COLD crawl, all cached in data/imslp.json so a
+rebuild is offline. A WARM run re-asks two things and only two: the instrumentation categories,
+because they are the only place a new work page can appear, and the composer pages that name no
+identifier, because they are the only ones a volunteer could have rescued since. Everything else
+tops up by page title and --refresh is the only way to make it re-ask. That is what makes a
+monthly run possible — the earlier rule, "nothing is refetched once it is in the cache", meant a
+second run reported `cached: orig (4215)` and discovered nothing, forever, while exiting 0 (#62).
 
 WHAT COUNTS AS A QUARTET IS IMSLP'S OWN ANSWER, not a title match. IMSLP categorises every work
 by scoring, and "Category:For 2 violins, viola, cello" IS the string quartet. Reading titles
@@ -94,11 +99,17 @@ def get(api, params):
             req = urllib.request.Request(url, headers={"User-Agent": UA})
             with urllib.request.urlopen(req, timeout=60) as r:
                 data = json.loads(r.read().decode("utf-8"))
-            # A MediaWiki error is a 200 carrying valid JSON, and a reply with no `query` block
+            # A MediaWiki error is a 200 carrying valid JSON, and a reply with no payload block
             # answered nothing. Both have to look like failures here or the retry ladder never
-            # fires and the caller reads "no such page" out of a hiccup.
-            if "error" in data or "query" not in data:
-                raise ValueError("no query block: %s" % json.dumps(data)[:200])
+            # fires and the caller reads "no such page" out of a hiccup. WHICH block is named by
+            # the action: wbgetentities answers with `entities` and carries no `query` at all, so
+            # demanding `query` of every reply turned the P839 pass into five retries and a
+            # traceback. It has never fired, because that cache was already full when the guard
+            # was written and `todo` has been empty on every run since — a monthly run would have
+            # met it the first time the roster gained a composer.
+            block = "entities" if params.get("action") == "wbgetentities" else "query"
+            if "error" in data or block not in data:
+                raise ValueError("no %s block: %s" % (block, json.dumps(data)[:200]))
             return data
         # Broad on purpose. A truncated chunked response arrives as http.client.IncompleteRead,
         # which is neither a URLError nor a ValueError, so a narrow tuple let one dropped reply
@@ -166,11 +177,26 @@ def chunks(seq, n):
 
 
 def fetch_works(cache):
-    """The two instrumentation categories, kept apart. Composer key parsed off the title."""
+    """The two instrumentation categories, kept apart. Composer key parsed off the title.
+
+    ALWAYS RE-CRAWLED, warm cache or not. This is the only pass that DISCOVERS — every other one
+    is keyed by page title and tops up correctly, so none of them can see a page this never
+    listed. Returning early on a cached listing made a second run print `cached: orig (4215)` and
+    stop, which is a "nothing to do" indistinguishable from "nothing exists": a monthly run would
+    have found nothing new forever and reported success doing it (#62). It is also the cheapest
+    pass here, ~12 requests against the ~165 a cold crawl costs.
+
+    The listing REPLACES rather than merges, because the category is the live answer to what is in
+    it. The caches below are keyed by title and keep their entry for a page that left, which is
+    right: nothing downstream reads a page the listing no longer names, and re-asking for it after
+    it comes back would be a request for an answer already on disk.
+
+    Nothing is written unless the whole crawl finished — members() raises after its retry ladder
+    rather than returning a short list, or one dropped reply would retire every page it had not
+    reached yet.
+    """
     for key, cat in (("orig", ORIG), ("arr", ARR)):
-        if cache["works"].get(key):
-            print(f"  cached: {key} ({len(cache['works'][key])})", file=sys.stderr)
-            continue
+        was = {w["id"] for w in cache["works"].get(key) or []}
         rows = []
         for m in members(cat):
             hit = TITLE.match(m["title"])
@@ -182,6 +208,12 @@ def fetch_works(cache):
                 continue
             rows.append({"id": m["pageid"], "title": hit.group(1), "composer": hit.group(2)})
         cache["works"][key] = rows
+        now = {w["id"] for w in rows}
+        # What the run DISCOVERED, which is the whole reason this pass re-runs. A warm run that
+        # prints (0 new, 0 gone) has asked and been told nothing changed; the line it replaced
+        # said "cached" and meant nobody asked.
+        print(f"  {key}: {len(rows)} pages ({len(now - was)} new, {len(was - now)} gone)",
+              file=sys.stderr)
         save(cache)
         time.sleep(PAUSE)
 
@@ -230,27 +262,39 @@ def fetch_composers(cache):
     Wikipedia article — and the first parser written for it read none of them correctly. Storing
     the parse would have meant re-asking IMSLP for 1,700 pages every time the reader improved;
     storing the text means the join is a pure function of a file on disk, which is the same split
-    the rest of this pipeline draws between fetching and building."""
+    the rest of this pipeline draws between fetching and building.
+
+    THE ONE PASS THAT RE-ASKS, and only for the pages with nothing to say. A page already stating
+    {{Wikidata|Q…}} or a Wikipedia article is joined by that identifier and re-downloading it
+    monthly buys a spelling change nothing reads. A page stating NEITHER is exactly what a
+    volunteer adding either would rescue, and no other pass can find out — the works crawl lists
+    the page whether or not it has grown a link. So those are asked again on every run, which is
+    ~12 requests (#62). A category page that does not exist counts as one of them: one that was
+    missing last month may exist now."""
+    sys.path.insert(0, HERE)
+    from build_imslp import parse_person
     want = sorted({w["composer"] for k in ("orig", "arr")
                    for w in cache["works"][k] if w["composer"]})
-    todo = [c for c in want if c not in cache["wikitext"]]
-    print(f"  composers: {len(want)} with quartets, {len(todo)} to ask", file=sys.stderr)
+
+    def identified(c):
+        f = parse_person(cache["wikitext"][c]) or {}
+        return bool(f.get("qid") or f.get("wp"))
+
+    todo = [c for c in want if c not in cache["wikitext"] or not identified(c)]
+    new = sum(1 for c in todo if c not in cache["wikitext"])
+    print(f"  composers: {len(want)} with quartets, {len(todo)} to ask "
+          f"({new} new, {len(todo) - new} still naming no identifier)", file=sys.stderr)
     for batch in chunks(todo, BATCH):
         d = get(IMSLP_API, {"action": "query", "prop": "revisions", "rvprop": "content",
                             "titles": "|".join("Category:" + c for c in batch)})
-        pages = d.get("query", {}).get("pages", {})
-        got = {}
-        for p in pages.values():
-            revs = p.get("revisions")
-            if not revs:
-                continue
-            got[p["title"][len("Category:"):]] = revs[0]["*"]
-        for norm in d.get("query", {}).get("normalized", []):
-            f, t = norm["from"][len("Category:"):], norm["to"][len("Category:"):]
-            if t in got:
-                got[f] = got[t]
+        # reported(), not got.get(c), now that this pass RE-asks: a title the reply never
+        # accounted for used to be written as None, and overwriting a page we already hold with
+        # "this page does not exist" loses the identity claim it was making. Unasked has to stay
+        # unasked — the rule reported() states, and the one invariant 4 states for page views.
+        got, seen = reported(d, prefix="Category:")
         for c in batch:
-            cache["wikitext"][c] = got.get(c)    # None: the category page does not exist
+            if c in seen:
+                cache["wikitext"][c] = got.get(c)   # None: the category page does not exist
         save(cache)
         print(f"\r  composers: {len(cache['wikitext'])}/{len(want)}", end="", file=sys.stderr)
         time.sleep(PAUSE)
@@ -358,6 +402,11 @@ def fetch_candidates(cache):
             continue
         want += candidates(QUALIFIER.sub("", v.get("canonical") or listed))
     want = sorted(set(want))
+    # Re-derived every run, so a composer who stops being placed is guessed at again — but a guess
+    # already ANSWERED is not re-asked, and that is a decision rather than the oversight #62 was
+    # about. What it would buy is the composer with no quartets whose IMSLP page appeared since,
+    # and the count is 0 for them either way: a new quartet page reaches the works crawl above,
+    # which is where a number comes from.
     todo = [c for c in want if c not in cache["candidates"]]
     print(f"  candidates: {len(want)} guesses for the composers nothing found, "
           f"{len(todo)} to ask", file=sys.stderr)

@@ -92,6 +92,10 @@ jobs:
       # The IMSLP join's judgements. No network; one case reads data/people.json for a QID.
       - name: the IMSLP catalogue parse (scripts/imslp.test.py)
         run: python3 scripts/imslp.test.py
+      # The crawl's request sequence, against a dict-shaped wiki. Offline, and the only thing that
+      # can see a warm run quietly discovering nothing.
+      - name: the IMSLP crawl's top-up (scripts/fetch_imslp.test.py)
+        run: python3 scripts/fetch_imslp.test.py
 
   # The branch gates. A separate job so its failure reads as "this branch is unproven" rather than
   # as a broken service worker, and because both steps want the full history the sw job also asks

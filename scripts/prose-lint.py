@@ -125,6 +125,8 @@ def live():
             r"^- ", read("CLAUDE.md").split("## Testing", 1)[1].split("\n## ", 1)[0], re.M)),
         "fetch_views_cases": cases("scripts/fetch_views.test.py"),
         "pagemoves_cases": cases("scripts/pagemoves.test.py"),
+        "imslp_cases": cases("scripts/imslp.test.py"),
+        "fetch_imslp_cases": cases("scripts/fetch_imslp.test.py"),
         "validate_cases": cases("scripts/validate.test.py"),
         # No loops in that file, so the literal call count IS the case count. fix-lint.test.py is
         # NOT counted this way even though its literal count happens to be exact today: its cases
@@ -164,6 +166,13 @@ CLAIMS = [
      "fetch_views.test.py's cases"),
     ("README.md", "pagemoves_cases", r"pagemoves\.test\.py.*?\((\d+) cases\)",
      "pagemoves.test.py's cases"),
+    # Anchored to `scripts/imslp.test.py` rather than to `imslp\.test\.py`, which the line for
+    # fetch_imslp.test.py also contains — a suffix match would pin the wrong suite's count to the
+    # wrong sentence and go green whenever the two happened to agree.
+    ("README.md", "imslp_cases", r"scripts/imslp\.test\.py.*?\((\d+) cases\)",
+     "imslp.test.py's cases"),
+    ("README.md", "fetch_imslp_cases", r"fetch_imslp\.test\.py.*?\((\d+) cases\)",
+     "fetch_imslp.test.py's cases"),
     ("README.md", "ui_test_cases", r"ui-test\.test\.py.*?\((\d+) cases\)",
      "ui-test.test.py's cases"),
     ("CLAUDE.md", "ui_test_cases", r"in ([\w-]+) cases that need no browser",

@@ -182,6 +182,10 @@ python3 scripts/validate.py       # THE DATA GATE — see below; run it after ev
 python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (26 + a clean pass)
 python3 scripts/fetch_views.test.py  # the page-view cache's invariants, network stubbed (17 cases)
 python3 scripts/pagemoves.test.py # the page-move rule, offline (9 cases)
+python3 scripts/imslp.test.py     # the IMSLP join's judgements — the wikitext readers, the
+                             #   catalogue parse, the work counting (33 cases)
+python3 scripts/fetch_imslp.test.py # and the crawl's request sequence: that a warm run still asks
+                             #   the category, and still declines the rest (10 cases)
 scripts/ui-test.sh           # the behavioural suite in a real Chrome (lens, tap-to-pin, the three
                              #   filters, theme repaint, 390/360px layout, offline, print) — no deps.
                              #   It prints its own total; that is where the count lives.

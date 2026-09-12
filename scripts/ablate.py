@@ -73,11 +73,16 @@ COVERS = [
     (("scripts/ablate.py", "scripts/fix-lint.py"),
                                       ["python3 scripts/fix-lint.test.py"]),
     (("scripts/prose-lint.py",),      ["python3 scripts/prose-lint.test.py"]),
-    # The IMSLP join. Both files, because the PURE half lives in build_imslp.py — fetch_imslp.py
-    # imports candidates() and parse_person() from it rather than keeping a second copy, so a
-    # change to either is a change to what the suite asserts.
-    (("scripts/build_imslp.py", "scripts/fetch_imslp.py"),
-                                      ["python3 scripts/imslp.test.py"]),
+    # The IMSLP join's PURE half: the wikitext readers, the catalogue parse, the work counting.
+    (("scripts/build_imslp.py",),     ["python3 scripts/imslp.test.py"]),
+    # The crawl answers to both, because it has two kinds of defect. imslp.test.py can only ever
+    # say whether a string parsed correctly — fetch_imslp.py imports candidates() and
+    # parse_person() rather than keeping a second copy, so a change here is usually a change to
+    # what gets read out of the cache too. Whether a warm run ASKS the site anything is the other
+    # kind, invisible to anything that reads the cache, and fetch_imslp.test.py is the only thing
+    # that can see it (#62). Either going red is proof.
+    (("scripts/fetch_imslp.py",),     ["python3 scripts/fetch_imslp.test.py",
+                                       "python3 scripts/imslp.test.py"]),
     # The RUNNER, which is source now that it has logic of its own to get wrong (#49) — see the
     # note under SOURCE. BOTH suites, because it has two halves and only one of them is about
     # ports: the offline one answers for the derivation and the guards, and the browser one for

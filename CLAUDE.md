@@ -209,7 +209,7 @@ plain static assets. Read README.md first for what the app is.
 
 ## Testing
 
-Fourteen entries, one per bullet below — nine checks that run offline, one that needs a
+Fifteen entries, one per bullet below — ten checks that run offline, one that needs a
 browser, one pair of branch gates only CI can run, the monthly top-up, and two audits a
 human grades. No test framework, and nothing to install:
 
@@ -370,6 +370,21 @@ human grades. No test framework, and nothing to install:
   Bach, Brahms and Dvořák — the six biggest quartet catalogues on the site — while eleven hundred
   lesser names joined fine and the totals looked healthy. Neither crashed. The join itself is not
   shipped yet; see TODO.md.
+- `python3 scripts/fetch_imslp.test.py` — the crawl's REQUEST SEQUENCE, with `get` stubbed against
+  a dict-shaped wiki and the cache in a temp file, so it needs no network and runs in CI. It is a
+  separate suite from the one above because it answers a question no reader of the cache can:
+  `imslp.test.py` asks whether a string parsed correctly, and this asks whether a warm run asked
+  the site anything at all. It exists because `fetch_works()` returned early on a cached listing,
+  so a second run printed `cached: orig (4215)` and stopped — and the category crawl is the only
+  place a work page or a composer can ENTER this pipeline, every other pass being keyed by a title
+  it would never have been told. A monthly run would have discovered nothing forever and exited 0
+  doing it (#62), with no symptom: there is no baseline saying how many quartet pages IMSLP holds,
+  every number in the cache stays plausible, and the file simply stops growing. So the cases
+  assert what a run ASKS FOR — that the categories are listed again, that a page which appeared
+  between two runs reaches the markers and the work info, that a composer page naming no
+  identifier is re-read and a `{{wp}}` link added since is followed all the way to a resolved QID
+  — and, just as hard, what it declines to ask for, because "re-ask everything" is `--refresh` and
+  costs 3.5 MB of unchanged wikitext against a volunteer-funded server.
 - `scripts/refresh.py` — not a test but the same discipline: it decides whether a top-up is DUE
   (does `composers.json` already cover the last complete month?), runs the three pipeline stages,
   refuses to bump `V` if `validate.py` fails, and is a pure no-op otherwise.
