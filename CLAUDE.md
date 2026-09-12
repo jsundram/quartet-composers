@@ -23,16 +23,12 @@ commit" — and the docs spent a 300-line lint keeping such numbers honest inste
    shell is precached and served cache-first, so without a bump the fix reaches the repo and
    nobody's installed copy. `app.js`'s `VER_PREFIX` must keep matching `V`'s stem, which is why only
    the numeric TAIL is ever incremented.
-   Nothing about this needs a human: `sw-lint.py --fix`, which the pre-commit hook runs, knows which
-   files are `SHELL` and which of them this commit stages, so it bumps the tail and re-stages
-   `sw.js` in the same commit. It declines and falls back to nagging in exactly three cases — a
-   merge in progress, an `sw.js` carrying unstaged edits, or a `V` with no numeric tail — so a
-   decline is always a state where writing would have been wrong rather than a state where it gave
-   up. `--bump` is the same increment with no git in it, and is what `refresh.py` calls, so only one
-   piece of code knows how to move `V`.
-   That covers one commit. `--base REF` in CI covers the branch, because one commit is not enough
-   information: two PRs off one base each bumped `v32` -> `v33` byte-identically and merged to a net
-   delta of zero (#32), which looks correct from either side alone.
+   Nothing about this needs a human: `sw-lint.py --fix`, which the pre-commit hook runs, bumps the
+   tail and re-stages `sw.js` in the same commit, and declines only where writing would have been
+   wrong (its header says which three states). `--bump` is the same increment with no git in it and is
+   what `refresh.py` calls, so one piece of code knows how to move `V`. That covers one commit;
+   `--base REF` in CI covers the branch, because two PRs off one base can bump identically and merge
+   to a net delta of zero (#32), which looks correct from either side alone.
 
 2. **`sw.js`'s `BOOT` must list every script the page dies without.** Every pixel here is drawn by
    JS, so a cached `index.html` without `d3.v7.min.js` or `composers.json` is a headline over an
@@ -112,9 +108,9 @@ commit" — and the docs spent a 300-line lint keeping such numbers honest inste
    prevented by having no words to get wrong rather than by keeping two of them correct.
 
 9. **Readership is a measure, not a tally — round it everywhere except the table.** It is the
-   median of the last TWELVE monthly page-view counts (`STAT_MONTHS` in `build_data.py`): up to
-   twelve strictly, since a null is dropped and a composer whose article moved inside the window
-   has one fewer (invariant 15). Not however many months
+   median of `STAT_MONTHS` monthly page-view counts (`build_data.py`), and at most that: a null is
+   dropped, and a composer whose article moved inside the window has one fewer (invariant 15). Not
+   however many months
    `data/pageviews.json` happens to cache. Widening that window would resize every dot on the chart
    and bake a 2016 readership into a 2026 picture — and it rebuilds CLEANLY, both files internally
    consistent, so `validate.py`'s `STAT_WINDOW` pins it in all three places that state it: the
@@ -194,8 +190,8 @@ commit" — and the docs spent a 300-line lint keeping such numbers honest inste
    stitch is missing. Re-confirming gave a good record a way back out — one 404 on a redirect and
    Fanny reads 500 again with `moves` agreeing nothing is wrong — so a chain only ever goes from
    non-empty to empty by a human editing the file.
-   Twelve articles in this roster moved; only Fanny's moved inside the twelve-month statistic
-   window, so the other eleven changed the sparkline and not one dot.
+   Of the articles in this roster that moved, only Fanny's moved inside the statistic window — the
+   rest changed a sparkline and not one dot.
    **Do not sum redirects generally.** That is a different policy, measured and rejected:
    `audit_redirects.py` priced every redirect into every article and the median correction was 1.02x,
   invisible on
@@ -533,8 +529,8 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   CLEAR of the plot area, or a dot it overlaps silently stops being TAPPABLE — one pixel short of
   that it shadowed 12 dots in the swarm. The glyphs are centred on the axis title's LINE rather than
   its baseline, because a glyph beside smaller text carries more visual mass below its own middle;
-  the offsets are derived from the title's own box and the suite measures them against that box, so a
-  change of font, size or of chart.js's `y:-8` fails instead of drifting. **Clearing the plot area is
+  `styles.css` derives the offsets from the title's own box and the suite measures them against it, so
+  a change of font or size fails instead of drifting. **Clearing the plot area is
   not clearing every pixel a dot can occupy**: the dot clip is inset OUTWARD by one maximum radius,
   so under a pinch the sliver of an edge dot reaches under the target. Its CENTRE cannot, because the
   frame test only draws a dot whose centre is inside the plot rect — so a finger aiming at a dot
@@ -637,9 +633,9 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   resting unfiltered Fame view, where the budget is pinned to the seed so the view says exactly what
   it is about — also the state `make-og-svg.py` draws (invariant 14).
 - **The ring follows the filter by RANKING; the fill follows it by TASTE.** That is #7's answer, and
-  the two halves are deliberately different mechanisms. `refreshEmphasis()` keeps a ring budget of
-  THREE — the size of `OUTLIERS`, and they must stay the same size — filled first by the curated
-  outliers the filter kept and then by `prom`, the same seed-then-rank shape the label budget has.
+  the two halves are deliberately different mechanisms. `refreshEmphasis()` keeps a ring budget the
+  size of `OUTLIERS` — keep those two in step — filled first by the curated outliers the filter kept
+  and then by `prom`, the same seed-then-rank shape the label budget has.
   So the resting view and the share card are what they were, "Men" changes nothing, and "Women"
   derives all three. Below `MIN_FIELD` visible dots nothing is derived: a ring means "stands out
   from the crowd it is drawn in", and two Haydns are not a crowd. Every channel that follows
@@ -670,9 +666,9 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   means re-deriving whenever the picture changes shape**, so `setMode()` and `resize()` call it too:
   reached only from `setFilter()`, it chose rings in a geometry where nothing is ringed and those
   picks were drawn unchanged in Fame, 3.1px from a filled dot. The threshold is a fraction of the
-  plot AND a floor of `GAP_DOTS` named radii, because the dot radius is clamped at 3.2 while the
-  diagonal keeps shrinking; the fraction is not delicate (2.5%–5% picks the same three) and the
-  floor is a guard, not a fix. Deriving FEWER than the budget is the honest outcome when nothing
+  plot AND a floor of `GAP_DOTS` named radii, because the dot radius is FLOORED while the diagonal
+  keeps shrinking; the fraction is not delicate (2.5%–5% picks the same dots) and the floor is a
+  guard, not a fix. Deriving FEWER than the budget is the honest outcome when nothing
   stands clear.
 - **A filter fits the frame, and the fit is the RESTING view.** `computeResting()` is the one answer
   to "where should this chart be sitting right now": identity with no filter, the box containing the
