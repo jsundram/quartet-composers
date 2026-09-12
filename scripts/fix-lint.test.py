@@ -415,6 +415,20 @@ with tempfile.TemporaryDirectory() as tmp:
          [c for pats, c in _abl.COVERS if "scripts/ui-test.sh" in pats],
          [["python3 scripts/ui-test.test.py", "BROWSER:scripts/ui-test.sh"]])
 
+    # --- ablate: a COVERS entry is INERT unless SOURCE matches the same file ---------------
+    # plan() builds its file list with SOURCE.match, so a name in COVERS that SOURCE does not
+    # match is a comment asserting a gate that can never fire. That is what happened when
+    # build_imslp.py and fetch_imslp.py were mapped to imslp.test.py: the entry read as coverage
+    # and bound nothing. Checked as a PROPERTY rather than by naming those two, so the next
+    # entry added cannot reintroduce it.
+    sys.path.insert(0, HERE)
+    import ablate as _ab
+    _mapped = [f for files, _cmds in _ab.COVERS for f in files]
+    _inert = sorted(f for f in _mapped if not _ab.SOURCE.match(f) and not _ab.TESTS.match(f))
+    case("every file COVERS maps is one plan() can actually see", _inert, [],
+         "plan() reads SOURCE, so an unmatched COVERS name is coverage that cannot fire"
+         + (f" — {_inert}" if _inert else ""))
+
     # --- THIS SUITE'S OWN STATED SIZE -------------------------------------------------------------
     # Counted at RUNTIME, not by grepping for `case(`: these cases are inline rather than
     # registered, so a static count reads 23 against a real 25 — which is the very defect

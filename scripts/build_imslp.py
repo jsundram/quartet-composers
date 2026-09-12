@@ -404,6 +404,17 @@ def roster_cats(cache):
     """
     people = json.load(open(PEOPLE, encoding="utf-8"))
     wanted = {v["qid"] for v in people.values() if v.get("qid")}
+    # EVERY rung main() joins on, not just the QID ones. A composer joined by article TITLE has
+    # quartet pages by construction — the works crawl is where they came from — so leaving those
+    # rungs out here means their catalogue fields are never fetched and count_works reads all
+    # their pages as uncatalogued: works_n silently equals pages. No join uses these two today,
+    # which is exactly why the omission would sit unnoticed until one did.
+    titles = set()
+    for listed, v in people.items():
+        canon = v.get("canonical") or listed
+        titles.add(canon)
+        titles.add(listed)
+        titles.add(QUALIFIER.sub("", canon))
     out = set()
     for qid, cats in (cache.get("p839") or {}).items():
         if qid in wanted:
@@ -411,7 +422,8 @@ def roster_cats(cache):
     for cat, text in (cache.get("wikitext") or {}).items():
         f = parse_person(text) or {}
         r = (cache.get("wp") or {}).get(f.get("wp") or "") or {}
-        if f.get("qid") in wanted or r.get("qid") in wanted:
+        if (f.get("qid") in wanted or r.get("qid") in wanted
+                or (r.get("title") in titles) or (f.get("wp") in titles)):
             out.add(cat)
     return out
 
@@ -425,11 +437,6 @@ def attributable_titles(cache, root=ROOT):
             if w.get("composer") in cats:
                 out.append(w["title"] + " (" + w["composer"] + ")")
     return sorted(set(out))
-
-
-def permalink(title, cat):
-    return "https://imslp.org/wiki/" + urllib.parse.quote(
-        (title + " (" + cat + ")").replace(" ", "_"), safe="_(),.!'-")
 
 
 def main():
@@ -600,7 +607,11 @@ def main():
                      "and death years; {{wp}} article title where IMSLP states no QID; P839 "
                      "for composers IMSLP holds with no quartet page"),
             "flags": LEGEND,
-            "permalink": "https://imslp.org/wiki/{title}_({cat})",
+            # Stated as a RULE, not as a format string: the old
+            # "https://imslp.org/wiki/{title}_({cat})" left spaces and non-ASCII unencoded, so a
+            # consumer substituting into it built a broken URL for almost every page.
+            "permalink": ("percent-encode `<title> (<cat>)` with spaces as underscores, "
+                          "under https://imslp.org/wiki/"),
         },
         "composers": out,
     }

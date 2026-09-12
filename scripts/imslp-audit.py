@@ -40,9 +40,11 @@ from report_style import CSS, EXTRA                          # noqa: E402
 import build_imslp as bi                                     # noqa: E402
 
 LISTS = ("CANON", "OUTLIERS", "WOMEN_CANON")
-BLURB = {"CANON": "the repertoire — ten composers a quartet actually plays, in birth order",
-         "OUTLIERS": "three composers picked out for writing far more than they are read",
-         "WOMEN_CANON": "nine, shown only under the Women filter"}
+# No sizes here. This file reads the lists out of chart.js precisely so they cannot drift, and
+# then typing "ten"/"three"/"nine" beside them would reintroduce the drift one line down.
+BLURB = {"CANON": "the repertoire — composers a quartet actually plays, in birth order",
+         "OUTLIERS": "picked out for writing far more than they are read",
+         "WOMEN_CANON": "shown only under the Women filter"}
 
 
 def esc(s):
@@ -119,6 +121,7 @@ def main():
     stated = {r[NAME]: r[QTS] for r in comp["rows"]}
     wi = cache["workinfo"]
     lists = curated()
+    n_curated = sum(len(v) for v in lists.values())
 
     doc = []
     w = doc.append
@@ -135,8 +138,8 @@ def main():
     w('<header class="head">')
     w('<p class="eyebrow">IMSLP join &middot; parse audit</p>')
     w('<h1>What the catalogue parser made of every highlighted composer</h1>')
-    w('<p class="lede">The chart fills and names 22 composers. Here is every quartet page IMSLP '
-      'holds for them, the catalogue field as IMSLP serves it, and the work ids this repo derived '
+    w(f'<p class="lede">The chart fills and names {n_curated} composers. Here is every quartet '
+      f'page IMSLP holds for them, the catalogue field as IMSLP serves it, and the work ids this repo derived '
       '&mdash; side by side, with a link to settle any disagreement by looking.</p>')
     w(f'<p class="stamp">Rendered {datetime.date.today().isoformat()} &middot; '
       f'lists read from <code>chart.js</code></p>')
@@ -146,7 +149,7 @@ def main():
     for lname in LISTS:
         w('<section>')
         w(f'<h2>{esc(lname)}</h2>')
-        w(f'<p>{esc(BLURB[lname])}.</p>')
+        w(f'<p>{len(lists[lname])} composers &mdash; {esc(BLURB[lname])}.</p>')
         for name in lists[lname]:
             e = im.get(name)
             w('<div class="who">')
@@ -225,7 +228,7 @@ def main():
       'three-argument template the <code>{{X|Y}}</code> reader does not match. Surfacing those is '
       'what this page is for, so calling them &ldquo;no catalogue number&rdquo; was the one '
       'mislabel it could not afford.</p>')
-    w(f'<p class="note">{tot_pages} pages and {tot_works} works across the 22. '
+    w(f'<p class="note">{tot_pages} pages and {tot_works} works across the {n_curated}. '
       f'{nocat} state no catalogue number and count as one work; {dropped} are anthologies '
       f'stating none and are dropped; <strong>{unread} state one the parser could not '
       f'read</strong>; {odd} state one carrying markup it has to strip first.</p>')

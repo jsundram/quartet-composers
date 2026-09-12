@@ -359,8 +359,9 @@ human grades. No test framework, and nothing to install:
   alone, that a log which could not be READ is not written down as "no move" (the `None`/`[]`
   distinction invariant 15 turns on), that what gets RECORDED names only boundaries the article
   actually crossed, and that a record collapsing to nothing is not written down either.
-- `python3 scripts/imslp.test.py` — the IMSLP join's pure half, offline: `template_fields`,
-  `parse_person`, `candidates` and `confirms` read strings, so it needs no network. It exists
+- `python3 scripts/imslp.test.py` — the IMSLP join's judgements, offline: the wikitext readers,
+  the catalogue parse, the work counting and the date confirmation all read strings, so it needs
+  no network. It exists
   because every defect that join has had was a wrong PARSE presenting as a missing row, and a
   missing row here is invisible — there is no baseline saying how many rows there should be. A
   line-anchored field reader turned every IMSLP date into `None` (the person template packs three
@@ -395,7 +396,7 @@ human grades. No test framework, and nothing to install:
   skips, and the report says so rather than passing quietly. One `No-test: <reason>` trailer
   on any commit in the range skips BOTH, so an untested source change is a sentence somebody wrote
   on purpose and a reviewer can read, not a silence. `scripts/fix-lint.test.py` covers both in
-  forty-four cases that each build a throwaway repo with real branches.
+  forty-five cases that each build a throwaway repo with real branches.
 - `python3 scripts/prose-lint.py` — **every number in README.md and CLAUDE.md that the repo can
   COMPUTE**, checked against the live value: the curated list sizes in `chart.js`, each suite's
   `len(CASES)` by importing it, the recorded page-move chains, the `FOLD` characters and the names

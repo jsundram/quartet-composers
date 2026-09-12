@@ -242,7 +242,7 @@ def main():
       f'{bandtab["pd"]["unknown"]} have no page found at all, out of {pd_total} whose music '
       f'Canadian law puts in the public domain. Everything after {PD_CUTOFF} is a waiting list, '
       f'not a gap &mdash; the earliest of those composers becomes free in '
-      f'{min((r[DEATH] + 71) for r in rows if r[DEATH] and r[DEATH] >= PD_CUTOFF)}.</p>')
+      f'{min([r[DEATH] + 71 for r in rows if r[DEATH] and r[DEATH] >= PD_CUTOFF], default="&mdash;")}.</p>')
     odd = [r for r in rows if band(r) != "pd" and state(r[NAME]) == "have"]
     # Named from the DATA, not hardcoded: a composer name is a canonical Wikipedia title that
     # changes spelling when the pipeline runs (invariant 7), and either of these could also stop
@@ -261,8 +261,11 @@ def main():
     # the two answers
     w('<section>')
     w('<h2>Zero and unknown are different answers</h2>')
+    eg = ", ".join(esc(n) for _v, n, _s in
+                   sorted(((r[VIEWS] or 0, r[NAME], 0) for r in rows
+                           if state(r[NAME]) == "none"), reverse=True)[:5])
     w(f'<p><strong>{total_states["none"]} composers</strong> have an IMSLP page and no quartet on '
-      f'it &mdash; Stravinsky, Glass, Cage, Copland, Barber. That is a fact about copyright and '
+      f'it &mdash; {eg}. That is a fact about copyright and '
       f'it is worth showing. <strong>{total_states["unknown"]} composers</strong> could not be '
       f'placed on IMSLP at all: no Wikidata IMSLP id, no IMSLP page linking their article, and '
       f'no page under any one-, two- or three-token <code>Surname, Forename</code> inversion of '
@@ -296,9 +299,11 @@ def main():
     rej, con = audit["rejected"], audit["date_conflicts"]
     if rej:
         w(f'<h3>{len(rej)} name guesses rejected</h3>')
-        w('<p>The IMSLP page exists under exactly the right spelling and the dates do not '
-          'support it. Four state no dates at all; one is a page written before its subject '
-          'died.</p>')
+        blank = sum(1 for r in rej if r["imslp_born"] is None and r["imslp_died"] is None)
+        w(f'<p>The IMSLP page exists under exactly the right spelling and the dates do not '
+          f'support it. {blank} of the {len(rej)} state no dates at all'
+          + ('.' if blank == len(rej) else
+             '; the rest disagree with Wikidata about a year.') + '</p>')
         w('<table><thead><tr><th>Roster</th><th>IMSLP page</th><th>Wikidata</th>'
           '<th>IMSLP</th></tr></thead><tbody>')
         for r in rej:
