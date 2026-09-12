@@ -385,6 +385,22 @@ is how an un-bootable `chart.js` shipped for two commits. And **a suite that die
 everything and is a VOID result, not a catch**: PAGE ERRORS in place of named failures, and a
 mutation "caught" in a fraction of the usual time, is the tell.
 
+### ~~One `No-test:` trailer disarmed both gates for a whole branch~~ — done, 2026-09-12
+Found by using the escape hatch honestly. Two commits on the leanness branch carried
+`No-test: TODO.md only` — true sentences about docs-only commits — and `excused()` read a trailer
+anywhere in the range, so both gates skipped the branch entirely. `ablate --base` printed "skipped by
+a No-test: trailer" while that branch rewrote `validate.py`, `names.js` and the gates themselves.
+Scoping the trailer to commits that CHANGED SOURCE left the second half of the same hole: one
+legitimately excused file excused every file beside it, which on a branch that deletes prose AND
+rewrites a module is most of the diff. So it is per FILE now — a trailer speaks for the files its own
+commit touched, and a file edited again with no trailer is back in the gate, because the second edit
+is the unexplained one. The reason travels with the file, so a gate names what it let past and why.
+`fix-lint.py` calls `excused()` instead of carrying a second copy of the regex; that was the third
+exemption the pair had split into two implementations.
+Four cases in `fix-lint.test.py`, all red under the rule they replace. And the branch that found it
+is now ablated for real: a named check goes red in `names.test.mjs`, `fix-lint.test.py`,
+`sw-lint.test.py` and `validate.test.py`.
+
 ### The suite misses pure functions, and nothing measures that but a mutation run
 Measured Sep 2026: 39 one-line bugs injected, 25 caught. The data gate caught 6 of 7, the browser
 suite 13 of 22, `sw.test.mjs` 1 of 5 — and every miss was a pure function or an untested entry
