@@ -1123,6 +1123,11 @@ counted as one", which is a parse failure reported as an absent field, by the on
 to surface parse failures. Haydn's `{{HaydnHob|n383|III:1-83}}` is a three-argument template the
 `{{X|Y}}` reader does not match; those Hoboken numbers still go unread, and now say so.
 
+The catalogue-template gaps are [#63](https://github.com/jsundram/quartet-composers/issues/63):
+`{{K6|417b}}` prints as `K6.417b` where the notation is `K.417b`, and `{{HaydnHob|…}}` takes three
+arguments so it is never rewritten at all — which reads `Hob.III:1-83`, an 83-work set, as one
+work. Neither double-counts; both lose merges, and one loses 82 works from a single page.
+
 ### ~~A Wikidata IMSLP id kept its namespace and matched nothing~~ — done, 2026-09-12
 P839 states `Category:Stravinsky,_Igor`; a work title's parenthetical is the bare
 `Stravinsky, Igor`. Comparing them unstripped meant a composer joined ONLY by P839 never matched
