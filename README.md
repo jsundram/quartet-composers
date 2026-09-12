@@ -24,7 +24,7 @@ stable picture, hovering was the only way to learn anything, and a screenshot of
 | Fixed 960px, desktop only | Responsive, dark mode, print stylesheet, and a CSS-driven full-screen chart |
 | Colour = lifespan on RdYlBu-9 | **Sequential** ramp (YlGnBu, stepped darker for contrast on this surface) over a fixed domain, with living composers off the ramp entirely — a diverging one needs a baseline, and pivoting on the dataset's own median moved the pivot whenever the data did |
 | 477 composers, frozen 2014 scrape | **the whole list**, re-scraped, with a repeatable pipeline (below) |
-| Dot size = one month of page views | **Median of 12 months** — a single month is 12% off typical, 29% at worst |
+| Dot size = one month of page views | **Median of 12 months** — a single month runs ~12% off typical, and far more than that for a small article |
 | — | **A readership sparkline** in the detail panel — every month since 2015-07, hover or arrow-key any month to read it, and a caption that names the spike (Saariaho's obituary, 18× typical) or the trend (Haydn, down 42% since 2015) |
 | — | **Readership histogram with a drag-to-filter brush**, to get the long tail out of the way |
 | — | **Gender filter** from Wikidata [P21](https://www.wikidata.org/wiki/Property:P21) — a third of the roster, and the Fame view shows the band they occupy |
@@ -47,9 +47,6 @@ python3 scripts/build_data.py       # combine the three -> composers.json + read
 paint without it. `readership.json`, an order of magnitude larger, is the monthly history behind the sparkline: nothing
 waits for it, so it is fetched after the first paint and the panel simply grows a line when it
 arrives. Both are precached; only the first is a boot dependency.
-
-Each suite prints its own total; none of those numbers is written down here, because a count only
-the run can produce is a count every added case makes somebody re-type.
 
 Then run the data gate. **`V` in `sw.js` has to move** — both files are precached, so without a bump
 the new numbers reach the repo and nobody's phone — and nothing about that needs a human:
@@ -117,9 +114,9 @@ traps, all of which this repo fell into first:
   roster's articles have moved. `scripts/pagemoves.py` finds them (a level shift proposes, the MediaWiki
   move log decides, and a traffic-handover test throws out the moves that were reverted an hour
   later), and each month is counted under the title the article actually occupied.
-- *One month is weather.* Measured against a 12-month window, a single month is 12% off the median
-  typically and 29% at worst; August is a seasonal trough; one composer has a month at 2.13× his
-  own median. `monthly` granularity returns the whole range in **one request**, so twelve months
+- *One month is weather.* Measured against a 12-month window, the typical month sits ~12% off a
+  composer's own median, and the worst months run several times that — a small article's peak can be
+  double its median by chance alone. August is a seasonal trough. `monthly` granularity returns the whole range in **one request**, so twelve months
   costs exactly what one did. The stored series makes the statistic recomputable offline.
 
 The cache now holds **every month the API has** — 2015-07 onward — for the same one-request reason,
@@ -160,10 +157,10 @@ UI says so in the legend ("EN Wikipedia readers / mo"), the lede, and the proven
 than letting "views" imply importance. A per-language fan-out via Wikidata sitelinks would trade
 one bias for a messier one and is deliberately not attempted.
 
-Readership spans **five orders of magnitude**, and the median composer is read a couple of hundred
-times a month: half the roster is composers essentially nobody reads, and they are most of the ink. Hence `histogram.js` — a
-log-scale histogram of the distribution with a drag-to-select brush, which is the control and the
-context in one 56px strip. It intersects with the search box and the gender pills; none of the three knows the others exist —
+Readership spans **four orders of magnitude**, and the median composer is read a couple of hundred
+times a month: half the roster is composers essentially nobody reads, and they are most of the ink.
+Hence `histogram.js` — a log-scale histogram of the distribution with a drag-to-select brush, which
+is the control and the context in one short strip. It intersects with the search box and the gender pills; none of the three knows the others exist —
 each returns "a Set of row indices, or null for everything" and `applyFilters()` intersects them.
 
 ## The 2014 data
@@ -182,6 +179,7 @@ python3 scripts/validate.py       # THE DATA GATE — see below; run it after ev
 python3 scripts/validate.test.py  # proves the gate still catches each bug it claims to
 python3 scripts/fetch_views.test.py  # the page-view cache's invariants, network stubbed
 python3 scripts/pagemoves.test.py # the page-move rule, offline
+node scripts/names.test.mjs  # the display-name rules, offline against the real roster
 scripts/ui-test.sh           # the behavioural suite in a real Chrome (lens, tap-to-pin, the three
                              #   filters, theme repaint, 390/360px layout, offline, print) — no deps.
                              #   It prints its own total; that is where the count lives.
@@ -190,7 +188,8 @@ scripts/ui-test.sh           # the behavioural suite in a real Chrome (lens, tap
 node scripts/sw.test.mjs     # the service worker's fetch handler
 python3 scripts/sw-lint.py   # precache contract: V bumped, SHELL paths exist, no cross-origin
 python3 scripts/sw-lint.py --fix  # ...and bump V yourself if a staged shell file needs one (the hook)
-python3 scripts/og-lint.py   # share card size (a card over ~250 KB previews as a grey box)
+python3 scripts/og-lint.py   # the link preview: card size, meta length, and the totals it states
+python3 scripts/codehash.py  # is this change comments-only, or did code go with them?
 python3 scripts/fix-lint.test.py # the two branch gates below, on throwaway repos
 
 # The branch gates. They compare a branch against what it will merge into, so they need a base ref
@@ -202,8 +201,9 @@ python3 scripts/ablate.py --base main --with-ui   # ...including the browser sui
 
 `ablate.py` is the one worth knowing about. It reverts the branch's source to the base, keeps the
 branch's tests, and requires a named check to go red — a test that still passes without the code it
-is meant to prove does not prove it. A `No-test: <reason>` trailer on any commit skips both gates
-when there is genuinely nothing to assert.
+is meant to prove does not prove it. A `No-test: <reason>` trailer excuses a file when there is
+genuinely nothing to assert — the FILES its own commit touched, so a docs-only commit cannot excuse
+code, and a file edited again without one is back in the gate.
 
 All of these run in CI, `ui-test.sh` included — `ubuntu-latest` ships a Chrome and an X server, and
 the `ui` job in `checks.yml` gives the browser suite node 22 and `xvfb-run`. It still skips with
@@ -232,7 +232,7 @@ the gate rejects it, so a weakened check goes red instead of quietly green.
 
 ```
 index.html        structure          styles.css   design system (light/dark/print)
-app.js            boot + selection   chart.js     the three views
+app.js            boot + selection   chart.js     the four views
 table.js          the data table     histogram.js the readership filter (log histogram + brush)
 names.js          canonical Wikipedia title -> the short name the chart and the table print
 theme.js          three-state theme + the JS-baked-color contract

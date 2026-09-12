@@ -608,7 +608,7 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   inline SVG, so `var(--accent)` reaches it and `Theme.subscribe` has nothing to re-bake (invariant
   3 does not apply, and a check keeps the `stroke` attribute absent so nobody "fixes" that). Linear
   y and zero-based, unlike the chart's log readership axis: log is there because the ROSTER spans
-  five orders of magnitude, but within one composer the question is proportion, and a log baseline
+  orders of magnitude, but within one composer the question is proportion, and a log baseline
   flattens exactly the spike the line exists to show.
 - **Every sparkline shares one month axis, so the blank left of a young article has to be named.** A
   shared axis is what makes two composers comparable, and it means the articles created after
