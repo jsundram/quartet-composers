@@ -126,6 +126,19 @@ body.fs #filters .tablehead{ display:none }
    one idea and it gets one colour. On #reset-filters it does a second job — it is the only place
    the page answers "is anything filtered?" in one glance, instead of by reading three controls. */
 .btn.on{ background:var(--accent); border-color:var(--accent); color:#fff }
+/* The lens toggle wears .btn for its box — same height, same pill, same tap target under the phone
+   rule below — and a native checkbox for its STATE. Not .btn.on when checked: the accent fill means
+   "this control is live and will do something" on the two buttons that carry it, and the box next
+   to the word already says on or off. Colouring the border and the word instead is the quieter half
+   of the same idea, and it leaves the fill meaning one thing.
+   `accent-color` is what paints the tick, so the check follows the theme with nothing baked. */
+#lens-t{ gap:7px; padding-right:14px }
+#lens-t input{ accent-color:var(--accent); width:14px; height:14px; margin:0; cursor:pointer }
+#lens-t:has(input:checked){ color:var(--ink); border-color:var(--accent) }
+/* The ring goes round the PILL, not round a 14px box inside it: :focus-visible lands on the input,
+   which is the small half of a control whose hit area is the whole label. */
+#lens-t:has(input:focus-visible){ outline:2px solid var(--accent); outline-offset:2px }
+#lens-t input:focus-visible{ outline:none }
 .spacer{ margin-left:auto }
 /* Icons ship as inline SVG in the document, NOT baked by JS, so `currentColor` follows the theme
    and there is nothing for Theme.subscribe to re-bake — the same reason the sparkline is plain
@@ -206,9 +219,11 @@ body.fs #filters .tablehead{ display:none }
    The words are not display:none'd but visually hidden, because they are still the buttons'
    accessible NAMES — an icon-only control with no name is unusable to a screen reader, and these
    two are the ones a reader is least able to guess from a glyph out of context. */
-/* IN THE AXIS-TITLE BAND, not over the data. Every corner was measured across all four views
-   first, and every one of them covers something: dots the 86x40 group would sit on, summed over
+/* IN THE AXIS-TITLE BAND, not over the data. Every corner was measured across every view first,
+   and every one of them covers something: dots the 86x40 group would sit on, summed over
    Fame/Timeline/Swarm/Lens at 390 — top-left 11, top-right 90, bottom-right 239, bottom-left 3.
+   (The lens was a view of its own when that was measured; it is a toggle now, and at rest it warps
+   nothing, so it added no fourth layout to the sum.)
    Re-measured at 700, 900 and 1024 when this stopped being a phone rule: still zero, in every
    view. A wider card does not make the corner safe by itself — the swarm spreads to fill it —
    it is the band that does, and the band is asked for wherever the group is on the plot.

@@ -279,7 +279,7 @@ async function wheel(x, y, dy) {
 // flips touch emulation still boots, and one that only needs another viewport asks for it and
 // waits for the re-layout (relaid()).
 const AT_REST = `(()=>{const th=document.querySelector('thead th[aria-sort]');
-  return JSON.stringify({mode:Chart.getMode(), k:Chart.zoomK(),
+  return JSON.stringify({mode:Chart.getMode(), lens:Chart.lensOn(), k:Chart.zoomK(),
     zoomed:!document.getElementById('reset').disabled,
     filtered:!document.getElementById('reset-filters').disabled,
     rows:document.querySelectorAll('tbody tr').length === ROWS.length,
@@ -287,7 +287,7 @@ const AT_REST = `(()=>{const th=document.querySelector('thead th[aria-sort]');
     flag:document.getElementById('flag').classList.contains('on'),
     fs:document.body.classList.contains('fs'), theme:Theme.get(),
     sort:th ? th.textContent.trim() + ':' + th.getAttribute('aria-sort') : '', y:scrollY})})()`;
-const RESTING = JSON.stringify({ mode: "fame", k: 1, zoomed: false, filtered: false, rows: true,
+const RESTING = JSON.stringify({ mode: "fame", lens: false, k: 1, zoomed: false, filtered: false, rows: true,
   hash: "", pinned: false, hovered: false, flag: false, fs: false, theme: "auto",
   sort: "Views:descending", y: 0 });
 const missedRests = [];
@@ -308,6 +308,7 @@ async function rest() {
     if (!document.getElementById('reset-filters').disabled) document.getElementById('reset-filters').click();
     if (selected != null) show(null, false);
     if (Chart.getMode() !== 'fame') document.querySelector('.controls .seg button[data-mode="fame"]').click();
+    if (Chart.lensOn()) document.getElementById('lens').click();
   })()`);
   await idle(); await relaid();                        // the un-fit tween, the view's re-layout
   await ev(`(()=>{
@@ -375,25 +376,96 @@ function report(died) {
 for (const door of ["uncaughtException", "unhandledRejection"])
   process.on(door, e => report(e?.stack || String(e)));
 
-// --- 1. lens mode: aim the magnifier at the crowded low bands -----------------
+// --- 1. the lens: a magnifier over whichever view is drawn --------------------
+// It was a fourth VIEW, and as one it differed from the timeline in exactly two things: the
+// fisheye, and having no zoom. So the crowd it could not reach was the Fame cloud — ~600 dots in
+// one corner, the most crowded picture this app draws — and the switcher claimed four pictures
+// where there are three. It is a checkbox over all three now, which is why every check below goes
+// through the control a reader actually has rather than through a mode name.
 await viewport(1280, 900);
-await goto(BASE + "#v=lens");
-const box = await ev(`(()=>{const r=document.querySelector('#plot svg').getBoundingClientRect();
+await goto(BASE);
+// Radii of every dot, keyed by DOM order. The join is keyed by row index and every plottable row
+// is drawn (see chart.js), so the same key is the same composer before and after — and the lens
+// maps its own disc onto itself, so nothing enters or leaves the frame to renumber them.
+const dotRadii = () => ev(`(()=>{const o={};document.querySelectorAll('#plot svg circle.dot')
+  .forEach((e,i)=>o[i]=+e.getAttribute('r'));return o})()`);
+const plotBox = () => ev(`(()=>{const r=document.querySelector('#plot svg').getBoundingClientRect();
   return {x:r.x,y:r.y,w:r.width,h:r.height}})()`);
-// Radii of every dot BEFORE the lens exists, keyed by the label d3 bound to them.
-const before = await ev(`(()=>{const o={};document.querySelectorAll('#plot svg circle.dot')
-  .forEach((e,i)=>o[i]=+e.getAttribute('r'));return o})()`);
-await mouse("mouseMoved", box.x + box.w * 0.55, box.y + box.h * 0.72);
-await settle(`document.querySelector('#plot svg circle.lens-edge')?.style.display === ''`);
-check("lens draws its boundary circle", await ev(`document.querySelectorAll('#plot svg circle.lens-edge').length === 1 &&
+const aim = async () => {
+  const b = await plotBox();
+  await mouse("mouseMoved", b.x + b.w * 0.55, b.y + b.h * 0.72);
+  return settle(`document.querySelector('#plot svg circle.lens-edge')?.style.display === ''`);
+};
+const magnified = {};
+for (const m of ["scatter", "fame", "swarm"]) {
+  await view(m);
+  await mouse("mouseMoved", 1, 1);                       // off the chart: no aim, no warp
+  await settle(`document.querySelector('#plot svg circle.lens-edge').style.display === 'none'`);
+  const before = await dotRadii();
+  if (!await ev(`document.getElementById('lens').checked`))
+    await ev(`document.getElementById('lens').click()`);
+  await aim();
+  const after = await dotRadii();
+  magnified[m] = { grew: Object.keys(before).filter(k => after[k] > before[k] * 1.5).length,
+                   same: Object.keys(before).filter(k => after[k] === before[k]).length };
+  if (m === "scatter") await shot("lens-active");
+}
+check("the lens draws its boundary circle", await ev(`document.querySelectorAll('#plot svg circle.lens-edge').length === 1 &&
                  document.querySelector('#plot svg circle.lens-edge').style.display !== 'none'`));
-const after = await ev(`(()=>{const o={};document.querySelectorAll('#plot svg circle.dot')
-  .forEach((e,i)=>o[i]=+e.getAttribute('r'));return o})()`);
-const grew = Object.keys(before).filter(k => after[k] > before[k] * 1.5).length;
-const same = Object.keys(before).filter(k => after[k] === before[k]).length;
-check("lens magnifies dots under the focus", grew > 20, grew + " dots grew >1.5x");
-check("lens leaves dots outside its radius alone", same > 150, same + " unchanged");
-await shot("lens-active");
+// THE CHECK THE FOURTH PILL COULD NOT PASS. The warp is applied to the laid-out picture in screen
+// space, so one fisheye serves three modes with no per-mode case — and this is what says so.
+// The BAR is the same in all three and deliberately low, because the count is a fact about how
+// crowded each picture is under one focus and not about the lens: the timeline piles ~67 dots
+// into that spot, the Fame cloud 22, and the swarm — which exists precisely so that nothing
+// overlaps, in a box half the height — 14. A bar tuned per view would be three numbers to
+// re-measure every time the roster grows.
+check("the lens magnifies dots under the focus, in every view",
+      ["scatter", "fame", "swarm"].every(m => magnified[m].grew >= 10),
+      ["scatter", "fame", "swarm"].map(m => `${m} ${magnified[m].grew}`).join(", ") + " dots grew >1.5x");
+check("...and leaves the dots outside its radius alone, in every view",
+      ["scatter", "fame", "swarm"].every(m => magnified[m].same > 150),
+      ["scatter", "fame", "swarm"].map(m => `${m} ${magnified[m].same}`).join(", ") + " unchanged");
+// The lens survives a view change; its AIM does not, because the focus is a point in screen space
+// and the next mode puts different composers under it.
+// Switched on once, in the timeline, and still on two view changes later — the loop above only
+// clicks it when it is off, so this fails the moment a view change clears it.
+check("the lens stays on across a view switch",
+      await ev(`Chart.getMode() === 'swarm' && Chart.lensOn()
+                && document.getElementById('lens').checked`),
+      await ev(`Chart.getMode() + ", lens " + Chart.lensOn()`));
+
+// It suspends the zoom rather than composing with it: a magnifier over a picture that moves is
+// the 2014 chart, and on a touch screen the pan and the aim are the same one-finger drag. The
+// frame is left where it was, so unchecking the box hands the zoom back — both halves asserted,
+// because "nothing happens" passes on a chart that has stopped zooming altogether.
+await view("fame");
+const lensBox = await plotBox();
+const mid = { x: lensBox.x + lensBox.w * 0.5, y: lensBox.y + lensBox.h * 0.5 };
+// Sent RAW rather than through wheel(), which re-sends until k moves: this one is meant to go
+// nowhere, and counting it as a dropped event would blame the browser for the feature.
+await mouse("mouseMoved", mid.x, mid.y);
+await send("Input.dispatchMouseEvent", { type: "mouseWheel", x: mid.x, y: mid.y,
+  deltaX: 0, deltaY: -240, pointerType: "mouse" });
+await sleep(TWEEN);
+const kLensOn = await ev(`Chart.zoomK()`);
+await ev(`document.getElementById('lens').click()`);
+await wheel(mid.x, mid.y, -240);
+const kLensOff = await ev(`Chart.zoomK()`);
+check("the lens suspends the zoom, and gives it back when it is switched off",
+      kLensOn === 1 && kLensOff > 1.05,
+      `k ${kLensOn.toFixed(2)} with the lens on, ${kLensOff.toFixed(2)} with it off`);
+await rest();
+
+// The URL carries it, and the link that named it a VIEW still opens the picture it named: the
+// timeline, with the fisheye on. Same shape as #v=readers, one vocabulary over.
+await ev(`document.getElementById('lens').click()`);
+check("switching the lens on puts it in the URL", (await ev(`location.hash`)).includes("l=1"),
+      "hash = " + await ev(`location.hash`));
+await goto(BASE + "#v=lens");
+check("an old #v=lens link opens the timeline with the lens on",
+      await ev(`Chart.getMode() === 'scatter' && Chart.lensOn()
+                && document.getElementById('lens').checked`),
+      await ev(`Chart.getMode() + ", lens " + Chart.lensOn()`));
 
 // --- 2. hover flag on a real pointer -----------------------------------------
 await rest();
@@ -1589,10 +1661,15 @@ await rest();
 // the same double-tap trap the full-screen strip's fixed height answers one component up.
 //
 // The fix is the ORDER, not the ratios — the picture is honestly a different shape per view, and
-// one height for all four either squeezes the Fame cloud or leaves a blank band under the short
+// one height for all three either squeezes the Fame cloud or leaves a blank band under the short
 // ones. So the row moved above the plot and nothing a finger rests on is placed by a box the same
 // press resizes. Driven IN PLACE by the pills, like 4m3: a boot lays the page out once and could
 // never show the jump.
+//
+// THE LENS CHECKBOX IS IN THAT ROW and is asserted the same way, one press further. It is allowed
+// there because it is not a view: the plot's box is a function of the MODE alone, so the magnifier
+// resizes nothing — and a control that changed the height of the box it sits above would be the
+// same trap arriving through a checkbox instead of through a pill.
 //
 // The plot's height is asserted to CHANGE in the same breath, or this passes on a chart that had
 // stopped resizing at all and the check would be measuring nothing.
@@ -1603,7 +1680,7 @@ for (const [w, h, mobile] of [[390, 844, true], [1280, 900, false]]) {
   await relaid();
   const restTop = await segTop(), restH = await plotHeight();
   let worstTop = 0, worstH = 0;
-  for (const m of ["scatter", "swarm", "lens", "fame"]) {
+  for (const m of ["scatter", "swarm", "fame"]) {
     await pill(m);
     await laidOut();
     worstTop = Math.max(worstTop, Math.abs(await segTop() - restTop));
@@ -1612,7 +1689,15 @@ for (const [w, h, mobile] of [[390, 844, true], [1280, 900, false]]) {
   check(`a view switch does not move the switcher at ${w}px`, worstTop < 1.5,
         `switcher moved ${worstTop.toFixed(1)}px while the plot resized by up to ${worstH.toFixed(0)}px`);
   check(`...and there was a real shift to absorb at ${w}px`, worstH > 15,
-        `plot height ${restH.toFixed(0)} changed by up to ${worstH.toFixed(0)}px across the four views`);
+        `plot height ${restH.toFixed(0)} changed by up to ${worstH.toFixed(0)}px across the three views`);
+  const beforeTop = await segTop(), beforeH = await plotHeight();
+  await ev(`document.getElementById('lens').click()`);
+  await laidOut();
+  const lensTop = Math.abs(await segTop() - beforeTop), lensH = Math.abs(await plotHeight() - beforeH);
+  await ev(`document.getElementById('lens').click()`);
+  await laidOut();
+  check(`switching the lens on moves no box at ${w}px`, lensTop < 0.5 && lensH < 0.5,
+        `row moved ${lensTop.toFixed(1)}px, plot height moved ${lensH.toFixed(1)}px`);
 }
 await viewport(1100, 1500);
 
@@ -1957,7 +2042,7 @@ await send("Emulation.setTouchEmulationEnabled", { enabled: false });
 
 // --- 7c2. Share and Full screen become icons ON the chart, and stay usable there ---------------
 // Issue 35. They leave .controls wherever the row will not hold them on one line, which is every
-// window up to 1100px — on a phone that is what pays for the Reset filters button beside Reset
+// window up to 1139px — on a phone that is what pays for the Reset filters button beside Reset
 // zoom, since the row is already two lines at 390 and a third word button takes it to three. The
 // risks of putting a control over a zoom surface are what this checks: that they still
 // receive taps (d3-zoom binds to the SVG, not to #plot, so they should), that chart.js's rebuild
@@ -2025,7 +2110,7 @@ check("the glyphs are icon-sized, not stretched to fill the button",
 // — the constant is derived from those and a check that repeated it would only confirm arithmetic.
 // Checked in the views that HAVE a title; the swarm has none.
 let worstCentre = 0;
-for (const m of ["fame", "scatter", "lens"]) {
+for (const m of ["fame", "scatter"]) {
   await ev(`document.querySelector('.controls .seg button[data-mode="${m}"]').click()`);
   await laidOut();
   worstCentre = Math.max(worstCentre, Math.abs(await ev(`(()=>{
@@ -2124,7 +2209,7 @@ let worstDots = 0, coveredNames = [], worstWidth = 0;
 for (const w of [390, 360]) {
   await viewport(w, 844, true);
   await relaid();
-  for (const m of ["fame", "scatter", "swarm", "lens"]) {
+  for (const m of ["fame", "scatter", "swarm"]) {
     await ev(`document.querySelector('.controls .seg button[data-mode="${m}"]').click()`);
     await laidOut();
     const c = JSON.parse(await covered());
@@ -2272,7 +2357,7 @@ check("a narrow window with a mouse gets the same geometry, not a 36px button",
   await laidOut();
 }
 
-// A LAPTOP. The breakpoint is 1100 because the controls row is two lines up to 1054 — not because
+// A LAPTOP. The breakpoint is 1139 because the controls row is two lines up to 1121 — not because
 // of a device — so every window from 641 up now draws this overlay, on a card twice the phone's
 // width with the swarm spread across it. Zero coverage at 390 does not imply zero at 1024: the dots
 // are laid out again and the y-axis title is the same length while the band around it is not. This
@@ -2284,7 +2369,7 @@ check("a laptop under the breakpoint gets the icons on the plot, not words in th
       await ev(`document.getElementById('chart-tools').parentNode.id === 'plot'`),
       "parent = " + await ev(`document.getElementById('chart-tools').parentNode.id`));
 let lapDots = 0, lapNames = [];
-for (const m of ["fame", "scatter", "swarm", "lens"]) {
+for (const m of ["fame", "scatter", "swarm"]) {
   await view(m);
   const c = JSON.parse(await covered());
   lapDots = Math.max(lapDots, c.dots);
@@ -2320,12 +2405,14 @@ check("a wheel over the glyphs zooms the chart, like the band they sit in",
 // zoom-in above is only half of it, the half the zoom always accepts. `scaleExtent` starts at 1 and
 // the resting view is already there, so every scroll DOWN at rest is declined; d3 does not cancel
 // what it declines, and a forward that cancelled anyway put an 86x40 hole in the page's scrolling
-// in the DEFAULT view at rest (0px under the glyphs against 120px beside them). Lens is the same
-// property with no zoom bound at all, so both views are asserted the same way rather than one of
-// them being a special case.
+// in the DEFAULT view at rest (0px under the glyphs against 120px beside them). WITH THE LENS ON
+// it is the same property with no zoom bound at all — every wheel is declined, not just the ones
+// d3 clamps — so the corner is asserted in both states rather than one of them being special.
 const fell = {};
 for (const m of ["fame", "lens"]) {
-  await view(m);
+  await view("fame");
+  await ev(`(()=>{const b=document.getElementById('lens');
+    if (b.checked !== ${m === "lens"}) b.click()})()`);
   await ev(`Chart.resetZoom()`); await idle();
   const spots = await ev(`(()=>{const b=document.getElementById('share').getBoundingClientRect(),
       t=document.querySelector('#plot svg text.ttl').getBoundingClientRect();
@@ -2341,12 +2428,13 @@ for (const m of ["fame", "lens"]) {
   }
 }
 await ev(`window.scrollTo(0, 0)`);
+await ev(`(()=>{const b=document.getElementById('lens'); if (b.checked) b.click()})()`);
 await view("fame");
 check("...and a wheel it declines still scrolls the page, over the glyphs as beside them",
       fell["fame:glyph"] > 0 && fell["fame:glyph"] === fell["fame:band"] &&
       fell["lens:glyph"] > 0 && fell["lens:glyph"] === fell["lens:band"],
       `fame ${fell["fame:glyph"]}px over the glyph vs ${fell["fame:band"]}px beside it; ` +
-      `lens ${fell["lens:glyph"]} vs ${fell["lens:band"]}`);
+      `with the lens on ${fell["lens:glyph"]} vs ${fell["lens:band"]}`);
 
 // And above the breakpoint they go back to being words in the row, one element moved rather than
 // two drawn.
@@ -2359,12 +2447,14 @@ check("on a desktop they are words in the controls row again",
           && document.querySelector('#share .btn-t').offsetParent !== null})()`),
       "parent = " + await ev(`document.getElementById('chart-tools').parentNode.className`));
 
-// 1101 is the FIRST width that draws the words, and the reason the breakpoint is not the 1056 the
+// 1140 is the FIRST width that draws the words, and the reason the breakpoint is not the 1056 the
 // row actually wraps at: share() swaps the label to "Link copied", which is wider than "Share" and
-// wraps the row up to 1092. A row that wraps on the PRESS drops the plot 44px under the cursor that
+// wraps the row up to 1122. A row that wraps on the PRESS drops the plot 44px under the cursor that
 // just pressed it — the rule the chart's controls already follow one row down (see index.html).
 // Measured at the boundary, because that is the only width where a few pixels of drift show up.
-await viewport(1101, 900, false);
+// Both numbers moved when the lens became a checkbox in this row, which is the whole reason they
+// are checks and not arithmetic: the row is 28px wider than it was with a fourth pill.
+await viewport(1140, 900, false);
 await goto(BASE);
 await settle(`document.getElementById('chart-tools').parentNode.classList.contains('controls')`);
 const rowH = () => ev(`Math.round(document.querySelector('.controls').getBoundingClientRect().height)`);
@@ -2376,11 +2466,11 @@ check("at the first width that shows the words, pressing Share does not wrap the
       rowRest <= 40 && rowCopied === rowRest && copiedTxt === "Link copied",
       `row ${rowRest}px at rest, ${rowCopied}px showing "${copiedTxt}"`);
 // THE OTHER BAND. The card is not monotonic in the viewport — the two-column grid at 900px takes
-// 194px off it — so the row fits the words again between 780 and 899, and the icons are wrong
-// there for exactly the reason they are wrong above 1100: no page height saved, 26px of data
-// height spent. 800 is the first width app.js draws the words at in that band, so this is the same
-// press the 1101 check makes, at the other edge of the same rule.
-await viewport(800, 900, false);
+// 194px off it — so the row fits the words again between 808 and 899, and the icons are wrong
+// there for exactly the reason they are wrong above 1139: no page height saved, 26px of data
+// height spent. 820 is the first width app.js draws the words at in that band, so this is the same
+// press the 1140 check makes, at the other edge of the same rule.
+await viewport(820, 900, false);
 await goto(BASE);
 await settle(`document.getElementById('chart-tools').parentNode.classList.contains('controls')`);
 const bandRest = await rowH();
