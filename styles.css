@@ -157,9 +157,13 @@ body.fs #filters .tablehead{ display:none }
 .controls .seg button, .controls .btn span{ text-box-trim:trim-both; text-box-edge:cap alphabetic }
 #lens-t:has(input:checked){ color:var(--ink); border-color:var(--accent) }
 /* The ring goes round the PILL, not round a 14px box inside it: :focus-visible lands on the input,
-   which is the small half of a control whose hit area is the whole label. */
+   which is the small half of a control whose hit area is the whole label.
+   BOTH rules are :has()-scoped, including the one that takes the input's own ring away. An engine
+   without :has() drops a rule it cannot parse — so scoped, it drops the pair and the input keeps
+   the global ring; unscoped, it dropped the pill's ring and kept the removal, which is a control
+   with NO visible focus at all for a keyboard. The fallback has to fail in the safe direction. */
 #lens-t:has(input:focus-visible){ outline:2px solid var(--accent); outline-offset:2px }
-#lens-t input:focus-visible{ outline:none }
+#lens-t:has(input:focus-visible) input{ outline:none }
 .spacer{ margin-left:auto }
 /* Icons ship as inline SVG in the document, NOT baked by JS, so `currentColor` follows the theme
    and there is nothing for Theme.subscribe to re-bake — the same reason the sparkline is plain

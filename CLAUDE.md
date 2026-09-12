@@ -519,6 +519,20 @@ would not have worked.
   the invariant at the cause rather than chase an artefact that only shows while it moves.
   **`baseLayout()` un-aims it**, because the
   filter fit and the ring separation are claims about the chart that outlive a pointer move.
+  **And `resize()` drops the aim outright**, for the reason `setMode()` does: it is a point in a box
+  that is going away. A pointer re-aims on its next move and a rotation even synthesises one — which
+  is why the desktop check for this passed without the fix and the real one lives in the phone
+  section. A FINGER cannot: `pointerleave` is `!TOUCH`, so a rotation or a tap on Full screen left
+  the fisheye magnifying a spot nobody had pointed at, its boundary circle clipped away by a box
+  that had shrunk under it.
+  **What the lens does NOT do is earn labels, and that was tried.** Unpinning `pickLabels()`'s
+  resting-Fame budget for an aimed lens named nothing extra — 13 before, 13 after — because a ZOOM
+  earns names by culling the frame while the lens moves pixels and culls nothing, so `prom` goes on
+  ranking the whole roster and the budget goes to the same far-flung dots that were already losing
+  their place to a collision. Ranking by nearness to the focus would name the crowd and would churn
+  every label on every pointer move, against a flag and a detail panel that already name the dot
+  under the glass continuously. The suite asserts both halves — the pin holds, and the flag names
+  what the glass is over — because the first is only defensible while the second is true.
   And **`#v=lens` still resolves** — to the timeline with `l=1`, which is the picture that link
   named — the same shape of alias as `#v=readers`, one vocabulary over.
   Two costs, both paid in the row rather than in the chart. It is 28px wider than the pill it
@@ -545,6 +559,12 @@ would not have worked.
   That rule is also why `#reset` and `#reset-filters` keep their labels in a `span`: bare text in an
   inline-flex button lands in an anonymous flex item, which no selector reaches and which
   `text-box-trim` does not inherit into, so those two stayed put while the pills moved.
+  One more thing that has to fail in the safe direction: the keyboard ring is drawn round the PILL
+  through `:has(input:focus-visible)`, and the rule that takes the input's own ring away is scoped
+  the same way. An engine that cannot parse `:has()` drops both and the input keeps the global ring;
+  unscoped, it dropped the pill's ring and kept the removal, leaving a control with no visible focus
+  at all. `ui.test.mjs` deletes every `:has()` rule on the page and looks again, which is what such
+  an engine does.
 
 - **The chart's controls sit ABOVE the plot, because the plot's height is a function of the VIEW.**
   `measure()` in `chart.js` gives each mode its own aspect ratio (0.98 for Fame against 0.82 for

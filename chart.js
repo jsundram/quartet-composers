@@ -629,6 +629,17 @@ window.Chart = (function () {
     // name is pointing at a composer it refuses to identify, which is the exact complaint that
     // put the rings on the filtered view in the first place.
     const seeds = emphOrder.map(i => rows[i]).filter(isVisible);
+    // THE LENS DOES NOT UNPIN THIS, AND IT WAS TRIED. The reading that says it should is real — a
+    // magnifier opening a hole in the 600-dot corner has asked for detail the way a pinch has, and
+    // a view that separates dots and then declines to name them is the complaint the rings answer.
+    // But unpinning changed nothing: 13 names before and 13 after. A ZOOM earns names because it
+    // culls the frame, so the ranking is over what is left; the lens moves pixels and culls
+    // nothing, so `prom` still ranks the whole roster and the budget goes to the same far-flung
+    // dots that were already losing their place to a collision. Ranking by nearness to the focus
+    // instead would name the crowd — and would churn every label on every pointer move, against a
+    // flag and a detail panel that already name the dot under the glass, continuously, which is
+    // what identifies this crowd. So the resting view stays what a bare URL and the share card
+    // draw, and `ui.test.mjs` asserts both halves rather than this paragraph.
     const first = mode === "fame" && !visible && transform.k === 1;
     if (first) cap = seeds.length;
     const cands = mode === "fame"
@@ -1141,6 +1152,12 @@ window.Chart = (function () {
     if (w === pw && h === ph) return;
     swarmY = null;
     restingT = null;
+    // The AIM is a point in the old box, so it does not survive one that changed — setMode() drops
+    // it for the same reason. A pointer re-aims on its next move and nothing shows; a FINGER does
+    // not, and pointerleave is `!TOUCH`, so a rotation or a tap on Full screen left the fisheye
+    // magnifying a spot the reader never pointed at, its boundary circle clipped away by a box
+    // that had shrunk under it.
+    lens = null;
     // Same reason as setMode: the box changed, so the separation the rings were chosen for is not
     // the separation they are drawn with. A rotation is the case that matters — the fame plot goes
     // from wide to tall and the dots close up.
