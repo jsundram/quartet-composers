@@ -140,7 +140,7 @@
              comment above states: nothing a finger rests on may be placed by a box the same press
              resizes. -->
         <label id="lens-t" class="btn"><input type="checkbox" id="lens"><span>Lens</span></label>
-        <button type="button" id="reset" class="btn" disabled>Reset zoom</button>
+        <button type="button" id="reset" class="btn" disabled><span>Reset zoom</span></button>
         <!-- All THREE filters, search included, because the name is plural and a typed query is a
              filter: a button sitting lit while a search is active and then not clearing it would be
              worse than the inconsistency it replaces. Always present and never hidden — that is the
@@ -148,7 +148,7 @@
              in, which is the entire class of defect issue 31 was about (see app.js's resetFilters).
              It is `disabled` at rest and accent-filled when it will do something, so the row also
              answers "is anything filtered?" without the reader checking three separate controls. -->
-        <button type="button" id="reset-filters" class="btn" disabled>Reset filters</button>
+        <button type="button" id="reset-filters" class="btn" disabled><span>Reset filters</span></button>
         <!-- A GROUP, because app.js reparents these two onto the plot wherever the row will not
              hold them (placeChartTools) — they are the only controls here that name a mechanism
              rather than a fact about the data, both have a standard glyph, and both are what a

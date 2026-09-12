@@ -438,11 +438,14 @@ check("the lens stays on across a view switch",
       await ev(`Chart.getMode() + ", lens " + !!Chart.lensOn?.()`));
 
 // AND IT IS CENTRED ON THE WORD, not on the word's line box. `align-items:center` centres boxes,
-// and "Lens" has no descender — so its ink ends at the baseline while the box it sits in runs
-// further down to hold one, which hung the checkbox 1px low against the letters. Measured the way
-// the chart's glyph alignment is: off a real baseline probe and the FONT's own ascent and descent,
-// rather than against the constant in styles.css, so a face whose ratio differs fails here instead
-// of drifting — and so this reads the drawn control, which is what the eye complained about.
+// and "Lens" has no descender — so its ink stops at the baseline while the box holding it runs
+// further down to leave room for one, which hung the checkbox 1px low against the letters.
+// The oracle is the CAP BAND — cap line to baseline, the body of the word as a reader sees it —
+// probed from the page rather than stated: a zero-size inline-block finds the real baseline and
+// the canvas reports the font's own ascent for the string actually drawn. It has to be measured
+// and not written down, because the offset is a fact about the FACE: at 13px this browser hangs
+// the box 1.0px low in DejaVu and 0.5px HIGH in Liberation Sans, so any constant here would be
+// right on one machine and wrong on the next — which is #53's lesson, one component over.
 const lensOffset = await ev(`(()=>{
   const l=document.getElementById('lens-t'); if (!l) return null;
   const sp=l.querySelector('span'), i=l.querySelector('input');
@@ -455,12 +458,31 @@ const lensOffset = await ev(`(()=>{
   cv.font=cs.fontWeight+' '+cs.fontSize+' '+cs.fontFamily;
   const m=cv.measureText(sp.textContent);
   const b=i.getBoundingClientRect();
-  return +(((b.top+b.bottom)/2)
-         - ((base-m.actualBoundingBoxAscent + base+m.actualBoundingBoxDescent)/2)).toFixed(2);
+  return +(((b.top+b.bottom)/2) - ((base-m.actualBoundingBoxAscent + base)/2)).toFixed(2);
 })()`);
 check("the lens checkbox is centred on the word, not on its line box",
       lensOffset !== null && Math.abs(lensOffset) <= 0.75,
-      lensOffset === null ? "" : `box centre ${lensOffset > 0 ? "+" : ""}${lensOffset}px from the ink centre`);
+      lensOffset === null ? "" : `box centre ${lensOffset > 0 ? "+" : ""}${lensOffset}px from the cap band's`);
+// ...AND THE WHOLE ROW STILL SITS ON ONE BASELINE. The fix above is a trim, which moves the word
+// down onto the band it draws — so it is applied to every label in the row rather than to this
+// one, or "Lens" rides 1.23px under the pills beside it in exactly the faces the trim acts on.
+// That is the other half of the same edit and the half a screenshot would not show you: bare text
+// in an inline-flex button lands in an anonymous box no selector reaches, so #reset and
+// #reset-filters keep their labels in a span for this rule to land on. Read off real baselines,
+// so a control added to this row without one fails here.
+const rowBaselines = await ev(`(()=>{
+  const at = el => { if (!el) return null;
+    const p=document.createElement('span'); p.style.cssText='display:inline-block;width:0;height:0';
+    el.appendChild(p); const b=p.getBoundingClientRect().bottom; p.remove(); return b; };
+  const els=[document.querySelector('#lens-t span'),
+             document.querySelector('.controls .seg button[data-mode="swarm"]'),
+             document.querySelector('#reset span'), document.querySelector('#reset-filters span'),
+             document.querySelector('#share .btn-t')].filter(Boolean);
+  const b=els.map(at);
+  return JSON.stringify({n:els.length, spread:+(Math.max(...b)-Math.min(...b)).toFixed(2)})})()`);
+const rowB = JSON.parse(rowBaselines);
+check("...and every label in the row still shares one baseline", rowB.n === 5 && rowB.spread <= 0.5,
+      `${rowB.n} labels, ${rowB.spread}px apart`);
 
 // It suspends the zoom rather than composing with it: a magnifier over a picture that moves is
 // the 2014 chart, and on a touch screen the pan and the aim are the same one-finger drag. The
@@ -482,6 +504,36 @@ const kLensOff = await ev(`Chart.zoomK()`);
 check("the lens suspends the zoom, and gives it back when it is switched off",
       kLensOn === 1 && kLensOff > 1.05,
       `k ${kLensOn.toFixed(2)} with the lens on, ${kLensOff.toFixed(2)} with it off`);
+await rest();
+
+// THE ZOOM IS STILL ANCHORED TO THE BOX WHILE THE LENS HAS IT UNBOUND. d3 constrains every
+// transform it is handed against the extent it was last given, and resize() and goTo() hand it
+// one with no listeners attached — so `zoom.extent()` has to be called outside the "not the lens"
+// branch or a resize taken with the magnifier on leaves the chart being fitted to the box it used
+// to be in. Nothing in the picture says so: the dots are drawn, the axes are drawn, and the frame
+// is simply the wrong one.
+// This reads the BOX d3 is holding rather than the frame it produced, because the frame differs
+// only where a fit is already hard against an edge — fourteen resize-and-filter pairs were probed
+// for a visible difference and not one of them reached it, so a check written on the symptom
+// would have been the green kind that proves nothing. Compared against the same steps with the
+// lens OFF rather than against a number, so the claim stays "the lens changes nothing about the
+// anchoring" and no box size is written down here to go stale.
+const anchorAfterResize = async on => {
+  await viewport(1280, 900, false);
+  await goto(BASE);
+  await mouse("mouseMoved", 1, 1);
+  await ev(`(()=>{const b=document.getElementById('lens');
+    if (b && b.checked !== ${on}) b.click()})()`);
+  await ev(`document.querySelector('#gender button[data-g="female"]').click()`);
+  await idle();
+  await viewport(760, 1100, false);
+  await relaid(); await idle();
+  return ev(`JSON.stringify(Chart.zoomBox?.() ?? null)`);
+};
+const anchorPlain = await anchorAfterResize(false), anchorLensed = await anchorAfterResize(true);
+check("a resize under the lens still re-anchors the zoom to the new box",
+      anchorPlain !== "null" && anchorLensed === anchorPlain,
+      `${anchorPlain} without the lens, ${anchorLensed} with it`);
 await rest();
 
 // The URL carries it, and the link that named it a VIEW still opens the picture it named: the
@@ -1721,11 +1773,16 @@ for (const [w, h, mobile] of [[390, 844, true], [1280, 900, false]]) {
   const beforeTop = await segTop(), beforeH = await plotHeight();
   await ev(`document.getElementById('lens')?.click()`);
   await laidOut();
+  // THAT THE LENS CAME ON IS HALF THE CHECK. Without it "nothing moved" is what a missing control
+  // reports too — the click is guarded for ablation, so it no-ops there and the two measurements
+  // are of the same page twice. A check that passes when the feature is absent proves nothing,
+  // which is the whole reason ablate.py exists.
+  const cameOn = await ev(`!!Chart.lensOn?.() && !!document.getElementById('lens')?.checked`);
   const lensTop = Math.abs(await segTop() - beforeTop), lensH = Math.abs(await plotHeight() - beforeH);
   await ev(`document.getElementById('lens')?.click()`);
   await laidOut();
-  check(`switching the lens on moves no box at ${w}px`, lensTop < 0.5 && lensH < 0.5,
-        `row moved ${lensTop.toFixed(1)}px, plot height moved ${lensH.toFixed(1)}px`);
+  check(`switching the lens on moves no box at ${w}px`, cameOn && lensTop < 0.5 && lensH < 0.5,
+        `lens on: ${cameOn}, row moved ${lensTop.toFixed(1)}px, plot height moved ${lensH.toFixed(1)}px`);
 }
 await viewport(1100, 1500);
 

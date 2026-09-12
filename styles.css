@@ -133,15 +133,28 @@ body.fs #filters .tablehead{ display:none }
    of the same idea, and it leaves the fill meaning one thing.
    `accent-color` is what paints the tick, so the check follows the theme with nothing baked. */
 #lens-t{ gap:7px; padding-right:14px }
+#lens-t input{ accent-color:var(--accent); width:14px; height:14px; margin:0; cursor:pointer }
 /* CENTRED ON THE WORD, not on the word's line box. `align-items:center` centres boxes, and a line
-   box is not what a reader sees: "Lens" has no descender, so its ink ends at the baseline while the
-   box it sits in runs a further 2.3px down for one. Centring against that hung the checkbox 1px
-   low — small, and the first thing the eye finds on a control this size, which is the same optical
-   rule the chart's glyphs follow against the axis title. The suite measures it off the FONT's own
-   ascent and descent against a baseline probe, not against this 1px, so a face with a different
-   ratio fails here instead of drifting. */
-#lens-t input{ accent-color:var(--accent); width:14px; height:14px; margin:0; cursor:pointer;
-               position:relative; top:-1px }
+   box is not what a reader sees: "Lens" has no descender, so its ink stops at the baseline while
+   the box holding it runs further down to leave room for one. Centring against that hung the
+   checkbox 1px low beside its own label — small, and the first thing the eye finds on a control
+   this size. It is the optical rule the chart's glyphs already follow against the axis title.
+   TRIMMED, not nudged, because HOW low is a fact about the FACE and `system-ui` is a different one
+   on every platform (#53, one component over). Measured in this browser at 13px: DejaVu and
+   FreeSans hang the box 1.0px low, Liberation Sans 0.5px HIGH, and SF's metrics put it within a
+   tenth — so the -1px correction this started as fixes the machine it was measured on and makes
+   the next one twice as wrong. Trimming to the cap line and the baseline asks the font instead,
+   and lands within 0.3px in every face measured.
+   THE WHOLE ROW IS TRIMMED, not the one label, because trimming moves the word down to sit on the
+   band it draws — 1.23px in DejaVu, nothing at all in the faces that were already symmetric — and
+   one label doing that alone breaks the baseline it shares with the pills beside it. Trimmed
+   together they keep it, and each label is centred on its own cap band rather than on a box whose
+   spare descender space it never uses. `.btn`s hold their label in a SPAN for this: bare text in
+   an inline-flex button lands in an anonymous flex item, which no selector can reach and which
+   `text-box-trim` does not inherit into — #reset and #reset-filters stayed put while the pills
+   moved, which is the break this rule exists to avoid. A browser without `text-box-trim` centres
+   line boxes as before: every label consistent, and the checkbox back to its 1px in some faces. */
+.controls .seg button, .controls .btn span{ text-box-trim:trim-both; text-box-edge:cap alphabetic }
 #lens-t:has(input:checked){ color:var(--ink); border-color:var(--accent) }
 /* The ring goes round the PILL, not round a 14px box inside it: :focus-visible lands on the input,
    which is the small half of a control whose hit area is the whole label. */

@@ -496,7 +496,15 @@ would not have worked.
   and on a touch screen the pan and the aim are the same one-finger drag. The transform is LEFT
   where it was rather than reset, so the lens magnifies whatever the reader had framed and
   unchecking hands the zoom back unchanged; `zoomed()` and `resetZoom()` therefore ask nothing
-  about the lens, since the frame is still the frame. **`baseLayout()` un-aims it**, because the
+  about the lens, since the frame is still the frame. The one thing unbinding does NOT excuse is
+  telling d3 the box: `constrain` runs on every transform the module applies, including the ones
+  `resize()` and `goTo()` apply with no listeners attached, so `zoom.extent()` is called whether or
+  not the behaviour is bound. Left inside the bound branch, a resize under the lens went on fitting
+  the chart to the box it used to be in — 776x452 against a real 638x341, with nothing on screen to
+  say so. `Chart.zoomBox()` exists so the suite can assert that at the cause: the frame it produces
+  differs only where a fit is already hard against an edge, and fourteen resize-and-filter pairs
+  were probed for a visible difference without reaching one.
+  **`baseLayout()` un-aims it**, because the
   filter fit and the ring separation are claims about the chart that outlive a pointer move.
   And **`#v=lens` still resolves** — to the timeline with `l=1`, which is the picture that link
   named — the same shape of alias as `#v=readers`, one vocabulary over.
@@ -507,12 +515,23 @@ would not have worked.
   tree without anything here keeping it in sync. Switching it re-lays out nothing (the plot's box
   is a function of the MODE), which is what makes it safe in a row above the plot at all: see the
   next entry for the rule it would otherwise break, and `ui.test.mjs` 4m4 for the check.
-  One detail the eye finds before any of that: the box is centred on the WORD and not on the word's
-  line box. `align-items:center` centres boxes, and "Lens" has no descender, so the line box runs
-  2.3px past the ink it draws and the checkbox hung 1px low. That is the chart glyphs' optical rule
-  on a control a tenth their size, and it is defended the same way — the suite probes the real
-  baseline and reads the font's own ascent and descent, so the constant in `styles.css` is never
-  what the check compares against.
+  One detail the eye finds before any of that, and it is a lesson about constants rather than about
+  checkboxes: the box is centred on the WORD and not on the word's line box. `align-items:center`
+  centres boxes, and "Lens" has no descender, so the line box runs past the ink it draws and the
+  checkbox hung 1px low. **The first fix was a -1px nudge, and it was wrong** — HOW low is a fact
+  about the FACE, and `system-ui` is a different one per platform (#53 again): measured at 13px,
+  DejaVu and FreeSans hang it 1.0px low, Liberation Sans 0.5px HIGH, and SF's metrics put it within
+  a tenth of centred — so the constant fixed the machine it was measured on and would have doubled
+  the error on the Mac it was written on, with the suite going red there. `text-box-trim`/
+  `text-box-edge: cap alphabetic` asks the font instead and lands within 0.3px in every face
+  measured; a browser without it centres line boxes exactly as before.
+  It is applied to EVERY label in `.controls`, not to this one, because trimming moves a word down
+  onto the band it draws (1.23px in DejaVu, nothing in the faces that were already symmetric) and
+  one label doing that alone breaks the baseline it shares with the pills beside it — `ui.test.mjs`
+  asserts both halves, the box against its own cap band and the five labels against each other.
+  That rule is also why `#reset` and `#reset-filters` keep their labels in a `span`: bare text in an
+  inline-flex button lands in an anonymous flex item, which no selector reaches and which
+  `text-box-trim` does not inherit into, so those two stayed put while the pills moved.
 
 - **The chart's controls sit ABOVE the plot, because the plot's height is a function of the VIEW.**
   `measure()` in `chart.js` gives each mode its own aspect ratio (0.98 for Fame against 0.82 for
@@ -600,7 +619,8 @@ would not have worked.
   data. "Across is how many quartets they wrote, up is how much their article is read" was typed,
   and true in Fame only — across is birth year in Timeline and Swarm, up means nothing at all in
   Swarm. It was cut rather than derived per mode, because the axes are already stated twice on
-  screen by whichever view is drawn (the axis titles in `chart.js` and the per-mode `HINTS`), so a
+  screen by whichever view is drawn (the axis titles in `chart.js` and the per-mode hint it builds
+  from `SHOWS`/`DRIVE`), so a
   third statement could only ever be the copy that goes stale.
   **Issue #35 applied the same test to the built half and it failed too.** The lede carried a
   sentence generated from `Chart.emphasisStats()` — which set is picked out, its birth span, a
