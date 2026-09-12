@@ -8,15 +8,16 @@
     python3 scripts/fetch_imslp.py --refresh  # ignore the cache and re-ask for everything
 
 Four passes over two APIs, ~165 requests for a COLD crawl, all cached in data/imslp.json so a
-rebuild is offline. A WARM run costs 47 and re-asks exactly two kinds of thing: the
+rebuild is offline. A WARM run costs 52 and re-asks exactly two kinds of thing: the
 instrumentation categories, because they are the only place a new work page can appear, and every
 ABSENCE — a composer page yielding no key, a P839 claim Wikidata does not state, a guessed
-category with no page behind it. Those are the answers a volunteer or a Wikidata editor changes,
-and a cache that never re-asks them cannot tell "nothing to do" from "nothing exists". Everything
-else tops up by page title and --refresh is the only way to make it re-ask, which is what keeps
-3.5 MB of unchanged wikitext off a volunteer-funded server. That is what makes a monthly run
-possible — the earlier rule, "nothing is refetched once it is in the cache", meant a second run
-reported `cached: orig (4215)` and discovered nothing, forever, while exiting 0 (#62).
+category with no page behind it, an article IMSLP names that does not exist. Those are the answers
+a volunteer or a Wikidata editor changes, and a cache that never re-asks them cannot tell "nothing
+to do" from "nothing exists". Everything else tops up by page title and --refresh is the only way
+to make it re-ask, which is what keeps 3.5 MB of unchanged wikitext off a volunteer-funded server.
+That is what makes a monthly run possible — the earlier rule, "nothing is refetched once it is in
+the cache", meant a second run reported `cached: orig (4215)` and discovered nothing, forever,
+while exiting 0 (#62).
 
 WHAT COUNTS AS A QUARTET IS IMSLP'S OWN ANSWER, not a title match. IMSLP categorises every work
 by scoring, and "Category:For 2 violins, viola, cello" IS the string quartet. Reading titles
@@ -46,6 +47,7 @@ categories does each of 4,900 work pages carry) is asked with clcategories, whic
 the four markers we asked about instead of the fifty a work page really has.
 """
 import argparse
+import gzip
 import http.client
 import json
 import os
@@ -58,6 +60,7 @@ import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
+sys.path.insert(0, HERE)     # build_imslp holds the readers; imported lazily, below
 PEOPLE = os.path.join(ROOT, "data", "people.json")
 OUT = os.path.join(ROOT, "data", "imslp.json")
 
@@ -108,9 +111,21 @@ def get(api, params):
     url = api + "?" + urllib.parse.urlencode(params)
     for attempt in range(TRIES):
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": UA})
+            # GZIP, because urllib does not ask for it and one pass here is enormous without
+            # it. Measured on wikidata: `wbgetentities&props=claims` has no per-property filter,
+            # so asking 50 items for their P839 returns their COMPLETE claim sets — 49 KB per
+            # composer, 24.6 MB for the 485 the monthly run re-asks, against 4.0 MB compressed.
+            # It is the cheapest pass here by requests and by far the dearest by bytes, and the
+            # same header takes ~1 MB of composer wikitext off IMSLP, which is the server the
+            # politeness paragraph above is actually about. Decoded only when the server SAYS it
+            # compressed, so a host that ignores the header changes nothing.
+            req = urllib.request.Request(url, headers={"User-Agent": UA,
+                                                       "Accept-Encoding": "gzip"})
             with urllib.request.urlopen(req, timeout=60) as r:
-                data = json.loads(r.read().decode("utf-8"))
+                body = r.read()
+                if r.headers.get("Content-Encoding") == "gzip":
+                    body = gzip.decompress(body)
+            data = json.loads(body.decode("utf-8"))
             # A MediaWiki error is a 200 carrying valid JSON, and a reply with no payload block
             # answered nothing. Both have to look like failures here or the retry ladder never
             # fires and the caller reads "no such page" out of a hiccup. WHICH block is named by
@@ -126,7 +141,10 @@ def get(api, params):
         # Broad on purpose. A truncated chunked response arrives as http.client.IncompleteRead,
         # which is neither a URLError nor a ValueError, so a narrow tuple let one dropped reply
         # end a 165-request crawl with a traceback and no cache file written.
-        except (OSError, http.client.HTTPException, ValueError) as e:
+        # EOFError is in the tuple for the gzip above: a truncated compressed body raises it
+        # rather than an OSError, and one dropped reply would otherwise end the crawl with a
+        # traceback instead of a retry — the same failure IncompleteRead was added for.
+        except (OSError, http.client.HTTPException, ValueError, EOFError) as e:
             if attempt == TRIES - 1:
                 raise
             wait = BACKOFF[min(attempt, len(BACKOFF) - 1)]
@@ -191,6 +209,22 @@ def reported(d, prefix=""):
     return got, seen
 
 
+def has_key(text, resolved):
+    """Does a composer page yield something the join can use — a QID, or an article that RESOLVES?
+
+    The test for whether re-asking a page could ever change anything, and the two passes that hold
+    composer wikitext (fetch_composers, fetch_candidates) share it rather than each deciding.
+    NAMING an article is not having a key: 204 cached pages name a non-English interwiki
+    ({{wp|de:Hans Erich Apostel}}), en.wikipedia has no such title, and roster_cats cannot match
+    one against a roster title either — they are as unplaced as a page naming nothing at all.
+    `resolved` is last run's answers, since fetch_wp runs after both callers: an article named for
+    the first time this month is re-read once more next month and keyed after that.
+    """
+    from build_imslp import parse_person
+    f = parse_person(text) or {}
+    return bool(f.get("qid") or (resolved.get(f.get("wp") or "") or {}).get("qid"))
+
+
 def chunks(seq, n):
     seq = list(seq)
     for i in range(0, len(seq), n):
@@ -238,7 +272,10 @@ def fetch_works(cache):
                 "%s came back with %d pages against %d cached. A category does not lose a tenth "
                 "of itself in a month, so this is a walk that ended early looking like an "
                 "answer — the listing was NOT replaced. Check the continuation shape in "
-                "members(), then --refresh if the loss is real." % (cat, len(now), len(was)))
+                "members() first. If the loss is REAL, delete this category's entry from "
+                "works in %s and re-run: the crawl then has nothing to compare against and "
+                "writes what it finds. --refresh would do it too, at the price of re-asking "
+                "everything else as well." % (cat, len(now), len(was), OUT))
         cache["works"][key] = rows
         # What the run DISCOVERED, which is the whole reason this pass re-runs. A warm run that
         # prints (0 new, 0 gone) has asked and been told nothing changed; the line it replaced
@@ -312,16 +349,10 @@ def fetch_composers(cache):
     naming nothing at all, and they were the one group permanently shut out of the re-ask.
     Resolution is last run's answer, since fetch_wp runs after this pass: an article named for the
     first time this month is re-read once more next month and keyed after that."""
-    sys.path.insert(0, HERE)
-    from build_imslp import parse_person
     want = sorted({w["composer"] for k in ("orig", "arr")
                    for w in cache["works"][k] if w["composer"]})
-
-    def keyed(c):
-        f = parse_person(cache["wikitext"][c]) or {}
-        return bool(f.get("qid") or (cache["wp"].get(f.get("wp") or "") or {}).get("qid"))
-
-    todo = [c for c in want if c not in cache["wikitext"] or not keyed(c)]
+    todo = [c for c in want
+            if c not in cache["wikitext"] or not has_key(cache["wikitext"][c], cache["wp"])]
     new = sum(1 for c in todo if c not in cache["wikitext"])
     print(f"  composers: {len(want)} with quartets, {len(todo)} to ask "
           f"({new} new, {len(todo) - new} still yielding no key)", file=sys.stderr)
@@ -358,16 +389,23 @@ def fetch_wp(cache):
     spellings. It is the same rule invariant 5 states for page views one direction over: resolve
     the title, because the API will happily answer for the redirect.
     """
-    sys.path.insert(0, HERE)
     from build_imslp import parse_person        # the parser lives with the offline stage
     # BOTH caches. Reading only the composers who have a quartet left the 58 pages reached by
     # name guess with their Wikipedia links unresolved, so the join judged them on dates alone
     # when the page was naming its own article all along.
     seen = list(cache["wikitext"].values()) + list(cache["candidates"].values())
     titles = sorted({(parse_person(t) or {}).get("wp") for t in seen if t} - {None})
-    todo = [t for t in titles if t not in cache["wp"]]
-    print(f"  wikipedia: {len(titles)} articles named by IMSLP, {len(todo)} to resolve",
-          file=sys.stderr)
+    # A TITLE THAT RESOLVED TO NOTHING IS RE-ASKED, and it is the fourth absence. 236 are stored
+    # that way, and 204 composer pages are re-downloaded every month precisely BECAUSE their only
+    # link resolved to nothing — leaving the one call that could change that answer un-rerun made
+    # the re-ask above unable to finish its own job. "Gubaidulina, Sofia" is the shape: IMSLP
+    # names an article that does not exist, and a redirect created since is all it would take.
+    # ~5 requests. A title that RESOLVED is not re-asked; a canonical title is an identifier here,
+    # and where a page MOVE would matter is page views, which invariant 15 answers for separately.
+    todo = [t for t in titles if not cache["wp"].get(t)]
+    new = sum(1 for t in todo if t not in cache["wp"])
+    print(f"  wikipedia: {len(titles)} articles named by IMSLP, {len(todo)} to resolve "
+          f"({new} new, {len(todo) - new} still resolving to nothing)", file=sys.stderr)
     done = 0
     for batch in chunks(todo, BATCH):
         d = get(WIKI_API, {"action": "query", "titles": "|".join(batch), "redirects": "1",
@@ -440,7 +478,6 @@ def fetch_candidates(cache):
     the app could not honestly say anyone is unrepresented. 583 of the 1,770 composer pages with
     a quartet state neither a QID nor an article, so this catches those too.
     """
-    sys.path.insert(0, HERE)
     from build_imslp import candidates, parse_person
     from build_data import QUALIFIER
 
@@ -460,18 +497,19 @@ def fetch_candidates(cache):
             continue
         want += candidates(QUALIFIER.sub("", v.get("canonical") or listed))
     want = sorted(set(want))
-    # A GUESS THAT CAME BACK EMPTY IS RE-ASKED. `want` is re-derived every run, so a composer
-    # rescued above drops out of it — but the 470 guesses stored as None are "IMSLP has no page
-    # by this name", and that is the one answer here that a volunteer changes. Leaving them was
-    # #62's defect in the pass whose entire purpose is making "not on IMSLP" an ANSWER, and it is
-    # not covered by the works crawl: a composer with no quartets is invisible to it by
-    # construction, which is the sentence at the top of this docstring. ~10 requests. A guess that
-    # FOUND a page is not re-asked — fetch_wp reads it from here and the wikitext is not a fact
-    # that ages.
-    todo = [c for c in want if cache["candidates"].get(c) is None]
+    # A GUESS THAT YIELDS NO KEY IS RE-ASKED, on has_key() — the same rule fetch_composers uses,
+    # because these are the same kind of page and build_imslp joins on them (`cand-qid`). `want`
+    # is re-derived every run, so a composer rescued above drops out of it; what stays is the 470
+    # guesses stored as None ("IMSLP has no page by this name") and the 7 whose page EXISTS and
+    # states nothing joinable. Both are answers a volunteer changes, and leaving either was #62's
+    # defect in the pass whose entire purpose is making "not on IMSLP" an ANSWER — not covered by
+    # the works crawl, which cannot see a composer with no quartets by construction. ~10 requests.
+    todo = [c for c in want
+            if c not in cache["candidates"]
+            or not has_key(cache["candidates"][c], cache["wp"])]
     new = sum(1 for c in todo if c not in cache["candidates"])
     print(f"  candidates: {len(want)} guesses for the composers nothing found, "
-          f"{len(todo)} to ask ({new} new, {len(todo) - new} still naming no page)",
+          f"{len(todo)} to ask ({new} new, {len(todo) - new} still yielding no key)",
           file=sys.stderr)
     done = 0
     for batch in chunks(todo, BATCH):
