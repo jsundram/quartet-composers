@@ -1,17 +1,14 @@
 // The readership filter: a log-scale histogram of page views with a drag-to-select brush.
 //
-// WHY IT EARNS ITS SPACE. Readership on this list spans 1 to 186,772 monthly views with a median
-// of 233 — half the roster is composers essentially nobody reads, and at 884 dots they are most of
-// the ink. A plain "minimum views" slider would hide them, but it would also hide WHERE the cut
-// falls in the distribution, which is the thing you actually need to choose it. The histogram is
-// the control and the context in one 56px strip.
+// WHY IT EARNS ITS SPACE. Readership spans four orders of magnitude and half the roster sits at or
+// under the median, so most of the ink on the chart is composers essentially nobody reads. A plain
+// "minimum views" slider would cut them out, but it would also hide WHERE the cut falls in the
+// distribution, which is the thing you need in order to choose it: this is the control and the
+// context in one strip, and a second filter alongside the search box on the usual contract.
 //
-// It is a second, independent filter alongside the search box. app.js intersects the two; neither
-// knows about the other.
-//
-// Log x, because a linear axis puts 96% of the composers in the first pixel. Bin edges are
-// geometric, so each bar covers the same MULTIPLICATIVE range — the shape you see is the real
-// shape of the distribution rather than an artifact of the binning.
+// Log x, because on a linear axis most of the roster lands in the first few pixels at any width this
+// draws at. Bin edges are geometric, so each bar covers the same MULTIPLICATIVE range and the shape
+// is the distribution's rather than the binning's.
 
 window.Histogram = (function () {
   const BINS = 36;
@@ -50,18 +47,15 @@ window.Histogram = (function () {
   // the composers the brush actually keeps — never a bar narrower than the selection under it.
   const inRange = i => !range || (edges[i + 1] >= range[0] && edges[i] <= range[1]);
 
-  // THE HANDLES ARE CROSSFILTER'S GRIPS (square.github.io/crossfilter, issue 40), not d3's rect.
-  // d3-brush's own .handle is `handleSize` wide by the extent PLUS handleSize tall, so painting it
-  // drew a 20x62 slab of accent sticking out above the bars and down through the tick labels — the
-  // hit area rendered as if it were the control. It stays as the hit area and styles.css paints it
-  // to nothing; this is what is seen, on the same felt-not-seen split the chart's icon buttons use.
+  // THE HANDLES ARE CROSSFILTER'S GRIPS (square.github.io/crossfilter, #40), not d3's rect — see
+  // CLAUDE.md for why the hit area is not the thing that gets painted.
   //
-  // Crossfilter's path is written for a 100px chart, where the third of the height it takes is a
-  // 33px tab: two 6-radius corners and 21px of straight edge between them. What carries over is the
-  // TAB, not the third — a third of 42 is 14px, which the corners swallow whole, and a grip is an
-  // affordance for a finger, so its absolute size is the thing that has to survive the move. At 26
-  // it is shorter than crossfilter's own and still has half its height straight; the corner
-  // geometry is theirs exactly and the grip lines keep their quarter-of-the-tab inset.
+  // Crossfilter's path is written for a 100px chart, where the third of the height it takes is a 33px
+  // tab: two 6-radius corners and 21px of straight edge between them. What carries over is the TAB,
+  // not the third — a third of this bar area is 14px, which the corners swallow whole, and a grip is
+  // an affordance for a FINGER, so its absolute size is what has to survive the move. At 26 it is
+  // shorter than crossfilter's own and still half straight; the corner geometry is theirs exactly and
+  // the grip lines keep their quarter-of-the-tab inset.
   // Drawn OUTWARD from the edge, as there — the flat side IS the selection's boundary, which is
   // what makes it read as a thing to pull. At an extreme that bleeds 6.5px past the svg, into the
   // padding of whatever box the row is in — measured, not assumed, and measured at the TIGHTEST of
@@ -100,9 +94,9 @@ window.Histogram = (function () {
     // holds the gender pills, and appeared and disappeared as you brushed. Under the handles it
     // says the same thing about the thing it describes, and the row stays still.
     //
-    // The two are placed before the ticks because they win: a tick label they would collide with
-    // is dropped, not overlapped. The axis reads 1 / 10 / 100 / 1k / 10k / 100k, so a selection
-    // edge lands on one of those often enough that overlap is the normal case, not the corner.
+    // Placed before the ticks because they WIN: a tick label they would collide with is dropped rather
+    // than overlapped. The axis carries one tick per decade from LO up, so a selection edge lands on or
+    // near one often enough that overlap is the normal case and not the corner.
     const half = t => (t.length * 5.6) / 2 + 3;                      // 10px digits, estimated
     const clamp = v => Math.max(half(fmt(v)), Math.min(w - half(fmt(v)), x(v)));
     const ends = range ? [{ v: range[0], x: clamp(range[0]) }, { v: range[1], x: clamp(range[1]) }]
@@ -134,14 +128,11 @@ window.Histogram = (function () {
       .attr("text-anchor", "middle").merge(en)
       .attr("x", d => d.x).attr("y", H + 11).attr("fill", C.sel).text(d => fmt(d.v));
 
-    // Keyed by SIDE — really keyed, unlike the join above, which says so about ITSELF for its own
-    // reason. The datum here is not a value to print, it is which way the tab is MIRRORED, so a
-    // node that kept its shape while receiving the other side's datum would draw a west tab at the
-    // east edge, curling into the selection instead of away from it. `d` is therefore set on the
-    // MERGED selection and not on enter: with the shape following the datum, the order of the array
-    // stops being load-bearing, which is the only way the comment above can go on being true.
-    // Placed from the SCALE rather than from the brush's pixels, so the tab, the number under it
-    // and the highlighted bars are all three drawn from one value.
+    // Keyed by SIDE, and the datum is not a value to print — it is which way the tab is MIRRORED, so a
+    // node that kept its shape while receiving the other side's datum would draw a west tab at the east
+    // edge, curling into the selection. `d` is therefore set on the MERGED selection and not on enter.
+    // Placed from the SCALE rather than from the brush's pixels, so the tab, the number under it and
+    // the highlighted bars are all drawn from one value.
     const gr = gGrips.selectAll("path").data(range ? [-1, 1] : [], d => d);
     gr.exit().remove();
     gr.enter().append("path").merge(gr)
@@ -169,7 +160,7 @@ window.Histogram = (function () {
     gAxis = svg.append("g").attr("class", "axis");
     gEnds = svg.append("g").attr("class", "ends");   // the selected range, under its own handles
 
-    // handleSize 20 so the grab edges clear the ~44px touch-target floor without a wider brush.
+    // handleSize 20 so the grab edge is a target a finger can find, without widening the brush itself.
     brush = d3.brushX().extent([[0, 0], [w, H]]).handleSize(20)
       // Live on "brush": the chart repaint is cheap and the whole point of the control is watching
       // the field thin out as you drag. The TABLE is rebuilt only on "end" — ~880 rows per frame
@@ -180,14 +171,10 @@ window.Histogram = (function () {
         emit(ev.selection, true);
       });
     gBrush = svg.append("g").attr("class", "brush").call(brush);
-    // After the brush, so the grips draw over the selection edge they mark — which is exactly what
-    // makes pointer-events THE load-bearing line in this file: being on top, a hittable grip would
-    // swallow the mousedown, and it is outside gBrush, so the brush would not see the drag at all.
-    // Nothing in styles.css is needed for the handle itself (d3-brush sets fill:none and
-    // pointer-events:all on the brush <g> and both inherit) — this is the one that matters.
-    // It is a presentation ATTRIBUTE, the weakest origin there is, so any future
-    // `#hist .grips path{ pointer-events: … }` would silently outrank it: the same trap that left
-    // #hist-clear under the touch floor and stretched the chart-tools glyphs.
+    // AFTER the brush, so the grips draw over the selection edge they mark — which is what makes the
+    // pointer-events attribute load-bearing: on top and outside gBrush, a hittable grip would swallow
+    // the mousedown and the brush would never see the drag. CLAUDE.md has the specificity trap that
+    // makes it an attribute rather than a rule.
     gGrips = svg.append("g").attr("class", "grips").attr("pointer-events", "none");
   }
 
@@ -246,9 +233,7 @@ window.Histogram = (function () {
   }
 
   return { init, setData, resize, rerender, setRange, clear, matches, label,
-           // Shared with the detail panel (app.js) so the brush readout and the panel say a
-           // readership the same way — "17k" in one place and "17,314" in the other reads as two
-           // different measurements of two different things.
+           // Shared with the detail panel, or the two print one readership two ways (invariant 9).
            fmt,
            getRange: () => range };
 })();

@@ -5,9 +5,8 @@
 // click a dot, the row highlights and scrolls into view) and the search box filters BOTH — matches
 // stay opaque in the chart, everything else drops to 12%.
 //
-// No virtualization on purpose. ~880 rows is ~5,000 DOM nodes, which builds in a few milliseconds
-// and — the part that matters — keeps the browser's own find-in-page working, which a windowed
-// list silently breaks.
+// No virtualization on purpose: the whole roster builds in a few milliseconds, and — the part that
+// matters — a windowed list silently breaks the browser's own find-in-page.
 
 window.Table = (function () {
   // `phone: false` marks a column that is HIDDEN on a narrow screen (styles.css does the hiding
@@ -15,12 +14,10 @@ window.Table = (function () {
   // Quartets — the one the chart is about — scrolls off the right edge. Died and Lived are the
   // two to lose, because both are one tap away in the detail panel and neither is why you came.
   //
-  // `short` is the phone HEADER, and it is the column's width that asks for it, not its meaning:
-  // a header word sets the column when it is wider than any value under it, and "Quartets" over
-  // three digits was buying ~30px it never used. That is most of the phone table's overflow —
-  // in a wide UI face (DejaVu, which is what system-ui resolves to on Linux) the four columns
-  // did not fit 390px at all, and in no measured face did they fit 360. styles.css swaps which
-  // span is drawn; the accessible name keeps both, for the reason below.
+  // `short` is the phone HEADER, asked for by the column's WIDTH and not its meaning: a header word
+  // sets the column when it is wider than any value under it, and "Quartets" over three digits was
+  // buying ~30px it never used. In no measured face did the phone columns fit 360px before that went.
+  // styles.css swaps which span is drawn; the accessible name keeps both, for the reason below.
   const COLS = [
     { key: "name",     label: "Composer",  num: false, phone: true },
     { key: "birth",    label: "Born",      num: true,  phone: true },
@@ -42,21 +39,17 @@ window.Table = (function () {
 
   // NFD-strip so a search for "Dvořák" finds the ASCII-scraped "Antonin Dvorak" (and vice versa).
   //
-  // NFD alone is not enough. It splits a letter into base + combining accent, which handles á é ö
-  // — but ł, ø, đ, ß, æ and œ are single codepoints with NO decomposition, so they survive the
-  // strip untouched and "lutoslawski" fails to find "Lutosławski". That is not hypothetical here:
-  // names are canonical Wikipedia titles, so this roster really does carry them. Map them by hand
-  // first, then NFD the rest. The suite types a folded query, so the RULE is what is checked.
+  // NFD alone is not enough: it splits a letter into base + combining accent, which handles á é ö, but
+  // ł, ø and the rest below are single codepoints with NO decomposition, so they survive the strip and
+  // "lutoslawski" fails to find "Lutosławski". Hand map FIRST, then NFD the rest. Not every entry has
+  // a name in today's roster — the map is the rule for the scrape, not a census of it (invariant 13).
   const FOLD = { "ł": "l", "ø": "o", "đ": "d", "ð": "d", "þ": "th", "ß": "ss", "æ": "ae", "œ": "oe", "ı": "i" };
   const norm = s => s.toLowerCase().replace(/[łøđðþßæœı]/g, c => FOLD[c])
                      .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
   // ---- display names --------------------------------------------------------
-  // The table shows the SURNAME, and "Surname, Forename" only where a surname is shared, so that
-  // sorting by name sorts the way a reader expects and the composer column stops being the widest
-  // thing on a phone. names.js owns the rule -- the chart labels shorten the same names by the
-  // same judgment, and the two must not drift apart about who needs a forename. The detail panel
-  // keeps the full title, where recognising the person is the whole job.
+  // names.js owns the rule, and serves the chart from the same map, so the two cannot drift apart
+  // about who needs a forename.
 
   function setData(r) {
     rows = r;
@@ -84,13 +77,9 @@ window.Table = (function () {
       const b = document.createElement("button");
       b.type = "button";
       if (c.short) {
-        // Two spans rather than one swapped string, and the DRAWN one comes first and stays in the
-        // accessibility tree: WCAG 2.5.3 asks the accessible name to contain the visible label, and
-        // "Qts" is not inside "Quartets". Hiding the abbreviation from the tree — the first thing
-        // tried here — reads fine to a screen reader and breaks SPEECH INPUT, where a reader who
-        // can see "Qts" says "click Qts" and voice control matches against a name that does not
-        // contain it. So the name is the visible label plus the word it stands for, in that order,
-        // and on a wide screen the abbreviation is display:none and drops out of the name entirely.
+        // Two spans rather than one swapped string, and the DRAWN one FIRST so it leads the accessible
+        // name (WCAG 2.5.3, which CLAUDE.md argues). On a wide screen the abbreviation is display:none
+        // and drops out of the name entirely, which is why neither span may become an aria-label.
         const abbr = document.createElement("span");
         abbr.className = "th-short";
         abbr.textContent = c.short;
@@ -173,8 +162,7 @@ window.Table = (function () {
       chip.style.boxShadow = d.living ? "inset 0 0 0 1.4px " + Chart.colorOf(d) : "none";
       c0.appendChild(chip);
       c0.appendChild(document.createTextNode(d.display));
-      // The full canonical title stays reachable: a tooltip on the cell, and the detail panel and
-      // the chart label both still print it in full.
+      // The canonical title stays reachable as the cell's tooltip.
       c0.title = d.name;
       tr.appendChild(c0);
 
@@ -221,10 +209,9 @@ window.Table = (function () {
     // Only when the selection came from the CHART. Scrolling the table under a user who just
     // clicked a row in it yanks the thing they are reading out from under their finger.
     if (!scroll) return;
-    // Deliberately NOT scrollIntoView: even with block:"nearest" it walks up and scrolls every
-    // ancestor, so picking a dot yanked the whole DOCUMENT down and pushed the chart you just
-    // clicked off the screen. Scroll only the table's own overflow box. (.scroll is
-    // position:relative in styles.css so offsetTop is measured against it.)
+    // Deliberately NOT scrollIntoView: even with block:"nearest" it walks up and scrolls every ancestor,
+    // so picking a dot pushed the chart you just clicked off the screen. Only the table's own overflow
+    // box. (.scroll is position:relative in styles.css, so offsetTop is measured against it.)
     const box = tbodyEl.closest(".scroll");
     if (!box) return;
     const want = tr.offsetTop - (box.clientHeight - tr.offsetHeight) / 2;
