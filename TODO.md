@@ -350,29 +350,34 @@ lines instead of 118k. The price is that alignment is load-bearing, so `build_da
 ## Testing
 
 ### The leanness pass, mid-flight — read this before touching the branch
-Branch `claude/test-suite-effectiveness-5nmyk0`, pushed, no PR. Four commits, in order: cut the
-prose; derive the `V` bump; delete the numbers and the lint that kept them (and repair `chart.js`);
-prove a comments-only change. The brief: this repo is a small visualization that had become half
-comments and half tests, and a lot of its history is edits to docs for numbers that move — apply the
-data-ink ratio to the codebase, aggressively but respectfully, by DELETION.
+Branch `claude/test-suite-effectiveness-5nmyk0`, pushed, no PR. The brief: this repo is a small
+visualization that had become half comments and half tests, and much of its history is edits to docs
+for numbers that move — apply the data-ink ratio to the codebase, aggressively but respectfully, by
+DELETION.
 
 **Done.** CLAUDE.md keeps every rule and lost every recomputable number (the three-way split is
 stated at its top: rules here, history here, anything mechanical in a check). TODO.md's closed
 entries are decision-plus-evidence. `prose-lint.py` and its suite are gone, with the thirteen doc
 numbers they guarded. The `V` bump is `sw-lint.py --fix` in the hook, so it is not a human step and
 `refresh.py` no longer carries a second copy of the regex. `codehash.py` proves a comments-only
-change and both branch gates exempt one on that proof.
+change and both branch gates exempt one on that proof. `names.js` was cut from 158 lines to 141, 79
+comment lines to 49, with `scripts/names.test.mjs` holding the rules the prose used to assert. The
+statistic window is pinned and `fetch_views.test.py` runs on a frozen clock. `chart.js` and `app.js`
+lost 101 comment lines between them, 8.9KB of 77KB, with no code change — codehash says so, and the
+browser suite stayed at 259 green.
 
-**Not done, and it is the half the brief was about: the APP comments.** `chart.js` and `app.js` are
-still roughly half comment, and `names.js` — 79 of 158 lines — is comment-dense enough that the code
-is hard to find, which is a readability defect in the most heuristic file here. The rule to apply is
-the one already in Conventions: a comment may not assert a mechanical fact (that becomes a check or
-it goes), and WHY survives. Do it per file, run `codehash.py` on the staged result, and expect the
-removals to be large.
-**Test code has GROWN on this branch**, which is the other half owed: `codehash.py` plus its suite
-is 508 lines added to prove a property only this kind of pass needs. Decide its fate deliberately —
-it is a real gate now, imported by both branch gates, so the options are keep, or slim to the gate
-integration and drop the scenario suite.
+**`codehash.py` STAYS, suite included** — the decision, since it is the one place test code grew on
+this branch. It is not scaffolding: both branch gates import `unchanged()`, the hook runs it, and it
+is what made the three comment passes above safe to do at all. Its scenario suite is what makes a
+wrong answer cheap (regex against division, `//` inside a template literal) and it found three
+defects in the tool, so slimming it to the gate integration would be deleting the half that earns
+the trust the gates place in it.
+
+**Still owed, in order.** A second cut at `chart.js`/`app.js`, which is a different job from the
+first: what is left there is nearly all local WHY, so it means deleting information rather than
+words, and the question to ask per block is whether CLAUDE.md already argues it. `table.js` and
+`histogram.js` are at about 30% comment and have not been touched. And the mutation catalogue below,
+which is the thing that would let a check be DELETED with evidence rather than by eye.
 
 **Two traps, both paid for once.** `git add -A` before running any harness that mutates the tree:
 `git checkout --` restores from the INDEX, so a repair that is not staged is silently undone — that
