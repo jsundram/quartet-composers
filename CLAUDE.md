@@ -252,6 +252,15 @@ framework, and nothing to install:
   compares `composers.json` against its schema, the other caches, `readership.json` and the
   previous commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still
   catches each past incident; weaken a check and it goes red.
+- `node scripts/names.test.mjs` — the display-name rules, offline, in the module loaded under a
+  one-line `window` stub. It is the one app module with a suite of its own because it is the one
+  that is PURE — a roster in, two strings out — and the most heuristic thing here: the last-word
+  rule, the five kinds of name it is wrong about, and the floor-AND-margin that awards a bare
+  surname. Three of its cases run against the shipped roster rather than a fixture, and they are
+  what the shared-surname map is for: no two composers may get the same chart label, nor the same
+  filed name, and sorting the filed column must keep every surname group contiguous. The counts
+  this file used to state in prose — how many names the rule is wrong about, which groups qualify
+  today — are gone; they moved every time the pipeline ran.
 - `scripts/ui-test.sh` — the behavioural suite, against a real Chrome over CDP. **Its size is not
   stated here: run it and read the total it prints.** Its own header documents the harness; three
   rules matter before you add to it. **Every wait is a poll, not a budget** (#48) — `settle()`
@@ -410,7 +419,10 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   **One exception, in the chart form only: a surname only one composer is READ for prints bare.**
   "Haydn" is Joseph and "Tchaikovsky" is Pyotr Ilyich on any programme; the initial is what Michael
   and Boris need. `DOMINANT_VIEWS` in `names.js` is the test and it has to stay decisive — the most-read
-  member takes it only if nobody in the group ties them, or two dots get the same label. Not in
+  member takes it only if they also lead by `DOMINANT_MARGIN`, because a floor alone hands the bare
+  surname to whoever leads by one view once both clear it, and readership is refetched monthly, so
+  that is drift rather than hypothesis. `names.test.mjs` asserts the margin and, over the real
+  roster, that no two composers end up with the same label. Not in
   `filed()`: the table sorts on what it prints, and a bare "Haydn" beside "Haydn, Michael" is
   inconsistent about who gets a forename. This is why `Names.setData()` takes readership alongside
   the names, as a PARALLEL array for the reason `build_data.py` carries canonical titles in one.

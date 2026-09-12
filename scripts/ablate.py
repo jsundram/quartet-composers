@@ -77,7 +77,12 @@ COVERS = [
     (("scripts/fetch_views.py",),     ["python3 scripts/fetch_views.test.py"]),
     (("scripts/sw-lint.py",),         ["python3 scripts/sw-lint.test.py"]),
     (("sw.js",),                      ["node scripts/sw.test.mjs"]),
-    (("app.js", "chart.js", "table.js", "histogram.js", "names.js", "theme.js",
+    # names.js is the one app module with an OFFLINE suite, because it is pure: a roster in, two
+    # display strings out. It is listed ahead of the browser tuple (first match wins) and keeps the
+    # browser suite beside it, since one red suite is proof and a naming change can show up in
+    # either.
+    (("names.js",),                   ["node scripts/names.test.mjs", "BROWSER:scripts/ui-test.sh"]),
+    (("app.js", "chart.js", "table.js", "histogram.js", "theme.js",
       "styles.css", "index.html"),    ["BROWSER:scripts/ui-test.sh"]),
     # The gates cover themselves. Without this the next change to this very file would never be
     # ablated against the suite written for it, which is the failure the whole PR is about.

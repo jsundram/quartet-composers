@@ -59,6 +59,11 @@ jobs:
         run: node --check sw.js
       - name: behavioral tests (scripts/sw.test.mjs)
         run: node scripts/sw.test.mjs
+      # The display-name rules. In this job rather than `ui` because it needs no browser and
+      # should not queue behind one: names.js is pure, so the rules it is wrong about are
+      # answerable from a fixture roster in milliseconds.
+      - name: display names (scripts/names.test.mjs)
+        run: node scripts/names.test.mjs
       - name: precache lint (scripts/sw-lint.py)
         run: python3 scripts/sw-lint.py
       # Via env rather than interpolated into the shell line: a `${{ }}` inside `run:` is textual

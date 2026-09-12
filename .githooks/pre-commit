@@ -29,5 +29,6 @@ python3 scripts/validate.py || true
 # absent (the toolchain is otherwise Python; node is only needed for these).
 if command -v node >/dev/null 2>&1; then
   node scripts/sw.test.mjs >/dev/null 2>&1 || echo "  (warning only — sw tests failed; run 'node scripts/sw.test.mjs' to see why)"
+  node scripts/names.test.mjs >/dev/null 2>&1 || echo "  (warning only — name tests failed; run 'node scripts/names.test.mjs' to see why)"
 fi
 exit 0

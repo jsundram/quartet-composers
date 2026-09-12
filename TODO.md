@@ -389,9 +389,14 @@ section. What is still owed, in the order it is worth doing:
 - **Nothing pins the statistic window.** `STAT_MONTHS` 12 → 18 rebuilds, resizes every dot, and
   passes everything; `check_drift`'s 20x threshold is for wrong-article joins and will not see it.
   One line in `validate.py`: the shipped window is twelve months.
-- **`names.js` has no suite and is the most heuristic file here.** It runs in node with a 6-line
-  harness (`new Function("window", src)`), so `short()`, `filed()` and the `DOMINANT_VIEWS` rule can
-  be tested offline in 50ms against fixture rosters.
+- ~~`names.js` has no suite~~ — done, 2026-09-12. `scripts/names.test.mjs` loads the module under a
+  `window` stub and covers the last-word rule, both display forms, the floor-and-margin award, and
+  three properties of the SHIPPED roster (no two composers share a chart label or a filed name; the
+  filed column keeps surname groups contiguous). Proved non-vacuous by five mutations — dropping the
+  margin, forename-as-suffix-slice, dropping the override lookup, dropping suffix handling, and
+  letting the bare surname into `filed()` — each reddening 2 to 7 named checks. The suite is what
+  made the comment pass below safe: every count the file stated in prose is now either a check or
+  deleted.
 - **A mutation catalogue, committed.** `ablate.py` proves a new check fails without its fix; nothing
   proves the suite catches a bug nobody wrote a check for, which is why answering that took an
   investigation rather than a command. A `scripts/mutate.py` with ~25 curated mutations and a stated

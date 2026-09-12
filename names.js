@@ -154,5 +154,8 @@ window.Names = (function () {
     // Override keys that no longer name a composer -- a pipeline rename, asserted empty by the UI
     // suite so the entry cannot sit there doing nothing.
     staleOverrides: () => Object.keys(SURNAME).filter(n => !names.includes(n)),
+    // For the suite, which checks each override against the rule it overrides. Read-only by
+    // convention, like Chart.colorOf.
+    OVERRIDES: SURNAME,
   };
 })();
