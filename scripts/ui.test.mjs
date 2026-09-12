@@ -279,7 +279,7 @@ async function wheel(x, y, dy) {
 // flips touch emulation still boots, and one that only needs another viewport asks for it and
 // waits for the re-layout (relaid()).
 const AT_REST = `(()=>{const th=document.querySelector('thead th[aria-sort]');
-  return JSON.stringify({mode:Chart.getMode(), lens:Chart.lensOn(), k:Chart.zoomK(),
+  return JSON.stringify({mode:Chart.getMode(), lens:!!Chart.lensOn?.(), k:Chart.zoomK(),
     zoomed:!document.getElementById('reset').disabled,
     filtered:!document.getElementById('reset-filters').disabled,
     rows:document.querySelectorAll('tbody tr').length === ROWS.length,
@@ -308,7 +308,7 @@ async function rest() {
     if (!document.getElementById('reset-filters').disabled) document.getElementById('reset-filters').click();
     if (selected != null) show(null, false);
     if (Chart.getMode() !== 'fame') document.querySelector('.controls .seg button[data-mode="fame"]').click();
-    if (Chart.lensOn()) document.getElementById('lens').click();
+    if (Chart.lensOn?.()) document.getElementById('lens')?.click();
   })()`);
   await idle(); await relaid();                        // the un-fit tween, the view's re-layout
   await ev(`(()=>{
@@ -387,6 +387,9 @@ await goto(BASE);
 // Radii of every dot, keyed by DOM order. The join is keyed by row index and every plottable row
 // is drawn (see chart.js), so the same key is the same composer before and after — and the lens
 // maps its own disc onto itself, so nothing enters or leaves the frame to renumber them.
+// Every read of the checkbox below is guarded (`?.`), and that is not defensive habit: ABLATION
+// runs this file against the tree WITHOUT the control, and a suite that throws there dies having
+// proved nothing instead of failing the checks that are supposed to notice. See scripts/ablate.py.
 const dotRadii = () => ev(`(()=>{const o={};document.querySelectorAll('#plot svg circle.dot')
   .forEach((e,i)=>o[i]=+e.getAttribute('r'));return o})()`);
 const plotBox = () => ev(`(()=>{const r=document.querySelector('#plot svg').getBoundingClientRect();
@@ -402,8 +405,8 @@ for (const m of ["scatter", "fame", "swarm"]) {
   await mouse("mouseMoved", 1, 1);                       // off the chart: no aim, no warp
   await settle(`document.querySelector('#plot svg circle.lens-edge').style.display === 'none'`);
   const before = await dotRadii();
-  if (!await ev(`document.getElementById('lens').checked`))
-    await ev(`document.getElementById('lens').click()`);
+  if (!await ev(`!!document.getElementById('lens')?.checked`))
+    await ev(`document.getElementById('lens')?.click()`);
   await aim();
   const after = await dotRadii();
   magnified[m] = { grew: Object.keys(before).filter(k => after[k] > before[k] * 1.5).length,
@@ -430,9 +433,9 @@ check("...and leaves the dots outside its radius alone, in every view",
 // Switched on once, in the timeline, and still on two view changes later — the loop above only
 // clicks it when it is off, so this fails the moment a view change clears it.
 check("the lens stays on across a view switch",
-      await ev(`Chart.getMode() === 'swarm' && Chart.lensOn()
-                && document.getElementById('lens').checked`),
-      await ev(`Chart.getMode() + ", lens " + Chart.lensOn()`));
+      await ev(`Chart.getMode() === 'swarm' && !!Chart.lensOn?.()
+                && !!document.getElementById('lens')?.checked`),
+      await ev(`Chart.getMode() + ", lens " + !!Chart.lensOn?.()`));
 
 // It suspends the zoom rather than composing with it: a magnifier over a picture that moves is
 // the 2014 chart, and on a touch screen the pan and the aim are the same one-finger drag. The
@@ -448,7 +451,7 @@ await send("Input.dispatchMouseEvent", { type: "mouseWheel", x: mid.x, y: mid.y,
   deltaX: 0, deltaY: -240, pointerType: "mouse" });
 await sleep(TWEEN);
 const kLensOn = await ev(`Chart.zoomK()`);
-await ev(`document.getElementById('lens').click()`);
+await ev(`document.getElementById('lens')?.click()`);
 await wheel(mid.x, mid.y, -240);
 const kLensOff = await ev(`Chart.zoomK()`);
 check("the lens suspends the zoom, and gives it back when it is switched off",
@@ -458,14 +461,14 @@ await rest();
 
 // The URL carries it, and the link that named it a VIEW still opens the picture it named: the
 // timeline, with the fisheye on. Same shape as #v=readers, one vocabulary over.
-await ev(`document.getElementById('lens').click()`);
+await ev(`document.getElementById('lens')?.click()`);
 check("switching the lens on puts it in the URL", (await ev(`location.hash`)).includes("l=1"),
       "hash = " + await ev(`location.hash`));
 await goto(BASE + "#v=lens");
 check("an old #v=lens link opens the timeline with the lens on",
-      await ev(`Chart.getMode() === 'scatter' && Chart.lensOn()
-                && document.getElementById('lens').checked`),
-      await ev(`Chart.getMode() + ", lens " + Chart.lensOn()`));
+      await ev(`Chart.getMode() === 'scatter' && !!Chart.lensOn?.()
+                && !!document.getElementById('lens')?.checked`),
+      await ev(`Chart.getMode() + ", lens " + !!Chart.lensOn?.()`));
 
 // --- 2. hover flag on a real pointer -----------------------------------------
 await rest();
@@ -1691,10 +1694,10 @@ for (const [w, h, mobile] of [[390, 844, true], [1280, 900, false]]) {
   check(`...and there was a real shift to absorb at ${w}px`, worstH > 15,
         `plot height ${restH.toFixed(0)} changed by up to ${worstH.toFixed(0)}px across the three views`);
   const beforeTop = await segTop(), beforeH = await plotHeight();
-  await ev(`document.getElementById('lens').click()`);
+  await ev(`document.getElementById('lens')?.click()`);
   await laidOut();
   const lensTop = Math.abs(await segTop() - beforeTop), lensH = Math.abs(await plotHeight() - beforeH);
-  await ev(`document.getElementById('lens').click()`);
+  await ev(`document.getElementById('lens')?.click()`);
   await laidOut();
   check(`switching the lens on moves no box at ${w}px`, lensTop < 0.5 && lensH < 0.5,
         `row moved ${lensTop.toFixed(1)}px, plot height moved ${lensH.toFixed(1)}px`);
@@ -2412,7 +2415,7 @@ const fell = {};
 for (const m of ["fame", "lens"]) {
   await view("fame");
   await ev(`(()=>{const b=document.getElementById('lens');
-    if (b.checked !== ${m === "lens"}) b.click()})()`);
+    if (b && b.checked !== ${m === "lens"}) b.click()})()`);
   await ev(`Chart.resetZoom()`); await idle();
   const spots = await ev(`(()=>{const b=document.getElementById('share').getBoundingClientRect(),
       t=document.querySelector('#plot svg text.ttl').getBoundingClientRect();
@@ -2428,7 +2431,7 @@ for (const m of ["fame", "lens"]) {
   }
 }
 await ev(`window.scrollTo(0, 0)`);
-await ev(`(()=>{const b=document.getElementById('lens'); if (b.checked) b.click()})()`);
+await ev(`(()=>{const b=document.getElementById('lens'); if (b?.checked) b.click()})()`);
 await view("fame");
 check("...and a wheel it declines still scrolls the page, over the glyphs as beside them",
       fell["fame:glyph"] > 0 && fell["fame:glyph"] === fell["fame:band"] &&
