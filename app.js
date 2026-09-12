@@ -17,11 +17,9 @@
 
 const VER_PREFIX = "quartets-v";   // must match sw.js's V stem — the numeric tail is load-bearing
 const DATA_URL = "./composers.json";
-// The readership HISTORY, and the only file this app can finish without. composers.json is a boot
-// dependency — no chart, no table, no page — so the monthly series that draw the sparkline are not
-// in it: an order of magnitude more data than the roster, for one panel decoration. This file is precached
-// like everything else (sw.js SHELL) but deliberately NOT a boot dep, is fetched AFTER the first
-// paint, and if it never arrives the panel is exactly what it was before.
+// The readership HISTORY: kept out of composers.json, which IS a boot dependency, because it is an
+// order of magnitude more data for one panel decoration. Precached but not a BOOT dep (invariant 2),
+// fetched after the first paint, and if it never arrives the panel is what it was before.
 const HIST_URL = "./readership.json";
 const WIKI = name => "https://en.wikipedia.org/w/index.php?search=" + encodeURIComponent(name);
 
@@ -56,13 +54,8 @@ function selectFromTable(i) {
 }
 
 // ---- readership, stated to the precision it actually has --------------------
-// The view count is a MEASURE, not a tally: a median of monthly totals, any one of which runs ~12%
-// off typical. Printing it whole claims six significant figures for a number that has two, and is stale
-// the next time fetch_views.py runs. So the panel quantizes to two figures and rounds DOWN — "180k+"
-// survives a refresh (invariant 9).
-//
-// The TABLE keeps the exact figure: it sorts on that column, and a column reading "1.2k+" eleven times
-// hides the ordering it was sorted by.
+// Two significant figures, floored, plus a "+" — because the number is a MEDIAN and printing it whole
+// claims six figures for a number that has two (invariant 9, which also says why the table does not).
 function twoSig(n, dir) {                       // dir: -1 rounds down, +1 rounds up
   if (n < 100) return Math.round(n);            // already two figures or fewer
   const p = Math.pow(10, Math.floor(Math.log10(n)) - 1);
@@ -76,13 +69,9 @@ const atLeast = v => Histogram.fmt(twoSig(v, -1)) + "+";
 const spread = (lo, hi) => `${Histogram.fmt(twoSig(lo, -1))}–${Histogram.fmt(twoSig(hi, 1))}`;
 
 // ---- readership history ----------------------------------------------------
-// One line per composer, over every month the pageviews API has. The panel's numbers answer "how much
-// read, now"; this answers what they cannot — steady, climbing, or one obituary.
-//
-// LINEAR y, zero-based, unlike the chart's log readership axis: the log scale is there because the
-// roster spans orders of magnitude BETWEEN composers, while within one composer the question is
-// proportion and a log baseline flattens exactly the spike the line exists to show. Zero-based for the
-// same reason — a min-max sparkline turns a steady composer's 5% wobble into a mountain range.
+// One line per composer: what the panel's numbers cannot say — steady, climbing, or one obituary.
+// LINEAR and ZERO-BASED, against the chart's log axis, because within one composer the question is
+// proportion; a min-max baseline turns a steady composer's 5% wobble into a mountain range.
 const SPARK_W = 240, SPARK_H = 34;      // viewBox units; the CSS stretches it to the panel width
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                 "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -123,15 +112,10 @@ const svgEl = (tag, attrs) => {
   return n;
 };
 
-// WHAT THE CAPTION NAMES: the spike if there is one, otherwise the trend. A fixed "peak N× typical"
-// was the wrong sentence for most of the roster — the median composer's biggest month is 3.1× their
-// typical one, because a composer read thirty times a month hits ninety by chance, so it cried spike
-// about noise on half the list, and it buried the real story for the steady ones (Haydn's peak is 1.7×
-// and meaningless; his line has been sliding for a decade).
-//
-// So the test is the peak against the 95th PERCENTILE of that composer's own months — how far the
-// biggest month towers over even a busy one — which is scale-free, judging a small noisy article
-// against its own noise. At 3× it fires on 18% of the roster and selects almost entirely obituaries.
+// The peak against the 95th PERCENTILE of that composer's own months, never against their median: a
+// composer read thirty times a month hits ninety by chance, so a ratio to typical cried spike about
+// noise on half the list. Scale-free, so a small noisy article is judged against its own noise.
+// CLAUDE.md carries what this threshold was calibrated on, and why the caption names the trend instead.
 const SPIKE = 3;
 
 // Percent change between the first and last twelve months of the record. Needs two full years to
@@ -151,10 +135,9 @@ function sparkline(name) {
   const known = vals.filter(v => v != null);
   if (known.length < 2) return null;
   const max = Math.max(...known);
-  // An all-zero series has no line to draw: every y is 0/0, so the path is "MNaN,NaN…" and renders
-  // as nothing at all under a caption reading "peak Mar 2019 — 0". No series in today's data is
-  // all zeros, but the roster is rebuilt from a scrape every month and the obscure tail is where
-  // this would first appear.
+  // An all-zero series has no line to draw: every y is 0/0, so the path is "MNaN,NaN…" and renders as
+  // nothing at all under a caption reading "peak Mar 2019 — 0". Unreachable in today's data, and the
+  // roster is rescraped monthly, so the obscure tail is where it would first appear.
   if (max === 0) return null;
   const typical = d3.median(known);
   const p95 = d3.quantile(known.slice().sort(d3.ascending), 0.95);
@@ -179,9 +162,8 @@ function sparkline(name) {
     // both would read them twice.
     "aria-label": "Monthly readership over time. Use the arrow keys to read a month.",
   });
-  // The peak marker is drawn ONLY when the caption names the peak. A hairline pointing at a month
-  // nothing mentions is an annotation with no referent — and on a steady line it points at what is
-  // simply the tallest bit of noise.
+  // Only when the caption names the peak: an annotation with no referent, pointing at the tallest bit
+  // of noise on a steady line.
   if (spike) {
     const peakX = ((peakAt / (vals.length - 1)) * SPARK_W).toFixed(1);
     svg.appendChild(svgEl("line", { class: "spark-peak", x1: peakX, x2: peakX, y1: 0, y2: SPARK_H }));
@@ -198,12 +180,9 @@ function sparkline(name) {
   svg.appendChild(cursor);
   frag.appendChild(svg);
 
-  // The span is stated as the RECORD's, not as the axis's. Every sparkline shares one month axis
-  // so two composers are comparable, which means an article created in 2025 draws a line over the
-  // last tenth of the box and leaves nine tenths blank — and blank under a line chart reads as
-  // ZERO — and every article created after the axis starts is in that position. Saying "from Jul
-  // 2025" is what makes the empty
-  // stretch mean "not written yet" instead of "nobody read it".
+  // The RECORD's span, not the axis's: one shared axis is what makes two composers comparable, and it
+  // leaves a young article's box mostly blank — which under a line chart reads as ZERO. "from Jul 2025"
+  // is what makes the empty stretch mean "not written yet".
   const ax = document.createElement("p");
   ax.className = "spark-ax";
   const label = document.createElement("span"), span = document.createElement("span");
@@ -215,11 +194,8 @@ function sparkline(name) {
   ax.appendChild(label); ax.appendChild(span);
   frag.appendChild(ax);
 
-  // EXACT counts here, and rounded ones in the <dl> above. Not an inconsistency: that number is
-  // the MEDIAN, a smoothed estimate whose last four figures are noise, so it prints "2.7k+"
-  // (invariant 9). A month on this line is a raw tally of one month — the same kind of number the
-  // table carries exactly because it sorts on it — and rounding the thing you hovered to read
-  // defeats the hovering.
+  // EXACT counts here against rounded ones in the <dl> above, which invariant 9 calls for: a month on
+  // this line is a raw tally, and rounding the figure somebody hovered to read defeats the hovering.
   const summary = spike
     ? `peak ${monthName(HIST.months[peakAt])} — ${max.toLocaleString()}, `
       + `${max / typical >= 10 ? Math.round(max / typical) : (max / typical).toFixed(1)}× typical`
@@ -235,9 +211,8 @@ function sparkline(name) {
   frag.appendChild(cap);
 
   // ---- reading a single month -----------------------------------------------------------
-  // The readout REPLACES the caption rather than adding a line: the compact panel reserves a
-  // fixed height for a hover preview (styles.css), so a box that grew under the pointer would
-  // pump the legend below it — the same constraint the full-screen strip is built around.
+  // REPLACES the caption rather than adding a line: the compact panel reserves a fixed height for a
+  // hover preview, so a box that grew under the pointer would pump the legend below it.
   let at = -1;
   const show_ = i => {
     if (i === at) return;
@@ -260,9 +235,8 @@ function sparkline(name) {
   // restoring there would make a tap flash the answer and take it away.
   svg.addEventListener("pointerdown", fromX);
   svg.addEventListener("pointerleave", e => { if ((e.pointerType || "mouse") === "mouse") clear_(); });
-  // The keyboard path is the same readout, not a second mechanism. It is a READ-ONLY value
-  // stepper, which is why arrow keys are right here and wrong for the readership brush (TODO):
-  // there is no form control this reinvents.
+  // A READ-ONLY value stepper, which is why arrow keys are right here and wrong for the readership
+  // brush (TODO): there is no form control this reinvents.
   svg.addEventListener("focus", () => show_(peakAt));
   svg.addEventListener("blur", clear_);
   svg.addEventListener("keydown", e => {
@@ -283,15 +257,14 @@ function pct(d, key) {
   if (d[key] == null) return null;
   const known = ROWS.filter(o => o[key] != null);
   const below = known.reduce((n, o) => n + (o[key] < d[key] ? 1 : 0), 0);
-  // FLOOR, not round: the most-read composer beats 883 of 884, and rounding 99.9 printed "more
-  // read than 100%" — a claim about the whole list that includes them, and so can't be true.
+  // FLOOR, not round: the most-read composer beats everyone but themselves, and rounding printed "more
+  // read than 100%" — a claim about a list that includes them, so it cannot be true.
   return Math.floor((below / known.length) * 100);
 }
 
-// TIGHT is the full-screen strip: two lines in a fixed-height box above the chart, where every
-// pixel it takes is a pixel of chart. It drops the percentile line, the Wikipedia link, Prev/Next
-// and the 12-month range beside the median — all of which are back the moment you leave full
-// screen. Fixed height and always present is the point: see placeDetail.
+// TIGHT is the full-screen strip: two lines in a fixed-height box above the chart, where every pixel
+// it takes is a pixel of chart, so it drops everything that is back the moment you leave (TODO.md
+// lists what). Fixed height and always present is the point — see placeDetail.
 const tight = () => $("detail").classList.contains("compact")
                  && document.body.classList.contains("fs");
 
@@ -303,10 +276,9 @@ function renderDetail(i, preview) {
   if (i == null) {
     const p = document.createElement("p");
     p.className = "empty";
-    // The DOTS, not the roster: this sits beside the chart, so counting the composers the
-    // list page never gives a quartet count described a picture they are not in — and dated it
-    // from a 1582 birth the x axis has no room for. The roster's own total is in #count and the
-    // difference is explained in the provenance line.
+    // The DOTS, not the roster: counting the rows with no stated quartet count described a picture they
+    // are not in, and dated it from a birth the x axis has no room for. #count holds the roster's own
+    // total and the provenance line explains the difference.
     const st = Chart.plottedStats();
     p.textContent = lean
       ? "Select a dot for the details."
@@ -350,9 +322,7 @@ function renderDetail(i, preview) {
       : `${atLeast(d.views)}  (${spread(d.lo, d.hi)})`);
   el.appendChild(dl);
 
-  // Not in the full-screen strip: `lean` has already returned above. Its height is fixed because
-  // #plot is flex:1 there, so anything that grows on select re-lays out the chart under the
-  // finger that just tapped it.
+  // Never in the full-screen strip, whose height must not change — `lean` has already returned.
   const spark = sparkline(d.name);
   if (spark) el.appendChild(spark);
 
@@ -422,17 +392,15 @@ function renderLegend() {
   const el = $("legend");
   el.innerHTML = "";
 
-  // The views do not encode the same things, so they cannot share a key. In the Fame view
-  // size means nothing (readership is the y axis) and hue is emphasis, not lifespan — showing
-  // the lifespan ramp and a size key there would label channels that are not carrying anything.
+  // Each view gets its own key, because in Fame size is the y AXIS and hue is emphasis: the lifespan
+  // ramp and the size key would label channels carrying nothing (invariant 8).
   if (Chart.getMode() === "fame") {
     const who = document.createElement("div");
     who.innerHTML =
       `<div class="swatches">` +
         `<span class="sw"><i style="background:${g("--sel")}"></i>` +
-        // The FILL follows the filter now too, so the key that names it has to come from the same
-        // place as the list -- see chart.js's REPERTOIRES. Hardcoding "the repertoire" here would
-        // caption nine women as the set that contains Mozart.
+        // Read off the same place as the list (chart.js's REPERTOIRES), because the fill follows the
+        // filter: a hardcoded noun here captions one curated set as another (invariant 8).
         `${Chart.repertoireLabel()}</span>` +
         `<span class="sw"><i style="box-shadow:inset 0 0 0 2px ${g("--accent")}"></i>` +
         `some standouts</span>` +
@@ -474,10 +442,9 @@ function renderLegend() {
     cx += cell;
   }
   const size = document.createElement("div");
-  // The SVG is aria-hidden, so the three key values live again in a visually-hidden sentence —
-  // moving them from a <div class="ticks"> into <text> nodes took the size key's only
-  // quantitative content out of the accessibility tree, while the ramp above kept its readable
-  // ticks. A screen reader heard the label and then nothing.
+  // The SVG is aria-hidden, so the key values live again in a visually-hidden sentence: moving them
+  // from a <div class="ticks"> into <text> nodes took this key's only quantitative content out of the
+  // accessibility tree, and a screen reader heard the label and then nothing.
   size.innerHTML =
     `<span class="lab">EN Wikipedia readers / mo</span>` +
     `<svg width="${Math.ceil(cx)}" height="${Math.ceil(base + 17)}" aria-hidden="true" `
@@ -488,16 +455,9 @@ function renderLegend() {
 }
 
 // ---- where the detail panel lives -------------------------------------------
-// Beside the chart in the second grid column on a wide screen; below 900px that column is a whole
-// screen-height away, and in full screen it is display:none, so a tap produced no visible answer at
-// all. On a phone, and in full screen at any width, the SAME element moves into the chart card —
-// moved, never a second copy, so there is one selection and one set of Prev/Next buttons.
-//
-// The two in-card positions are NOT interchangeable:
-//   phone, in flow   BELOW the plot, free to grow: nothing above it moves when it does.
-//   full screen      ABOVE the plot at a FIXED height, drawn whether or not anything is pinned.
-//                    Every pixel there is a pixel of chart, and a box that changed size would
-//                    re-lay out the chart under the finger that just tapped it.
+// One panel, moved: beside the chart above this width, inside the chart card on a phone and in full
+// screen, where the grid column is a screen-height away or display:none. CLAUDE.md has the rest,
+// including why the two in-card positions are not interchangeable.
 const WIDE = matchMedia("(min-width:900px)");
 
 // The filter row is a sibling of .grid, which body.fs hides outright — so in full screen it moves
@@ -507,55 +467,48 @@ function placeFilters() {
   const f = $("filters"), viz = $("viz");
   const fs = document.body.classList.contains("fs");
   const parent = fs ? viz : document.querySelector("main");
-  // firstElementChild, whatever it happens to be — it is `.controls` now that those precede the
-  // plot (issue 29), and it does not matter which: full screen lays #viz out with an explicit
-  // `order` per child, so the DOM position only breaks ties between equal orders and this one has
-  // none. placeDetail() below is the function that IS coupled to a specific sibling.
+  // firstElementChild, whatever it happens to be: full screen lays #viz out with an explicit `order`
+  // per child, so DOM position only breaks ties between equal orders and this one has none.
+  // placeDetail() below is the function that IS coupled to a specific sibling.
   const before = fs ? viz.firstElementChild : document.querySelector(".grid");
   if (f.parentNode === parent && f.nextElementSibling === before) return;
   parent.insertBefore(f, before);
 }
 
-// The third of these, on the same contract as placeFilters() and placeDetail(): one element, moved,
-// never a second copy — #fs holds the pressed state and share() a timeout on its own label. They
-// leave the row wherever it will not hold them on one line, which is what PAYS for Reset filters
-// beside Reset zoom; CLAUDE.md's placeChartTools() bullet carries the rest of the why.
+// WHY TWO INTERVALS: the row's width is not monotonic in the viewport's. What decides it is the CARD,
+// and the (min-width:900px) grid takes 194px off that, so the words fit in two bands and not in the
+// two between them. Measured at 4px steps; the parenthesised width is share()'s wider "Link copied",
+// which is the state that matters — a row that wraps on the PRESS drops the plot 44px under the
+// cursor that just pressed it.
 //
-// THE ONLY COPY OF THIS BREAKPOINT: styles.css scopes the icon look to `#plot > #chart-tools`, so the
-// look follows the DOM rather than re-deciding the width. Answering on width here drew the icon look
-// in the row in every state where this had not run yet.
+//     viewport      card      row
+//      641- 743  582- 681   two lines
+//      744- 899  682- 837   ONE line (from 780)
+//      900-1055  524- 679   two lines
+//      1056+     680+       ONE line (from 1092)
 //
-// TWO intervals, because the row's width is not monotonic in the viewport's: what decides it is the
-// CARD, and the two-column grid at 900px takes 194px off that. Measured with the words in the row,
-// stepping 4px; the parenthesised numbers allow for share()'s wider "Link copied", which is the state
-// that matters — a row that wraps on the PRESS drops the plot 44px under the cursor:
+// Both edges err toward ICONS, because the mistakes are not equal: words that do not fit is that
+// 44px shift, icons where words would have fitted costs 26px of data height and nothing else. One
+// machine's font metrics, so ui.test.mjs presses Share at the first width in each band and fails if
+// the row grows. Full screen skips SQUEEZED — `body.fs .grid` is display:block, so the card never
+// pays the 194px.
 //
-//     641- 743   card  582- 681   two lines
-//     744- 899   card  682- 837   ONE line (780 up)
-//     900-1055   card  524- 679   two lines
-//     1056+      card  680+       ONE line (1092 up)
-//
-// Both thresholds err toward ICONS, because the two mistakes are not equal: words that do not fit is
-// that 44px shift, icons where words would have fitted costs 26px of data height and nothing else.
-// One machine's font metrics, so ui.test.mjs presses Share at the first width in each band and fails
-// if the row grows.
-//
-// TWO queries rather than one list, because only the second is about the grid: `body.fs .grid` is
-// `display:block`, so full screen never pays the 194px and the squeezed interval is skipped there —
-// it would spend the band off a flex:1 chart that is already the whole viewport.
+// THE ONLY COPY OF THIS BREAKPOINT. styles.css scopes the icon look to `#plot > #chart-tools` so the
+// look follows the DOM; deciding it on width there too drew icons in the row in every state before
+// placeChartTools() had run.
 const NARROW = matchMedia("(max-width:799px)");
 const SQUEEZED = matchMedia("(min-width:900px) and (max-width:1100px)");
 const iconsOnPlot = () =>
   NARROW.matches || (SQUEEZED.matches && !document.body.classList.contains("fs"));
 
-// 40px of touch target, CENTRED on the axis title's line, with the whole target clear of the plot
-// area. styles.css carries the derivation from the title's own box; what matters here is that the
-// clearance is not cosmetic. The target is INVISIBLE, so anything it overlaps is a dot that silently
-// stops being tappable — one pixel lower it shadowed 12 dots in the swarm, whose blob reaches the top
-// of its box. Nothing is left over: a dot's clip is inset outward by a radius, so the sliver of an
-// edge dot can still reach under the target during a pinch, though never its centre.
+// 40px of touch target, CENTRED on the axis title's line and clear of the plot area — styles.css
+// derives it from the title's box. The clearance is not cosmetic: the target is INVISIBLE, so
+// anything it overlaps is a dot that silently stops being tappable, and one pixel lower it shadowed
+// 12 dots in the swarm.
 const TOOLS_BAND = 48;
 
+// One element, moved, never a second copy: #fs holds the pressed state and share() a timeout on its
+// own label. Same contract as placeFilters() and placeDetail().
 function placeChartTools() {
   const tools = $("chart-tools"), viz = $("viz");
   const onPlot = iconsOnPlot();
@@ -612,20 +565,11 @@ function readHash() {
            g: pillValues().includes(p.get("g")) ? p.get("g") : "" };
 }
 
-// The buttons that carry an icon keep their words in a `.btn-t` span, so writing a new label means
-// writing to the SPAN. `btn.textContent = "..."` would replace every child, icon included — the
-// same shape of trap as setProv() dropping its links, and it fails identically: silently, and only
-// in the icon layout, where the icon is the visible half.
-//
-// The `title` goes with it. In the icon layout the span is clipped, so on a real pointer the
-// tooltip is the only NAME a reader can get at — and that name is the one thing the words were
-// still buying where the row had room for them. Written here rather than left in the markup
-// because #fs's label changes with its state: a tooltip that still said "Full screen" over the
-// exit glyph would be worse than none. One call, so the two can never disagree.
-//
-// Unconditionally, even where the word beside it is visible: scoping it to the clipped layout means
-// asking which layout this is, a second copy of a breakpoint that lives in one place — and a tooltip
-// echoing a visible label is what a browser does anyway.
+// Write to the SPAN: `btn.textContent` would replace every child, icon included, and fail silently in
+// the icon layout where the icon is the visible half. The `title` goes with it in the same call,
+// because there the span is clipped and the tooltip is the only NAME a pointer can reach — and #fs's
+// name changes with its state, so a tooltip still reading "Full screen" over the exit glyph would be
+// worse than none. Unconditional, because scoping it would mean a second copy of the breakpoint.
 function label(btn, text) {
   const t = btn.querySelector(".btn-t");
   if (!t) { btn.textContent = text; return; }
@@ -633,9 +577,8 @@ function label(btn, text) {
   btn.title = text;
 }
 
-// How long a clipboard write may take before the button acknowledges anyway. Past about a second
-// with no feedback the control reads as dead, which is the failure this whole pair of branches is
-// written to avoid; the URL bar is showing the link either way.
+// How long a clipboard write may take before the button acknowledges anyway: past about a second with
+// no feedback the control reads as dead, and the URL bar is showing the link either way.
 const STALL = 1000;
 
 async function share() {
@@ -670,9 +613,8 @@ function copied(btn) {
 }
 
 // ---- filters ---------------------------------------------------------------
-// Two independent filters — the search box and the readership brush — combined by intersection.
-// Neither knows the other exists; both hand back "a Set of indices, or null for everything", so
-// this is the only place that has to reason about them together.
+// Every filter hands back "a Set of indices, or null for everything", so this is the only place that
+// reasons about them together.
 function intersect(a, b) {
   if (!a) return b;
   if (!b) return a;
@@ -686,30 +628,23 @@ function intersect(a, b) {
 const pillValues = () => [...document.querySelectorAll("#gender button")]
   .map(b => b.dataset.g).filter(Boolean);
 
-// Every gender the data STATES that no pill can reach. fetch_wikidata.py labels more P21 items than
-// index.html has pills, so the vocabularies can drift, and the drift is silent in the worst way: the
-// composer is in neither filter while the provenance line, which counts only the composers with NO
-// claim, implies everyone else is reachable. validate.py fails the build on it; this is the same
-// assertion on the app's side, the job Chart.missingNames() does for the curated lists.
+// Every gender the data STATES that no pill can reach — fetch_wikidata.py labels more P21 items than
+// index.html has pills, so the two vocabularies can drift (invariant 7). Asserted empty by the suite,
+// the job Chart.missingNames() does for the curated lists.
 function unfilterableGenders() {
   const reach = new Set(pillValues());
   return [...new Set(ROWS.filter(d => d.gender != null && !reach.has(d.gender)).map(d => d.gender))];
 }
 
-// The same assertion one vocabulary over. chart.js keys its curated repertoires by gender pill
-// VALUE, so a key no pill can reach is a list that can never be shown — silent in exactly the way
-// an unreachable P21 value is, and worse, because the list looks maintained. The UI suite asserts
-// this empty alongside Chart.missingNames() and Names.staleOverrides().
+// The same assertion one vocabulary over: chart.js keys its repertoires by pill VALUE, so a key no
+// pill reaches is a list that can never be shown while looking maintained (invariant 7).
 function unreachableRepertoires() {
   const reach = new Set(pillValues());
   return Chart.repertoireKeys().filter(k => !reach.has(k));
 }
 
-// The third filter, and the only one with no module of its own: nothing to render and no data to hold,
-// three buttons and a string. Same contract as the other two, so intersect() never learns it exists.
-//
-// A composer with no P21 claim is in NEITHER set — the null rule (invariant 10) applied to a filter:
-// "Women" means Wikidata says female, not "everyone we didn't call a man".
+// No module of its own: three buttons and a string, nothing to render and no data to hold. A composer
+// with no P21 claim is in NEITHER set (invariant 10).
 function genderMatches() {
   if (!gender) return null;
   const set = new Set();
@@ -717,26 +652,19 @@ function genderMatches() {
   return set;
 }
 
-// The three filters, asked as one question. Read from the same places applyFilters() intersects, so
-// a fourth filter that forgets to appear here leaves the button dark while it is active.
-// TRIMMED, like Table.matches() itself, or the two answers disagree: a lone space (one stray tap
-// on a phone, or a word deleted back to its leading space) filters nothing and leaves #count at
-// "884 composers" while this lit the button accent-filled.
+// Read from the same places applyFilters() intersects, so a fourth filter that forgets to appear here
+// leaves the button dark while it is active. TRIMMED, like Table.matches(): a lone space filters
+// nothing, and the button lit over an unchanged #count answers its own question wrong.
 function anyFilter() {
   return !!$("q").value.trim() || !!Histogram.getRange() || !!gender;
 }
 
-// All three, search included: the name is plural and a typed query is a filter. The search box keeps
-// its own × for clearing just the text.
-//
-// It does NOT focus the search box afterwards, though #clear does: #clear sits INSIDE the search row,
-// so the focus it moves is already on screen, while this button is a card below, where focus() scrolls
-// the viewport back up and opens the soft keyboard over a box the reader had left. In full screen #q
-// is hidden outright, so the call would be a no-op.
+// All three, search included: the name is plural and a typed query is a filter. It does not focus the
+// search box, for the reason CLAUDE.md gives.
 //
 // Exactly ONE applyFilters() runs, which is what the branch is for: d3-brush emits "end" for a
-// programmatic move, so Histogram.clear() comes back through onChange on its own and calling it too
-// would rebuild every table row twice. With no range there is nothing to emit.
+// programmatic move, so Histogram.clear() comes back through onChange on its own, and calling it here
+// too would rebuild every table row twice. With no range there is nothing to emit.
 function resetFilters() {
   $("q").value = "";
   setGender("", false);
@@ -748,18 +676,15 @@ function setGender(g, apply = true) {
   gender = g;
   document.querySelectorAll("#gender button").forEach(b =>
     b.setAttribute("aria-pressed", String(b.dataset.g === g)));
-  // The Fame view fills a CURATED set, and which one it should be filling is a function of who is
-  // on screen: every name in the default repertoire is a man, so "Women" filled nothing until
-  // chart.js gained a second list. Handing over the pill's raw value keeps the mapping in one
-  // place -- chart.js falls back to the default for any value it has no list for, which is what
-  // makes the women's set appear under that filter and nowhere else.
+  // The pill's RAW value, so the mapping stays in one place: chart.js falls back to the default
+  // repertoire for any value it has no list for, which is what makes the women's set appear under that
+  // filter and nowhere else.
   Chart.setRepertoire(g);
   if (apply) applyFilters(true);
 }
 
-// `settled` is false during a brush DRAG. The chart repaint is cheap and watching the field thin
-// out is the whole point of the control, but rebuilding ~880 table rows every frame is the one
-// thing here that stutters — so the table waits for the gesture to end.
+// `settled` is false during a brush DRAG. The chart repaint is cheap and watching the field thin out is
+// the point of the control; rebuilding every table row per frame is the one thing here that stutters.
 function applyFilters(settled) {
   const q = $("q").value;
   visible = intersect(intersect(Table.matches(q), Histogram.matches()), genderMatches());
@@ -779,19 +704,12 @@ function applyFilters(settled) {
   const n = visible ? visible.size : ROWS.length;
   $("count").textContent = visible ? `${n} of ${ROWS.length}` : `${ROWS.length} composers`;
   if (settled !== false) {
-    // Inside the guard, not above it: appearing on the first frame of a brush drag would make this a
-    // box that the press it is reacting to resizes. It shared line one of `.filterbar` with the
-    // "Readership" label, so unhiding it dropped the brush 22.6px under the finger, with the pills and
-    // the view switcher going too (#31). Waiting for the gesture costs nothing — the only caller that
-    // passes false is Histogram's own mid-drag `onChange`, and the `#r=` deep link boots through
-    // applyFilters(true).
-    //
-    // Its two siblings ABOVE the guard are safe, and the split is the first thing a reader will
-    // question: `#hist-read` is `.sr-only`, so it writes into a box with no layout, and `#count` only
-    // ever shortens, so `.tablehead` cannot gain a line. A third live write that HAS a box belongs
-    // below the guard with this one.
-    // The ring is derived from the filtered group, so the key that explains it and the row chips
-    // that repeat it both move when the filter does. Table.render() repaints the chips anyway.
+    // BELOW the guard, and the split is the first thing a reader will question. Anything here that has
+    // a BOX must wait for the gesture to end, or the press it is reacting to resizes it — unhiding this
+    // button mid-drag dropped the brush 22.6px under the finger (#31). Its two siblings above are safe
+    // because neither has a box: `#hist-read` is `.sr-only`, and `#count` only ever shortens.
+    // The ring is derived from the filtered group, so the key explaining it and the row chips repeating
+    // it both move when the filter does.
     renderLegend();
     Table.render(visible);
     // A pinned composer that a filter just excluded would leave a detail panel describing someone
@@ -803,23 +721,15 @@ function applyFilters(settled) {
 }
 
 // ---- provenance ------------------------------------------------------------
-// "Dates are Wikidata P569/P570" names a source a reader cannot check: P569 is jargon that means
-// nothing until you can open it, and there is nowhere on the page to look it up. So every property
-// id in the provenance line becomes a link to its own Wikidata definition.
-//
-// The LINE is linkified, rather than the two meta strings carrying anchors. composers.json is data
-// and has no business holding markup; keeping the ids as plain text there means the pipeline can
-// name a new property (P?? for a birthplace, say) and it is linked the moment it is printed,
-// without a second place to remember. It is also why this builds nodes instead of setting
-// innerHTML: the text is assembled from the data file, and data never becomes markup here.
+// Every property id in the line becomes a link to its own Wikidata definition, because "P569" is
+// jargon a reader cannot check from the page. The LINE is linkified rather than composers.json
+// carrying anchors, so a new property is linked the moment it is printed (CLAUDE.md has the rule).
 const WD_PROP = /\bP[1-9]\d{0,6}\b/g;
 
-// A part is either a STRING, scanned for property ids as above, or an explicit {text, href,
-// title} anchor. Parts rather than a markup syntax in the string: the rule one paragraph up is
-// that data never becomes markup here, and a line that parsed brackets would be parsing a string
-// assembled from composers.json. It also keeps the two kinds of link honest about which is
-// derived — the property links are found by pattern and cannot be forgotten, the list link is
-// written once at the call site because there is exactly one of it.
+// A part is either a STRING, scanned for property ids, or an explicit {text, href, title} anchor —
+// parts rather than a markup syntax, because a line that parsed brackets would be parsing a string
+// assembled from composers.json. It also keeps the two kinds of link honest about which is derived:
+// the property links are found by pattern and cannot be forgotten, the list link is written once.
 function setProv(...parts) {
   const el = $("prov");
   el.textContent = "";
@@ -898,11 +808,9 @@ async function start() {
                          gender_source: "Wikidata P21, \u201csex or gender\u201d" },
                        data.meta || {});
 
-  // FIRST: both the chart's labels and the table's name column are shortened by names.js, and it
-  // needs the whole roster to know which surnames are shared. Neither module can display a name
-  // before this runs.
-  // Readership comes with the names: a surname only one composer is read for is printed bare on
-  // the chart (DOMINANT_VIEWS there), which is a fact about the roster, not about one row.
+  // FIRST, because a short name is a function of the WHOLE roster: no module can display a name before
+  // this runs. Readership comes with the names for the same reason — which surnames print bare is a
+  // fact about the roster, not about one row.
   Names.setData(data.rows.map(r => r[0]), data.rows.map(r => r[4]));
 
   Chart.setData(data.rows);
@@ -910,8 +818,6 @@ async function start() {
     el: $("plot"),
     flag: $("flag"),
     onHover: i => show(i, true),
-    // fromZoom = a repaint after a pan/zoom, not a click. It must not disturb the pin, but it
-    // does need the table row and detail panel left exactly as they are.
     onSelect: i => show(i, false),
     onZoom: on => { $("reset").disabled = !on; },
   });
@@ -924,15 +830,14 @@ async function start() {
     lifespan: r[2] == null ? null : r[2] - r[1],
   }));
 
-  // Loud, the way chart.js is about a renamed canon: the UI suite fails on a console error, so a
-  // P21 value the pills cannot reach cannot ship quietly. See unfilterableGenders().
+  // Loud, the way chart.js is about a renamed canon: the suite fails on a console error, so neither
+  // vocabulary can drift quietly.
   const unreachable = unfilterableGenders();
   if (unreachable.length) console.error("app: genders no pill can filter:", unreachable);
   const orphanSets = unreachableRepertoires();
   if (orphanSets.length) console.error("app: curated sets no pill can reach:", orphanSets);
 
-  // Written from the data: a hardcoded "884" sits inches from #count, which prints the real
-  // number, so the next scrape would have them disagreeing in the same row.
+  // From the data: a hardcoded total sits inches from #count, which prints the real one.
   $("q").placeholder = `Search ${ROWS.length} composers…`;
   Table.init({ thead: $("thead"), tbody: $("tbody"), onSelect: selectFromTable });
   Table.setData(ROWS);
@@ -940,7 +845,6 @@ async function start() {
   byName = new Map(ROWS.map(d => [d.name, d.i]));
 
   Histogram.setData(ROWS);
-  // onChange fires continuously while dragging; `done` marks the end of the gesture.
   Histogram.init({ el: $("hist"), onChange: (_range, done) => applyFilters(done) });
 
   // Restore whatever the link asked for BEFORE the first paint, so a shared URL never shows the
@@ -964,16 +868,13 @@ async function start() {
   applyFilters(true);
   if (link.c && byName.has(link.c)) show(byName.get(link.c), false);
   $("hint").textContent = Chart.hint();
-  // Say exactly what each channel is and when it was measured. Three sources with three
-  // different freshnesses is precisely the situation where one date silently implies the others.
-  // Provenance only: where each number came from and what it does not cover. The lede frames what
-  // readership MEANS and the legend says which channel carries it, so neither is repeated here —
-  // this paragraph used to restate both, and to say the word "median" twice in one clause.
+  // What each channel is and WHEN it was measured: three sources with three different freshnesses is
+  // the situation where one date silently implies the others. Provenance only — the legend says which
+  // channel carries what, so nothing here repeats it.
   const mm = META.views_months || [];
   const span = mm.length ? `, ${mm[0]} to ${mm[mm.length - 1]}` : "";
-  // The list link points at the REVISION, not at the live page: every number in this sentence was
-  // scraped from that one document, and today's list is a different one. Built from list_source
-  // rather than written out, so a pipeline that renames or moves the list carries the link with it.
+  // The REVISION, not the live page: every number in this sentence came from that one document. Built
+  // from list_source rather than written out, so a renamed list carries its link with it.
   const rev = META.list_revid;
   const listUrl = META.list_source + (rev ? `?oldid=${rev}` : "");
   setProv(
@@ -985,18 +886,15 @@ async function start() {
     + `count and are plotted, the rest appear in the table only. Dates are ${META.dates_source}. `
     + `Readership is the ${META.views_stat} of the composer's English Wikipedia article${span} — `
     + `A lifespan written "83+" is the composer's age today. `
-    // Whose statement this is, said plainly. The other two channels name a source because they
-    // are measurements; this one names a source because it is about a person, and the page has no
-    // business asserting it on its own account. The unknown count is stated for the same reason
-    // the quartet nulls are: the filter cannot reach those rows, and silence would read as none.
+    // The other two channels name a source because they are measurements; this one names a source
+    // because it is about a PERSON, and the page has no business asserting it on its own account.
     + `Gender is from ${META.gender_source}. `
     + `Built ${META.generated}.`);
 
   wire();
 
-  // AFTER everything above has painted, and never awaited: the sparkline is the one thing on this
-  // page that nothing else waits for. When it lands, repaint whatever the panel is showing —
-  // hovering included, or a shared #c= link would sit there without one until the pointer moved.
+  // Never awaited (invariant 2). When it lands, repaint whatever the panel is showing — hovering
+  // included, or a shared #c= link sits there without a sparkline until the pointer moves.
   loadHistory().then(ok => {
     if (ok) renderDetail(hovered != null ? hovered : selected, hovered != null);
   });
@@ -1009,9 +907,8 @@ function wire() {
     b.onclick = () => setGender(b.dataset.g);
   });
 
-  // SCOPED to the chart card. `.seg` is a look — a pill group — and the gender filter wears it
-  // too; an unscoped ".seg button" bound the view switcher's handler over the filter's, so a pill
-  // called setMode(undefined) and the chart fell out of every named mode at once.
+  // SCOPED to the chart card: `.seg` is a look, worn by two pill groups, and unscoped this handler
+  // landed on the gender pills and called setMode(undefined).
   document.querySelectorAll(".controls .seg button").forEach(b => {
     b.onclick = () => setMode(b.dataset.mode);
   });
@@ -1031,12 +928,9 @@ function wire() {
       if (document.body.classList.contains("fs")) setFull(false); else show(null, false);
       return;
     }
-    // The arrows step the SELECTION, but only when nothing focused is using them itself. The test
-    // used to be `matches("input, textarea")`, which quietly stole the keys from the first
-    // focusable thing that was neither: arrowing along the sparkline changed the composer instead
-    // of the month, so the readout answered about someone else. [data-keys] is the contract —
-    // anything that handles its own arrows marks itself, and the next one (the readership brush
-    // still owes a keyboard path) needs no edit here.
+    // The arrows step the SELECTION, but only when nothing focused is using them itself. [data-keys] is
+    // the contract, so the next thing that handles its own arrows — the readership brush still owes a
+    // keyboard path — needs no edit here.
     if (ev.target.closest("input, textarea, [data-keys]")) return;
     if (ev.key === "ArrowRight") { ev.preventDefault(); step_(1); }
     if (ev.key === "ArrowLeft") { ev.preventDefault(); step_(-1); }
@@ -1050,8 +944,7 @@ function wire() {
     raf = requestAnimationFrame(() => { Chart.resize(); Histogram.resize(); });
   }).observe($("plot"));
 
-  // Theme: chart.js and the legend BAKE colors into SVG/inline styles, which a CSS variable swap
-  // cannot reach. theme.js clears the color cache before calling us, so re-reading here is safe.
+  // Invariant 3: every baked colour is re-read here. theme.js clears its cache before calling us.
   Theme.subscribe(() => {
     themeLabel();
     Chart.rerender();
@@ -1063,16 +956,13 @@ function wire() {
   WIDE.addEventListener("change", placeDetail);   // rotation / a window drag crosses the breakpoint
   NARROW.addEventListener("change", placeChartTools);
   SQUEEZED.addEventListener("change", placeChartTools);
-  // A wheel over the glyphs is a wheel over the CHART — the zoom is bound to the svg and this group
-  // is its sibling, so without this the corner is dead to a wheel and the page scrolls instead (see
-  // Chart.wheelInto). Only while the group is ON the plot: in the controls row it is a button like
-  // any other and the page is what a wheel there should move.
+  // A wheel over the glyphs is a wheel over the CHART (see Chart.wheelInto), and only while the group
+  // is ON the plot — in the controls row a wheel should move the page.
   //
-  // preventDefault ONLY when the chart actually took it, which is why wheelInto reports back and
-  // why this listener cannot be passive. "Took it" is narrower than "a zoom is bound" — at rest the
-  // zoom declines every scroll DOWN, because k is already at scaleExtent's floor — and cancelling
-  // on the wider test left a hole in the page's scrolling under these two buttons, in the resting
-  // default view and in lens both.
+  // preventDefault ONLY when the chart actually TOOK it, which is why wheelInto reports back and why
+  // this listener cannot be passive. "Took it" is narrower than "a zoom is bound": at rest the zoom
+  // declines every scroll down, k being already at scaleExtent's floor, and cancelling on the wider
+  // test left a hole in the page's scrolling under these buttons.
   $("chart-tools").addEventListener("wheel", e => {
     if ($("chart-tools").parentNode !== $("plot")) return;
     if (Chart.wheelInto(e)) e.preventDefault();
@@ -1085,9 +975,8 @@ function setMode(mode) {
   document.querySelectorAll(".controls .seg button").forEach(o => o.setAttribute("aria-pressed", String(o.dataset.mode === mode)));
   Chart.setMode(mode);
   renderLegend();                    // the views encode different things and need different keys
-  // The chips are painted from the view's encoding, but a full Table.render() empties tbody and
-  // rebuilds ~880 rows -- which resets the scroll box to the top and destroys the focused row
-  // under anyone who tabbed into the table. Only the colours change, so only repaint those.
+  // The chips follow the view's encoding, but a full Table.render() rebuilds every row — resetting the
+  // scroll box and destroying the focused row under anyone who tabbed in. Only the colours change.
   Table.repaintChips();
   $("hint").textContent = Chart.hint();
   $("reset").disabled = !Chart.zoomed();
