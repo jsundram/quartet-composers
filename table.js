@@ -45,8 +45,8 @@ window.Table = (function () {
   // NFD alone is not enough. It splits a letter into base + combining accent, which handles á é ö
   // — but ł, ø, đ, ß, æ and œ are single codepoints with NO decomposition, so they survive the
   // strip untouched and "lutoslawski" fails to find "Lutosławski". That is not hypothetical here:
-  // names are canonical Wikipedia titles, so 58 of them carry exactly those characters. Map them
-  // by hand first, then NFD the rest.
+  // names are canonical Wikipedia titles, so this roster really does carry them. Map them by hand
+  // first, then NFD the rest. The suite types a folded query, so the RULE is what is checked.
   const FOLD = { "ł": "l", "ø": "o", "đ": "d", "ð": "d", "þ": "th", "ß": "ss", "æ": "ae", "œ": "oe", "ı": "i" };
   const norm = s => s.toLowerCase().replace(/[łøđðþßæœı]/g, c => FOLD[c])
                      .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -54,7 +54,7 @@ window.Table = (function () {
   // ---- display names --------------------------------------------------------
   // The table shows the SURNAME, and "Surname, Forename" only where a surname is shared, so that
   // sorting by name sorts the way a reader expects and the composer column stops being the widest
-  // thing on a phone. names.js owns the rule -- the chart labels shorten the same 884 names by the
+  // thing on a phone. names.js owns the rule -- the chart labels shorten the same names by the
   // same judgment, and the two must not drift apart about who needs a forename. The detail panel
   // keeps the full title, where recognising the person is the whole job.
 

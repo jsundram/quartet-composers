@@ -213,7 +213,7 @@ bug. Four rules come out of that, and they decide what gets written here from no
 **Budget checks by how silent the failure is, not by how much code there is.** A chart bug is
 visible the moment you open the page; a precache bug is visible only on somebody else's installed
 client, a month later. Coverage should run the other way round from file size, and today it does
-not: the 588 lines of `sw.js` are exercised through one of five entry points.
+not: `sw.js`, the largest file here, is exercised through one of five entry points.
 
 **A check may not read its expectation out of the code under test.** `fetch_views.test.py` derived
 its window from `months_back()` — to stop a copy drifting, and unfalsifiable for exactly the value
@@ -356,7 +356,7 @@ framework, and nothing to install:
   the first prints parsed quartet counts beside the sentence they came from so a human can grade
   them (run it after touching `scrape_list.py`), and the second answers a POLICY question by
   pricing every redirect into every article to report what summing them would change — the evidence
-  behind invariant 15's refusal to. `--limit N` audits the N most-read instead of all 884.
+  behind invariant 15's refusal to. `--limit N` audits the N most-read instead of the whole roster.
 
 Everything that needs neither a browser nor a network runs in CI, and since #56 so does the browser
 suite — `checks.yml` has a `ui` job, with `xvfb-run` and node 22 (the whole CDP client is the global
@@ -400,8 +400,8 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   either card: all three filters scope both views, and a filter drawn inside one card says
   otherwise. `placeFilters()` moves it into `#viz` in full screen, where the chart is everything.
 - **The chart's controls sit ABOVE the plot, because the plot's height is a function of the VIEW.**
-  `measure()` gives each mode its own aspect ratio (0.98 for Fame, 0.82 for the timeline on a phone,
-  0.44 for the swarm), so a row underneath moves when you press it — 61px on a phone, 150px at 1280,
+  `measure()` gives each mode its own aspect ratio — the swarm the widest of them, Fame the most
+  nearly square, and every one of them taller on a phone — so a row underneath moves when you press it — 61px on a phone, 150px at 1280,
   lifting the pill out from under a second tap at the same spot. **Nothing a finger rests on may be
   placed by a box the same press resizes.** Full screen is the exception and stays underneath:
   `#plot` is `flex:1` there, sized by the viewport rather than the view, so there is nothing to
@@ -545,8 +545,9 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   content, where a pill's worth of chrome around a small mark reads as furniture. The target is felt
   and not seen, so the suite taps in from a CORNER rather than at the centre, which would pass on a
   button the size of the glyph. The 40px is stated with the overlay rather than inherited from the
-  touch-target rule, which asks a different question (`(hover:none) and (pointer:coarse)`) that a
-  narrow desktop window answers no to, taking `.btn`'s 36px. And `#plot svg{ width:100% }` means THE
+  touch-target rule, which asks a different question (`(hover:none) and (pointer:coarse)` AND a
+  max-width, so it excludes wide touch as well) that a narrow desktop window answers no to, taking
+  `.btn`'s 36px. And `#plot svg{ width:100% }` means THE
   CHART: as a descendant selector it caught the icons and stretched the glyph to nearly fill its
   button, so both rules are `> svg` now and `.ico` carries its own `width`/`flex:none` — a width
   ATTRIBUTE loses to any stylesheet. Every bug in this group hid in a layout the developer's machine
@@ -590,16 +591,17 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   chart pumps the legend up and down. Touch screens get neither rule — no hover to churn, and the
   space is the chart's. The reservation is MEASURED: the suite prints the pinned panel's real height
   beside the "pinning does not shove it either" check and fails when `min-height` falls short, which
-  is how adding the sparkline was caught at 267px against 262. It pins the composer with the LONGEST
+  is how adding the sparkline was caught — the pinned panel measured 267px against a reservation
+  that was then a few pixels short. It pins the composer with the LONGEST
   caption, because the reservation has to cover the worst case and the dot an earlier check happens
   to hover is not it.
 - **The sparkline's caption names the spike if there is one and the trend otherwise.** A fixed "peak
-  N× typical" was the wrong sentence for most of the roster: the median composer's biggest month is
-  3.1× their typical one, because a composer read thirty times a month hits ninety by chance, so it
+  N× typical" was the wrong sentence for most of the roster: when the caption was written the median
+  composer's biggest month was 3.1× their typical one, because a composer read thirty times a month hits ninety by chance, so it
   cried spike about noise on half the list — and it buried the real story for the steady ones, where
-  Haydn's meaningless 1.7× peak displaced a line that has slid 42% since 2015. `SPIKE` tests the
+  Haydn's meaningless 1.7× peak displaced a line that had slid 42% since 2015. `SPIKE` tests the
   peak against the 95th PERCENTILE of that composer's own months, which is scale-free and judges a
-  small noisy article against its own noise; at 3× it fires on 18% of the roster and selects almost
+  small noisy article against its own noise; at 3× it fired on 18% of that roster and selects almost
   entirely obituaries. The peak hairline is drawn ONLY in the spike branch — an annotation pointing
   at a month nothing mentions has no referent.
 - **The sparkline is the app's one optional part, in both halves.** Its data (`readership.json`,
@@ -624,8 +626,7 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   arrowing along the sparkline changed the composer instead of the month. Escape is handled before
   the guard, because it means "back out of this" wherever focus is. The brush still owes a keyboard
   path (TODO); when it gets one it needs the attribute and no edit to the listener.
-- **A chart label prints the short name, not the canonical title.** 7 characters on average instead
-  of 15, and because `pickLabels()` is first-come-first-served on space, halving every box is what
+- **A chart label prints the short name, not the canonical title.** Half the characters, and because `pickLabels()` is first-come-first-served on space, halving every box is what
   lets the names behind it find room at all. The label text and the width estimate must come from
   the same string — `pickLabels()` computes it once and carries it on the placement.
 - **Labels are a function of zoom, not a list.** `pickLabels()` spends a budget that grows with the

@@ -18,8 +18,8 @@
 const VER_PREFIX = "quartets-v";   // must match sw.js's V stem — the numeric tail is load-bearing
 const DATA_URL = "./composers.json";
 // The readership HISTORY, and the only file this app can finish without. composers.json is a boot
-// dependency — no chart, no table, no page — so the 884 monthly series that draw the sparkline are
-// not in it: they are ten times the roster's size for one panel decoration. This file is precached
+// dependency — no chart, no table, no page — so the monthly series that draw the sparkline are not
+// in it: an order of magnitude more data than the roster, for one panel decoration. This file is precached
 // like everything else (sw.js SHELL) but deliberately NOT a boot dep, is fetched AFTER the first
 // paint, and if it never arrives the panel is exactly what it was before.
 const HIST_URL = "./readership.json";
@@ -57,7 +57,7 @@ function selectFromTable(i) {
 
 // ---- readership, stated to the precision it actually has --------------------
 // The view count is a MEASURE, not a tally: a median of monthly totals, any one of which runs ~12%
-// off typical. "186,772" claims six significant figures for a number that has two, and it is stale
+// off typical. Printing it whole claims six significant figures for a number that has two, and is stale
 // the next time fetch_views.py runs. So the panel quantizes to two figures and rounds DOWN — "180k+"
 // survives a refresh (invariant 9).
 //
@@ -127,7 +127,7 @@ const svgEl = (tag, attrs) => {
 // was the wrong sentence for most of the roster — the median composer's biggest month is 3.1× their
 // typical one, because a composer read thirty times a month hits ninety by chance, so it cried spike
 // about noise on half the list, and it buried the real story for the steady ones (Haydn's peak is 1.7×
-// and meaningless; his line has slid a third since 2015).
+// and meaningless; his line has been sliding for a decade).
 //
 // So the test is the peak against the 95th PERCENTILE of that composer's own months — how far the
 // biggest month towers over even a busy one — which is scale-free, judging a small noisy article
@@ -152,9 +152,9 @@ function sparkline(name) {
   if (known.length < 2) return null;
   const max = Math.max(...known);
   // An all-zero series has no line to draw: every y is 0/0, so the path is "MNaN,NaN…" and renders
-  // as nothing at all under a caption reading "peak Mar 2019 — 0". Not reachable in today's data
-  // (five series contain a zero month; none is all zeros), but the roster is rebuilt from a scrape
-  // every month and the obscure tail is where this would first appear.
+  // as nothing at all under a caption reading "peak Mar 2019 — 0". No series in today's data is
+  // all zeros, but the roster is rebuilt from a scrape every month and the obscure tail is where
+  // this would first appear.
   if (max === 0) return null;
   const typical = d3.median(known);
   const p95 = d3.quantile(known.slice().sort(d3.ascending), 0.95);
@@ -201,7 +201,8 @@ function sparkline(name) {
   // The span is stated as the RECORD's, not as the axis's. Every sparkline shares one month axis
   // so two composers are comparable, which means an article created in 2025 draws a line over the
   // last tenth of the box and leaves nine tenths blank — and blank under a line chart reads as
-  // ZERO. 61 composers here are in that position. Saying "from Jul 2025" is what makes the empty
+  // ZERO — and every article created after the axis starts is in that position. Saying "from Jul
+  // 2025" is what makes the empty
   // stretch mean "not written yet" instead of "nobody read it".
   const ax = document.createElement("p");
   ax.className = "spark-ax";
@@ -277,7 +278,7 @@ function sparkline(name) {
 
 // ---- detail panel ----------------------------------------------------------
 // Percentile among the rows that HAVE the value. Counting nulls as zero would tell a composer
-// with 3 quartets that they out-wrote the 105 composers whose count simply couldn't be read.
+// with 3 quartets that they out-wrote the composers whose count simply could not be read.
 function pct(d, key) {
   if (d[key] == null) return null;
   const known = ROWS.filter(o => o[key] != null);
@@ -302,7 +303,7 @@ function renderDetail(i, preview) {
   if (i == null) {
     const p = document.createElement("p");
     p.className = "empty";
-    // The DOTS, not the roster: this sits beside the chart, so counting the 94 composers the
+    // The DOTS, not the roster: this sits beside the chart, so counting the composers the
     // list page never gives a quartet count described a picture they are not in — and dated it
     // from a 1582 birth the x axis has no room for. The roster's own total is in #count and the
     // difference is explained in the provenance line.
