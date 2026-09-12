@@ -75,14 +75,12 @@ COVERS = [
     (("scripts/prose-lint.py",),      ["python3 scripts/prose-lint.test.py"]),
     # The IMSLP join's PURE half: the wikitext readers, the catalogue parse, the work counting.
     (("scripts/build_imslp.py",),     ["python3 scripts/imslp.test.py"]),
-    # The crawl answers to both, because it has two kinds of defect. imslp.test.py can only ever
-    # say whether a string parsed correctly — fetch_imslp.py imports candidates() and
-    # parse_person() rather than keeping a second copy, so a change here is usually a change to
-    # what gets read out of the cache too. Whether a warm run ASKS the site anything is the other
-    # kind, invisible to anything that reads the cache, and fetch_imslp.test.py is the only thing
-    # that can see it (#62). Either going red is proof.
-    (("scripts/fetch_imslp.py",),     ["python3 scripts/fetch_imslp.test.py",
-                                       "python3 scripts/imslp.test.py"]),
+    # The crawl, and ONLY its own suite. imslp.test.py used to be listed here as well, on the
+    # grounds that fetch_imslp.py imports parse_person() and candidates() from build_imslp.py —
+    # but it is a pure suite that never loads this module, so no change confined to this file can
+    # redden it, and it arrived on every crawl branch as a guaranteed also-ran. A suite that
+    # cannot go red does not testify; that is the whole premise of this gate.
+    (("scripts/fetch_imslp.py",),     ["python3 scripts/fetch_imslp.test.py"]),
     # The RUNNER, which is source now that it has logic of its own to get wrong (#49) — see the
     # note under SOURCE. BOTH suites, because it has two halves and only one of them is about
     # ports: the offline one answers for the derivation and the guards, and the browser one for

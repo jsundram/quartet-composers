@@ -88,6 +88,11 @@ TRIES = 5
 BACKOFF = [2, 5, 15, 40]
 
 TITLE = re.compile(r"^(.*) \(([^()]*)\)$")
+# How much of a cached listing a re-crawl has to bring back before it is allowed to replace it.
+# A backstop, not a threshold anybody tuned: a curated category twenty years in the making does
+# not halve in a month, so nothing real is near it, and what it catches is a walk that ended
+# early and came back looking like an answer.
+MIN_KEEP = 0.5
 
 
 def get(api, params):
@@ -124,7 +129,15 @@ def get(api, params):
 
 
 def members(cat):
-    """Every page in a category. MediaWiki 1.18 pages with query-continue, not continue."""
+    """Every page in a category, following the continuation in EITHER shape.
+
+    IMSLP answers like MediaWiki 1.18 today, which pages with `query-continue`; every version
+    since 1.26 sends `continue` instead unless asked for the old one. Reading only the old shape
+    means the walk ends normally after the first 500 of 4,215 — no error, no exception, just a
+    listing that is 12% of the category. fetch_works() REPLACES what it gets, so a silent short
+    walk is the one failure here that writes a wrong answer rather than none, which is why this
+    reads both and why there is a floor over there as well.
+    """
     out, cont = [], None
     while True:
         p = {"action": "query", "list": "categorymembers", "cmtitle": cat,
@@ -133,7 +146,8 @@ def members(cat):
             p["cmcontinue"] = cont
         d = get(IMSLP_API, p)
         out += d.get("query", {}).get("categorymembers", [])
-        cont = d.get("query-continue", {}).get("categorymembers", {}).get("cmcontinue")
+        cont = (d.get("query-continue", {}).get("categorymembers", {}).get("cmcontinue")
+                or d.get("continue", {}).get("cmcontinue"))
         print(f"  {cat}: {len(out)}", file=sys.stderr)
         if not cont:
             return out
@@ -191,9 +205,13 @@ def fetch_works(cache):
     right: nothing downstream reads a page the listing no longer names, and re-asking for it after
     it comes back would be a request for an answer already on disk.
 
-    Nothing is written unless the whole crawl finished — members() raises after its retry ladder
-    rather than returning a short list, or one dropped reply would retire every page it had not
-    reached yet.
+    Nothing is written unless the crawl came back whole, and that takes two guards rather than
+    one. members() raises after its retry ladder rather than returning a short list, so a dropped
+    reply retires nothing. The other way to come back short is to SUCCEED early — a walk whose
+    continuation token went unrecognised ends normally with 500 of 4,215 pages and no error at
+    all — and against a pass that replaces the listing that would retire the rest and leave every
+    pass below topping up against the remains. MIN_KEEP is the floor for that; --refresh is the
+    way through if IMSLP ever does gut a category for real.
     """
     for key, cat in (("orig", ORIG), ("arr", ARR)):
         was = {w["id"] for w in cache["works"].get(key) or []}
@@ -207,8 +225,14 @@ def fetch_works(cache):
                 rows.append({"id": m["pageid"], "title": m["title"], "composer": None})
                 continue
             rows.append({"id": m["pageid"], "title": hit.group(1), "composer": hit.group(2)})
-        cache["works"][key] = rows
         now = {w["id"] for w in rows}
+        if was and len(now) < MIN_KEEP * len(was):
+            raise ValueError(
+                "%s came back with %d pages against %d cached. A category does not lose that "
+                "much in a month, so this is a walk that ended early looking like an answer — "
+                "the listing was NOT replaced. Check the continuation shape in members(), then "
+                "--refresh if the loss is real." % (cat, len(now), len(was)))
+        cache["works"][key] = rows
         # What the run DISCOVERED, which is the whole reason this pass re-runs. A warm run that
         # prints (0 new, 0 gone) has asked and been told nothing changed; the line it replaced
         # said "cached" and meant nobody asked.
@@ -264,26 +288,35 @@ def fetch_composers(cache):
     storing the text means the join is a pure function of a file on disk, which is the same split
     the rest of this pipeline draws between fetching and building.
 
-    THE ONE PASS THAT RE-ASKS, and only for the pages with nothing to say. A page already stating
-    {{Wikidata|Q…}} or a Wikipedia article is joined by that identifier and re-downloading it
-    monthly buys a spelling change nothing reads. A page stating NEITHER is exactly what a
-    volunteer adding either would rescue, and no other pass can find out — the works crawl lists
-    the page whether or not it has grown a link. So those are asked again on every run, which is
-    ~12 requests (#62). A category page that does not exist counts as one of them: one that was
-    missing last month may exist now."""
+    THE ONE PASS THAT RE-ASKS, and only for the pages that yield no KEY. One already stating
+    {{Wikidata|Q…}}, or naming an article that resolved, is joined by that identifier and
+    re-downloading it monthly buys a spelling change nothing reads. One yielding neither is
+    exactly what a volunteer adding either would rescue, and no other pass can find out — the
+    works crawl lists the page whether or not it has grown a link. So those are asked again on
+    every run, ~16 requests (#62). A category page that does not exist counts as one of them: one
+    that was missing last month may exist now.
+
+    NAMING AN ARTICLE IS NOT HAVING A KEY, and reading it as one excluded the group that most
+    needed asking. 204 cached pages name a non-English interwiki — {{wp|de:Hans Erich Apostel}} —
+    en.wikipedia has no such title, fetch_wp resolved every one of them to nothing, and
+    roster_cats cannot match them against a roster title either. They are as unplaced as a page
+    naming nothing at all, and they were the one group permanently shut out of the re-ask.
+    Resolution is last run's answer, since fetch_wp runs after this pass: an article named for the
+    first time this month is re-read once more next month and keyed after that."""
     sys.path.insert(0, HERE)
     from build_imslp import parse_person
     want = sorted({w["composer"] for k in ("orig", "arr")
                    for w in cache["works"][k] if w["composer"]})
 
-    def identified(c):
+    def keyed(c):
         f = parse_person(cache["wikitext"][c]) or {}
-        return bool(f.get("qid") or f.get("wp"))
+        return bool(f.get("qid") or (cache["wp"].get(f.get("wp") or "") or {}).get("qid"))
 
-    todo = [c for c in want if c not in cache["wikitext"] or not identified(c)]
+    todo = [c for c in want if c not in cache["wikitext"] or not keyed(c)]
     new = sum(1 for c in todo if c not in cache["wikitext"])
     print(f"  composers: {len(want)} with quartets, {len(todo)} to ask "
-          f"({new} new, {len(todo) - new} still naming no identifier)", file=sys.stderr)
+          f"({new} new, {len(todo) - new} still yielding no key)", file=sys.stderr)
+    done = 0
     for batch in chunks(todo, BATCH):
         d = get(IMSLP_API, {"action": "query", "prop": "revisions", "rvprop": "content",
                             "titles": "|".join("Category:" + c for c in batch)})
@@ -296,7 +329,11 @@ def fetch_composers(cache):
             if c in seen:
                 cache["wikitext"][c] = got.get(c)   # None: the category page does not exist
         save(cache)
-        print(f"\r  composers: {len(cache['wikitext'])}/{len(want)}", end="", file=sys.stderr)
+        # Against `todo`, not against the cache: on a warm run the cache already holds every
+        # composer before the first batch returns, so counting it printed 1771/1771 throughout
+        # and a stalled crawl looked exactly like a finished one.
+        done += len(batch)
+        print(f"\r  composers: {done}/{len(todo)} asked", end="", file=sys.stderr)
         time.sleep(PAUSE)
     print(file=sys.stderr)
 
