@@ -1198,9 +1198,12 @@ Two things found while writing it that are defects in what already exists, not p
   yield no key — no QID, and no article that resolves — and so does every other ABSENCE: a P839
   Wikidata does not state, a guessed category with no page behind it, an article IMSLP names that
   does not exist. Each is an answer an editor can change, and a cache that never re-asks one has
-  #62's defect a pass over. A warm run is 52 requests, measured against the shipped cache, and
-  `get()` asks for gzip now — `wbgetentities` has no per-property filter, so the P839 pass alone
-  was pulling 24.6 MB against 4.0 MB compressed. `scripts/fetch_imslp.test.py` is what keeps it that way — the defect was a
+  #62's defect a pass over — while an absence nothing CAN change is written down as an answer
+  instead, which is what the interwiki block in `fetch_wp` is for: en.wikipedia reports a
+  `{{wp|de:…}}` title in its own block and never under `pages`, so 233 of the 236 unresolved
+  titles were a question no reply could ever settle. A warm run is 48 requests, measured against
+  the shipped cache, and `get()` asks for gzip now — `wbgetentities` has no per-property filter,
+  so the P839 pass alone was pulling 24.6 MB against 4.0 MB compressed. `scripts/fetch_imslp.test.py` is what keeps it that way — the defect was a
   property of the request SEQUENCE and nothing that reads the cache can see it. Two things the
   re-asking made reachable came out with it: `fetch_composers()` overwriting a page we hold with
   None when a reply failed to mention it, and `get()` demanding a `query` block of a
@@ -1230,7 +1233,8 @@ probably the detail panel and a table column, not a second page.
 **Cost of a refresh.** ~165 requests for a cold crawl, one per second. A warm one is 52: the two
 instrumentation categories, because they are the only place a new work page can appear, and every
 ABSENCE — the 797 composer pages that yield no key, the 485 roster QIDs stating no P839, the 477
-guesses with no page or nothing joinable behind them, the 236 articles that do not resolve.
+guesses with no page or nothing joinable behind them, and the 3 articles that genuinely do not
+resolve — the other 233 name another wiki, which en.wikipedia answers once and for good.
 Everything else tops up by page title and `--refresh` is still the only way to make it re-ask,
 which is what keeps 3.5 MB of unchanged wikitext off a volunteer-funded server. Joining the
 monthly `refresh.py` job is #61's step 4 — what is left is deciding when an IMSLP top-up is DUE,

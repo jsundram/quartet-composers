@@ -119,9 +119,15 @@ class Wiki:
                                 else {"cmcontinue": str(at + self.page), "continue": "-||"})
             return d
         if params.get("prop") == "pageprops":
-            return self._pages([
+            # An interwiki title comes back in its OWN block and never under `pages` — measured
+            # against the live API, which is the whole reason a reader can skip it forever.
+            iw = [t for t in titles if ":" in t.split(" ")[0] and t not in self.wp]
+            d = self._pages([
                 (t, {"pageprops": {"wikibase_item": self.wp[t]}} if t in self.wp else None)
-                for t in titles])
+                for t in titles if t not in iw])
+            if iw:
+                d["query"]["interwiki"] = [{"title": t, "iw": t.split(":")[0]} for t in iw]
+            return d
         if params.get("prop") == "categories":
             return self._pages([
                 (t, {"categories": [{"title": c} for c in self.marks.get(t, [])]}
@@ -210,7 +216,7 @@ class replies:
     """
 
     def __init__(self, fi, payload, encoding=None):
-        self.n, self.payload = 0, payload
+        self.n, self.payload, self.corrupt = 0, payload, False
         self.headers = {"Content-Encoding": encoding} if encoding else {}
         self.real = fi.urllib.request.urlopen
         self.fi = fi
@@ -223,7 +229,17 @@ class replies:
     def read(self):
         self.n += 1
         body = json.dumps(self.payload).encode("utf-8")
-        return gzip.compress(body) if self.headers.get("Content-Encoding") == "gzip" else body
+        if self.headers.get("Content-Encoding") != "gzip":
+            return body
+        out = bytearray(gzip.compress(body))
+        if self.corrupt:
+            # Byte 10 is the FIRST byte of the deflate stream — the gzip header is 10 bytes — and
+            # corrupting it raises zlib.error ("invalid stored block lengths"). The choice is
+            # load-bearing: measured over every single-byte flip of this blob, 95 raise
+            # BadGzipFile and 2 EOFError, both already caught, and only 6 reach zlib.error. A
+            # mutation picked at random would pass against a tuple that does not list it.
+            out[10] ^= 0xFF
+        return bytes(out)
 
     def __enter__(self):
         return self
@@ -354,7 +370,7 @@ def rescues_unidentified(fi, w):
         "a page stating no QID and no article was never re-read: %r. It is the only shape a "
         "volunteer can rescue, and no other pass looks at it." % read(w))
     assert cache["wikitext"]["Beach, Amy Marcy"] == BEACH_LINKED, "the new link was not stored"
-    assert "Amy Beach" in resolved(w) and cache["wp"]["Amy Beach"]["qid"] == "Q235066", (
+    assert "Amy Beach" in resolved(w) and cache["wp"].get("Amy Beach")["qid"] == "Q235066", (
         "the article IMSLP now names was never resolved, so the join still has no key")
     assert BEACH_Q in cache["workinfo"], (
         "the rescue stopped at the identity: her quartet page is attributable now and its "
@@ -369,8 +385,8 @@ def interwiki_is_not_a_key(fi, w):
     # needed asking out of the re-ask permanently.
     w.pages["Category:Beach, Amy Marcy"] = BEACH + "{{wp|de:Amy Beach}}\n"
     cache, _log = run(fi)
-    assert cache["wp"]["de:Amy Beach"] is None, (
-        "the fixture's interwiki link resolved after all: %r" % (cache["wp"]["de:Amy Beach"],))
+    assert not (cache["wp"].get("de:Amy Beach") or {}).get("qid"), (
+        "the fixture's interwiki link resolved after all: %r" % (cache["wp"].get("de:Amy Beach"),))
     w.asked.clear()
     run(fi)
     assert "Category:Beach, Amy Marcy" in read(w), (
@@ -461,15 +477,15 @@ def wp_absence_is_reasked(fi, w):
     # article that does not exist, and a redirect created since is all it would take.
     w.pages["Category:Beach, Amy Marcy"] = BEACH + "{{wp|Amy Marcy Beach}}\n"
     cache, _log = run(fi)
-    assert cache["wp"]["Amy Marcy Beach"] is None, (
-        "the fixture's article resolved after all: %r" % (cache["wp"]["Amy Marcy Beach"],))
+    assert cache["wp"].get("Amy Marcy Beach") is None, (
+        "the fixture's article resolved after all: %r" % (cache["wp"].get("Amy Marcy Beach"),))
     w.wp["Amy Marcy Beach"] = "Q235066"               # a redirect created since
     w.asked.clear()
     cache, _log = run(fi)
     assert "Amy Marcy Beach" in resolved(w), (
         "a title that resolved to nothing was never asked again: %r" % resolved(w))
-    assert (cache["wp"]["Amy Marcy Beach"] or {}).get("qid") == "Q235066", (
-        "the redirect created since was not followed: %r" % (cache["wp"]["Amy Marcy Beach"],))
+    assert (cache["wp"].get("Amy Marcy Beach") or {}).get("qid") == "Q235066", (
+        "the redirect created since was not followed: %r" % (cache["wp"].get("Amy Marcy Beach"),))
     assert BEACH_Q in cache["workinfo"], (
         "resolving the title placed her but nothing downstream followed")
 
@@ -514,6 +530,69 @@ def gzip_round_trip(fi, w):
     assert reads.req.get_header("Accept-encoding") == "gzip", (
         "the request never asked for compression, so a server that offers it will not: %r"
         % (dict(reads.req.headers),))
+
+
+@case("an article on another wiki is recorded as an answer, not asked forever")
+def interwiki_is_an_answer(fi, w):
+    # 233 of the 236 titles stored as None are this shape, and en.wikipedia answers them in
+    # `query.interwiki` and never under `pages` — so the resolve loop skipped them, nothing was
+    # written, and re-asking an absence became a question no reply could ever settle, put every
+    # month forever. That is the defect this whole branch is about, introduced by its own fix.
+    w.pages["Category:Beach, Amy Marcy"] = BEACH + "{{wp|de:Amy Beach}}\n"
+    cache, _log = run(fi)
+    assert cache["wp"].get("de:Amy Beach") == {"title": None, "qid": None, "iw": "de"}, (
+        "the API said this title belongs to another wiki and nothing was written down: %r"
+        % (cache["wp"].get("de:Amy Beach", "<absent>"),))
+    w.asked.clear()
+    run(fi)
+    assert "de:Amy Beach" not in resolved(w), (
+        "a title no reply can ever settle was asked again: %r" % resolved(w))
+    assert "Category:Beach, Amy Marcy" in read(w), (
+        "recording the non-answer also retired the composer page, which is the one thing a "
+        "volunteer CAN fix: %r" % read(w))
+
+
+@case("an article with no Wikidata item is a key, because the join uses the title")
+def resolved_title_is_a_key(fi, w):
+    # The two predicates introduced on this branch have to agree. fetch_wp holds ANY resolution
+    # and stops re-asking; if has_key demanded the QID, a composer page whose article has no
+    # Wikidata item would be re-downloaded every month forever with no call left that could ever
+    # settle it. build_imslp joins on the title as its fallback rung, so the title is a key.
+    w.pages["Category:Beach, Amy Marcy"] = BEACH + "{{wp|Amy Beach}}\n"
+    w.wp["Amy Beach"] = None                          # the article exists; Wikidata does not know it
+    cache, _log = run(fi)
+    assert cache["wp"].get("Amy Beach") == {"title": "Amy Beach", "qid": None}, (
+        "the fixture did not resolve to a title without a QID: %r" % (cache["wp"].get("Amy Beach"),))
+    w.asked.clear()
+    run(fi)
+    assert "Amy Beach" not in resolved(w), (
+        "a title already resolved was re-asked: %r" % resolved(w))
+    assert "Category:Beach, Amy Marcy" not in read(w), (
+        "her page is re-downloaded every month over a key the join would happily use, and "
+        "nothing re-resolves the article, so nothing can ever stop it: %r" % read(w))
+
+
+@case("a corrupted compressed body is retried, not a traceback")
+def corrupt_gzip_is_retried(fi, w):
+    # gzip made this reachable. Truncation raises EOFError and most corruption raises
+    # gzip.BadGzipFile, which IS an OSError — which is how the rare one gets missed: corruption
+    # inside the stream raises zlib.error, which subclasses Exception directly and would end a
+    # 52-request crawl with a traceback instead of a retry.
+    # Two tries and no backoff, so the ORACLE is whether a second read happened: a failure the
+    # tuple catches is retried, one it does not ends the crawl on the first.
+    fi.TRIES, fi.BACKOFF = 2, [0]
+    reads = replies(fi, {"query": {"pages": {}}}, encoding="gzip")
+    reads.corrupt = True
+    try:
+        fi._get(fi.IMSLP_API, {"action": "query", "titles": "X"})
+    except Exception as e:
+        assert reads.n == 2, (
+            "a corrupted body escaped the retry ladder as %s after %d read: a 52-request crawl "
+            "ends on a traceback where a retry was the whole point." % (type(e).__name__, reads.n))
+    else:
+        raise AssertionError("a corrupted body was returned as an answer")
+    finally:
+        reads.restore()
 
 
 @case("a continuation token in the modern shape is followed")
@@ -630,6 +709,13 @@ def main():
                 passed += 1
             except AssertionError as e:
                 print("  FAIL - %s\n       %s" % (name, e))
+                failed += 1
+            # Any other exception is reported as this case failing rather than allowed to end the
+            # run. ablate.py needs a NAMED check to go red — a suite that dies mid-way is
+            # INCONCLUSIVE, which proves nothing — and an ablated tree is exactly where a case
+            # meets a cache key the old code never wrote.
+            except Exception as e:
+                print("  FAIL - %s\n       raised %s: %s" % (name, type(e).__name__, e))
                 failed += 1
     print("\n%d passed, %d failed" % (passed, failed))
     return 1 if failed else 0

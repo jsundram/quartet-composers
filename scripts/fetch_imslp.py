@@ -8,12 +8,13 @@
     python3 scripts/fetch_imslp.py --refresh  # ignore the cache and re-ask for everything
 
 Four passes over two APIs, ~165 requests for a COLD crawl, all cached in data/imslp.json so a
-rebuild is offline. A WARM run costs 52 and re-asks exactly two kinds of thing: the
+rebuild is offline. A WARM run costs 48 and re-asks exactly two kinds of thing: the
 instrumentation categories, because they are the only place a new work page can appear, and every
 ABSENCE — a composer page yielding no key, a P839 claim Wikidata does not state, a guessed
 category with no page behind it, an article IMSLP names that does not exist. Those are the answers
 a volunteer or a Wikidata editor changes, and a cache that never re-asks them cannot tell "nothing
-to do" from "nothing exists". Everything else tops up by page title and --refresh is the only way
+to do" from "nothing exists". An absence NOTHING can change is not one of them and is written
+down as an answer instead — see the interwiki block in fetch_wp, which is 233 of the 236. Everything else tops up by page title and --refresh is the only way
 to make it re-ask, which is what keeps 3.5 MB of unchanged wikitext off a volunteer-funded server.
 That is what makes a monthly run possible — the earlier rule, "nothing is refetched once it is in
 the cache", meant a second run reported `cached: orig (4215)` and discovered nothing, forever,
@@ -57,6 +58,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -141,10 +143,13 @@ def get(api, params):
         # Broad on purpose. A truncated chunked response arrives as http.client.IncompleteRead,
         # which is neither a URLError nor a ValueError, so a narrow tuple let one dropped reply
         # end a 165-request crawl with a traceback and no cache file written.
-        # EOFError is in the tuple for the gzip above: a truncated compressed body raises it
-        # rather than an OSError, and one dropped reply would otherwise end the crawl with a
-        # traceback instead of a retry — the same failure IncompleteRead was added for.
-        except (OSError, http.client.HTTPException, ValueError, EOFError) as e:
+        # EOFError and zlib.error are in the tuple for the gzip above, and neither is an OSError:
+        # a TRUNCATED compressed body raises EOFError, and corruption inside the stream raises
+        # zlib.error, which subclasses Exception directly. Most corruption does surface as
+        # gzip.BadGzipFile, which IS an OSError — which is exactly how a rare one gets missed.
+        # Either would end the crawl with a traceback instead of a retry, the same failure
+        # IncompleteRead was added for.
+        except (OSError, http.client.HTTPException, ValueError, EOFError, zlib.error) as e:
             if attempt == TRIES - 1:
                 raise
             wait = BACKOFF[min(attempt, len(BACKOFF) - 1)]
@@ -222,7 +227,14 @@ def has_key(text, resolved):
     """
     from build_imslp import parse_person
     f = parse_person(text) or {}
-    return bool(f.get("qid") or (resolved.get(f.get("wp") or "") or {}).get("qid"))
+    r = resolved.get(f.get("wp") or "") or {}
+    # A resolved TITLE counts, not only a QID: build_imslp joins on it as the fallback rung for
+    # an article with no Wikidata item. Requiring the QID here made this disagree with the one
+    # predicate it has to match — fetch_wp holds any resolution and stops re-asking, so such a
+    # composer page would have been re-downloaded every month forever with no call left that
+    # could ever settle it. Nothing in the shipped cache is that shape; both predicates were
+    # written on this branch and should not have to be lucky.
+    return bool(f.get("qid") or r.get("qid") or r.get("title"))
 
 
 def chunks(seq, n):
@@ -395,13 +407,19 @@ def fetch_wp(cache):
     # when the page was naming its own article all along.
     seen = list(cache["wikitext"].values()) + list(cache["candidates"].values())
     titles = sorted({(parse_person(t) or {}).get("wp") for t in seen if t} - {None})
-    # A TITLE THAT RESOLVED TO NOTHING IS RE-ASKED, and it is the fourth absence. 236 are stored
-    # that way, and 204 composer pages are re-downloaded every month precisely BECAUSE their only
-    # link resolved to nothing — leaving the one call that could change that answer un-rerun made
-    # the re-ask above unable to finish its own job. "Gubaidulina, Sofia" is the shape: IMSLP
-    # names an article that does not exist, and a redirect created since is all it would take.
-    # ~5 requests. A title that RESOLVED is not re-asked; a canonical title is an identifier here,
-    # and where a page MOVE would matter is page views, which invariant 15 answers for separately.
+    # A TITLE THAT RESOLVED TO NOTHING IS RE-ASKED, and it is the fourth absence: 204 composer
+    # pages are re-downloaded every month precisely BECAUSE their only link resolved to nothing,
+    # so leaving the one call that could change that answer un-rerun made the re-ask above unable
+    # to finish its own job. "Gubaidulina, Sofia" is the shape — IMSLP names an article that does
+    # not exist, and a redirect created since is all it would take.
+    # BUT ONLY THREE OF THE 236 ARE THAT SHAPE. The other 233 are interwiki ({{wp|de:Hans Erich
+    # Apostel}}), and en.wikipedia answers those in `query.interwiki` and never under `pages` —
+    # so the loop below skipped them, nothing was written, and re-asking them was a question no
+    # reply could ever settle, put every month forever. They are recorded from that block now, as
+    # an ANSWER rather than a gap: a title on another wiki is not one this API will ever hold.
+    # ~1 request after the first run cleans them up. A title that RESOLVED is not re-asked either;
+    # a canonical title is an identifier here, and where a page MOVE would matter is page views,
+    # which invariant 15 answers for separately.
     todo = [t for t in titles if not cache["wp"].get(t)]
     new = sum(1 for t in todo if t not in cache["wp"])
     print(f"  wikipedia: {len(titles)} articles named by IMSLP, {len(todo)} to resolve "
@@ -411,6 +429,11 @@ def fetch_wp(cache):
         d = get(WIKI_API, {"action": "query", "titles": "|".join(batch), "redirects": "1",
                            "prop": "pageprops", "ppprop": "wikibase_item"})
         q = d.get("query", {})
+        for iw in q.get("interwiki", []):
+            # Stored with no title and no qid, so every reader already treating a wp entry as
+            # `... or {}` sees exactly what it saw before; what changes is that the entry EXISTS,
+            # which is how the re-ask above tells "nothing there yet" from "not ours to answer".
+            cache["wp"][iw["title"]] = {"title": None, "qid": None, "iw": iw.get("iw")}
         alias = {}
         for n in q.get("normalized", []):
             alias[n["from"]] = n["to"]
