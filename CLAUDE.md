@@ -382,9 +382,10 @@ human grades. No test framework, and nothing to install:
   every number in the cache stays plausible, and the file simply stops growing. So the cases
   assert what a run ASKS FOR — that the categories are listed again, that a page which appeared
   between two runs reaches the markers and the work info, that a composer page naming no
-  identifier is re-read and a `{{wp}}` link added since is followed all the way to a resolved QID
-  — and, just as hard, what it declines to ask for, because "re-ask everything" is `--refresh` and
-  costs 3.5 MB of unchanged wikitext against a volunteer-funded server.
+  identifier is re-read and a `{{wp}}` link added since is followed all the way to a resolved QID,
+  that a P839 claim and a guessed category page appearing since are both picked up — and, just as
+  hard, what it declines to ask for, because "re-ask everything" is `--refresh` and costs 3.5 MB
+  of unchanged wikitext against a volunteer-funded server.
 - `scripts/refresh.py` — not a test but the same discipline: it decides whether a top-up is DUE
   (does `composers.json` already cover the last complete month?), runs the three pipeline stages,
   refuses to bump `V` if `validate.py` fails, and is a pure no-op otherwise.
