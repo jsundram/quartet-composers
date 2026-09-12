@@ -215,11 +215,14 @@ visible the moment you open the page; a precache bug is visible only on somebody
 client, a month later. Coverage should run the other way round from file size, and today it does
 not: the 588 lines of `sw.js` are exercised through one of five entry points.
 
-**A check may not read its expectation out of the code under test.** `sw.test.mjs` reads `BOOT`
-from `sw.js` and `fetch_views.test.py` derives its window from `months_back()` — both to stop a
-copy drifting, and both unfalsifiable for exactly the value they are named after. Where anti-drift
-pushes you there, cross-check two independent artifacts instead (`BOOT` against `index.html`'s
-script tags, a date function against a frozen clock).
+**A check may not read its expectation out of the code under test.** `fetch_views.test.py` derived
+its window from `months_back()` — to stop a copy drifting, and unfalsifiable for exactly the value
+it was named after: a `months_back()` ending ON the month in progress answered the question, the
+case refused the month after that, and it passed (measured). It runs against a FROZEN clock now, and
+the months are the calendar's. `sw.test.mjs` reads `BOOT` out of `sw.js` the same way and is left
+alone on purpose — it is vendored pwa-starter, so the fix belongs upstream. Where anti-drift pushes
+you there, cross-check two independent artifacts instead (a date function against a frozen clock,
+`BOOT` against `index.html`'s script tags).
 
 **Prefer a positive assertion.** `!panel.includes(exact)` passes when the formatting differs, not
 only when the rounding is right. Assert the shape you want, not the absence of one you don't.
@@ -298,8 +301,9 @@ framework, and nothing to install:
   middle hop double-counting a month, a complete chain thrown away as truncated, a reverted move
   read as permanent. None crashes, none moves a number by an order of magnitude, and
   the chains this roster ships happen to miss all three.
-- `python3 scripts/fetch_views.test.py` — the page-view cache's invariants, `fetch` stubbed and the
-  cache in a temp file. It exists because the flat array has only two values and **every bug in
+- `python3 scripts/fetch_views.test.py` — the page-view cache's invariants, `fetch` stubbed, the
+  cache in a temp file and the clock FROZEN at a mid-month date, so "the month in progress" is the
+  calendar's fact and not `months_back()`'s opinion of it. It exists because the flat array has only two values and **every bug in
   that file has been a null no request justified** — invisible afterwards, because the array is the
   right length and every number in it is plausible, and the only symptom is that `todo` quietly
   stops asking. Some of its cases stub the move log and cover invariant 15: that a move is stitched and

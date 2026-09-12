@@ -386,9 +386,12 @@ suite 13 of 22, `sw.test.mjs` 1 of 5 — and every miss was a pure function or a
 point, not one a layout or interaction bug. The rules that came out of it are in CLAUDE.md's Testing
 section. What is still owed, in the order it is worth doing:
 
-- **`fetch_views.test.py` cannot fail for the value it is named after.** It derives its window from
-  `months_back()`, so ending the window on the month in progress passes. Cross-check against an
-  independent artifact instead — a frozen clock.
+- ~~`fetch_views.test.py` cannot fail for the value it is named after~~ — done, 2026-09-12. It took
+  `months_back(1)` as the last complete month and refused the month after that, so a `months_back()`
+  ending ON the month in progress answered its own question — demonstrated, not argued: with that
+  one-line mutation in place the old case still passed. The clock is frozen mid-month now, both
+  literals come from the calendar, and a new case pins the whole axis (FLOOR at one end, the last
+  complete month at the other). The mutation reddens two cases.
   (The same charge against `sw.test.mjs` reading `BOOT` out of `sw.js` is WITHDRAWN, with the
   install/activate coverage gap behind it: both files are vendored pwa-starter, stamped, and belong
   upstream. `sw.js`'s 588 lines are the most under-covered here and are deliberately not ours.)
