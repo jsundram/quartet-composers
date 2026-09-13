@@ -1230,7 +1230,8 @@ already fought over (issue 29). The standalone file costs none of that and is th
 somebody wants the coverage numbers *while looking at the chart* — at which point the answer is
 probably the detail panel and a table column, not a second page.
 
-**Cost of a refresh.** ~165 requests for a cold crawl, one per second. A warm one is 52: the two
+**Cost of a refresh.** ~238 requests for a cold crawl, one per second — measured off the shipped
+cache at the batch sizes this uses, where markers (99) and work info (38) are over half of it. A warm one is 48: the two
 instrumentation categories, because they are the only place a new work page can appear, and every
 ABSENCE — the 797 composer pages that yield no key, the 485 roster QIDs stating no P839, the 477
 guesses with no page or nothing joinable behind them, and the 3 articles that genuinely do not

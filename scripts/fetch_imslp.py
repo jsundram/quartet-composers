@@ -7,7 +7,7 @@
     python3 scripts/fetch_imslp.py            # writes data/imslp.json
     python3 scripts/fetch_imslp.py --refresh  # ignore the cache and re-ask for everything
 
-Four passes over two APIs, ~240 requests for a COLD crawl, all cached in data/imslp.json so a
+Four passes over two APIs, ~238 requests for a COLD crawl, all cached in data/imslp.json so a
 rebuild is offline. A WARM run costs 48 and re-asks exactly two kinds of thing: the instrumentation
 categories, because they are the only place a new work page can appear, and every ABSENCE — a
 composer page yielding no key, a P839 claim Wikidata does not state, a guessed category with no
@@ -151,7 +151,7 @@ def get(api, params):
             return data
         # Broad on purpose. A truncated chunked response arrives as http.client.IncompleteRead,
         # which is neither a URLError nor a ValueError, so a narrow tuple let one dropped reply
-        # end a 165-request crawl with a traceback and no cache file written.
+        # end a 238-request crawl with a traceback and no cache file written.
         # EOFError and zlib.error are in the tuple for the gzip above, and neither is an OSError:
         # a TRUNCATED compressed body raises EOFError, and corruption inside the stream raises
         # zlib.error, which subclasses Exception directly. Most corruption does surface as
@@ -228,7 +228,8 @@ def has_key(text, resolved):
 
     The test for whether re-asking a page could ever change anything, and the two passes that hold
     composer wikitext (fetch_composers, fetch_candidates) share it rather than each deciding.
-    NAMING an article is not having a key: 204 cached pages name a non-English interwiki
+    NAMING an article is not having a key: 203 of the 797 pages the monthly re-ask asks for
+    name a non-English interwiki
     ({{wp|de:Hans Erich Apostel}}), en.wikipedia has no such title, and roster_cats cannot match
     one against a roster title either — they are as unplaced as a page naming nothing at all.
     `resolved` is last run's answers, since fetch_wp runs after both callers: an article named for
@@ -260,7 +261,7 @@ def fetch_works(cache):
     listed. Returning early on a cached listing made a second run print `cached: orig (4215)` and
     stop, which is a "nothing to do" indistinguishable from "nothing exists": a monthly run would
     have found nothing new forever and reported success doing it (#62). It is also the cheapest
-    pass here, ~12 requests against the ~240 a cold crawl costs.
+    pass here, ~12 requests against the ~238 a cold crawl costs.
 
     The listing REPLACES rather than merges, because the category is the live answer to what is in
     it. The caches below are keyed by title and keep their entry for a page that left, which is
@@ -364,9 +365,10 @@ def fetch_composers(cache):
     that was missing last month may exist now.
 
     NAMING AN ARTICLE IS NOT HAVING A KEY, and reading it as one excluded the group that most
-    needed asking. 202 composer pages name a non-English interwiki — {{wp|de:Hans Erich Apostel}} —
-    en.wikipedia has no such title, fetch_wp resolves every one of them to nothing, and
-    roster_cats cannot match them against a roster title either. They are as unplaced as a page
+    needed asking. Most of the pages that yield no key name a non-English interwiki instead —
+    {{wp|de:Hans Erich Apostel}}; en.wikipedia has no such title, fetch_wp resolves every one of
+    them to nothing, and roster_cats cannot match them against a roster title either. has_key()
+    above states the count, once. They are as unplaced as a page
     naming nothing at all, and they were the one group permanently shut out of the re-ask.
     Resolution is last run's answer, since fetch_wp runs after this pass: an article named for the
     first time this month is re-read once more next month and keyed after that."""
@@ -416,8 +418,9 @@ def fetch_wp(cache):
     # when the page was naming its own article all along.
     seen = list(cache["wikitext"].values()) + list(cache["candidates"].values())
     titles = sorted({(parse_person(t) or {}).get("wp") for t in seen if t} - {None})
-    # A TITLE THAT RESOLVED TO NOTHING IS RE-ASKED, and it is the fourth absence: 204 composer
-    # pages are re-downloaded every month precisely BECAUSE their only link resolved to nothing,
+    # A TITLE THAT RESOLVED TO NOTHING IS RE-ASKED, and it is the fourth absence: the composer
+    # pages above are re-downloaded every month precisely BECAUSE their only link resolved to
+    # nothing,
     # so leaving the one call that could change that answer un-rerun made the re-ask above unable
     # to finish its own job. "Gubaidulina, Sofia" is the shape — IMSLP names an article that does
     # not exist, and a redirect created since is all it would take.
@@ -467,6 +470,17 @@ def fetch_wp(cache):
             pg = pages.get(cur)
             if pg is None:
                 continue                        # not mentioned in the reply: still un-asked
+            if "invalid" in pg:
+                # A title en.wikipedia CANNOT hold — `{{wp|[[Amy Beach]]}}` reaches here because
+                # WP_PATTERNS captures anything up to the closing brace. It arrives under `pages`
+                # with `invalid` and no `missing`, so it used to be written as a resolved answer
+                # carrying the bad string as its title; has_key() reads a bare title as a key, so
+                # the composer page behind it was retired from the re-ask permanently while the
+                # join could never match it. Recorded like an interwiki, and for the same reason:
+                # an answer, because no reply will ever change it, and keyless, because it is not
+                # one.
+                cache["wp"][t] = {"title": None, "qid": None, "invalid": True}
+                continue
             cache["wp"][t] = None if "missing" in pg else {
                 "title": pg["title"],
                 "qid": pg.get("pageprops", {}).get("wikibase_item"),
