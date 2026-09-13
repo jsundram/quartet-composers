@@ -433,11 +433,47 @@ with tempfile.TemporaryDirectory() as tmp:
 
     # --- ablate: UNCOVERED IS AN ASSERTION, NOT DECORATION ----------------------------------------
     # plan() defaults anything unmapped to reported, so UNCOVERED is read by nothing -- which is
-    # how prose-lint.py sat in it through the very commit that gave it a suite.
+    # how a name sat in it through the very commit that gave that file a suite.
     import importlib.util as _il
     _spec = _il.spec_from_file_location("abl", os.path.join(HERE, "ablate.py"))
     _abl = _il.module_from_spec(_spec); _spec.loader.exec_module(_abl)
     case("no name in UNCOVERED has a suite or a COVERS entry", _abl.unsuited(), [])
+
+    # --- ablate: WHAT COUNTS AS SOURCE ------------------------------------------------------------
+    # ui-test.sh sat in TESTS beside the suite it launches, which was true while it only started a
+    # server and a browser. It derives a port pair per checkout now and refuses a port it did not
+    # take (#49) -- logic, and logic filed as a test is logic nothing ablates: the branch that
+    # wrote that was ablated on one unrelated file alone. A classification is exactly the kind of claim
+    # that reads fine and proves nothing, so it is asserted rather than commented.
+    case("the runner counts as source, and its own suite still counts as a test",
+         (bool(_abl.SOURCE.match("scripts/ui-test.sh")), bool(_abl.TESTS.match("scripts/ui-test.sh")),
+          bool(_abl.TESTS.match("scripts/ui-test.test.py"))), (True, False, True))
+    case("...and COVERS points it at both halves: the offline suite and the browser one",
+         [c for pats, c in _abl.COVERS if "scripts/ui-test.sh" in pats],
+         [["python3 scripts/ui-test.test.py", "BROWSER:scripts/ui-test.sh"]])
+
+    # --- ablate: a COVERS entry is INERT unless SOURCE matches the same file ---------------
+    # plan() builds its file list with SOURCE.match, so a name in COVERS that SOURCE does not
+    # match is a comment asserting a gate that can never fire. That is what happened when
+    # build_imslp.py and fetch_imslp.py were mapped to imslp.test.py: the entry read as coverage
+    # and bound nothing. Checked as a PROPERTY rather than by naming those two, so the next
+    # entry added cannot reintroduce it.
+    sys.path.insert(0, HERE)
+    import ablate as _ab
+    _mapped = [f for files, _cmds in _ab.COVERS for f in files]
+    _inert = sorted(f for f in _mapped if not _ab.SOURCE.match(f) and not _ab.TESTS.match(f))
+    # And the IMSLP join specifically. The property case above cannot go red for the branch that
+    # introduces the mistake — COVERS and SOURCE both live in ablate.py, so reverting the source
+    # reverts both halves and the property holds again. It guards the tree AT REST, where adding
+    # to COVERS and forgetting SOURCE is exactly what happened; this one guards the branch.
+    case("the IMSLP join is reachable by the gate that claims to cover it",
+         [bool(_ab.SOURCE.match(f)) and any(f in files for files, _c in _ab.COVERS)
+          for f in ("scripts/build_imslp.py", "scripts/fetch_imslp.py")], [True, True],
+         "SOURCE must match a file for plan() to route it to its COVERS suite")
+
+    case("every file COVERS maps is one plan() can actually see", _inert, [],
+         "plan() reads SOURCE, so an unmatched COVERS name is coverage that cannot fire"
+         + (f" — {_inert}" if _inert else ""))
 
     # --- THIS SUITE'S OWN SIZE, PRINTED ----------------------------------------------------------
     # It used to be asserted against a count typed into the docs, which made every added case a

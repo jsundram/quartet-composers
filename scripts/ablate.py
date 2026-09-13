@@ -89,6 +89,18 @@ COVERS = [
     # ablated against the suite written for it, which is the failure the whole PR is about.
     (("scripts/ablate.py", "scripts/fix-lint.py"),
                                       ["python3 scripts/fix-lint.test.py"]),
+    # The IMSLP join. Both files, because the PURE half lives in build_imslp.py — fetch_imslp.py
+    # imports candidates() and parse_person() from it rather than keeping a second copy, so a
+    # change to either is a change to what the suite asserts.
+    (("scripts/build_imslp.py", "scripts/fetch_imslp.py"),
+                                      ["python3 scripts/imslp.test.py"]),
+    # The RUNNER, which is source now that it has logic of its own to get wrong (#49) — see the
+    # note under SOURCE. BOTH suites, because it has two halves and only one of them is about
+    # ports: the offline one answers for the derivation and the guards, and the browser one for
+    # everything a change to the profile clear, find_chrome or the Xvfb launch would break, which
+    # nothing offline can see. Either going red is proof; the other is reported as also-ran.
+    (("scripts/ui-test.sh",),         ["python3 scripts/ui-test.test.py",
+                                       "BROWSER:scripts/ui-test.sh"]),
 ]
 
 # Load-bearing source that genuinely has no suite. plan() no longer READS this — anything unmapped
@@ -113,8 +125,18 @@ SOURCE = re.compile(
     r"^(app|chart|table|histogram|names|theme|sw|ping)\.js$"
     r"|^(styles\.css|index\.html|manifest\.json)$"
     r"|^scripts/(validate|pagemoves|fetch_views|fetch_wikidata|build_data|scrape_list"
-    r"|make-og-svg|og-lint|sw-lint|refresh|ablate|fix-lint)\.py$")
-TESTS = re.compile(r"^scripts/.*(\.test\.(py|mjs)|ui-test\.sh)$")
+    r"|make-og-svg|og-lint|sw-lint|refresh|ablate|fix-lint"
+    # The IMSLP join. A name added to COVERS is INERT until it is also matched here — plan()
+    # builds its file list from SOURCE — so the entry added for these two sat as a comment
+    # asserting a gate that could never fire, which is the exact failure this file exists to stop.
+    r"|build_imslp|fetch_imslp)\.py$"
+    # ui-test.sh IS SOURCE, and used to be filed under TESTS with the suite it launches. That was
+    # true when it only started a server and a browser; it now derives a port pair per checkout
+    # and refuses to run against a port it did not take (#49), which is logic, and logic filed as
+    # a test is logic nothing ablates — the branch that wrote it was ablated on one unrelated file.
+    # scripts/ui-test.test.py is what covers it, and COVERS maps the two.
+    r"|^scripts/ui-test\.sh$")
+TESTS = re.compile(r"^scripts/.*\.test\.(py|mjs)$")
 # Both halves of the line matter: `FAIL` at the head, and the name with any trailing detail cut.
 # The detail carries measured numbers that differ between two runs of the same suite, so a set
 # difference over whole lines would report noise as signal.

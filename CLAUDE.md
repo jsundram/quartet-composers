@@ -265,20 +265,103 @@ framework, and nothing to install:
   this file used to state in prose — how many names the rule is wrong about, which groups qualify
   today — are gone; they moved every time the pipeline ran.
 - `scripts/ui-test.sh` — the behavioural suite, against a real Chrome over CDP. **Its size is not
-  stated here: run it and read the total it prints.** Its own header documents the harness; three
-  rules matter before you add to it. **Every wait is a poll, not a budget** (#48) — `settle()`
-  re-asks the page for the state the next check reads, and the only fixed wait is `TWEEN`, used
-  solely before a "nothing moved" assertion, which has no signal to poll for. **A POINTER is a
-  platform fact and cannot be emulated** (#50): `Emulation.setEmulatedMedia` accepts `hover` and
-  `pointer` and silently ignores them, so the suite runs the full Chrome under **Xvfb** — never
-  `chrome-headless-shell`, which reports no pointer even under a display — and section 2 asserts
-  which pointer it got rather than leaving eight later checks to imply it. **No check reads a PIXEL,
-  deliberately**: the DOM is the better oracle, and a baseline would go red for two reasons that are
-  not bugs — `system-ui` resolves to a different face per platform (#53) and `refresh.py` moves
-  every dot monthly by design. The PNGs are evidence for whoever reads a failure, which is why a
-  failing run keeps them. `REQUIRE_BROWSER=1` turns the no-Chromium skip and both pointer warnings
-  into failures, because a runner that quietly lost its Chrome would otherwise go green having
-  tested nothing.
+  stated here: run it and read the total it prints.** Some of its checks are registered in loops,
+  so the literal `check(` count is not that total and no offline count is exact. A figure written here
+  could only be re-typed by hand every time somebody adds a check, which is churn in exchange for a
+  number the suite already reports. It starts
+  its own server and browser and skips cleanly (exit 0) if no Chromium is installed — right for a
+  laptop and wrong for a runner, where a job that quietly lost its Chrome would go green having
+  tested nothing, so `REQUIRE_BROWSER=1` turns that skip and both pointer warnings into a failure
+  and `checks.yml` sets it in both jobs that reach here. Every check
+  in it exists because something was actually broken; read the header before deleting one.
+  **Every wait in it is a poll, not a budget** (#48): `settle()` re-asks the page for the state the
+  next check reads, `goto()` polls for a drawn page, and `idle()` asks d3 whether the zoom tween
+  is still running. The suite used to spend ~100 of its ~110 seconds asleep in fixed waits, most
+  of them following synchronous DOM work, and a fixed wait is wrong in the other direction too — a
+  cold runner can miss it. The only fixed wait left is `TWEEN`, one frame past chart.js's 420ms
+  transition, and it is used ONLY before a non-event assertion ("nothing moved"), which has no
+  signal to poll for. A new check that waits should say what it is waiting for.
+  **A POINTER is a platform fact and cannot be emulated** (#50). The lens, every hover preview and
+  the panel's reserved height all need `(hover:hover) and (pointer:fine)`, which chart.js reads
+  once into `TOUCH` and styles.css reserves the panel behind. macOS reports it unconditionally and
+  a headless Linux Chrome reports no pointing device at all, so all of them failed on every runner
+  that was not a Mac. `Emulation.setEmulatedMedia`'s `features` list is NOT
+  the fix TODO prescribed: it accepts `hover` and `pointer`, returns success, and ignores them.
+  `--blink-settings` is worse — it works until the first `setTouchEmulationEnabled`, whose restore
+  then clobbers the pointer type for every page in the browser, so a suite that interleaves phone
+  and desktop sections cannot use it. `ui-test.sh` runs Chrome on an **Xvfb** display where there
+  is one, which gives it a real pointer that a touch toggle restores TO, and section 2 asserts
+  which of the two it got rather than leaving eight later checks to imply it.
+  **And every CDP call has a watchdog.** `send()` rejects after 60s, the socket closing rejects
+  everything pending, and both print the checks that had already run — a dropped reply used to end
+  the run as node's bare "unsettled top-level await" with zero lines of output, which is how one
+  oversized screenshot read as a random hang. That screenshot is the other half, and its lesson is
+  **height spends width**. Print un-scrolls the table, so the page is 884 rows and ~35,000px tall,
+  and asking for it at deviceScaleFactor 2 made this Chromium drop the page target. The first fix
+  halved the SCALE, which was wrong: the screenshots are deleted unless `KEEP=1`, so what they are
+  for is the one look a failure gets, and whoever takes it reads a copy resized to fit a long-edge
+  cap and a visual-token budget. That resize is driven by the LONG EDGE, so the full-page shot
+  lands 94px wide at either scale — fewer megapixels bought nothing. `shot()` takes a `clip` now
+  and the print one clips its HEIGHT, to the 30th row: everything print changes is above the fold
+  and the rest is the same row 850 more times. `ui.test.mjs` 9b pins the property that bought —
+  every PNG the run wrote still resolves at 1:1 or better after that resize, measured off the
+  IHDR — because a comment claiming it could never go red.
+  **No check reads a PIXEL, deliberately.** The DOM is the better oracle and every check here
+  asserts against it; a screenshot hash or baseline would go red for two reasons that are not
+  bugs — `system-ui` resolves to a different face per platform (which is what #53 was, arriving
+  through the one check that DID read a measurement) and `refresh.py` tops the data up monthly by
+  design, moving every dot. So the PNGs
+  are evidence for whoever reads a failure, and what they needed was to still EXIST then:
+  `ui-test.sh` deleted `$OUT` unless `KEEP=1`, which is a guess made before a run about a need
+  that arises after it, so a failing run destroyed its own evidence. It now keeps the directory
+  whenever the suite fails — including when Chrome never opened, so `chrome.log` outlives the
+  scrollback — and prints the path either way. A clean run still cleans up.
+  **And a boot is a claim, not a reset** (#48 again): most of the 53 navigations it made were a
+  way back to a known state, a full boot to clear a pill or press one. `rest()` gets there through
+  the app's own controls, then reads every piece of state a boot would have cleared and boots
+  after all if any is out of place — recording where, which the second-to-last check reports, so a
+  reset that quietly reboots cannot hide the app failing to reset. The boots left each test a URL
+  (a bare one opens on Fame, `#v=readers` still resolves, a `#g=`, `#r=` or `#c=` link arrives
+  applied, an offline reload paints), straddle a change of touch emulation, because chart.js
+  reads `TOUCH` once at boot, or follow a full-screen round trip, after which this Chromium
+  forwards no wheel event to the page until something registers a listener afresh. A
+  section that only needs another viewport asks for it and waits for the re-layout (`relaid()`);
+  a view switch goes through its pill (`view()`). One wheel event now carries a whole zoom, and
+  it is checked for rather than assumed: this Chromium drops a synthetic wheel now and then under
+  emulation, so `wheel()` re-sends one that moved nothing and the run prints how often it had to.
+- `python3 scripts/ui-test.test.py` — the RUNNER rather than the app: the two ports
+  `ui-test.sh` derives from the checkout's own path, in thirteen cases that need no browser. They
+  were fixed at 8765/9333 and are cleared with a `pkill -f` that matches every process on the
+  machine, so a second checkout starting up killed the first one's browser and server mid-run —
+  and the victim was the run that had done nothing wrong (#49). Deriving the default gives every
+  worktree its own pair while keeping it the SAME on every run here, which is what lets that clear
+  go on reaping a browser left over from an INTERRUPTED run, the failure it was written for. The
+  hash has 200 slots, so two worktrees can still land on one: the runner prints the pair, says so
+  when it is clearing a port somebody else may be holding, and takes `PORT=` and `CDP=` to pin
+  one. `--ports` answers out of the path and starts nothing, which is how the cases ask. It is
+  a suite because the defect is invisible in the run in front of you and in CI, which never runs
+  two at once — and because the way back to it is a one-line edit that looks like tidying.
+  **The cases that are not about the sibling are about the stranger.** A 200-wide band covers ports
+  people use — 8888 is Jupyter's, 9515 is chromedriver's — and a run that finds one held used to
+  proceed: the server exits on "Address already in use" into a `/dev/null`, or the new Chrome
+  fails to bind, and the suite then drives somebody ELSE's origin or debug endpoint and reports it
+  as a suiteful of failures of this app. So the runner stops and says which port and why, `kill -0` on its
+  own server being the oracle that needs no marker in the page, and every probe is bounded
+  (`answers()`), because a process that accepts a connection and never replies hangs a bare
+  `curl` for as long as it likes — which would be the same silence one step earlier.
+  **The clear waits on the PROCESS, not on the port** — `pgrep` over the pattern the kill just
+  used. What it waits for is OUR leftover dying, and a port probe cannot tell that from a
+  stranger's live socket, so it spent the whole budget to report something the first `pgrep`
+  already knew: 4s on every run that meets a squatter, and 8 of the 11 seconds this suite took to
+  prove it. That is issue 48's rule — a wait says what it is waiting for — reaching the one loop
+  that had kept a budget. The cases that start a full run pin PORT/CDP to **ephemeral** ports
+  rather than deriving them: a run clears its pair machine-wide, and pointed at a derived slot the
+  suite proving #49 would commit #49 against a sibling worktree.
+  **And the runner is SOURCE to the gates now**, not a test file beside the suite it launches:
+  `ablate.py`'s `COVERS` maps `scripts/ui-test.sh` to these cases, so a change to it has to be
+  proved by one of them. Filed as a test — which it was, back when it only started a server and a
+  browser — the port derivation was logic nothing ablated, and the branch that wrote it was
+  ablated on one unrelated file alone.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
   `git diff --cached`); the meta-length and stated-count halves read the working tree and run in
   CI, so "og:description is too long" is caught before a deploy rather than by pasting the live URL
@@ -332,27 +415,35 @@ framework, and nothing to install:
   defects it found in the tool.
 - `python3 scripts/fix-lint.py --base REF` and `python3 scripts/ablate.py --base REF` — **the two
   branch gates**, and the answer to why simple changes were taking six rounds of review. Both read
-  two commits, so like `sw-lint.py --base` they are pull-request only. `fix-lint` notices a branch
-  that changed source and touched no test. `ablate` has the teeth: it reverts the branch's SOURCE
-  hunks to the base, keeps its TEST hunks, runs the suites `COVERS` maps to the changed files, and
-  requires a NAMED check to go red — a test that still passes without the code it is meant to prove
-  does not prove it, which is how PR #23 ran six rounds, four of them fixing a defect in the
-  previous round's fix, every one shipped on a green suite. A named `FAIL` rather than a nonzero
-  exit, because an ablated tree can die on import while proving nothing (INCONCLUSIVE, which also
-  fails). It refuses a dirty tree, because restoring means `git checkout HEAD --`. `--with-ui` adds
-  the browser suite and the `gates` job passes it, so a UI branch is ablated by CI rather than told
-  its ablation is owed locally. A `No-test: <reason>` trailer skips them, so an untested source
-  change is a sentence somebody wrote on purpose and a reviewer can read, not a silence — and it is
-  scoped PER FILE, to the ones its own commit touched. Read anywhere in the range it was two holes at
-  once: a docs-only "No-test: TODO.md only" disarmed both gates for every source change on the
-  branch, and one legitimately excused file excused every file beside it. A file edited again with no
-  trailer is back in the gate, because the second edit is the unexplained one. `scripts/fix-lint.test.py` covers both in throwaway repos with real
+  TWO commits, so like `sw-lint.py --base` they run on pull requests only and CI is the one place
+  with both sides of the merge. `fix-lint` notices that a branch changed source and touched no
+  test. `ablate` is the one with teeth: it reverts the branch's SOURCE hunks to the base, keeps its
+  TEST hunks, runs the suites that cover what changed, and requires a NAMED check to go red. A test
+  that still passes without the code it is meant to prove does not prove it — which is exactly how
+  PR #23 ran six rounds, four of them fixing a defect in the previous round's fix, every one
+  shipped on a green suite. It is the reviewer's ablation of `pointer-events="none"` (#42), run
+  automatically. Three details are load-bearing: a new named `FAIL` rather than a nonzero exit,
+  because an ablated tree is this branch's tests over the base's code and can die on import while
+  proving nothing (reported as INCONCLUSIVE, which also fails); only the suites `COVERS` maps to
+  the changed files, so a chart.js branch is never asked to redden `validate.test.py`; and it
+  refuses a dirty tree, because restoring means `git checkout HEAD --` and that would take
+  uncommitted work with it. `--with-ui` adds the browser suite, and the `gates` job passes it — a
+  UI branch is ablated by CI rather than told its ablation is owed locally, which is what this
+  sentence used to say and the whole point of #56. On a machine with no browser the suite still
+  skips, and the report says so rather than passing quietly. A `No-test: <reason>` trailer skips BOTH, so an
+  untested source change is a sentence somebody wrote on purpose and a reviewer can read, not a
+  silence — and it is scoped PER FILE, to the ones its own commit touched. Read anywhere in the range
+  it was two holes at once: a docs-only "No-test: TODO.md only" disarmed both gates for every source
+  change on the branch, and one legitimately excused file excused every file beside it. A file edited
+  again with no trailer is back in the gate, because the second edit is the unexplained one.
+  `scripts/fix-lint.test.py` covers both, in cases that each build a throwaway repo with real
   branches.
-- `scripts/audit_counts.py` and `scripts/audit_redirects.py` — not automated, and not automatable:
-  the first prints parsed quartet counts beside the sentence they came from so a human can grade
-  them (run it after touching `scrape_list.py`), and the second answers a POLICY question by
-  pricing every redirect into every article to report what summing them would change — the evidence
-  behind invariant 15's refusal to. `--limit N` audits the N most-read instead of the whole roster.
+- `scripts/audit_counts.py` — not automated: it prints parsed quartet counts beside the sentence
+  they came from so a human can grade them. Run it after touching `scrape_list.py`.
+- `scripts/audit_redirects.py` — not automated either, and for the same reason: it answers a POLICY
+  question. It prices every redirect into every article and reports what summing them would change,
+  which is the evidence behind invariant 15's refusal to. `--limit N` audits the N most-read
+  instead of all 884, which is the difference between two minutes and ten.
 
 Everything that needs neither a browser nor a network runs in CI, and since #56 so does the browser
 suite — `checks.yml` has a `ui` job, with `xvfb-run` and node 22 (the whole CDP client is the global
@@ -375,26 +466,110 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
 - Comments explain *why*, and especially what breaks otherwise. Don't narrate the next line, and
   don't recount how a bug was found — that is TODO.md's job.
 - **A comment may not assert a mechanical fact about the code beside it — that becomes a check, or
-  it goes.** A comment cannot go red, so "Keyed by side" over a `.data([-1, 1])` that joins by index
-  (#42) was correct when written and wrong for a year. `Chart.missingNames()`,
-  `Names.staleOverrides()`, `unfilterableGenders()` and `unreachableRepertoires()` each turn such a
-  claim into something a suite asserts, and `prose-lint.py` does it for the docs. A claim about a
-  join key, a count, a list or a threshold gets pinned or gets written loosely enough to stay true.
-  A comment about WHY is never in this category, which is most of them.
-- **A comments-only change is PROVED, not promised.** `codehash.py` isolates the code and hashes
-  it, so "I only touched comments" is a command and not a claim — run it before committing a
-  rewrite pass, and both branch gates read the same answer and stop asking such a hunk for a test.
-  It earns that trust by answering "cannot tell" out loud: a strip it cannot verify is a third exit
-  code, never folded into the pass. The reason it exists is that a human diff-read missed a deleted
-  `function hash()` at the end of a long session, and then a restore from the index undid the repair
-  and it shipped. A hash does not get tired.
-- **A fix ships with the test that goes red without it.** Run it against the tree WITHOUT the fix
-  and watch it fail before proposing it; `ablate.py` enforces this, but the discipline is the point.
-  PR #23 ran six rounds, four of them fixing a defect in the previous round's fix, every one on a
-  green suite. When there is genuinely nothing to assert, say so in a `No-test:` trailer.
-- **One filter row, above everything it scopes.** `#filters` is a sibling of `.grid`, not a child of
-  either card: all three filters scope both views, and a filter drawn inside one card says
-  otherwise. `placeFilters()` moves it into `#viz` in full screen, where the chart is everything.
+  it goes.** This is the built-or-cut rule applied one level down, and it is the rule the steady
+  trickle of low-severity review findings has been about: `histogram.js`'s "Keyed by side" over a
+  `.data([-1, 1])` that joins by INDEX (#42), invariant 13's six folded characters where `FOLD` has
+  nine, "58 names carry such characters" where eight do. Each was correct when written and none
+  could fail — a comment cannot go red. The repo already had the answer and was applying it
+  everywhere except to its own prose: `Chart.missingNames()`, `Names.staleOverrides()`,
+  `unfilterableGenders()` and `unreachableRepertoires()` all turn a claim into something a suite
+  asserts. For the DOCS the answer is not a lint — that was tried and deleted, because a check
+  cannot tell a reflowed paragraph from a stale fact — it is not writing the number. So a comment
+  that states a join key, a count, a list or a threshold either gets pinned by a check or gets
+  written loosely enough to stay true. A comment about WHY is never in this category, which is
+  most of them, and none of this is an argument for fewer comments.
+- **A fix ships with the test that goes red without it — not with the next review.** `ablate.py`
+  enforces it on a branch, but the discipline is the point: run the fix's test against the tree
+  WITHOUT the fix and watch it fail, before proposing it. PR #23 ran six rounds and four of them
+  fixed a defect in the previous round's fix, every one shipped on a green suite; the test that
+  would have caught each arrived one round late, every time. `validate.test.py` has embodied this
+  from the start — it proves the gate still catches each past incident — and round 4 of that PR had
+  to invent `case(name, expect=None)` to test a deliberate LOOSENING, which is the same idea
+  inverted. When there is genuinely nothing to assert, say so in a `No-test:` trailer rather than
+  leaving it silent.
+- **One filter row, above everything it scopes.** `#filters` is a sibling of `.grid`, not a child
+  of the chart card or the table card — all THREE filters (search, readership brush, gender pills)
+  scope both views, and a filter drawn inside one card says otherwise. `placeFilters()` moves it into `#viz` in full screen (where the chart
+  is everything) and CSS drops its search half there to keep the chart's height.
+- **The lens is an OVERLAY, not a view — a checkbox in the controls row, over all three modes.**
+  It was a fourth pill, and as a view it differed from Timeline in exactly two things: it drew a
+  circular fisheye, and it had no zoom. Neither is a way of reading the DATA, which is what the
+  other three pills each are, so the switcher claimed four pictures where there are three — and the
+  crowd the magnifier could not reach was the Fame cloud, ~600 dots in one corner and the densest
+  thing the app draws. `layout()` in `chart.js` lays the picture out per mode and `warp()` applies
+  the fisheye LAST, in screen space, which is what lets one lens serve three modes with no per-mode
+  case at all: what it moves is pixels, so what you click is still what you see (the Delaunay is
+  built over the warped positions like everything else).
+  Three things it keeps from the view it replaced. **The picture holds still while it is on** —
+  `applyZoomBehavior()` binds nothing, because a magnifier over a moving chart is the 2014 original
+  and on a touch screen the pan and the aim are the same one-finger drag. The transform is LEFT
+  where it was rather than reset, so the lens magnifies whatever the reader had framed and
+  unchecking hands the zoom back unchanged; `zoomed()` and `resetZoom()` therefore ask nothing
+  about the lens, since the frame is still the frame. The one thing unbinding does NOT excuse is
+  telling d3 the box, because the gestures are not the only thing that reads it: d3 reads `extent`
+  again when it SCHEDULES A TRANSITION, for the centroid and the width its interpolation travels
+  through — and `goTo()` animates. So `zoom.extent()` is called whether or not the behaviour is
+  bound; left inside the bound branch, a filter fitted after a resize under the lens tweened along
+  a path computed for a box that was gone. **Only the path**: `zoom.transform` does not constrain
+  (probed — a transform applied against an extent ten times too small survives intact), so the
+  frame it lands on was right either way, which is why fourteen resize-and-filter pairs were probed
+  for a wrong frame and none of them found one. `Chart.zoomBox()` exists so the suite can assert
+  the invariant at the cause rather than chase an artefact that only shows while it moves.
+  **What `zoom.transform` DOES do is interrupt**, which is its contract and not an accident — so
+  the `__zoom` sync beside those setters runs only when it would change something. `setMode()` and
+  `resize()` assign a new transform before they get there and still sync; `setLens()` changes
+  nothing about the frame, so its sync was a no-op whose only effect was to cancel a transition —
+  check the box inside a filter's 420ms fit and the chart stopped dead at k=1 with Reset zoom lit
+  over a frame nobody asked for. A no-op that interrupts is not a no-op.
+  **`baseLayout()` un-aims it**, because the
+  filter fit and the ring separation are claims about the chart that outlive a pointer move.
+  **And `resize()` drops the aim outright**, for the reason `setMode()` does: it is a point in a box
+  that is going away. A pointer re-aims on its next move and a rotation even synthesises one — which
+  is why the desktop check for this passed without the fix and the real one lives in the phone
+  section. A FINGER cannot: `pointerleave` is `!TOUCH`, so a rotation or a tap on Full screen left
+  the fisheye magnifying a spot nobody had pointed at, its boundary circle clipped away by a box
+  that had shrunk under it.
+  **What the lens does NOT do is earn labels, and that was tried.** Unpinning `pickLabels()`'s
+  resting-Fame budget for an aimed lens named nothing extra — 13 before, 13 after — because a ZOOM
+  earns names by culling the frame while the lens moves pixels and culls nothing, so `prom` goes on
+  ranking the whole roster and the budget goes to the same far-flung dots that were already losing
+  their place to a collision. Ranking by nearness to the focus would name the crowd and would churn
+  every label on every pointer move, against a flag and a detail panel that already name the dot
+  under the glass continuously. The suite asserts both halves — the pin holds, and the flag names
+  what the glass is over — because the first is only defensible while the second is true.
+  And **`#v=lens` still resolves** — to the timeline with `l=1`, which is the picture that link
+  named — the same shape of alias as `#v=readers`, one vocabulary over.
+  Two costs, both paid in the row rather than in the chart. It is 28px wider than the pill it
+  replaced, which moved both edges of the icons-on-plot measurement (see that entry); and it is a
+  CHECKBOX rather than a pressed `.btn` or a fourth pill because it is a thing you leave on, not a
+  picture you switch to — the box says so with no copy, and carries the state to the accessibility
+  tree without anything here keeping it in sync. Switching it re-lays out nothing (the plot's box
+  is a function of the MODE), which is what makes it safe in a row above the plot at all: see the
+  next entry for the rule it would otherwise break, and `ui.test.mjs` 4m4 for the check.
+  One detail the eye finds before any of that, and it is a lesson about constants rather than about
+  checkboxes: the box is centred on the WORD and not on the word's line box. `align-items:center`
+  centres boxes, and "Lens" has no descender, so the line box runs past the ink it draws and the
+  checkbox hung 1px low. **The first fix was a -1px nudge, and it was wrong** — HOW low is a fact
+  about the FACE, and `system-ui` is a different one per platform (#53 again): measured at 13px,
+  DejaVu and FreeSans hang it 1.0px low, Liberation Sans 0.5px HIGH, and SF's metrics put it within
+  a tenth of centred — so the constant fixed the machine it was measured on and would have doubled
+  the error on the Mac it was written on, with the suite going red there. `text-box-trim`/
+  `text-box-edge: cap alphabetic` asks the font instead and lands within 0.3px in every face
+  measured; a browser without it centres line boxes exactly as before.
+  It is applied to EVERY label in `.controls`, not to this one, because trimming moves a word down
+  onto the band it draws (1.23px in DejaVu, nothing in the faces that were already symmetric) and
+  one label doing that alone breaks the baseline it shares with the pills beside it — `ui.test.mjs`
+  asserts both halves, the box against its own cap band and the five labels against each other.
+  That rule is also why `#reset` and `#reset-filters` keep their labels in a `span`: bare text in an
+  inline-flex button lands in an anonymous flex item, which no selector reaches and which
+  `text-box-trim` does not inherit into, so those two stayed put while the pills moved.
+  One more thing that has to fail in the safe direction: the keyboard ring is drawn round the PILL
+  through `:has(input:focus-visible)`, and the rule that takes the input's own ring away is scoped
+  the same way. An engine that cannot parse `:has()` drops both and the input keeps the global ring;
+  unscoped, it dropped the pill's ring and kept the removal, leaving a control with no visible focus
+  at all. `ui.test.mjs` deletes every `:has()` rule on the page and looks again, which is what such
+  an engine does.
+
 - **The chart's controls sit ABOVE the plot, because the plot's height is a function of the VIEW.**
   `measure()` gives each mode its own aspect ratio — the swarm the widest of them, Fame the most
   nearly square, and every one of them taller on a phone — so a row underneath moves when you press it — 61px on a phone, 150px at 1280,
@@ -434,128 +609,226 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   inconsistent about who gets a forename. This is why `Names.setData()` takes readership alongside
   the names, as a PARALLEL array for the reason `build_data.py` carries canonical titles in one.
 - **The phone table has to fit in a font you do not choose.** `system-ui` is SF on a Mac, Segoe on
-  Windows, DejaVu on most Linux — wide enough that the four phone columns overflowed 390px outright
-  (#53). Two things were paying width for nothing: a header WORD wider than any value beneath it
-  (`short` in `COLS`) and the cell gutters. **An abbreviation is not free to a reader who can SEE
-  it**: the accessible name must contain the drawn label (WCAG 2.5.3), or a voice-control user says
-  "click Qts" against a name that reads "Quartets" and cannot sort the column at all. So both spans
-  stay in the name, the drawn one first, and the word moves off screen rather than `display:none`.
-  The suite asserts the name the browser COMPUTES, because an `aria-label` added later would
-  override the markup while a check written against the two spans stayed green. Measure a new column
-  at 390 AND 360 — at 360, the common Android width, the old table overflowed in every face
-  including SF, so the 390 check was passing on the one width where the narrowest font clears.
-- **A number printed beside the chart counts the PLOTTABLE rows.** The empty panel said "884
-  composers, born 1582–1989" next to an x axis starting at 1709: the rows with no stated quartet
-  count are in the table only, and the roster's three earliest births are among them. `Chart.plottedStats()` is
-  the one place that answers "what can the chart place", so the count, the birth span and the living
-  count cannot disagree with each other or with `plottable()`. The same split governs the app's
-  stated claims — `manifest.json` and the link preview describe what the page DRAWS, while
-  `#count`, the search placeholder and the provenance line count every row the table holds, which is
-  more. `og-lint.py` holds those shipped strings to a total the data supports.
-  They answer different questions, and the provenance line is where the difference is named.
-- **Prose the app can FALSIFY is built or cut; only prose it cannot is typed — and CUT is the first
-  branch to try.** #24 found the case with no number in it: "across is how many quartets they wrote,
-  up is how much their article is read" was true in Fame only, and was cut rather than derived per
-  mode, because the axis titles and the per-mode `HINTS` already say it.
-  #35 applied the same test to the BUILT half and it failed too. A lede generated from
-  `Chart.emphasisStats()` was correct at every instant, and what it cost was the machinery a claim
-  that can change LENGTH needs: it emptied outside Fame, so the paragraph collapsed and everything
-  below it rose 40px, lifting the pill you had just pressed (#27). All of that machinery is gone and
-  the lede is one static line. Two of its claims survive in the components that own them, the legend
-  and the axis titles, and `ui.test.mjs` 4m checks those rather than the sentence, so cutting prose
-  cannot quietly cut information.
-  **The lesson is the ordering**: before building a mechanism to make prose behave, ask whether the
-  prose should exist. `#count`, the search placeholder and `setProv()` stay built because each is
-  the only statement of what it says, and none of them can empty.
-- **The provenance line is built, not assigned.** `setProv()` linkifies every Wikidata property id
-  it prints (`P569` -> its definition page), because an id is jargon a reader cannot check from the
-  page. It links the TEXT rather than storing anchors in `composers.json`, which is data and carries
-  no markup, so a new property is linked the moment it is printed. Setting `textContent` directly
-  again would silently drop every link.
-- **`.seg` is a look, not a behaviour.** Two pill groups wear it, so anything binding `.seg button`
-  must scope itself (`.controls .seg button`). Unscoped, the view switcher's handler landed on the
-  gender pills and a press called `setMode(undefined)`.
-- **`names.js` loads before `chart.js` and `table.js`, and `Names.setData()` runs before either gets
-  data.** The short form of a name is a function of the WHOLE roster, so no module can display a
-  name until the roster has been counted. SHELL and BOOT dep like every other load-bearing script.
-- `index.html` owns structure, `styles.css` owns looks, `app.js` owns boot and shared state (which
-  composer is selected, which filters are active). `chart.js`, `table.js` and `histogram.js` never
-  talk to each other — they share `names.js` and `Chart.colorOf`, read-only lookups, not state. The
-  filters compose in `applyFilters()`, where each source returns "a Set of indices, or null for
-  everything" and they are intersected. The gender filter has no module of its own
-  (`genderMatches()`): three buttons and a string, nothing to render and no data to hold. A fourth
-  filter that DOES draw something belongs in its own file, on the same contract.
+  Windows and DejaVu on most Linux — and DejaVu is wide enough that the four phone columns
+  overflowed 390px outright (#53), which is how the suite came to fail on a Linux runner and
+  nowhere else. Two things were paying width for nothing and now do not: a header WORD wider than
+  any value beneath it (`short` in `table.js`'s `COLS` — "Qts" is drawn below 640px) and the cell
+  gutters. **An abbreviation is not free to a reader who can SEE it**: the accessible name has to
+  contain the drawn label (WCAG 2.5.3), or a voice-control user says "click Qts" against a name
+  that reads "Quartets" and the column cannot be sorted at all. So both spans stay in the name, the
+  drawn one first, and the word is moved off screen rather than `display:none`d. This is NOT the
+  `#chart-tools` split, where the drawn thing is a GLYPH and there is no visible word to mismatch.
+  `ui.test.mjs` asserts the name the browser COMPUTES, over CDP, because an `aria-label` added
+  later overrides the markup while a check written against the two spans stays green.
+  The other lesson is in what the measurement found on the way: at 360px, the common Android
+  width, the old table overflowed in EVERY face including SF, so the 390px check was passing on the
+  one width where the narrowest font happened to clear. `ui.test.mjs` asserts BOTH widths for that
+  reason — a fit measured in the runner's own font is measuring the font — and the document-level
+  overflow guard runs at both too, since declaring a width supported means the whole page fits it.
+  A new column, or a longer header, has to be measured the same way rather than eyeballed on a Mac.
+- **A number printed beside the chart counts the PLOTTABLE rows.** The empty detail panel said
+  "884 composers, born 1582–1989" next to an x axis starting at 1709 — the 94 rows with no stated
+  quartet count are in the table only, and three of them are the roster's earliest births.
+  `Chart.plottedStats()` is the one place that answers "what can the chart place", so the count,
+  the birth span and the living count can't disagree with each other or with `plottable()`. The
+  roster's own total belongs to the table and the provenance line, which state the difference.
+  The same split governs the app's stated CLAIMS: `manifest.json` and the link preview describe
+  what the page draws and say 790, while the `#count` readout, the search placeholder and the
+  provenance line count the 884 rows the table actually holds. They are not inconsistent — they
+  are answering different questions, and the provenance line is where the difference is named.
+  README's 884s describe the dataset and the pipeline, not the plot, and stay.
+- **Prose the app can FALSIFY is built or cut; only prose it cannot is typed — and CUT is the
+  first branch to try.** The rule was "states a number or a range" until issue #24 found the third
+  case: a claim with no number in it that the app falsifies anyway, about the VIEW rather than the
+  data. "Across is how many quartets they wrote, up is how much their article is read" was typed,
+  and true in Fame only — across is birth year in Timeline and Swarm, up means nothing at all in
+  Swarm. It was cut rather than derived per mode, because the axes are already stated twice on
+  screen by whichever view is drawn (the axis titles in `chart.js` and the per-mode hint it builds
+  from `SHOWS`/`DRIVE`), so a
+  third statement could only ever be the copy that goes stale.
+  **Issue #35 applied the same test to the built half and it failed too.** The lede carried a
+  sentence generated from `Chart.emphasisStats()` — which set is picked out, its birth span, a
+  worked example — and it was correct at every instant. What it cost was the machinery a claim that
+  can change LENGTH needs: it emptied outside Fame and under any filter no curated composer
+  survived, so the paragraph collapsed and everything below it rose 40px, lifting the pill you had
+  just pressed (#27). That bought `reserveLede()`, a width-guarded `ResizeObserver`, a `ledeClause()`
+  split so the measured string was the printed one, three sections of `ui.test.mjs` — and a
+  residual 20px shift it never did fix (#36), because the gender pill changes which sentence
+  "resting" means. All of it is gone. The lede is now one static line. Two of the claims it made
+  are still on the page in the component that owns it — the legend names the highlighted set, the
+  axis titles and the hint name the axes — and `ui.test.mjs` 4m checks those two rather than the
+  sentence, so cutting the prose cannot quietly cut the information. The third, `setProv()`'s
+  English-only caveat, was later cut outright: the footnote had grown into an essay, and a caveat
+  nobody reads is not a caveat. That is the same judgement one level down, and it is why 4m checks
+  two things now and not three — a check kept alive over deleted prose is the vacuous kind.
+  **The lesson is the ordering.** Before building a mechanism to make prose behave, ask whether the
+  prose should exist — a page that states a thing twice does not need the second one to be clever,
+  it needs it deleted. `#count`, the search placeholder and `setProv()` stay built because each is
+  the ONLY statement of what it says, and none of them can empty.
+- **The provenance line is built, not assigned.** `setProv()` in `app.js` linkifies every Wikidata
+  property id it prints (`P569` -> its definition page), because an id is jargon a reader cannot
+  check from the page. It links the TEXT rather than storing anchors in `composers.json`: that file
+  is data and carries no markup, so a new property named by the pipeline is linked the moment it is
+  printed. Setting `$("prov").textContent` directly again would silently drop every link.
+- **`.seg` is a look, not a behaviour.** Two pill groups wear it — the chart view switcher and the
+  gender filter — so anything binding `.seg button` must scope itself (`.controls .seg button`).
+  Unscoped, the switcher's handler landed on the filter's buttons and a pill press called
+  `setMode(undefined)`: the chart left every named mode at once and the URL grew `#v=undefined`.
+- **`names.js` loads before `chart.js` and `table.js`, and `Names.setData()` runs before either
+  gets data.** The short form of a name is a function of the WHOLE roster (a shared surname earns
+  an initial), so neither module can display a name until the roster has been counted. It is a
+  SHELL and a BOOT dep like every other load-bearing script — see invariants 1 and 2.
+- `index.html` owns structure, `styles.css` owns looks, `app.js` owns boot and the shared state
+  (which composer is selected, which filters are active). `chart.js`, `table.js` and
+  `histogram.js` never talk to each other (they share `names.js` and `Chart.colorOf`, which are
+  read-only lookups, not state) — the filters compose in `applyFilters()`, where each
+  source returns "a Set of indices, or null for everything" and they are intersected. The gender
+  filter is the one with no module of its own (`genderMatches()` in `app.js`): three buttons and a
+  string, nothing to render and no data to hold. A fourth filter that DOES draw something belongs
+  in its own file, on the same contract.
+- Anything that BAKES a color into JS (SVG fills in `chart.js` and `histogram.js`, the legend in
+  `app.js`) needs a `rerender()` wired into `Theme.subscribe`. Adding a fourth such component
+  means adding a fourth call there.
 - **Share and Full screen are icons ON the chart wherever the controls row will not hold them on
   one line, and that is what PAYS for the third button in the row.** `.controls` is already two
-  lines at 390 and a third word button takes it to three; icons in the row still wrap at 360. So
-  `placeChartTools()` reparents `#chart-tools` into `#plot` — one element moved, like
-  `placeFilters()` and `placeDetail()`, never a second copy, because `#fs` holds the pressed state
-  and `share()` a timeout on its own label. `#plot` is already `position:relative`, already hosts
-  `#flag`, and d3-zoom binds to the `svg` rather than to `#plot`, so the buttons take taps without
-  eating a pan. chart.js's rebuild must remove the svg it made BY REFERENCE — `selectAll("svg")` is
-  a descendant query and matched the `.ico` glyphs too.
-  **The condition is a MEASUREMENT of the row rather than a device, and it is TWO intervals**,
-  because the card is not monotonic in the viewport: the `(min-width:900px)` grid takes 194px off
-  it, so the row fits the words in two bands and not in the two between them. Hence `NARROW` and
-  `SQUEEZED` in `iconsOnPlot()`, where a single `max-width:1100px` spent DATA height for no page
-  height across a 120px band — and both edges err toward ICONS, because the mistakes are not equal:
-  words that do not fit means a PRESS wraps the row and drops the plot 44px under the cursor that
-  just pressed it, while icons where words would have fitted costs 26px and nothing else.
-  `SQUEEZED` is skipped under `.fs`, where `body.fs .grid` is `display:block` and the row has its
-  widest geometry back; the band costs more there, off a `flex:1` chart that is the whole viewport.
-  Those widths are one machine's font metrics, so they are defended by checks rather than by
-  arithmetic — the suite presses Share at the first width in each band and fails if the row grows.
-  **`app.js` holds the only copy of the breakpoint**: `styles.css` scopes the icon look to
-  `#plot > #chart-tools` so the look follows the DOM, and `chart.js` is TOLD through
-  `Chart.setTopReserve()`. In a width query the two could disagree, and every state where
-  `placeChartTools()` had not run drew the icon look in the row — a cold boot, and permanently on
-  `start()`'s error path, which bails before the move.
-  **A wheel over the glyphs is a wheel over the CHART, and that needs saying in code**, because the
-  group is a SIBLING of the svg the zoom is bound to: the corner was dead and the page scrolled, two
-  pixels from a spot in the same band that zooms. `Chart.wheelInto()` re-dispatches into the CURRENT
-  svg (a captured node is the `selectAll("svg")` trap again) and `app.js` forwards only while the
-  group is on the plot, since in the row a wheel should move the page. The DRAG is deliberately not
-  forwarded — `pointerdown` into the zoom would start a gesture on every press, and a control
-  swallowing a drag is the platform convention while swallowing a wheel is not.
-  Four things a change here must keep: the words stay in the DOM, visually hidden rather than
-  `display:none`, because they are the accessible NAMES; the label is written into that `.btn-t` span
-  and never onto the button, which would delete the icon; the print rule names `#chart-tools`
-  separately from `.controls`, since on a phone it is not inside it; and they sit in the AXIS-TITLE
-  BAND, over no dot in any view.
-  That band is measured, not chosen. Every corner covers something — the least bad was 3 dots, and
-  **top right is the trap**: it reads as empty in Fame and is exactly where the swarm piles up, 90
-  dots and the "Rachmaninoff" label. The band costs DATA height and no page height, because the
-  plot's outer box follows the aspect ratio. Its height is set so the invisible 40px target stays
-  CLEAR of the plot area, or a dot it overlaps silently stops being TAPPABLE — one pixel short of
-  that it shadowed 12 dots in the swarm. The glyphs are centred on the axis title's LINE rather than
-  its baseline, because a glyph beside smaller text carries more visual mass below its own middle;
-  `styles.css` derives the offsets from the title's own box and the suite measures them against it, so
-  a change of font or size fails instead of drifting. **Clearing the plot area is
-  not clearing every pixel a dot can occupy**: the dot clip is inset OUTWARD by one maximum radius,
-  so under a pinch the sliver of an edge dot reaches under the target. Its CENTRE cannot, because the
-  frame test only draws a dot whose centre is inside the plot rect — so a finger aiming at a dot
-  still lands on it, which is the guarantee, one step weaker than the resting one. Shortening the
-  target would put it under the 40px floor #31 was fought over.
-  They are BARE GLYPHS — a small mark in an invisible 40px target, no border, no background,
-  `var(--muted)` like the axis title beside them: the platform shape for a control sitting on
-  content, where a pill's worth of chrome around a small mark reads as furniture. The target is felt
-  and not seen, so the suite taps in from a CORNER rather than at the centre, which would pass on a
-  button the size of the glyph. The 40px is stated with the overlay rather than inherited from the
-  touch-target rule, which asks a different question (`(hover:none) and (pointer:coarse)` AND a
-  max-width, so it excludes wide touch as well) that a narrow desktop window answers no to, taking
-  `.btn`'s 36px. And `#plot svg{ width:100% }` means THE
-  CHART: as a descendant selector it caught the icons and stretched the glyph to nearly fill its
-  button, so both rules are `> svg` now and `.ico` carries its own `width`/`flex:none` — a width
-  ATTRIBUTE loses to any stylesheet. Every bug in this group hid in a layout the developer's machine
-  could not draw, which is why the suite enters all of them: a narrow window with a real pointer, a
-  laptop, a wide window, and the boundary.
-  Two consequences reach `app.js`. Under the breakpoint `.btn-t` is the accessible NAME and not the
-  face, so `share()`'s "Link copied" swap wrote the confirmation where nobody could see it; the glyph
-  acknowledges too (`.copied`) off the same one call, and both are raced against `STALL`, because a
-  clipboard write that never SETTLES is not a rejection and the catch beside it can never fire. And a
-  clipped label is a name a screen reader can read and a pointer cannot, so both buttons carry a
-  `title` written by `label()` with the span in one call — `#fs`'s name changes with its state, and a
-  tooltip still reading "Full screen" over the exit glyph would be worse than none.
+  lines at 390, and a third word button takes it to three — 48px of a phone's first screen, half of
+  what issue 29 spent 94px winning back. Shrinking those two to icons IN the row is not enough on
+  its own: at 360 it still wraps. So
+  `placeChartTools()` reparents `#chart-tools` into `#plot`, on the same one-element-moved contract
+  as `placeFilters()` and `placeDetail()` — never a second copy, because `#fs` holds the pressed
+  state and `share()` holds a timeout on its own label. Everything that makes the overlay safe is
+  already true of `#plot`: it is `position:relative` and already hosts `#flag`, d3-zoom binds to the
+  `svg` rather than to `#plot` so the buttons take taps without eating a pan, and `chart.js`'s
+  rebuild removes the one svg it made BY REFERENCE. That last one was a claim before it was true:
+  `selectAll("svg")` is a DESCENDANT query and matched the three `.ico` glyphs as well, and nothing
+  showed it because `build()` only runs from `init()`, which runs before the move.
+  **The condition is a MEASUREMENT of that row rather than a device, and it is TWO intervals.** It
+  was `(max-width:640px)` while this was read as a phone fix, but the row is two lines well past a
+  phone. What decides it is the CARD, not the viewport, and the two are not monotonic in each other:
+  the `(min-width:900px)` two-column grid takes 194px off the card. Measured with the words in the
+  row and `share()`'s "Link copied" showing — the widest state the row ever has — stepping 2px:
+  641-807 wraps (card 609-775), **808-899 fits** (776-867), 900-1121 wraps (554-775), 1122+ fits
+  (776+). One card width decides both bands, 776px. So the words belong in two bands and the icons
+  in the other two, and `iconsOnPlot()` in `app.js` is `NARROW` (`max-width:819px`) or `SQUEEZED`
+  (`min-width:900px and max-width:1139px`). A single
+  `(max-width:1139px)` would be wrong in a 92px band: 808-899 would spend 26px of DATA height to
+  buy no page height at all, which is the exact trade this rule refuses at the top end. The two
+  numbers sit clear of the measured edges on the ICON side, because the two errors are not equal —
+  words where they do not fit means a PRESS on Share wraps the row and drops the plot
+  44px under the cursor that just pressed it, while icons where words would have fitted costs the
+  26px and nothing else. Those widths are one machine's font metrics, so they are defended by checks
+  rather than by arithmetic: `ui.test.mjs` presses Share at 820 and at 1140 — the first width in each
+  band that draws the words — and fails if the row grows. **It has, once, and that is the entry
+  worth reading**: the lens stopped being a fourth pill and became a checkbox in this row (see the
+  lens entry below), 28px wider than the pill it replaced, and both edges moved with it — 778 to
+  808 and 1092 to 1122, re-measured the same way. Nothing in the arithmetic above could have
+  noticed; the two Share presses did, on the branch that made the change.
+  **They are two QUERIES and not one list, because only the second one is about the grid.**
+  `body.fs .grid{ display:block }` — full screen has no two-column grid, so the card is the window
+  and the row has its 1122+ geometry back. Measured the same way, full screen fits both words from
+  794px, where the two-column card does not until 1122. So `SQUEEZED` is skipped under `.fs`, or a
+  1000px window in full screen spends the 48px band on a row that would have held them — and that
+  costs MORE there than at rest, because `#plot` is `flex:1` and the band comes off a chart that is
+  already the whole viewport. `NARROW` still applies in full screen, conservatively: it fits from
+  794 and this draws icons to 819, erring 25px toward the side that cannot wrap a row under a
+  cursor. The suite enters full screen at 1000px and asserts the words stayed and no band was spent.
+  **A wheel over the glyphs is a wheel over the CHART, and that needs saying in code.** d3-zoom is
+  bound to the svg and `#chart-tools` is a SIBLING of it, so a wheel starting over a glyph reached
+  no zoom listener at all: the corner was dead and the page scrolled instead, two pixels from a spot
+  in the same band that zooms. It cost nothing while the icons were a phone layout — a phone has no
+  wheel, and the trade measured for that layout was all about dots COVERED — and became reachable
+  the moment the layout reached a laptop. `Chart.wheelInto()` re-dispatches into the CURRENT svg
+  (`build()` makes a new one on every `setData`/`setMode`, so a captured node is the `selectAll("svg")`
+  trap again) and `app.js` forwards only while the group is on the plot, since in the row a wheel
+  should move the page. The DRAG is deliberately NOT forwarded: `pointerdown` into the zoom would
+  start a gesture on every press of these two buttons, which is the conflict binding to the svg
+  rather than `#plot` avoids. A control swallowing a drag is the platform convention; swallowing a
+  wheel is not, because a wheel was never aimed at the control. The check measures the glyph AND the
+  band beside it — "the corner is dead" only means something against a corner that works.
+  **`app.js` holds the only copy of it.** `styles.css` scopes the icon look to `#plot > #chart-tools`,
+  so the looks follow the DOM rather than re-deciding the width, and the two cannot disagree. They
+  could when that look lived in a width query: the CSS answered on width alone, so every state where
+  `placeChartTools()` had not run yet drew the icon look in the controls row — a cold boot before
+  `app.js`, and permanently on `start()`'s error path, which bails before the move and left two bare
+  glyphs with clipped labels and no click handlers sitting in the row. `chart.js` reads neither — it
+  is TOLD, via `Chart.setTopReserve()`, which is why moving the breakpoint changed nothing in that
+  file.
+  Four things a change here must keep. The words stay in the DOM, visually hidden rather than `display:none`, because they are
+  still the buttons' accessible NAMES. The label is written into that `.btn-t` span and never onto
+  the button — `share()` and `setFull()` used to set `textContent` directly, which now deletes the
+  icon beside it. The print rule names `#chart-tools` separately from `.controls`, because on a
+  phone it is no longer inside it. And they sit in the AXIS-TITLE BAND, over no dot in any view:
+  `placeChartTools()` asks `Chart.setTopReserve(48)` and `measure()` widens `m.top` from 22 to fit a
+  touch target. Every corner was measured first and every one covers something — dots the group
+  would sit on, summed over Fame, Timeline, Swarm and the lens at 390: top-left 11, top-right 90,
+  bottom-right 239, bottom-left 3 (the lens was a view of its own when that was measured; as a
+  toggle it warps nothing until it is aimed, so it adds no layout to the sum). **Top right is the trap**: it reads as empty in Fame and is exactly where the SWARM
+  piles up, 90 dots and the "Rachmaninoff" label, which is what judging a shared overlay from one
+  view gets you. The band costs 26px of DATA height and no page height — the plot's outer box is a
+  function of the aspect ratio, so the dots' area gives up the pixels and the card is the size it
+  was. `ui.test.mjs` 7c2 asserts zero coverage across all three views AND that the buttons fit inside
+  the reservation, because the second is the cause and the first only the symptom.
+  They are drawn as BARE GLYPHS — 16px in an invisible 40px hit target, no border, no background,
+  `var(--muted)` like every other `.btn` label and like the axis title beside them. That is the
+  platform shape for a control sitting on content, and a `.btn` pill moved onto the chart is not:
+  40px of visible chrome around a 16px mark reads as furniture next to an 11px axis title. The hit
+  target is felt and not seen, so the suite taps 3px in from a CORNER — 22.8px clear of the glyph —
+  rather than at the centre, which would pass on a 16px button.
+  **They are CENTRED on the axis title's line**, not sitting on its baseline: bottom-aligned read a
+  touch high, because a 16px glyph beside 11px text carries more visual mass below its own middle
+  than the letters do. The offsets follow from that and are not nudges — the title's box centre is
+  4.47px above its baseline and the baseline is 8px above the plot area (chart.js draws `text.ttl`
+  at `y:-8`), so the glyph's centre lands at `BAND - 12.47` and the 40px target, whose bottom is the
+  glyph's bottom, starts 3.5px down — spanning 3.5 to 43.5, and clearing the plot area by 4.5px.
+  The band is 48 because the target must stay CLEAR of that area: it is invisible, so a dot it
+  overlaps silently stops being TAPPABLE, which is worse than being hidden because nothing on screen
+  explains it — at 46 it shadowed 12 dots in the swarm. **Clearing the plot area is not clearing
+  every pixel a dot can occupy**, and the 4.5px is the whole margin: `chart.js` insets the dot clip
+  OUTWARD by one maximum radius (~11px on a phone), so under a pinch the sliver of a dot at the very
+  top edge reaches under the target. Its CENTRE cannot — the frame test only draws a dot whose
+  centre is inside the plot rect — so the dot is still tappable where a finger aims, and that is the
+  guarantee, one step weaker than the resting one. Shortening the target to miss the sliver would
+  put it under the 40px floor issue 31 was fought over. The suite counts coverage against the whole
+  button for that reason, asserts the centre rule at a NON-IDENTITY transform, and measures the
+  alignment against the title's own box rather than against the constants here, so a change of font,
+  size or that `y:-8` fails instead of drifting. The corner was re-measured at 700, 900 and 1024
+  when the breakpoint moved, because zero coverage on a 390px box does not imply zero on a laptop —
+  the dots are laid out again on a card twice as wide, and the swarm spreads to fill it. It is
+  still zero in every view, and the suite now asserts it at 1024 as well as at 390. The 40px height
+  is stated with the overlay rather than inherited from the touch-target rule, which asks a
+  different question (`(hover:none) and (pointer:coarse)`): a desktop window dragged narrow matched
+  one and not the other, took `.btn`'s 36px, and the derivation above stopped describing the box
+  being drawn. Most of the windows that draw this layout answer no to that query, so stating it is
+  what makes the geometry a property of the overlay rather than of the input device.
+  One more thing moving them INTO `#plot` broke: `#plot svg{ width:100% }` means THE CHART, and as a
+  descendant selector it caught the icons too and stretched an 18px glyph to 38px — 95% of its
+  button — with a 3.2px stroke, `body.fs #plot svg{ height:100% }` doing it again in full screen.
+  Both are `> svg` now, `.ico` carries its own `width`/`flex:none` (a width ATTRIBUTE loses to any
+  stylesheet), and a check measures the glyph against its button. Note the shape of it: it shipped
+  because a desktop could not show it, the buttons being words in the row there — the same reason
+  the tap-target scan could not see a control that hides itself. Widening the breakpoint shrinks
+  that blind spot rather than moving it: the layout every bug in this group hid in is now the one
+  the machine it was written on draws. The suite enters the states the phone hides — a narrow
+  window with a real pointer, a laptop, a wide window, and the boundary itself.
+  One consequence of the icon layout reaches `app.js`: under the breakpoint `.btn-t` is the
+  accessible NAME and not the face, so `share()`'s "Link copied" swap wrote the confirmation where
+  nobody could see it. The glyph acknowledges too (`.copied` swaps the arrow for a check), off the
+  same one call, so the two halves cannot disagree. Both are raced against `STALL`, because a
+  clipboard write that never SETTLES is not a rejection and the catch beside it can never fire —
+  Chrome under a bare X server leaves `writeText` pending indefinitely, which is a Share button that
+  promises nothing and delivers nothing. The suite stubs that promise rather than waiting for a
+  platform that does it, since on macOS the real write rejects and a check written around the Linux
+  behaviour would leave the fix unproven on every machine it is developed on. It is not phone-only:
+  `navigator.share` returns before either fallback on a real phone, so the branches that reach the
+  swap are exactly the ones that run where it is missing — which, at 1139px, is most of the desktops
+  that see this layout.
+  The other consequence is the TOOLTIP. A clipped label is a name a screen reader can read and a
+  pointer cannot, and up to 1139px that pointer is usually a mouse — so both buttons carry a
+  `title`, and `label()` writes it with the span in one call rather than the markup carrying it
+  alone. `#fs`'s name changes with its state, and a tooltip still reading "Full screen" over the
+  exit glyph would be worse than none. It is written at every width, including where the word beside
+  it is visible and the tooltip only repeats it: scoping it would mean asking `app.js` which layout
+  it is in, which is a second copy of a breakpoint that now lives in exactly one place.
 - **The readership brush's handles are crossfilter's grips, and the rect underneath is the hit
   area.** d3-brush's `.handle` is `handleSize` wide by the extent PLUS `handleSize` tall, so
   painting it drew a 20x62 slab of accent above the bars and down through the tick labels — the hit
@@ -570,17 +843,57 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   same element beats it — silently, since the element stays hidden to a screen reader and to
   `.hidden` in JS while being drawn. Giving `.btn` a `display` for its icon did exactly that: the
   search box's × came back at rest, wrapped the search row, and the page ran 50px tall until you
-  filtered. `styles.css` answers it once with `[hidden]{ display:none !important }`, and the suite
-  notices if that line is dropped or out-specified.
-- **There is ONE detail panel, and `placeDetail()` moves it.** Beside the chart above 900px; inside
-  `#viz` (`.compact`) on a phone and in full screen at any width, because the grid column is a
-  screen-height away there and `display:none` in full screen. Never render a second compact copy —
-  the selection, the nav buttons and the `.on` state all assume one element. The two in-card
-  positions differ on purpose: BELOW the plot on a phone, free to grow because nothing above it
-  moves, and ABOVE the plot in full screen as a fixed-height strip drawn even when empty. **Its
-  height must stay constant** there, because `#plot` is `flex:1` and a box that grew on select would
-  trip the ResizeObserver and re-lay out the chart under the finger that just tapped it. `tight()`
-  trims the content to fit.
+  filtered. `styles.css` answers it once with `[hidden]{ display:none !important }` and
+  `ui.test.mjs` has a check that notices if that line is ever dropped or out-specified.
+- **There is ONE detail panel, and `app.js`'s `placeDetail()` moves it.** Beside the chart above
+  900px; inside `#viz` (`.compact`) on a phone and in full screen at any width, because the grid
+  column is a screen-height away there and `display:none` in full screen. Never render a second
+  compact copy — the selection, the nav buttons and the `.on` state all assume one element.
+  The two in-card positions differ on purpose: BELOW the plot on a phone (free to grow; nothing
+  above it moves), ABOVE the plot in full screen as a fixed-height strip that is drawn even when
+  empty. **Its height must stay constant**: `#plot` is `flex:1` in full screen, so a box that grew
+  on select would trip the ResizeObserver and re-lay out the chart under the finger that just
+  tapped it. `tight()` in `app.js` is what trims the content to fit that box.
+- **The sparkline's caption names the spike if there is one and the trend otherwise.** A fixed
+  "peak N× typical" was the wrong sentence for most of the roster: the median composer's biggest
+  month is 3.1× their typical one, because a composer read thirty times a month hits ninety by
+  chance, so it cried spike about noise on half the list — and it buried the real story for the
+  steady ones, where Haydn's meaningless 1.7× peak displaced a line that has slid 42% since 2015.
+  The test (`SPIKE` in `app.js`) is the peak against the 95th PERCENTILE of that composer's own
+  months, which is scale-free and judges a small noisy article against its own noise. At 3× it
+  fires on 18% of the roster and what it selects is almost entirely obituaries. The peak hairline
+  is drawn ONLY in the spike branch — an annotation pointing at a month nothing mentions has no
+  referent.
+- **Anything that handles its own arrow keys marks itself `[data-keys]`.** `app.js`'s document
+  keydown listener steps the SELECTION on left/right, and its old guard was
+  `matches("input, textarea")` — so the first focusable thing that was neither had its keys stolen:
+  arrowing along the sparkline changed the composer instead of the month, and the readout answered
+  about someone else. The guard has since failed the other way round too, which is the same
+  mistake inverted: `input` is a proxy for "this control handles the key", and a CHECKBOX matches
+  it while answering to Space alone — so the lens toggle, a pill until it became an input, ate both
+  arrows for as long as focus sat on it. It is `input:not([type="checkbox"])` now, which still
+  covers the search box and anything that really does step with the arrows (a range, a radio
+  group), and `ui.test.mjs` presses a key with the box focused rather than trusting the selector. Escape is handled before the guard, because it means "back out of this"
+  wherever focus is. The readership brush still owes a keyboard path (TODO); when it gets one it
+  needs the attribute and no edit to the listener.
+- **The sparkline is the app's one optional part, in both halves.** Its data
+  (`readership.json`, 487 KB against composers.json's 46) is precached but not a BOOT dep and is
+  fetched after the first paint; `sparkline()` in `app.js` returns null when it has not arrived,
+  when a composer has fewer than two months of data, and — via `tight()`'s early return — in the
+  full-screen strip, whose height must not change. Its colours are the one drawn thing here that
+  is NOT baked into the SVG by JS: it is plain inline SVG in the document, so `var(--accent)`
+  reaches it and `Theme.subscribe` has nothing to re-bake (invariant 3 does not apply, and
+  `ui.test.mjs` checks that the `stroke` attribute stays absent so nobody "fixes" that).
+  Linear y and zero-based, unlike the chart's log readership axis: log is there because the
+  ROSTER spans five orders of magnitude, but within one composer the question is proportion —
+  how much bigger was that month than a normal one — and a log baseline flattens exactly the
+  spike the line exists to show.
+- **Every sparkline shares one month axis, so the blank left of a young article has to be named.**
+  A shared axis is what makes two composers comparable, and it means the 61 articles created after
+  2015 draw over the right-hand end and leave the rest empty — which under a line chart reads as
+  "nobody read this" rather than "not written yet". The label row prints `from Jul 2025` instead
+  of the axis span in that case. A null month is a BREAK in the path for the same reason
+  (invariant 10); joining across it would draw a line down to zero and back.
 - **A hover previews into the detail panel, so its box is reserved wherever a pointer exists.**
   `@media (hover:hover) and (pointer:fine)` gives `.compact` a `min-height` covering its TALLEST
   state (pinned, with the nav row) and ellipsizes the name; without it, moving the mouse across the

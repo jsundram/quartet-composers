@@ -493,11 +493,32 @@ function placeFilters() {
 // the row grows. Full screen skips SQUEEZED — `body.fs .grid` is display:block, so the card never
 // pays the 194px.
 //
+// WHY TWO INTERVALS: the row's width is not monotonic in the viewport's. What decides it is the CARD,
+// and the (min-width:900px) grid takes 194px off that, so the words fit in two bands and not in the
+// two between them. Measured at 2px steps with share()'s "Link copied" showing, the widest state the
+// row ever has, because a row that wraps on the PRESS drops the plot 44px under the cursor:
+//
+//     viewport      card       row
+//      641- 807  609- 775   two lines
+//      808- 899  776- 867   ONE line
+//      900-1121  554- 775   two lines
+//      1122+     776+       ONE line
+//
+// One card width decides both bands: 776px. Both edges here sit clear of it on the ICON side, because
+// the mistakes are not equal — words that do not fit is that 44px shift, icons where words would have
+// fitted costs 26px of data height and nothing else. Full screen skips SQUEEZED: `body.fs .grid` is
+// display:block, so the card is the window and the 194px is never taken.
+//
+// These are one machine's font metrics, so ui.test.mjs presses Share at the first width in each band
+// (820 and 1140) and fails if the row grows. It HAS: the lens stopped being a pill and became a
+// checkbox in this row, 28px wider, and both edges moved with it. The arithmetic here cannot notice a
+// control being added, and whoever adds the next one will not be whoever measured this.
+//
 // THE ONLY COPY OF THIS BREAKPOINT. styles.css scopes the icon look to `#plot > #chart-tools` so the
 // look follows the DOM; deciding it on width there too drew icons in the row in every state before
 // placeChartTools() had run.
-const NARROW = matchMedia("(max-width:799px)");
-const SQUEEZED = matchMedia("(min-width:900px) and (max-width:1100px)");
+const NARROW = matchMedia("(max-width:819px)");
+const SQUEEZED = matchMedia("(min-width:900px) and (max-width:1139px)");
 const iconsOnPlot = () =>
   NARROW.matches || (SQUEEZED.matches && !document.body.classList.contains("fs"));
 
@@ -543,6 +564,7 @@ function placeDetail() {
 function writeHash() {
   const p = new URLSearchParams();
   if (Chart.getMode() !== Chart.defaultMode()) p.set("v", Chart.getMode());
+  if (Chart.lensOn()) p.set("l", "1");
   const q = $("q").value.trim();
   if (q) p.set("q", q);
   const r = Histogram.getRange();
@@ -558,6 +580,7 @@ function readHash() {
   const r = (p.get("r") || "").match(/^(\d+)-(\d+)$/);
   return { v: p.get("v"), q: p.get("q") || "", c: p.get("c"),
            r: r ? [+r[1], +r[2]] : null,
+           l: p.get("l") === "1",
            // Whitelisted, not trusted: a hand-edited #g=anything would otherwise leave three
            // unpressed pills over an empty table with no visible reason and no way back. The
            // whitelist is READ OFF THE PILLS rather than written out again — a second copy of the
@@ -854,11 +877,25 @@ async function start() {
   // DEFAULT mode, which this is, so nothing the app ever produced carries it — but a link
   // shared back when the timeline was the default does, and dropping it would open that
   // link on the wrong chart rather than fail visibly.
-  const v = link.v === "readers" ? "fame" : link.v;
-  if (v && ["fame", "scatter", "swarm", "lens"].includes(v)) setMode(v);
+  //
+  // "lens" was a fourth VIEW until the magnifier became a toggle over the three. It was the
+  // timeline's picture with the fisheye on, so that is what the old link still opens: the same
+  // two facts it named, now carried by `v` and `l` instead of by one word.
+  const v = link.v === "readers" ? "fame" : link.v === "lens" ? "scatter" : link.v;
+  if (v && ["fame", "scatter", "swarm"].includes(v)) setMode(v);
   if (link.q) $("q").value = link.q;
   if (link.r) Histogram.setRange(link.r);
   if (link.g) setGender(link.g);
+  // AFTER the other three, because setLens() writes the hash and `link` has already been read into
+  // memory: called above them it replaceState'd a shared `#q=…&g=…` link down to a bare path for
+  // the rest of the boot, and got it back only because applyFilters() writes again at the end. The
+  // URL a reader copies in that window should not depend on a later call remembering to.
+  //
+  // Unconditional, not `if (link.l) setLens(true)`: a browser that restores form state across a
+  // reload (Firefox does; this Chromium did not when it was probed) brings the checkbox back
+  // CHECKED over a chart with no lens on it, and `setLens`'s early return then eats the first
+  // click as well. The boot says what the link says, either way.
+  setLens(!!link.l || link.v === "lens");
 
   renderLegend();
   placeFilters();
@@ -912,6 +949,7 @@ function wire() {
   document.querySelectorAll(".controls .seg button").forEach(b => {
     b.onclick = () => setMode(b.dataset.mode);
   });
+  $("lens").onchange = () => setLens($("lens").checked);
   $("reset-filters").onclick = resetFilters;
   $("share").onclick = share;
   $("reset").onclick = () => { Chart.resetZoom(); setTimeout(() => { $("reset").disabled = !Chart.zoomed(); }, 450); };
@@ -931,7 +969,12 @@ function wire() {
     // The arrows step the SELECTION, but only when nothing focused is using them itself. [data-keys] is
     // the contract, so the next thing that handles its own arrows — the readership brush still owes a
     // keyboard path — needs no edit here.
-    if (ev.target.closest("input, textarea, [data-keys]")) return;
+    //
+    // A CHECKBOX IS NOT ONE OF THEM. `input` covers the search box and anything that steps with the
+    // arrows itself, but a checkbox answers to Space alone — so the lens toggle, a pill until it
+    // became an input, swallowed both arrows while focus sat on it and did nothing with them. Bowing
+    // out of a control that HANDLES the key is the rule; bowing out of every `input` was a proxy.
+    if (ev.target.closest('input:not([type="checkbox"]), textarea, [data-keys]')) return;
     if (ev.key === "ArrowRight") { ev.preventDefault(); step_(1); }
     if (ev.key === "ArrowLeft") { ev.preventDefault(); step_(-1); }
   });
@@ -978,6 +1021,18 @@ function setMode(mode) {
   // The chips follow the view's encoding, but a full Table.render() rebuilds every row — resetting the
   // scroll box and destroying the focused row under anyone who tabbed in. Only the colours change.
   Table.repaintChips();
+  $("hint").textContent = Chart.hint();
+  $("reset").disabled = !Chart.zoomed();
+  writeHash();
+}
+
+// The magnifier, over whatever view is drawn. It is not a mode, so nothing here re-renders the
+// legend or the table: the lens changes no encoding, only where the pixels are. The reset button
+// is asked again because the zoom is suspended while it is on (see applyZoomBehavior in chart.js),
+// and the hint because the second half of it is the instructions.
+function setLens(on) {
+  $("lens").checked = on;
+  Chart.setLens(on);
   $("hint").textContent = Chart.hint();
   $("reset").disabled = !Chart.zoomed();
   writeHash();
