@@ -1022,14 +1022,19 @@ async function start() {
   // two facts it named, now carried by `v` and `l` instead of by one word.
   const v = link.v === "readers" ? "fame" : link.v === "lens" ? "scatter" : link.v;
   if (v && ["fame", "scatter", "swarm"].includes(v)) setMode(v);
+  if (link.q) $("q").value = link.q;
+  if (link.r) Histogram.setRange(link.r);
+  if (link.g) setGender(link.g);
+  // AFTER the other three, because setLens() writes the hash and `link` has already been read into
+  // memory: called above them it replaceState'd a shared `#q=…&g=…` link down to a bare path for
+  // the rest of the boot, and got it back only because applyFilters() writes again at the end. The
+  // URL a reader copies in that window should not depend on a later call remembering to.
+  //
   // Unconditional, not `if (link.l) setLens(true)`: a browser that restores form state across a
   // reload (Firefox does; this Chromium did not when it was probed) brings the checkbox back
   // CHECKED over a chart with no lens on it, and `setLens`'s early return then eats the first
   // click as well. The boot says what the link says, either way.
   setLens(!!link.l || link.v === "lens");
-  if (link.q) $("q").value = link.q;
-  if (link.r) Histogram.setRange(link.r);
-  if (link.g) setGender(link.g);
 
   renderLegend();
   placeFilters();
