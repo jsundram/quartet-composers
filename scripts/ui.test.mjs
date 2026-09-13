@@ -491,26 +491,36 @@ check("...and every label in the row still shares one baseline",
       `${rowB.n} labels of ${rowB.ctrls} controls, ${rowB.spread}px apart` +
       `${rowB.bare.length ? `; label not in a span: ${rowB.bare.join(", ")}` : ""}`);
 
-// It suspends the zoom rather than composing with it: a magnifier over a picture that moves is
-// the 2014 chart, and on a touch screen the pan and the aim are the same one-finger drag. The
-// frame is left where it was, so unchecking the box hands the zoom back — both halves asserted,
-// because "nothing happens" passes on a chart that has stopped zooming altogether.
+// ON A POINTER THE LENS COMPOSES WITH THE ZOOM. It used to suspend it — the behaviour was simply
+// not bound while the box was checked — and that was one rule too blunt: the conflict is between
+// the AIM and the PAN, which are the same one-finger drag on a phone and two different inputs on a
+// mouse, so a wheel was being taken from a reader who was never in conflict with the glass and
+// nothing on the page said so. What replaced it is a zoom.filter keyed on the event (chart.js), so
+// the assertion here is the reader's: the wheel still zooms with the magnifier on, and it is still
+// on afterwards — the second half because a toggle that silently switched itself off would pass
+// the first. The TOGGLE moves no frame, checked against the k the wheel just reached rather than
+// against 1, so this cannot go green on a chart that has stopped zooming altogether.
 await view("fame");
 const lensBox = await plotBox();
 const mid = { x: lensBox.x + lensBox.w * 0.5, y: lensBox.y + lensBox.h * 0.5 };
-// Sent RAW rather than through wheel(), which re-sends until k moves: this one is meant to go
-// nowhere, and counting it as a dropped event would blame the browser for the feature.
-await mouse("mouseMoved", mid.x, mid.y);
-await send("Input.dispatchMouseEvent", { type: "mouseWheel", x: mid.x, y: mid.y,
-  deltaX: 0, deltaY: -240, pointerType: "mouse" });
-await sleep(TWEEN);
-const kLensOn = await ev(`Chart.zoomK()`);
-await ev(`document.getElementById('lens')?.click()`);
+// Switched on CONDITIONALLY and then asked whether it went on, rather than clicked blind: section
+// 1 leaves it checked, so a bare click here turned it off and this passed its first half against a
+// chart with no magnifier on it at all.
+const cameOn = await ev(`(()=>{const b=document.getElementById('lens');
+  if (b && !b.checked) b.click(); return !!b?.checked})()`);
+await settle(`!!Chart.lensOn?.()`);
+await ev(`Chart.resetZoom()`); await idle();
+const kBefore = await ev(`Chart.zoomK()`);
 await wheel(mid.x, mid.y, -240);
+const kLensOn = await ev(`Chart.zoomK()`);
+const stillOn = await ev(`!!Chart.lensOn?.() && !!document.getElementById('lens')?.checked`);
+await ev(`document.getElementById('lens')?.click()`);
+await sleep(TWEEN);
 const kLensOff = await ev(`Chart.zoomK()`);
-check("the lens suspends the zoom, and gives it back when it is switched off",
-      kLensOn === 1 && kLensOff > 1.05,
-      `k ${kLensOn.toFixed(2)} with the lens on, ${kLensOff.toFixed(2)} with it off`);
+check("a wheel still zooms with the lens on, and the toggle leaves the frame alone",
+      cameOn && stillOn && kBefore === 1 && kLensOn > 1.05 && kLensOff === kLensOn,
+      `k ${kBefore.toFixed(2)} -> ${kLensOn.toFixed(2)} wheeled under the glass ` +
+      `(on before: ${cameOn}, after: ${stillOn}), ${kLensOff.toFixed(2)} after unchecking it`);
 await rest();
 
 // ARROWS OVER THE CHECKBOX ARE STILL THE PAGE'S ARROWS. app.js's document listener steps the
@@ -623,12 +633,12 @@ check("the keyboard focus ring survives an engine with no :has()",
       ring === null ? "" : `with every :has() rule dropped: ${ring}`);
 await goto(BASE);
 
-// THE ZOOM IS STILL ANCHORED TO THE BOX WHILE THE LENS HAS IT UNBOUND. d3 constrains every
-// transform it is handed against the extent it was last given, and resize() and goTo() hand it
-// one with no listeners attached — so `zoom.extent()` has to be called outside the "not the lens"
-// branch or a resize taken with the magnifier on leaves the chart being fitted to the box it used
-// to be in. Nothing in the picture says so: the dots are drawn, the axes are drawn, and the frame
-// is simply the wrong one.
+// THE ZOOM IS STILL ANCHORED TO THE BOX WITH THE LENS ON. This was written when the lens UNBOUND
+// the behaviour, and `zoom.extent()` sitting inside that branch meant a resize taken with the
+// magnifier on left d3 holding the box the chart used to be in — invisible in the picture, because
+// the dots are drawn, the axes are drawn, and only the frame is wrong. The branch is gone (the
+// lens now filters gestures rather than unbinding them), so what is left to assert is the weaker
+// half that outlived it: the toggle perturbs the anchoring no more than anything else does.
 // This reads the BOX d3 is holding rather than the frame it produced, because the frame differs
 // only where a fit is already hard against an edge — fourteen resize-and-filter pairs were probed
 // for a visible difference and not one of them reached it, so a check written on the symptom
@@ -2074,6 +2084,58 @@ check("the phone viewport really reports a touch pointer",
       await ev(`matchMedia('(pointer:coarse)').matches && matchMedia('(hover:none)').matches`),
       "setDeviceMetricsOverride alone does NOT: chart.js's TOUCH and the compact panel both key off this");
 
+// A ONE-FINGER DRAG AIMS THE GLASS RATHER THAN PANNING THE PICTURE, and this is the only section
+// that can prove it: zoom.filter (chart.js) answers per EVENT, so a mouse keeps its wheel and its
+// pan while a finger gives the pan up, and the two answers are reachable only from the two device
+// states. This is the side that COSTS something, which is why it is checked against the same drag
+// with the lens off rather than on its own: "the frame did not move" passes just as well on a
+// chart that cannot pan at all, and at k=1 no chart can — translateExtent is the plot box, so
+// there is nowhere to go until something has zoomed in. Hence the filter fit first.
+//
+// Real touch events, not the mouse ones the rest of this section leans on: emulation makes the
+// MEDIA queries answer like a phone, but what the filter reads is `event.type`, and a check that
+// cannot tell a converted mouse event from a touch would be proving nothing about the line it is
+// aimed at. The premise is asserted for the same reason — the svg is asked whether a touchstart
+// ever reached it, rather than left to be assumed from the drag having been sent.
+const swipe = async (x0, y0, x1, y1) => {
+  await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: x0, y: y0 }] });
+  for (let i = 1; i <= 6; i++)
+    await send("Input.dispatchTouchEvent", { type: "touchMove",
+      touchPoints: [{ x: x0 + (x1 - x0) * i / 6, y: y0 + (y1 - y0) * i / 6 }] });
+  await send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+};
+const zoomFrame = () => ev(`(()=>{const z=document.querySelector('#plot svg').__zoom;
+  return JSON.stringify({k:+z.k.toFixed(2), x:Math.round(z.x), y:Math.round(z.y)})})()`);
+const glassAt = () => ev(`(()=>{const c=document.querySelector('#plot svg circle.lens-edge');
+  return c && c.style.display !== 'none' ? Math.round(+c.getAttribute('cx')) : null})()`);
+const dragLens = async on => {
+  await ev(`(()=>{const b=document.getElementById('lens');
+    if (b && b.checked !== ${on}) b.click()})()`);
+  await ev(`document.querySelector('#gender button[data-g="female"]').click()`);
+  await idle();
+  const box = await plotBox();
+  const from = { x: box.x + box.w * 0.7, y: box.y + box.h * 0.7 };
+  const to = { x: box.x + box.w * 0.3, y: box.y + box.h * 0.3 };
+  const before = await zoomFrame();
+  await ev(`(()=>{window.__sawTouch=false; document.querySelector('#plot svg')
+    .addEventListener('touchstart', () => { window.__sawTouch = true }, { once: true, capture: true })})()`);
+  await swipe(from.x, from.y, to.x, to.y);
+  await sleep(TWEEN);
+  const out = { before, after: await zoomFrame(), aim: await glassAt(),
+                sawTouch: await ev(`!!window.__sawTouch`) };
+  await ev(`document.querySelector('#gender button[data-g=""]').click()`);
+  await idle();
+  return out;
+};
+const panned = await dragLens(false), aimed = await dragLens(true);
+check("a one-finger drag pans the chart...",
+      panned.sawTouch && panned.before !== panned.after,
+      `${panned.before} -> ${panned.after}${panned.sawTouch ? "" : " (no touchstart reached the svg)"}`);
+check("...and aims the lens instead of panning when the lens is on",
+      aimed.sawTouch && aimed.before === aimed.after && aimed.aim !== null,
+      `${aimed.before} -> ${aimed.after}, glass at cx ${aimed.aim}`);
+await rest();
+
 // A ROTATION UN-AIMS THE LENS, and this is the section that can prove it. The aim is a point in a
 // box that is going away — setMode() drops it for the same reason — and on a PHONE nothing takes
 // it back: `pointerleave` is `!TOUCH`, so the fisheye went on magnifying a spot the reader never
@@ -2638,8 +2700,10 @@ check("a wheel over the glyphs zooms the chart, like the band they sit in",
 // the resting view is already there, so every scroll DOWN at rest is declined; d3 does not cancel
 // what it declines, and a forward that cancelled anyway put an 86x40 hole in the page's scrolling
 // in the DEFAULT view at rest (0px under the glyphs against 120px beside them). WITH THE LENS ON
-// it is the same property with no zoom bound at all — every wheel is declined, not just the ones
-// d3 clamps — so the corner is asserted in both states rather than one of them being special.
+// it must be the SAME property and not a stricter one: the magnifier leaves the wheel alone, so
+// the corner declines exactly the scrolls the bare chart declines and no others. It is asserted in
+// both states because the lens used to unbind the zoom entirely, where every wheel fell through —
+// which passed this and would pass it again.
 const fell = {};
 for (const m of ["fame", "lens"]) {
   await view("fame");
