@@ -81,6 +81,9 @@ class Wiki:
         # A title the wiki refuses outright: it answers under `pages` with `invalid` and no
         # `missing`, which is a third shape the reader has to tell from the other two.
         self.bad = lambda t: any(ch in t for ch in "[]{}|")
+        # ns -1 and -2. Tested BEFORE the interwiki split, because "Special:Random" has a colon
+        # in its first token exactly as "de:Amy Beach" does and the wiki answers them differently.
+        self.special = lambda t: t.split(":")[0] in ("Special", "Media")
         self.cont = "query-continue"     # the shape IMSLP sends today; MediaWiki >=1.26 sends
                                          # "continue" instead, and the walk has to follow both
         self.pages = pages          # IMSLP page title -> wikitext; absent = no such page
@@ -99,6 +102,11 @@ class Wiki:
             if body is None:
                 self._missing += 1
                 out[str(-self._missing)] = {"title": title, "missing": ""}
+            elif "invalid" in body or "special" in body:
+                # NO pageid: a title the wiki refuses is not a page, and handing the stub one
+                # would let a reader that keys on `pageid` pass against a reply it never sees.
+                self._missing += 1
+                out[str(-self._missing)] = dict(body, title=title)
             else:
                 out[str(self.pid(title))] = dict(body, pageid=self.pid(title), title=title)
         return {"query": {"pages": out}}
@@ -129,9 +137,12 @@ class Wiki:
             # under `pages`, measured against the live API, and that is the whole reason a reader
             # can skip it forever without noticing.
             canon = {t: self.norm.get(t, t) for t in titles}
-            iw = {c for c in canon.values() if ":" in c.split(" ")[0] and c not in self.wp}
+            iw = {c for c in canon.values()
+                  if ":" in c.split(" ")[0] and c not in self.wp
+                  and not self.special(c) and not self.bad(c)}
             d = self._pages([
                 (c, {"invalid": "", "invalidreason": "bad character"} if self.bad(c)
+                 else {"ns": -1, "special": ""} if self.special(c)
                  else ({"pageprops": {"wikibase_item": self.wp[c]}} if c in self.wp else None))
                 for c in dict.fromkeys(canon.values()) if c not in iw])
             if iw:
@@ -586,26 +597,31 @@ def interwiki_keyed_by_request(fi, w):
         "a title that was answered for good is asked again every run: %r" % resolved(w))
 
 
-@case("a title en.wikipedia refuses is not recorded as a resolved article")
-def invalid_title_is_not_a_key(fi, w):
-    # WP_PATTERNS captures anything up to the closing brace, so `{{wp|[[Amy Beach]]}}` reaches the
-    # resolver. en.wikipedia answers under `pages` with `invalid` and no `missing` — a third shape
-    # — so it was written as a resolved answer carrying the bad string as its title. has_key()
-    # reads a bare title as a key, so the composer page behind it would be retired from the
-    # re-ask for good while the join could never match it: this branch's own failure, one shape
-    # over. Nothing in the shipped cache is like this; WP_PATTERNS is why it is reachable at all.
-    w.pages["Category:Beach, Amy Marcy"] = BEACH + "{{wp|[[Amy Beach]]}}\n"
-    cache, _log = run(fi)
-    assert cache["wp"].get("[[Amy Beach]]") == {"title": None, "qid": None, "invalid": True}, (
-        "a title the wiki refused was filed as an article: %r"
-        % (cache["wp"].get("[[Amy Beach]]", "<absent>"),))
-    w.asked.clear()
-    run(fi)
-    assert "Category:Beach, Amy Marcy" in read(w), (
-        "the composer page was retired over a title that can never resolve: %r. That page is the "
-        "one thing a volunteer can still fix." % read(w))
-    assert "[[Amy Beach]]" not in resolved(w), (
-        "a title no reply can ever settle is asked again every run: %r" % resolved(w))
+@case("a title en.wikipedia will not hold is recorded as an answer that is not a key")
+def unusable_title_is_not_a_key(fi, w):
+    # WP_PATTERNS captures anything up to the closing brace, so both of these reach the resolver.
+    # en.wikipedia answers `[[Amy Beach]]` with `invalid` and `Special:Random` with `special`
+    # (ns -1) — under `pages`, neither carrying `missing` — so both used to be written as a
+    # RESOLVED answer holding the bad string as their title. has_key() reads a bare title as a
+    # key, so the composer page behind one was retired from the re-ask for good while the join
+    # could never match it.
+    # BOTH shapes in one case on purpose: the first fix enumerated `invalid` and `special` was
+    # missed by it. What is asserted is the closed-world property — an article has a pageid, a
+    # name that might become one says `missing`, and anything else is neither — so a sixth shape
+    # MediaWiki adds later is covered without a sixth case.
+    for bad in ("[[Amy Beach]]", "Special:Random"):
+        w.pages["Category:Beach, Amy Marcy"] = BEACH + "{{wp|%s}}\n" % bad
+        cache, _log = run(fi)
+        got = cache["wp"].get(bad, "<absent>")
+        assert isinstance(got, dict) and not got.get("qid") and not got.get("title"), (
+            "%r was filed as an article: %r" % (bad, got))
+        w.asked.clear()
+        run(fi)
+        assert "Category:Beach, Amy Marcy" in read(w), (
+            "the composer page was retired over %r, which can never resolve: %r. That page is "
+            "the one thing a volunteer can still fix." % (bad, read(w)))
+        assert bad not in resolved(w), (
+            "%r is asked again every run and no reply can settle it: %r" % (bad, resolved(w)))
 
 
 @case("an article with no Wikidata item is a key, because the join uses the title")
@@ -633,7 +649,7 @@ def corrupt_gzip_is_retried(fi, w):
     # gzip made this reachable. Truncation raises EOFError and most corruption raises
     # gzip.BadGzipFile, which IS an OSError — which is how the rare one gets missed: corruption
     # inside the stream raises zlib.error, which subclasses Exception directly and would end a
-    # 52-request crawl with a traceback instead of a retry.
+    # 48-request crawl with a traceback instead of a retry.
     # Two tries and no backoff, so the ORACLE is whether a second read happened: a failure the
     # tuple catches is retried, one it does not ends the crawl on the first.
     fi.TRIES, fi.BACKOFF = 2, [0]

@@ -1211,7 +1211,7 @@ Two things found while writing it that are defects in what already exists, not p
 - **The off-roster half of the join is [#68](https://github.com/jsundram/quartet-composers/issues/68).**
   IMSLP holds 1,771 composers with a string quartet and this roster names 884; the join keeps only
   the inner half and `data/imslp-audit.json` counts the rest and drops it. 2,542 pages and 1,295
-  composers in the plain category are off-roster, 666 of them identified on Wikidata and simply
+  composers in the plain category are off-roster, 539 of them identified on Wikidata and simply
   absent from the Wikipedia list — Anton Stamitz, Praeger, Mayseder, Carl Stamitz, J.C. Bach. The
   crawl already holds every page title and every composer page; the only fetching gap is work info
   for the off-roster pages, 51 requests and ~0.9 MB. The issue also records why the work COUNT is
