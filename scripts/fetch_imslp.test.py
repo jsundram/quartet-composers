@@ -24,7 +24,7 @@ these cases do: what a warm run asks for, what it declines to ask for, and that 
 appeared between two runs reaches the passes downstream of the crawl.
 
 The budget is the other half and is not decoration. This is a volunteer-funded server, the cold
-crawl is ~165 requests, and the reason the fix is "always re-crawl" rather than "--refresh
+crawl is ~238 requests, and the reason the fix is "always re-crawl" rather than "--refresh
 monthly" is that re-asking everything would download 3.5 MB of wikitext that has not changed. A
 case that only proved re-asking would be satisfied by --refresh.
 """
@@ -78,6 +78,9 @@ class Wiki:
         self.cats = cats            # category title -> [full page title]
         self.page = 500             # cmlimit, so a listing longer than this needs continuing
         self.norm = {}              # requested title -> what MediaWiki answers under
+        # A title the wiki refuses outright: it answers under `pages` with `invalid` and no
+        # `missing`, which is a third shape the reader has to tell from the other two.
+        self.bad = lambda t: any(ch in t for ch in "[]{}|")
         self.cont = "query-continue"     # the shape IMSLP sends today; MediaWiki >=1.26 sends
                                          # "continue" instead, and the walk has to follow both
         self.pages = pages          # IMSLP page title -> wikitext; absent = no such page
@@ -128,7 +131,8 @@ class Wiki:
             canon = {t: self.norm.get(t, t) for t in titles}
             iw = {c for c in canon.values() if ":" in c.split(" ")[0] and c not in self.wp}
             d = self._pages([
-                (c, {"pageprops": {"wikibase_item": self.wp[c]}} if c in self.wp else None)
+                (c, {"invalid": "", "invalidreason": "bad character"} if self.bad(c)
+                 else ({"pageprops": {"wikibase_item": self.wp[c]}} if c in self.wp else None))
                 for c in dict.fromkeys(canon.values()) if c not in iw])
             if iw:
                 d["query"]["interwiki"] = [{"title": c, "iw": c.split(":")[0]}
@@ -388,7 +392,8 @@ def rescues_unidentified(fi, w):
 
 @case("a composer page naming only an interwiki article is asked again too")
 def interwiki_is_not_a_key(fi, w):
-    # 204 of the cached pages name a {{wp|de:…}}, en.wikipedia has no such title, and fetch_wp
+    # Most of the pages the monthly re-ask asks for name a {{wp|de:…}} instead — en.wikipedia has
+    # no such title, and fetch_wp
     # resolved every one of them to nothing. They are as unplaced as a page naming nothing at
     # all — and reading the mere PRESENCE of a wp value as an identifier shut the one group that
     # needed asking out of the re-ask permanently.
@@ -480,7 +485,7 @@ def candidate_absence_is_reasked(fi, w):
 @case("a Wikipedia article IMSLP names but does not exist is asked again")
 def wp_absence_is_reasked(fi, w):
     # The fourth absence, and the one that decides whether the second can ever finish its job:
-    # 204 composer pages are re-downloaded every month precisely BECAUSE their only link resolved
+    # The composer pages above are re-downloaded every month precisely BECAUSE their link resolved
     # to nothing, so leaving the call that could change that answer un-rerun makes the re-ask
     # above unable to conclude anything. "Gubaidulina, Sofia" is the live shape — IMSLP names an
     # article that does not exist, and a redirect created since is all it would take.
@@ -581,6 +586,28 @@ def interwiki_keyed_by_request(fi, w):
         "a title that was answered for good is asked again every run: %r" % resolved(w))
 
 
+@case("a title en.wikipedia refuses is not recorded as a resolved article")
+def invalid_title_is_not_a_key(fi, w):
+    # WP_PATTERNS captures anything up to the closing brace, so `{{wp|[[Amy Beach]]}}` reaches the
+    # resolver. en.wikipedia answers under `pages` with `invalid` and no `missing` — a third shape
+    # — so it was written as a resolved answer carrying the bad string as its title. has_key()
+    # reads a bare title as a key, so the composer page behind it would be retired from the
+    # re-ask for good while the join could never match it: this branch's own failure, one shape
+    # over. Nothing in the shipped cache is like this; WP_PATTERNS is why it is reachable at all.
+    w.pages["Category:Beach, Amy Marcy"] = BEACH + "{{wp|[[Amy Beach]]}}\n"
+    cache, _log = run(fi)
+    assert cache["wp"].get("[[Amy Beach]]") == {"title": None, "qid": None, "invalid": True}, (
+        "a title the wiki refused was filed as an article: %r"
+        % (cache["wp"].get("[[Amy Beach]]", "<absent>"),))
+    w.asked.clear()
+    run(fi)
+    assert "Category:Beach, Amy Marcy" in read(w), (
+        "the composer page was retired over a title that can never resolve: %r. That page is the "
+        "one thing a volunteer can still fix." % read(w))
+    assert "[[Amy Beach]]" not in resolved(w), (
+        "a title no reply can ever settle is asked again every run: %r" % resolved(w))
+
+
 @case("an article with no Wikidata item is a key, because the join uses the title")
 def resolved_title_is_a_key(fi, w):
     # The two predicates introduced on this branch have to agree. fetch_wp holds ANY resolution
@@ -616,7 +643,7 @@ def corrupt_gzip_is_retried(fi, w):
         fi._get(fi.IMSLP_API, {"action": "query", "titles": "X"})
     except Exception as e:
         assert reads.n == 2, (
-            "a corrupted body escaped the retry ladder as %s after %d read: a 52-request crawl "
+            "a corrupted body escaped the retry ladder as %s after %d read: a 48-request crawl "
             "ends on a traceback where a retry was the whole point." % (type(e).__name__, reads.n))
     else:
         raise AssertionError("a corrupted body was returned as an answer")
