@@ -854,16 +854,6 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   empty. **Its height must stay constant**: `#plot` is `flex:1` in full screen, so a box that grew
   on select would trip the ResizeObserver and re-lay out the chart under the finger that just
   tapped it. `tight()` in `app.js` is what trims the content to fit that box.
-- **The sparkline's caption names the spike if there is one and the trend otherwise.** A fixed
-  "peak N× typical" was the wrong sentence for most of the roster: the median composer's biggest
-  month is 3.1× their typical one, because a composer read thirty times a month hits ninety by
-  chance, so it cried spike about noise on half the list — and it buried the real story for the
-  steady ones, where Haydn's meaningless 1.7× peak displaced a line that has slid 42% since 2015.
-  The test (`SPIKE` in `app.js`) is the peak against the 95th PERCENTILE of that composer's own
-  months, which is scale-free and judges a small noisy article against its own noise. At 3× it
-  fires on 18% of the roster and what it selects is almost entirely obituaries. The peak hairline
-  is drawn ONLY in the spike branch — an annotation pointing at a month nothing mentions has no
-  referent.
 - **Anything that handles its own arrow keys marks itself `[data-keys]`.** `app.js`'s document
   keydown listener steps the SELECTION on left/right, and its old guard was
   `matches("input, textarea")` — so the first focusable thing that was neither had its keys stolen:
@@ -876,24 +866,6 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   group), and `ui.test.mjs` presses a key with the box focused rather than trusting the selector. Escape is handled before the guard, because it means "back out of this"
   wherever focus is. The readership brush still owes a keyboard path (TODO); when it gets one it
   needs the attribute and no edit to the listener.
-- **The sparkline is the app's one optional part, in both halves.** Its data
-  (`readership.json`, 487 KB against composers.json's 46) is precached but not a BOOT dep and is
-  fetched after the first paint; `sparkline()` in `app.js` returns null when it has not arrived,
-  when a composer has fewer than two months of data, and — via `tight()`'s early return — in the
-  full-screen strip, whose height must not change. Its colours are the one drawn thing here that
-  is NOT baked into the SVG by JS: it is plain inline SVG in the document, so `var(--accent)`
-  reaches it and `Theme.subscribe` has nothing to re-bake (invariant 3 does not apply, and
-  `ui.test.mjs` checks that the `stroke` attribute stays absent so nobody "fixes" that).
-  Linear y and zero-based, unlike the chart's log readership axis: log is there because the
-  ROSTER spans five orders of magnitude, but within one composer the question is proportion —
-  how much bigger was that month than a normal one — and a log baseline flattens exactly the
-  spike the line exists to show.
-- **Every sparkline shares one month axis, so the blank left of a young article has to be named.**
-  A shared axis is what makes two composers comparable, and it means the 61 articles created after
-  2015 draw over the right-hand end and leave the rest empty — which under a line chart reads as
-  "nobody read this" rather than "not written yet". The label row prints `from Jul 2025` instead
-  of the axis span in that case. A null month is a BREAK in the path for the same reason
-  (invariant 10); joining across it would draw a line down to zero and back.
 - **A hover previews into the detail panel, so its box is reserved wherever a pointer exists.**
   `@media (hover:hover) and (pointer:fine)` gives `.compact` a `min-height` covering its TALLEST
   state (pinned, with the nav row) and ellipsizes the name; without it, moving the mouse across the
@@ -929,12 +901,6 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   "nobody read this" rather than "not written yet". The label row prints `from Jul 2025` instead of
   the axis span in that case. A null month is a BREAK in the path for the same reason (invariant
   10); joining across it would draw a line down to zero and back.
-- **Anything that handles its own arrow keys marks itself `[data-keys]`.** `app.js`'s document
-  keydown listener steps the SELECTION on left/right, and its old guard was
-  `matches("input, textarea")`, so the first focusable thing that was neither had its keys stolen:
-  arrowing along the sparkline changed the composer instead of the month. Escape is handled before
-  the guard, because it means "back out of this" wherever focus is. The brush still owes a keyboard
-  path (TODO); when it gets one it needs the attribute and no edit to the listener.
 - **A chart label prints the short name, not the canonical title.** Half the characters, and because `pickLabels()` is first-come-first-served on space, halving every box is what
   lets the names behind it find room at all. The label text and the width estimate must come from
   the same string — `pickLabels()` computes it once and carries it on the placement.
