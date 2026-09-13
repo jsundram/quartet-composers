@@ -466,23 +466,30 @@ check("the lens checkbox is centred on the word, not on its line box",
 // ...AND THE WHOLE ROW STILL SITS ON ONE BASELINE. The fix above is a trim, which moves the word
 // down onto the band it draws — so it is applied to every label in the row rather than to this
 // one, or "Lens" rides 1.23px under the pills beside it in exactly the faces the trim acts on.
-// That is the other half of the same edit and the half a screenshot would not show you: bare text
-// in an inline-flex button lands in an anonymous box no selector reaches, so #reset and
-// #reset-filters keep their labels in a span for this rule to land on. Read off real baselines,
-// so a control added to this row without one fails here.
+// That is the other half of the same edit and the half a screenshot would not show you.
+// The row is ENUMERATED here rather than listed: a check that names five selectors passes a sixth
+// control that was never trimmed, because it simply is not in the array — vacuous in the one way
+// that matters, since the whole point is to notice a control somebody adds later. It also asserts
+// the rule that makes the trim reachable: bare text in an inline-flex `.btn` lands in an anonymous
+// box no selector can reach, so every one of them keeps its label in a SPAN (#reset and
+// #reset-filters gained one for this), and a new one that does not is named rather than skipped.
 const rowBaselines = await ev(`(()=>{
-  const at = el => { if (!el) return null;
-    const p=document.createElement('span'); p.style.cssText='display:inline-block;width:0;height:0';
+  const at = el => { const p=document.createElement('span');
+    p.style.cssText='display:inline-block;width:0;height:0';
     el.appendChild(p); const b=p.getBoundingClientRect().bottom; p.remove(); return b; };
-  const els=[document.querySelector('#lens-t span'),
-             document.querySelector('.controls .seg button[data-mode="swarm"]'),
-             document.querySelector('#reset span'), document.querySelector('#reset-filters span'),
-             document.querySelector('#share .btn-t')].filter(Boolean);
-  const b=els.map(at);
-  return JSON.stringify({n:els.length, spread:+(Math.max(...b)-Math.min(...b)).toFixed(2)})})()`);
+  const ctrls=[...document.querySelectorAll('.controls .seg button, .controls .btn')];
+  const bare=ctrls.filter(c => c.matches('.btn')
+    && [...c.childNodes].some(n => n.nodeType === 3 && n.textContent.trim()));
+  const labels=ctrls.map(c => c.matches('.btn') ? c.querySelector('span') : c).filter(Boolean);
+  const b=labels.map(at);
+  return JSON.stringify({n:labels.length, ctrls:ctrls.length,
+    bare:bare.map(c=>c.id || c.textContent.trim()),
+    spread:b.length ? +(Math.max(...b)-Math.min(...b)).toFixed(2) : -1})})()`);
 const rowB = JSON.parse(rowBaselines);
-check("...and every label in the row still shares one baseline", rowB.n === 5 && rowB.spread <= 0.5,
-      `${rowB.n} labels, ${rowB.spread}px apart`);
+check("...and every label in the row still shares one baseline",
+      rowB.ctrls >= 5 && rowB.n === rowB.ctrls && !rowB.bare.length && rowB.spread <= 0.5,
+      `${rowB.n} labels of ${rowB.ctrls} controls, ${rowB.spread}px apart` +
+      `${rowB.bare.length ? `; label not in a span: ${rowB.bare.join(", ")}` : ""}`);
 
 // It suspends the zoom rather than composing with it: a magnifier over a picture that moves is
 // the 2014 chart, and on a touch screen the pan and the aim are the same one-finger drag. The
