@@ -500,27 +500,42 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   the fisheye LAST, in screen space, which is what lets one lens serve three modes with no per-mode
   case at all: what it moves is pixels, so what you click is still what you see (the Delaunay is
   built over the warped positions like everything else).
-  Three things it keeps from the view it replaced. **The picture holds still while it is on** —
-  `applyZoomBehavior()` binds nothing, because a magnifier over a moving chart is the 2014 original
-  and on a touch screen the pan and the aim are the same one-finger drag. The transform is LEFT
-  where it was rather than reset, so the lens magnifies whatever the reader had framed and
-  unchecking hands the zoom back unchanged; `zoomed()` and `resetZoom()` therefore ask nothing
-  about the lens, since the frame is still the frame. The one thing unbinding does NOT excuse is
-  telling d3 the box, because the gestures are not the only thing that reads it: d3 reads `extent`
-  again when it SCHEDULES A TRANSITION, for the centroid and the width its interpolation travels
-  through — and `goTo()` animates. So `zoom.extent()` is called whether or not the behaviour is
-  bound; left inside the bound branch, a filter fitted after a resize under the lens tweened along
-  a path computed for a box that was gone. **Only the path**: `zoom.transform` does not constrain
+  **What it takes away is one gesture, on a touch screen only.** The first answer was that it took
+  the zoom entirely — `applyZoomBehavior()` bound nothing while the box was checked, on the 2014
+  chart's lesson that a magnified view of a MOVING picture cannot be read. That is one rule too
+  blunt by half, and it shipped: the conflict is between the AIM and the PAN, which are the same
+  one-finger drag on a phone and two different inputs on a mouse, so a reader who framed a decade
+  and then reached for the magnifier found the chart had silently stopped zooming, with nothing on
+  the page saying why. The conflict is therefore resolved where it actually lives, in a
+  `zoom.filter` keyed on `event.type`: a touch gesture is refused while the lens is on and
+  everything else goes through, so a wheel still zooms the picture under the glass and a HYBRID
+  machine gets both answers — its mouse zooms while its finger aims. Two consequences worth
+  knowing. The filter must restate d3's own default (`(!ctrlKey || wheel) && !button`), because
+  passing one REPLACES it rather than adding to it. And the hint says two different things now
+  (`LENS_POINTER` adds a sentence to the drive half, `LENS_TOUCH` replaces it), because on a phone
+  "drag to pan" is an instruction the chart has stopped obeying and on a desktop it has not.
+  The transform is LEFT where it was either way rather than reset, so the lens magnifies whatever
+  the reader had framed and unchecking hands the frame back unchanged; `zoomed()` and `resetZoom()`
+  therefore ask nothing about the lens, and neither does `setLens()` in `app.js` — a line re-reading
+  Reset zoom there would be answering a question nothing had changed the answer to. What the
+  vanished branch does NOT excuse is telling d3 the box, because the gestures are not the only
+  thing that reads it: d3 reads `extent` again when it SCHEDULES A TRANSITION, for the centroid and
+  the width its interpolation travels through — and `goTo()` animates. So `zoom.extent()` is called
+  ahead of everything else in `applyZoomBehavior()`; while it sat inside the bound branch, a filter
+  fitted after a resize under the lens tweened along a path computed for a box that was gone.
+  **Only the path**: `zoom.transform` does not constrain
   (probed — a transform applied against an extent ten times too small survives intact), so the
   frame it lands on was right either way, which is why fourteen resize-and-filter pairs were probed
   for a wrong frame and none of them found one. `Chart.zoomBox()` exists so the suite can assert
   the invariant at the cause rather than chase an artefact that only shows while it moves.
   **What `zoom.transform` DOES do is interrupt**, which is its contract and not an accident — so
   the `__zoom` sync beside those setters runs only when it would change something. `setMode()` and
-  `resize()` assign a new transform before they get there and still sync; `setLens()` changes
-  nothing about the frame, so its sync was a no-op whose only effect was to cancel a transition —
-  check the box inside a filter's 420ms fit and the chart stopped dead at k=1 with Reset zoom lit
+  `resize()` assign a new transform before they get there and still sync; `setLens()` comes
+  through changing nothing about the frame, so its sync was a no-op whose only effect was to cancel
+  a transition — check the box inside a filter's 420ms fit and the chart stopped dead at k=1 with
+  Reset zoom lit
   over a frame nobody asked for. A no-op that interrupts is not a no-op.
+  Two things it does keep from the view it replaced, both about the AIM rather than the frame.
   **`baseLayout()` un-aims it**, because the
   filter fit and the ring separation are claims about the chart that outlive a pointer move.
   **And `resize()` drops the aim outright**, for the reason `setMode()` does: it is a point in a box

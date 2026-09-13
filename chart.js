@@ -1,18 +1,12 @@
 // The chart: three ways to read one roster of dots — fame, scatter, swarm; README says what each is
 // for — sharing one layout + hit-test core, plus a magnifier that switches on over any of them.
 //
-// Two things shared by all four, and most of the value: hit-testing via a Delaunay over the CURRENT
-// screen positions, so a dot's tap target is its whole Voronoi cell rather than its radius — on a
-// phone, the difference between usable and not — and greedy collision-avoided labels, so the chart
-// says something with no interaction at all.
-//
 // THE LENS IS NOT A FOURTH VIEW. It was one, and what separated it from the timeline came to two
 // things: a CIRCULAR fisheye over the base picture, and no zoom. But a magnifier is not a way of
 // reading the data, it is a way of reading a CROWD, and every one of these pictures has one. So it
 // applies over whatever mode is drawn: `layout()` lays the picture out and the warp goes on LAST, in
-// screen space, which is what lets one fisheye serve three modes with no per-mode case. What it keeps
-// from the old view is the contract that made it readable — while it is on the base picture is FIXED
-// (see applyZoomBehavior).
+// screen space, which is what lets one fisheye serve three modes with no per-mode case. What it costs
+// is ONE GESTURE, and only on a touch screen — see zoom.filter in build().
 //
 // Two things shared by every view, and most of the value: hit-testing via a Delaunay over the CURRENT
 // screen positions, so a dot's tap target is its whole Voronoi cell rather than its radius — on a
@@ -682,7 +676,19 @@ window.Chart = (function () {
     gAxX = gPlot.append("g");
     gLabels = gPlot.append("g").attr("pointer-events", "none").attr("clip-path", "url(#plot-clip)");
 
+    // THE LENS TAKES ONE GESTURE AWAY, AND ONLY ON A TOUCH SCREEN. A magnifier and a zoom are
+    // not rivals — the glass answers "who is in this crowd" and the frame answers "which crowd" —
+    // so a wheel goes on zooming the picture underneath while the lens is on, and the reader ends
+    // up with both. A FINGER is the case that cannot have both: it has one pointer, the lens is
+    // aimed by dragging it, and a pan is the same one-finger drag, so d3 would win it every time
+    // and the glass could never be moved. Hence a filter on the EVENT rather than on `TOUCH`: a
+    // machine with both gets both answers, its mouse zooming while its finger aims. The rest of
+    // the expression is d3's own default (`(!ctrlKey || wheel) && !button`), restated because
+    // passing a filter REPLACES it rather than adding to it — drop those two terms and a
+    // right-click starts a pan.
     zoom = d3.zoom().scaleExtent([1, 24])
+      .filter(ev => (!ev.ctrlKey || ev.type === "wheel") && !ev.button
+                    && !(lensOn && ev.type.startsWith("touch")))
       .on("zoom", ev => { transform = ev.transform; draw(); cbZoom && cbZoom(zoomed()); });
     bindPointer();
   }
@@ -695,8 +701,8 @@ window.Chart = (function () {
   // the synthetic event carries the answer and no copy of d3's clamp lives here. A scroll down at rest
   // is already at scaleExtent's floor, declines, and correctly scrolls the page; reporting "bound"
   // cancelled those and left a dead hole in the default view. The lens falls out rather than being
-  // named: applyZoomBehavior() binds nothing while it is on, so this returns false and the page
-  // scrolls, which is what the bare plot does there.
+  // named: a wheel is a gesture it leaves alone, so the corner answers under the glass exactly as it
+  // does without it, declined scrolls included.
   function wheelInto(e) {
     if (!svg) return false;
     const w = new WheelEvent("wheel", e);
@@ -704,34 +710,33 @@ window.Chart = (function () {
     return w.defaultPrevented;
   }
 
-  // THE LENS SUSPENDS THE ZOOM rather than composing with it, which is the one thing the old lens
-  // VIEW is worth keeping: a fisheye is a magnifier over a picture that holds still, and the 2014
-  // chart's lesson is that a magnified view of a moving one cannot be read at all. On a touch
-  // screen the two are also the same gesture — one finger aims the lens — so a pan would fight
-  // every drag for it. The transform is left exactly where it was rather than reset, so the lens
-  // magnifies whatever the reader had framed and unchecking the box hands the zoom back unchanged.
+  // The behaviour is bound in every state — what the lens changes is which gestures reach it, and
+  // that lives in zoom.filter (see build()) where it can be decided per EVENT. Binding was the
+  // first answer and it was too blunt by half: it took the wheel away from a mouse that was never
+  // in conflict with the glass, silently, so a reader who had framed a decade and then reached for
+  // the magnifier found the chart had stopped zooming with no word anywhere saying why.
   function applyZoomBehavior() {
     if (!svg) return;
     svg.on(".zoom", null);
-    // THE BOX IS TOLD TO d3 WHETHER OR NOT THE BEHAVIOUR IS BOUND, because the gestures are not
-    // the only thing that reads it: d3 reads `extent` again when it SCHEDULES A TRANSITION, for
-    // the centroid and the width its interpolation travels through. goTo() animates — a filter
-    // fitting, a reset — so with these setters inside the branch below, a fit taken after a resize
-    // under the lens tweened along a path computed for a box that was gone. Measured rather than
-    // reasoned: `zoom.transform` itself does NOT constrain (a transform applied against an extent
-    // ten times too small survives intact), so the frame it LANDS on is right either way, which is
-    // why fourteen resize-and-filter pairs were probed for a wrong frame and none of them found
-    // one. What was wrong was the journey, and the fix is one line rather than a caveat.
+    // THE BOX IS NOT ONLY FOR THE GESTURES, which is why these two setters must stay ahead of
+    // everything and not beside the binding: d3 reads `extent` again when it SCHEDULES A
+    // TRANSITION, for the centroid and the width its interpolation travels through. goTo()
+    // animates — a filter fitting, a reset — so while this was guarded by a lens branch, a fit
+    // taken after a resize under the magnifier tweened along a path computed for a box that was
+    // gone. Measured rather than reasoned: `zoom.transform` itself does NOT constrain (a transform
+    // applied against an extent ten times too small survives intact), so the frame it LANDS on was
+    // right either way, which is why fourteen resize-and-filter pairs were probed for a wrong
+    // frame and none of them found one. What was wrong was the journey.
     zoom.extent([[0, 0], [w, h]]).translateExtent([[0, 0], [w, h]]);
-    if (!lensOn) svg.call(zoom);
-    // The node's own __zoom is synced whether the behaviour is bound or not: goTo() tweens FROM
-    // it, so a frame fitted to a filter while the lens was on would otherwise animate from a
-    // transform nothing has drawn since. ONLY WHEN IT WOULD CHANGE SOMETHING, though —
-    // `zoom.transform` interrupts any transition on the node, which is d3's contract and not an
-    // accident, so syncing a value that already matches is a no-op that cancels a fit in flight.
-    // setMode() and resize() assign a new transform before they arrive here and still sync;
-    // setLens() changes nothing about the frame, and pressing it inside a filter's 420ms fit
-    // stopped the chart dead at k=1 with Reset zoom lit over it.
+    svg.call(zoom);
+    // The node's own __zoom is synced to ours, because goTo() tweens FROM it and the two part
+    // company whenever anything but a gesture moves the frame. ONLY WHEN IT WOULD CHANGE
+    // SOMETHING, though — `zoom.transform` interrupts any transition on the node, which is d3's
+    // contract and not an accident, so syncing a value that already matches is a no-op that
+    // cancels a fit in flight. setMode() and resize() assign a new transform before they arrive
+    // here, so theirs is a real move; setLens() comes through changing nothing about the frame,
+    // and pressing it inside a filter's 420ms fit stopped the chart dead at k=1 with Reset zoom
+    // lit over it.
     const cur = svg.node().__zoom;
     if (!cur || !sameTransform(cur, transform)) svg.call(zoom.transform, transform);
   }
@@ -1052,6 +1057,9 @@ window.Chart = (function () {
   // function of the MODE (see measure()), so switching the lens on and off moves nothing — which
   // is what lets its control live in the row above the plot, where a box that resized under the
   // press that caused it would break the rule that row exists to keep (see index.html).
+  // applyZoomBehavior() is still called, though nothing about the BINDING depends on this flag any
+  // more: it is the one place that re-states the box and re-syncs __zoom, and the guard inside it
+  // is what keeps that sync from cancelling a fit still in the air (see there).
   function setLens(on) {
     on = !!on;
     if (on === lensOn) return;
@@ -1077,10 +1085,11 @@ window.Chart = (function () {
   function zoomed() { return !sameTransform(transform, restingTransform()); }
   function getMode() { return mode; }
 
-  // Two halves per view: what it shows, and how to drive it. The lens REPLACES the second half
-  // rather than adding a sentence to it — it suspends the zoom, so "scroll or pinch to zoom" is an
-  // instruction the chart would no longer obey, and a hint that tells you to do something that
-  // does nothing is worse than a shorter one.
+  // Two halves per view: what it shows, and how to drive it. What the lens does to the second half
+  // is exactly what zoom.filter does to the gestures, which is why there are two sentences and not
+  // one: a POINTER keeps everything it had and gains the glass, so the lens ADDS; a FINGER gives up
+  // the drag it used to pan with, so the lens REPLACES — leaving "drag to pan" there would be
+  // telling the reader to do something the chart has stopped doing.
   const SHOWS = {
     fame: "Views vs Quartets written.",
     scatter: "Fixed axes: birth year across, quartets written up.",
@@ -1091,9 +1100,13 @@ window.Chart = (function () {
     scatter: "Drag to pan, scroll or pinch to zoom, tap or click a dot to pin it.",
     swarm: "Drag or pinch to spread it further.",
   };
-  const LENS_HINT = "The magnifier follows the pointer — drag it on a touch screen — and the "
-                  + "picture underneath holds still. Tap a dot to pin it.";
-  function hint() { return SHOWS[mode] + " " + (lensOn ? LENS_HINT : DRIVE[mode]); }
+  const LENS_POINTER = "The magnifier follows the pointer, and the view still zooms under it.";
+  const LENS_TOUCH = "Drag to aim the magnifier; the picture underneath holds still. "
+                   + "Tap a dot to pin it.";
+  function hint() {
+    if (!lensOn) return SHOWS[mode] + " " + DRIVE[mode];
+    return SHOWS[mode] + " " + (TOUCH ? LENS_TOUCH : LENS_POINTER + " " + DRIVE[mode]);
+  }
 
   return { init, setData, setMode, getMode, setFilter, setSelected, resize, rerender,
            setLens, lensOn: () => lensOn,
@@ -1116,10 +1129,9 @@ window.Chart = (function () {
            // claim about this number, and reading it off the axis ticks would be reading a
            // rendering of it.
            zoomK: () => transform.k,
-           // The box d3-zoom currently holds, for the suite. It is the one thing the lens can
-           // silently desynchronise: the behaviour is unbound while the magnifier is on, so no
-           // gesture can reveal a stale one, and what a stale one costs is the PATH of the next
-           // animated fit rather than where it lands.
+           // The box d3-zoom currently holds, for the suite. What a stale one costs is the PATH
+           // of the next animated fit rather than where it lands (see applyZoomBehavior), which
+           // is invisible in the frame and therefore worth asserting at the cause.
            zoomBox: () => (svg ? zoom.extent().apply(svg.node()) : null),
            lifeDomain: () => LIFE_DOMAIN.slice(),
            // How many rings the current filter derived — for the suite, to tell a derived set from the

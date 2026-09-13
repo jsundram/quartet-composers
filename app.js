@@ -1005,7 +1005,8 @@ function wire() {
   // preventDefault ONLY when the chart actually TOOK it, which is why wheelInto reports back and why
   // this listener cannot be passive. "Took it" is narrower than "a zoom is bound": at rest the zoom
   // declines every scroll down, k being already at scaleExtent's floor, and cancelling on the wider
-  // test left a hole in the page's scrolling under these buttons.
+  // test left a hole in the page's scrolling under these buttons — in the resting default view and
+  // under the lens both, which leaves the wheel alone.
   $("chart-tools").addEventListener("wheel", e => {
     if ($("chart-tools").parentNode !== $("plot")) return;
     if (Chart.wheelInto(e)) e.preventDefault();
@@ -1027,14 +1028,15 @@ function setMode(mode) {
 }
 
 // The magnifier, over whatever view is drawn. It is not a mode, so nothing here re-renders the
-// legend or the table: the lens changes no encoding, only where the pixels are. The reset button
-// is asked again because the zoom is suspended while it is on (see applyZoomBehavior in chart.js),
-// and the hint because the second half of it is the instructions.
+// legend or the table: the lens changes no encoding, only where the pixels are. The hint IS
+// re-read, because its second half is the instructions and the lens changes them — on a touch
+// screen it takes the pan away (see zoom.filter in chart.js), which is the one thing it takes
+// from anybody. The frame is untouched either way, so Reset zoom is not re-asked: a line that
+// re-read it here would be answering a question nothing had changed the answer to.
 function setLens(on) {
   $("lens").checked = on;
   Chart.setLens(on);
   $("hint").textContent = Chart.hint();
-  $("reset").disabled = !Chart.zoomed();
   writeHash();
 }
 
