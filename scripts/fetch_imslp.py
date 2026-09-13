@@ -261,7 +261,7 @@ def fetch_works(cache):
     listed. Returning early on a cached listing made a second run print `cached: orig (4215)` and
     stop, which is a "nothing to do" indistinguishable from "nothing exists": a monthly run would
     have found nothing new forever and reported success doing it (#62). It is also the cheapest
-    pass here, ~12 requests against the ~238 a cold crawl costs.
+    pass here, 11 requests against the ~238 a cold crawl costs.
 
     The listing REPLACES rather than merges, because the category is the live answer to what is in
     it. The caches below are keyed by title and keep their entry for a page that left, which is
@@ -470,21 +470,26 @@ def fetch_wp(cache):
             pg = pages.get(cur)
             if pg is None:
                 continue                        # not mentioned in the reply: still un-asked
-            if "invalid" in pg:
-                # A title en.wikipedia CANNOT hold — `{{wp|[[Amy Beach]]}}` reaches here because
-                # WP_PATTERNS captures anything up to the closing brace. It arrives under `pages`
-                # with `invalid` and no `missing`, so it used to be written as a resolved answer
-                # carrying the bad string as its title; has_key() reads a bare title as a key, so
-                # the composer page behind it was retired from the re-ask permanently while the
-                # join could never match it. Recorded like an interwiki, and for the same reason:
-                # an answer, because no reply will ever change it, and keyless, because it is not
-                # one.
-                cache["wp"][t] = {"title": None, "qid": None, "invalid": True}
-                continue
-            cache["wp"][t] = None if "missing" in pg else {
-                "title": pg["title"],
-                "qid": pg.get("pageprops", {}).get("wikibase_item"),
-            }
+            if "missing" in pg:
+                cache["wp"][t] = None       # no article YET; one created since would resolve
+            elif "pageid" in pg:
+                cache["wp"][t] = {"title": pg["title"],
+                                  "qid": pg.get("pageprops", {}).get("wikibase_item")}
+            else:
+                # Neither an article nor a name that could become one. WP_PATTERNS captures
+                # anything up to the closing brace, so `{{wp|[[Amy Beach]]}}` arrives with
+                # `invalid` and `{{wp|Special:Random}}` with `special` (ns -1 and -2) — both under
+                # `pages`, neither carrying `missing`, so both used to be written as a RESOLVED
+                # answer holding the bad string as their title. has_key() reads a bare title as a
+                # key, so the composer page behind one was retired from the re-ask for good while
+                # the join could never match it.
+                # The test is CLOSED-WORLD on purpose: `special` was missed by the commit that
+                # fixed `invalid`, because that one enumerated shapes. An article has a pageid and
+                # a name that might become one says `missing`; everything else, including whatever
+                # MediaWiki adds next, is this. Recorded like an interwiki — an answer, because no
+                # reply will ever change it, and keyless, because it is not one.
+                cache["wp"][t] = {"title": None, "qid": None,
+                                  "unusable": pg.get("invalidreason") or "not an article title"}
         save(cache)
         done += len(batch)
         print(f"\r  wikipedia: {done}/{len(todo)} asked", end="", file=sys.stderr)
