@@ -77,6 +77,7 @@ class Wiki:
     def __init__(self, cats, pages, marks=None, wp=None, p839=None):
         self.cats = cats            # category title -> [full page title]
         self.page = 500             # cmlimit, so a listing longer than this needs continuing
+        self.norm = {}              # requested title -> what MediaWiki answers under
         self.cont = "query-continue"     # the shape IMSLP sends today; MediaWiki >=1.26 sends
                                          # "continue" instead, and the walk has to follow both
         self.pages = pages          # IMSLP page title -> wikitext; absent = no such page
@@ -119,14 +120,22 @@ class Wiki:
                                 else {"cmcontinue": str(at + self.page), "continue": "-||"})
             return d
         if params.get("prop") == "pageprops":
-            # An interwiki title comes back in its OWN block and never under `pages` — measured
-            # against the live API, which is the whole reason a reader can skip it forever.
-            iw = [t for t in titles if ":" in t.split(" ")[0] and t not in self.wp]
+            # MediaWiki answers under the NORMALIZED title and names the mapping in `normalized`,
+            # so every reader here has to walk it forward — which is why the stub normalizes
+            # rather than echoing. An interwiki title then comes back in its OWN block and never
+            # under `pages`, measured against the live API, and that is the whole reason a reader
+            # can skip it forever without noticing.
+            canon = {t: self.norm.get(t, t) for t in titles}
+            iw = {c for c in canon.values() if ":" in c.split(" ")[0] and c not in self.wp}
             d = self._pages([
-                (t, {"pageprops": {"wikibase_item": self.wp[t]}} if t in self.wp else None)
-                for t in titles if t not in iw])
+                (c, {"pageprops": {"wikibase_item": self.wp[c]}} if c in self.wp else None)
+                for c in dict.fromkeys(canon.values()) if c not in iw])
             if iw:
-                d["query"]["interwiki"] = [{"title": t, "iw": t.split(":")[0]} for t in iw]
+                d["query"]["interwiki"] = [{"title": c, "iw": c.split(":")[0]}
+                                           for c in sorted(iw)]
+            moved = [{"from": t, "to": c} for t, c in canon.items() if t != c]
+            if moved:
+                d["query"]["normalized"] = moved
             return d
         if params.get("prop") == "categories":
             return self._pages([
@@ -550,6 +559,26 @@ def interwiki_is_an_answer(fi, w):
     assert "Category:Beach, Amy Marcy" in read(w), (
         "recording the non-answer also retired the composer page, which is the one thing a "
         "volunteer CAN fix: %r" % read(w))
+
+
+@case("an interwiki answer is recorded under the title that was ASKED for")
+def interwiki_keyed_by_request(fi, w):
+    # Every other write in fetch_wp walks `normalized` forward and stores under the BATCH title,
+    # because that is what `todo` looks up — parse_person's reading of the wikitext. Keying the
+    # interwiki answer by the reply's title instead puts it where nothing looks, and the title is
+    # then re-asked every run forever with the answer never recordable: the defect the block was
+    # added to fix, one key over. The 14 `en:` titles in the shipped cache resolved only because
+    # `normalized` mapped them back, so normalization of these titles is not hypothetical.
+    w.pages["Category:Beach, Amy Marcy"] = BEACH + "{{wp|:de:Amy Beach}}\n"
+    w.norm = {":de:Amy Beach": "de:Amy Beach"}        # MediaWiki drops the leading colon
+    cache, _log = run(fi)
+    assert cache["wp"].get(":de:Amy Beach") == {"title": None, "qid": None, "iw": "de"}, (
+        "the answer was filed under the reply's title, not the one asked for: %r"
+        % {k: v for k, v in cache["wp"].items() if "Amy Beach" in k})
+    w.asked.clear()
+    run(fi)
+    assert ":de:Amy Beach" not in resolved(w), (
+        "a title that was answered for good is asked again every run: %r" % resolved(w))
 
 
 @case("an article with no Wikidata item is a key, because the join uses the title")

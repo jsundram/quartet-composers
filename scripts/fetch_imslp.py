@@ -7,18 +7,27 @@
     python3 scripts/fetch_imslp.py            # writes data/imslp.json
     python3 scripts/fetch_imslp.py --refresh  # ignore the cache and re-ask for everything
 
-Four passes over two APIs, ~165 requests for a COLD crawl, all cached in data/imslp.json so a
-rebuild is offline. A WARM run costs 48 and re-asks exactly two kinds of thing: the
-instrumentation categories, because they are the only place a new work page can appear, and every
-ABSENCE — a composer page yielding no key, a P839 claim Wikidata does not state, a guessed
-category with no page behind it, an article IMSLP names that does not exist. Those are the answers
-a volunteer or a Wikidata editor changes, and a cache that never re-asks them cannot tell "nothing
-to do" from "nothing exists". An absence NOTHING can change is not one of them and is written
-down as an answer instead — see the interwiki block in fetch_wp, which is 233 of the 236. Everything else tops up by page title and --refresh is the only way
-to make it re-ask, which is what keeps 3.5 MB of unchanged wikitext off a volunteer-funded server.
-That is what makes a monthly run possible — the earlier rule, "nothing is refetched once it is in
-the cache", meant a second run reported `cached: orig (4215)` and discovered nothing, forever,
-while exiting 0 (#62).
+Four passes over two APIs, ~240 requests for a COLD crawl, all cached in data/imslp.json so a
+rebuild is offline. A WARM run costs 48 and re-asks exactly two kinds of thing: the instrumentation
+categories, because they are the only place a new work page can appear, and every ABSENCE — a
+composer page yielding no key, a P839 claim Wikidata does not state, a guessed category with no
+page behind it, an article IMSLP names that does not exist. Those are the answers a volunteer or a
+Wikidata editor changes, and a cache that never re-asks them cannot tell "nothing to do" from
+"nothing exists". An absence NOTHING can change is not one of them and is written down as an answer
+instead — see the interwiki handling in fetch_wp, which is 233 of the 236. Everything else tops up
+by page title and --refresh is the only way to make it re-ask, which is what keeps 3.5 MB of
+unchanged wikitext off a volunteer-funded server. That is what makes a monthly run possible — the
+earlier rule, "nothing is refetched once it is in the cache", meant a second run reported
+`cached: orig (4215)` and discovered nothing, forever, while exiting 0 (#62).
+
+WHAT IS DELIBERATELY NOT RE-ASKED, because the list above reads as complete and is not: the
+per-work MARKERS and the WORK INFO. Both are mutable — a page gains Category:Recordings when
+somebody uploads one, and a catalogue number gets corrected — so a stale `recordings: false` is a
+wrong answer no run can notice, which is the same shape as everything above. They are left alone on
+COST: 99 and 38 requests against the 48 a whole warm run spends, and work info is 740 KB of the
+cache. The absences above are re-asked because each is cheap AND decides whether a composer can be
+placed at all; a marker only decorates a composer already placed. Worth reconsidering if the app
+ever draws one.
 
 WHAT COUNTS AS A QUARTET IS IMSLP'S OWN ANSWER, not a title match. IMSLP categorises every work
 by scoring, and "Category:For 2 violins, viola, cello" IS the string quartet. Reading titles
@@ -251,7 +260,7 @@ def fetch_works(cache):
     listed. Returning early on a cached listing made a second run print `cached: orig (4215)` and
     stop, which is a "nothing to do" indistinguishable from "nothing exists": a monthly run would
     have found nothing new forever and reported success doing it (#62). It is also the cheapest
-    pass here, ~12 requests against the ~165 a cold crawl costs.
+    pass here, ~12 requests against the ~240 a cold crawl costs.
 
     The listing REPLACES rather than merges, because the category is the live answer to what is in
     it. The caches below are keyed by title and keep their entry for a page that left, which is
@@ -355,8 +364,8 @@ def fetch_composers(cache):
     that was missing last month may exist now.
 
     NAMING AN ARTICLE IS NOT HAVING A KEY, and reading it as one excluded the group that most
-    needed asking. 204 cached pages name a non-English interwiki — {{wp|de:Hans Erich Apostel}} —
-    en.wikipedia has no such title, fetch_wp resolved every one of them to nothing, and
+    needed asking. 202 composer pages name a non-English interwiki — {{wp|de:Hans Erich Apostel}} —
+    en.wikipedia has no such title, fetch_wp resolves every one of them to nothing, and
     roster_cats cannot match them against a roster title either. They are as unplaced as a page
     naming nothing at all, and they were the one group permanently shut out of the re-ask.
     Resolution is last run's answer, since fetch_wp runs after this pass: an article named for the
@@ -429,11 +438,7 @@ def fetch_wp(cache):
         d = get(WIKI_API, {"action": "query", "titles": "|".join(batch), "redirects": "1",
                            "prop": "pageprops", "ppprop": "wikibase_item"})
         q = d.get("query", {})
-        for iw in q.get("interwiki", []):
-            # Stored with no title and no qid, so every reader already treating a wp entry as
-            # `... or {}` sees exactly what it saw before; what changes is that the entry EXISTS,
-            # which is how the re-ask above tells "nothing there yet" from "not ours to answer".
-            cache["wp"][iw["title"]] = {"title": None, "qid": None, "iw": iw.get("iw")}
+        elsewhere = {iw["title"]: iw.get("iw") for iw in q.get("interwiki", [])}
         alias = {}
         for n in q.get("normalized", []):
             alias[n["from"]] = n["to"]
@@ -446,6 +451,19 @@ def fetch_wp(cache):
                 if cur not in alias:
                     break
                 cur = alias[cur]
+            if cur in elsewhere:
+                # Stored with no title and no qid, so every reader already treating a wp entry as
+                # `... or {}` sees exactly what it saw before; what changes is that the entry
+                # EXISTS, which is how `todo` tells "nothing there yet" from "not ours to answer".
+                # Keyed by `t`, the title we ASKED for, like every other write in this loop:
+                # `todo` looks up what parse_person read out of the wikitext, and MediaWiki answers
+                # under the NORMALIZED form. Keying it by the reply's title filed the answer where
+                # nothing looks and left the title re-asked forever, which is the exact thing
+                # recording it is for. Not hypothetical — the 14 `en:` titles in this cache
+                # resolved only because `normalized` mapped them back, and a decomposed umlaut or
+                # a leading colon normalizes the same way.
+                cache["wp"][t] = {"title": None, "qid": None, "iw": elsewhere[cur]}
+                continue
             pg = pages.get(cur)
             if pg is None:
                 continue                        # not mentioned in the reply: still un-asked
@@ -524,7 +542,10 @@ def fetch_candidates(cache):
     # because these are the same kind of page and build_imslp joins on them (`cand-qid`). `want`
     # is re-derived every run, so a composer rescued above drops out of it; what stays is the 470
     # guesses stored as None ("IMSLP has no page by this name") and the 7 whose page EXISTS and
-    # states nothing joinable. Both are answers a volunteer changes, and leaving either was #62's
+    # states no identifier — 3 of which build_imslp nonetheless places, on DATES, a rung has_key
+    # cannot see for want of a roster row to confirm against. Re-asking those 3 buys nothing and is
+    # accepted rather than called correct: they ride inside a batch already going out.
+    # The other answers here are ones a volunteer changes, and leaving them was #62's
     # defect in the pass whose entire purpose is making "not on IMSLP" an ANSWER — not covered by
     # the works crawl, which cannot see a composer with no quartets by construction. ~10 requests.
     todo = [c for c in want
