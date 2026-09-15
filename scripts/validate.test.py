@@ -314,21 +314,102 @@ def invented_gender(d):
             break
 
 
+# What run_case copies and hands to a mutation, as {key in `d`: path in the checkout}. The IMSLP
+# SCRAPE is not here: it is 3.1 MB, nothing mutates it, and copying it 30-odd times doubled this
+# suite's runtime — it is hardlinked below instead, which costs nothing and is safe exactly because
+# no case writes it.
+MUTABLE = {
+    "composers": "composers.json",
+    "history": "readership.json",
+    "people": "data/people.json",
+    "pageviews": "data/pageviews.json",
+    "join": "data/imslp-join.json",
+    "works": "imslp-works.json",
+}
+READONLY = ["data/list.json", "data/imslp.json"]
+
+
+# ---------------------------------------------------------------- the IMSLP columns
+# Two fields with three states between them, and every wrong answer they can give is a plausible
+# one: `imslp: 0` is true of 582 composers, and a category one letter out is an ordinary IMSLP red
+# link. None of these mutations makes anything on the page look broken.
+def placed(d):
+    """A row the join placed on IMSLP, with its join entry. The first with works, to be specific."""
+    name = next(n for n, e in sorted(d["join"]["composers"].items()) if e["works"])
+    return next(r for r in d["composers"]["rows"] if r[0] == name), d["join"]["composers"][name]
+
+
+@case("a derived IMSLP category that does not reproduce the real one", "category resolves to")
+def bad_derivation(d):
+    # The 56 transliterations are why the other 406 can be derived at all: ship "" for one of them
+    # and the table links to Category:Shostakovich, Dmitri, which IMSLP does not have. This is what
+    # stops the one-line rule being trusted rather than checked.
+    row = next(r for r in d["composers"]["rows"]
+               if r[9] and r[9] != "%s, %s" % (r[0].split()[-1], " ".join(r[0].split()[:-1])))
+    row[9] = ""
+
+
+@case("an IMSLP category the scrape never saw", "not one data/imslp.json holds")
+def invented_cat(d):
+    row, e = placed(d)
+    e["cats"][0] = "Nobody, Atall"
+    row[9] = "Nobody, Atall"
+
+
+@case("a category shipped with its namespace still on it", "carries its namespace")
+def namespaced_cat(d):
+    row, e = placed(d)
+    row[9] = "Category:" + e["cats"][0]
+
+
+@case("a count that does not match the join it came from", "the join counted")
+def count_drift(d):
+    row, _e = placed(d)
+    row[8] += 7
+
+
+@case("a composer the join placed whose row says we never found them", "says not placed")
+def lost_placement(d):
+    row, _e = placed(d)
+    row[8], row[9] = 0, None
+
+
+@case("a total smaller than the single page it came from", "at least the largest page")
+def total_below_page(d):
+    # The de-duplication is why this is not an equality: pages overlap, so the total sits between
+    # the biggest page and the sum. Below the biggest, some page's own works are not in the total.
+    name, pages = max(d["works"]["works"].items(), key=lambda kv: max(p[1] for p in kv[1]))
+    row = next(r for r in d["composers"]["rows"] if r[0] == name)
+    row[8] = max(p[1] for p in pages) - 1
+    assert row[8] >= 0, "picked a composer whose biggest page holds nothing"
+
+
+@case("work pages built from a different run than the counts beside them", "different runs")
+def works_drift(d):
+    # check_history()'s lesson, one file over: both files are internally consistent, the table
+    # prints one number and the panel would list pages that no longer add up to it.
+    d["works"]["meta"]["generated"] = "2001-01-01"
+
+
 def run_case(name, expect, mutate, strict=False):
     with tempfile.TemporaryDirectory() as tmp:
         os.makedirs(os.path.join(tmp, "data"))
-        for rel in ["composers.json", "readership.json",
-                    "data/people.json", "data/pageviews.json", "data/list.json"]:
+        for rel in MUTABLE.values():
             shutil.copy(os.path.join(ROOT, rel), os.path.join(tmp, rel))
+        for rel in READONLY:
+            src, dst = os.path.join(ROOT, rel), os.path.join(tmp, rel)
+            try:
+                os.link(src, dst)
+            except OSError:
+                # The temp dir is not always on the checkout's filesystem — a CI runner's
+                # $RUNNER_TEMP need not be — and a cross-device link raises rather than falling
+                # back. Copying is only slower, which is the right way for this to degrade.
+                shutil.copy(src, dst)
         base = os.path.join(tmp, "baseline.json")
         shutil.copy(os.path.join(ROOT, "composers.json"), base)
 
-        d = {
-            "composers": json.load(open(os.path.join(tmp, "composers.json"), encoding="utf-8")),
-            "people": json.load(open(os.path.join(tmp, "data/people.json"), encoding="utf-8")),
-            "pageviews": json.load(open(os.path.join(tmp, "data/pageviews.json"), encoding="utf-8")),
-            "history": json.load(open(os.path.join(tmp, "readership.json"), encoding="utf-8")),
-        }
+        d = {k: json.load(open(os.path.join(tmp, rel), encoding="utf-8"))
+             for k, rel in MUTABLE.items()}
         try:
             mutate(d)
         except Exception as e:                         # noqa: BLE001 - a fixture that aged out
@@ -340,10 +421,8 @@ def run_case(name, expect, mutate, strict=False):
             # "or its own checks": the same wrapper catches a post-condition assert inside the
             # mutation, where the change WAS applied and it is the claim about it that failed.
             return False, "the mutation or its own checks raised: %s: %s" % (type(e).__name__, e)
-        json.dump(d["composers"], open(os.path.join(tmp, "composers.json"), "w", encoding="utf-8"))
-        json.dump(d["people"], open(os.path.join(tmp, "data/people.json"), "w", encoding="utf-8"))
-        json.dump(d["pageviews"], open(os.path.join(tmp, "data/pageviews.json"), "w", encoding="utf-8"))
-        json.dump(d["history"], open(os.path.join(tmp, "readership.json"), "w", encoding="utf-8"))
+        for k, rel in MUTABLE.items():
+            json.dump(d[k], open(os.path.join(tmp, rel), "w", encoding="utf-8"))
 
         out = subprocess.run([sys.executable, VALIDATE, "--root", tmp, "--baseline", base]
                              + (["--strict"] if strict else []),

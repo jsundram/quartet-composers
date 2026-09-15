@@ -927,10 +927,21 @@ hand; it went red in the right two places, and nothing in CI could have known th
 
 ## IMSLP
 
-### The dataset is built and joined; nothing is wired into the app yet — 2026-09-11
+### ~~The dataset is built and joined; nothing is wired into the app yet~~ — done, 2026-09-15, [#61](https://github.com/jsundram/quartet-composers/issues/61)
 `scripts/fetch_imslp.py` (network, cached in `data/imslp.json`) and `scripts/build_imslp.py`
-(offline, writes `imslp.json`) exist and run. `imslp.json` is NOT referenced by `index.html`,
-`sw.js` or any module, so nothing about the shipped app has changed and `V` has not moved.
+(offline, writes `data/imslp-join.json`) feed `build_data.py`, which now writes TWO IMSLP columns
+into `composers.json` — `imslp`, the work count, and `imslp_cat`, the category or `""` where one
+line derives it — plus a third shipped file, `imslp-works.json` (81 KB, SHELL and not BOOT, not
+rendered yet). The table has an `On IMSLP` column linking the number to the composer's category,
+and the detail panel a one-line pill. `V` is at v68.
+
+The pipeline REORDERED to get there: `build_imslp.py` used to read `composers.json`, which would
+now be a cycle, so it calls `build_data.build_rows()` instead — one reduction of the caches, so
+the join and the app cannot disagree about who is on this list (invariant 4).
+
+What the findings below turned into, in the end: the count shipped is `works_n` and the noun is
+"works"; `null` / `0`-with-a-link / `0`-without are the three answers, carried by `imslp_cat`
+rather than by the digit (invariant 16); and the colour channel was not taken.
 
 **What is in it.** IMSLP catalogues 4,215 work pages under its own instrumentation category
 `For 2 violins, viola, cello`, plus 722 more under the `(arr)` category, spread over 1,771
@@ -974,26 +985,20 @@ from a spelling, and it is accepted only when IMSLP's birth AND death years agre
    inversion of their name. That is decent evidence of absence and it is not the same as asking.
    Any copy on the page has to say "no IMSLP page found", never "not on IMSLP".
 
-**What shipping it needs**, roughly in order:
-- `build_data.py` writes the per-composer count into `composers.json` as a new field, and
-  `imslp.json` becomes the lazily-fetched companion the way `readership.json` already is — SHELL
-  but NOT BOOT (invariant 2), since links in the detail panel are decoration nothing waits for.
-- `sw.js`: add `imslp.json` to `SHELL`, leave it out of `BOOT`, bump `V` (invariant 1).
-- `validate.py`: the gate this needs is that every `imslp.json` key is a row name in
-  `composers.json` and every `cats` entry is one the cache actually holds — the drift invariant 4
-  warns about, one file over.
-- Detail panel: the composer's IMSLP category link plus their work pages, which is the feature's
-  actual point and the cheapest half.
-- Table column: the page count, sortable, `—` where absent.
-- A fourth filter would need its own module on the `applyFilters()` contract (a Set of indices or
-  null), not another special case in `app.js`.
-- `og-lint.py`'s stated-count rule and `prose-lint.py`'s composer-count rule both need to know
-  about any new total that reaches the docs.
-- **A colour channel is the expensive option and should be argued for separately.** Fame already
-  spends hue on emphasis and the timeline spends it on the lifespan ramp (invariant 8), so
-  availability would be a fourth encoding competing for the one channel that is already carrying
-  the view's argument — and it is a three-state fact with a 423-row "unknown" bucket, which is the
-  hardest kind of thing to put in a legend honestly.
+**What is still NOT done, deliberately:**
+- **`imslp-works.json` is shipped and unread.** It is precached so the SHELL contract was settled
+  once rather than twice; rendering the per-page list in the detail panel is the next feature and
+  has to answer the panel's fixed-height problem first.
+- **No "has scores" filter.** A fourth filter needs its own module on the `applyFilters()`
+  contract (a Set of indices or null), not another special case in `app.js`.
+- **No colour channel, and this is the one to argue with rather than repeat.** Fame already spends
+  hue on emphasis and the timeline spends it on the lifespan ramp (invariant 8), so availability
+  would be a fourth encoding competing for the channel already carrying the view's argument — and
+  it is a three-state fact with a 422-row "unknown" bucket, which is the hardest kind of thing to
+  put in a legend honestly.
+- **Arrangements are fetched and shipped nowhere.** Separate IMSLP category, different claim.
+- `og-lint.py`'s stated-count rule and `prose-lint.py`'s composer-count rule still know only 884
+  and 790, so no IMSLP total may reach `manifest.json` or `index.html` without teaching them one.
 
 ### ~~Catalogue numbers de-duplicate the sets~~ — done, 2026-09-12
 The page count is no longer the only number: `build_imslp.py` now reads `Opus/Catalogue Number`
@@ -1217,11 +1222,15 @@ Two things found while writing it that are defects in what already exists, not p
   for the off-roster pages, 51 requests and ~0.9 MB. The issue also records why the work COUNT is
   the hard part (two catalogue systems, no crosswalk) and why the category is clean enough not to
   filter (95.6% state a string quartet verbatim; ~12 flute-quartet pages).
-- **`data/imslp.json` is the scrape cache and collides by name with the shipped file #61 adds.**
-  Rename to `data/imslp-scrape.json`. It is also 3.5 MB and badly encoded — `markers` spends
-  648 KB on four named booleans per page where an int bitmask would do, and `works` repeats three
-  key names 4,937 times. Under 2 MB is easily reachable without giving up the raw wikitext, which
-  must stay raw: a better parser must never cost a request.
+- **`data/imslp.json` is the scrape cache and reads like the two files beside it.** The name
+  collision #61 worried about did not happen — what ships is `imslp-works.json` — but the trio
+  `imslp.json` / `imslp-join.json` / `imslp-works.json` still does not say which is the crawl, so
+  rename it to `data/imslp-scrape.json`. It is also 3.1 MB and badly encoded — `markers` spends
+  604 KB on four named booleans per page where an int bitmask would do (247 KB), and `works`
+  repeats three key names 4,937 times (400 KB -> 282 KB). MEASURED, not estimated: that is
+  2.6 MB, not the "under 2 MB" an earlier version of this claimed, because the remaining bulk is
+  the raw wikitext and it must stay raw — a better parser must never cost a request. Worth doing
+  and not the win it was billed as.
 
 **The coverage report is generated, not written.** `scripts/build_imslp.py` writes the audit to
 `data/imslp-audit.json` and `scripts/imslp-report.py` renders it to a self-contained

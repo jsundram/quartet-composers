@@ -63,40 +63,10 @@ def curated():
     return out
 
 
-RUN = re.compile(r"^(.*?)(\d+)([a-z]?)$")
-
-
-def compress(ids):
-    """"Op.72 No.1", "Op.72 No.2", "Op.72 No.3"  ->  "Op.72 No.1-3".
-
-    A set of six reads as one designation and a span, which is how the page itself writes it
-    ("6 String Quartets, Op.18"). Only CONSECUTIVE numbers on an identical stem collapse, so a
-    gap stays visible — a run printed over a missing number would hide exactly the thing this
-    page exists to show.
-    """
-    out, run = [], []
-
-    def flush():
-        if not run:
-            return
-        stem, first, last = run[0][0], run[0][1], run[-1][1]
-        out.append(f"{stem}{first}" if len(run) == 1 else f"{stem}{first}\u2013{last}")
-        run.clear()
-
-    for i in ids:
-        m = RUN.match(i)
-        if not m or m.group(3):                 # no trailing number, or a lettered one (417b)
-            flush()
-            out.append(i)
-            continue
-        stem, n = m.group(1), int(m.group(2))
-        if run and run[-1][0] == stem and n == run[-1][1] + 1:
-            run.append((stem, n))
-        else:
-            flush()
-            run.append((stem, n))
-    flush()
-    return out
+# compress() and the catalogue parse both live in build_imslp.py now: the shipped work rows print
+# the same ranges this page does, and two copies of a collapsing rule collapse differently exactly
+# where a reader is comparing the two.
+compress = bi.compress
 
 
 def url_for(title, cat):
@@ -176,7 +146,7 @@ def main():
               '<th style="width:32%"><button type="button">Work ids derived</button></th>'
               '<th class="num" style="width:12%" data-n><button type="button">Works</button></th>'
               '</tr></thead><tbody>')
-            for title, _pid, _fl, ci in sorted(e["works"]):
+            for title, _pid, _fl, ci, _n, _ids in sorted(e["works"]):
                 raw = wi.get(title + " (" + e["cats"][ci] + ")")
                 fields = bi.info_fields(raw)
                 cf = fields.get("Opus/Catalogue Number", "")

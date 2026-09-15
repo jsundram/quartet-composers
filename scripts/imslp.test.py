@@ -205,11 +205,21 @@ def page(title, op="", n="", typ=""):
             % (op, n, typ))
 
 
+def entry_for(pages):
+    return ({"cats": ["X, Y"], "works": [[t, i, 1, 0] for i, (t, _) in enumerate(pages)]},
+            {t + " (X, Y)": raw for t, raw in pages})
+
+
 def tally(*pages):
     """count_works over a throwaway composer whose pages are (title, info) pairs."""
-    entry = {"cats": ["X, Y"], "works": [[t, i, 1, 0] for i, (t, _) in enumerate(pages)]}
-    info = {t + " (X, Y)": raw for t, raw in pages}
+    entry, info = entry_for(pages)
     return bi.count_works(entry, info)
+
+
+def per_page(*pages):
+    """catalogue()'s per-page half: [(title, works, ids), …] in the order given."""
+    entry, info = entry_for(pages)
+    return [(p[0], p[4], p[5]) for p in bi.catalogue(entry, info)[0]]
 
 
 @case("a set page's shared opus expands and MERGES with its members' own pages")
@@ -280,6 +290,50 @@ def uncatalogued_is_one(_):
     assert tally(page("Adagio for String Quartet", "", "1"))[0] == 1
 
 
+@case("the per-page numbers and the composer's total come from ONE parse")
+def per_page_agrees_with_total(_):
+    # imslp-works.json ships a count per PAGE and composers.json a total, and the two are read
+    # side by side — a row saying six works under a heading that counts three is wrong in a way
+    # neither number looks wrong on its own. So catalogue() returns both from the same groups,
+    # and this is the shape that would catch them being derived twice: the set page and its six
+    # members are 6+1+1+1+1+1+1 = 12 per page against a de-duplicated total of 6, which is the
+    # whole point of the merge, and the total must still sit between the largest page and the sum.
+    pages = [page("6 String Quartets, Op.18", "Op.18", "6 quartets:", "Collection")] + [
+        page("String Quartet No.%d, Op.18 No.%d" % (i, i), "Op.18 No.%d" % i, "4 movements:")
+        for i in range(1, 7)]
+    rows = per_page(*pages)
+    total = tally(*pages)[0]
+    counts = [n for _t, n, _ids in rows]
+    assert counts == [6, 1, 1, 1, 1, 1, 1], counts
+    assert total == 6 and max(counts) <= total <= sum(counts), (total, counts)
+    # And the ids printed are the ids counted: the set page names the six it expanded to.
+    assert rows[0][2] == "Op.18 No.1–6", rows[0][2]
+
+
+@case("an anthology dropped from the total still ships a row, with a zero")
+def anthology_ships_zero(_):
+    # It is dropped from the COUNT because it reprints works catalogued elsewhere — but hiding the
+    # page leaves nothing on screen to explain why the composer's total is lower than the pages
+    # they can see. A 0 beside the "is a collection" flag does explain it.
+    assert per_page(page("Selected String Quartets", "", "10 quartets:", "Collection")) \
+        == [("Selected String Quartets", 0, "")]
+    assert per_page(page("Adagio for String Quartet", "", "1")) \
+        == [("Adagio for String Quartet", 1, "")]
+
+
+@case("a run of catalogue numbers collapses, and a GAP does not")
+def compress_keeps_gaps(_):
+    # compress() moved here from imslp-audit.py so the shipped rows and the audit page collapse a
+    # range the same way — two copies would eventually differ exactly where a reader is comparing
+    # them, which is what that page is for. Only CONSECUTIVE numbers on an identical stem join: a
+    # run printed over a missing number hides the thing worth seeing.
+    assert bi.compress(["Op.72 No.1", "Op.72 No.2", "Op.72 No.3"]) == ["Op.72 No.1–3"]
+    assert bi.compress(["G.183", "G.184", "G.185", "G.188"]) == ["G.183–185", "G.188"]
+    assert bi.compress(["Op.18 No.1", "Op.20 No.2"]) == ["Op.18 No.1", "Op.20 No.2"]
+    # A lettered number is not a run of one: "K.417b" and "K.418" are not K.417b–418.
+    assert bi.compress(["K.417b", "K.418"]) == ["K.417b", "K.418"]
+
+
 @case("a catalogue prefix carrying a DIGIT keeps it, instead of donating it as the number")
 def digit_prefix(_):
     # {{K6|417b}} rewrites to "K6.417b". With no separator required and no digits allowed in the
@@ -345,6 +399,14 @@ def main():
             passed += 1
         except AssertionError as e:
             print("  FAIL - %s\n       %s" % (name, e))
+            failed += 1
+        except Exception as e:                         # noqa: BLE001 - see below
+            # A case that RAISES is a failed case, not a dead suite. ablate.py runs this file
+            # against the base's build_imslp.py, where a function this branch added does not
+            # exist: unwrapped, the first such case took the summary line and every case after it
+            # down with a traceback, and the ablation read INCONCLUSIVE — proving nothing about
+            # the tests it was there to prove. validate.test.py learned this one first.
+            print("  FAIL - %s\n       raised: %s: %s" % (name, type(e).__name__, e))
             failed += 1
     print("\n%d passed, %d failed" % (passed, failed))
     return 1 if failed else 0

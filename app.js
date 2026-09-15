@@ -25,6 +25,23 @@ const DATA_URL = "./composers.json";
 const HIST_URL = "./readership.json";
 const WIKI = name => "https://en.wikipedia.org/w/index.php?search=" + encodeURIComponent(name);
 
+// IMSLP files people "Surname, Forename", and composers.json ships that string only for the 56
+// composers it does not reduce to — the other 406 carry "" and are derived here, which is 6 KB of
+// a 53 KB boot dependency. THE ONE LINE IS THE WHOLE RISK, so nothing trusts it: build_data.py
+// emits "" only where its own copy of this reduction reproduces the category the scrape found,
+// validate.py re-derives all 462 against that cache with a third copy, and ui.test.mjs reads the
+// href the browser ends up with for one derived composer and one override. A row that ships null
+// was never placed on IMSLP at all and has nowhere to point (invariant 10's three answers).
+const imslpCat = name => {
+  const t = name.split(" ");
+  return t.length > 1 ? t[t.length - 1] + ", " + t.slice(0, -1).join(" ") : name;
+};
+// Spaces to underscores, then encodeURI — which leaves the comma, the colon and the parentheses
+// IMSLP writes into its own titles alone and escapes the accents. Matches page_url() in
+// scripts/imslp-audit.py, which is what any link checked against the cache will have used.
+const IMSLP = cat =>
+  "https://imslp.org/wiki/" + encodeURI(("Category:" + cat).replace(/ /g, "_"));
+
 let META = {}, ROWS = [], selected = null, hovered = null, visible = null;
 let HIST = null;                   // {months, series:{name:[views|null,…]}} once it lands, else null
 // "" = everyone. Otherwise a Wikidata P21 label, matched against the row verbatim — the control,
@@ -354,6 +371,8 @@ function renderDetail(i, preview) {
       : `${atLeast(d.views)}  (${spread(d.lo, d.hi)})`);
   el.appendChild(dl);
 
+  el.appendChild(imslpLine(d));
+
   // Not in the full-screen strip: `lean` has already returned above. Its height is fixed because
   // #plot is flex:1 there, so anything that grows on select re-lays out the chart under the
   // finger that just tapped it.
@@ -379,6 +398,43 @@ function renderDetail(i, preview) {
   el.appendChild(a);
 
   navRow(el, preview, false);
+}
+
+// ONE LINE, ALWAYS, in all three states — because the panel's height is not free here. It is a
+// fixed-height strip in full screen (which returns before this is reached) and has a measured
+// min-height wherever a pointer exists, so a clause that appears for some composers and not others
+// would pump the legend under it every time the cursor crossed a dot. That is the mistake #35 cut
+// the generated lede for.
+//
+// THE THREE STATES ARE THE THREE ANSWERS, and the table's digit can only carry two of them: `0`
+// there means both "IMSLP holds this composer and none of their quartets" and "we could not place
+// them at all", which is a decision, not an oversight. This is where the difference is in words.
+// The absent case says "no IMSLP page found" and never "not on IMSLP": what we know is that no
+// P839 claim, no IMSLP page linking their article and no Surname, Forename guess reached them —
+// good evidence, and not the same as having asked.
+//
+// "works", not "quartets". The count is of distinct works on IMSLP's own quartet-instrumentation
+// pages, which legitimately hold fugues, fragments and single movements no numbered list counts —
+// and it is not composers.json's `quartets`, which is how many the composer WROTE, from Wikipedia
+// prose. The two sit one line apart and must not read as the same number differently measured.
+function imslpLine(d) {
+  const p = document.createElement("p");
+  p.className = "imslp";
+  if (!d.imslpUrl) {
+    p.textContent = "No IMSLP page found";
+    return p;
+  }
+  const a = document.createElement("a");
+  a.className = "pill";
+  a.href = d.imslpUrl;
+  a.target = "_blank";
+  a.rel = "noopener";
+  a.textContent = "IMSLP";
+  a.setAttribute("aria-label", `${d.name} on IMSLP`);
+  p.appendChild(a);
+  p.appendChild(document.createTextNode(
+    d.imslp ? ` ${d.imslp} work${d.imslp === 1 ? "" : "s"}` : " no quartets there"));
+  return p;
 }
 
 // Prev/Next step through the table's order and are worth their width in the panel; in the strip
@@ -985,9 +1041,12 @@ async function start() {
   // detail panel read. Both are indexed identically, and that index IS the shared selection key.
   ROWS = data.rows.map((r, i) => ({
     i, name: r[0], birth: r[1], death: r[2], quartets: r[3],
-    views: r[4], lo: r[5], hi: r[6], gender: r[7],
+    views: r[4], lo: r[5], hi: r[6], gender: r[7], imslp: r[8],
     living: r[2] == null,
     lifespan: r[2] == null ? null : r[2] - r[1],
+    // Resolved once, here, so the table cell and the detail panel cannot disagree about where a
+    // composer's scores are. null all the way through where the join could not place them.
+    imslpUrl: r[9] == null ? null : IMSLP(r[9] || imslpCat(r[0])),
   }));
 
   // Loud, the way chart.js is about a renamed canon: the UI suite fails on a console error, so a
