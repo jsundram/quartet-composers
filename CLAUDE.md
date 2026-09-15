@@ -330,7 +330,7 @@ framework, and nothing to install:
   it is checked for rather than assumed: this Chromium drops a synthetic wheel now and then under
   emulation, so `wheel()` re-sends one that moved nothing and the run prints how often it had to.
 - `python3 scripts/ui-test.test.py` — the RUNNER rather than the app: the two ports
-  `ui-test.sh` derives from the checkout's own path, in thirteen cases that need no browser. They
+  `ui-test.sh` derives from the checkout's own path, in cases that need no browser. They
   were fixed at 8765/9333 and are cleared with a `pkill -f` that matches every process on the
   machine, so a second checkout starting up killed the first one's browser and server mid-run —
   and the victim was the run that had done nothing wrong (#49). Deriving the default gives every
@@ -391,6 +391,26 @@ framework, and nothing to install:
   source which does not answer leaves both series and record alone, that a log which could not be
   READ is not written down as "no move", and that a record collapsing to nothing is not written
   down either.
+- `python3 scripts/imslp.test.py` — the IMSLP join's judgements, offline: the wikitext readers, the
+  catalogue parse, the work counting and the date confirmation all read strings. It exists because
+  every defect that join has had was a wrong PARSE presenting as a missing row, and a missing row
+  here is invisible — nothing says how many rows there should be. A line-anchored field reader
+  turned every IMSLP date into `None`, because the person template packs three fields onto one line;
+  a pattern that stopped at the first `|` read the article title out of `[[wikipedia:{{#iflang:…}}]]`
+  as the literal `{{`, which took out the six biggest quartet catalogues on the site while the long
+  tail joined fine and the totals looked healthy. Neither crashed. The join is not shipped yet; see
+  TODO.md.
+- `python3 scripts/fetch_imslp.test.py` — the crawl's REQUEST SEQUENCE, `get` stubbed against a
+  dict-shaped wiki and the cache in a temp file. Separate from the suite above because it answers a
+  question no reader of the cache can: that one asks whether a string parsed correctly, this asks
+  whether a warm run asked the site anything at all. `fetch_works()` returned early on a cached
+  listing, and the category crawl is the only place a work page or a composer can ENTER this
+  pipeline — every other pass is keyed by a title it would never have been told — so a monthly run
+  would have discovered nothing forever and exited 0 doing it (#62). No symptom: nothing says how
+  many quartet pages IMSLP holds, every number in the cache stays plausible, and the file simply
+  stops growing. So the cases assert what a run ASKS FOR, and just as hard what it declines to ask
+  for, because "re-ask everything" is `--refresh` and costs megabytes of unchanged wikitext against
+  a volunteer-funded server.
 - `scripts/refresh.py` — not a test but the same discipline: it decides whether a top-up is DUE
   (does `composers.json` already cover the last complete month?), runs the three pipeline stages,
   refuses to bump `V` if `validate.py` fails, and is a pure no-op otherwise.

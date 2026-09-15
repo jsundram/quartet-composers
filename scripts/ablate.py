@@ -89,11 +89,14 @@ COVERS = [
     # ablated against the suite written for it, which is the failure the whole PR is about.
     (("scripts/ablate.py", "scripts/fix-lint.py"),
                                       ["python3 scripts/fix-lint.test.py"]),
-    # The IMSLP join. Both files, because the PURE half lives in build_imslp.py — fetch_imslp.py
-    # imports candidates() and parse_person() from it rather than keeping a second copy, so a
-    # change to either is a change to what the suite asserts.
-    (("scripts/build_imslp.py", "scripts/fetch_imslp.py"),
-                                      ["python3 scripts/imslp.test.py"]),
+    # The IMSLP join's PURE half: the wikitext readers, the catalogue parse, the work counting.
+    (("scripts/build_imslp.py",),     ["python3 scripts/imslp.test.py"]),
+    # The crawl, and ONLY its own suite. imslp.test.py used to be listed here as well, on the
+    # grounds that fetch_imslp.py imports parse_person() and candidates() from build_imslp.py —
+    # but it is a pure suite that never loads this module, so no change confined to this file can
+    # redden it, and it arrived on every crawl branch as a guaranteed also-ran. A suite that
+    # cannot go red does not testify; that is the whole premise of this gate.
+    (("scripts/fetch_imslp.py",),     ["python3 scripts/fetch_imslp.test.py"]),
     # The RUNNER, which is source now that it has logic of its own to get wrong (#49) — see the
     # note under SOURCE. BOTH suites, because it has two halves and only one of them is about
     # ports: the offline one answers for the derivation and the guards, and the browser one for

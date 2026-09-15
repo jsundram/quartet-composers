@@ -780,10 +780,31 @@ closed.
 
 Two things found while writing it that are defects in what already exists, not part of that work:
 
-- **`fetch_works()` skips the category crawl when the cache has it, so a monthly run would never
-  discover a new work page.** Every other pass is keyed by title and tops up correctly — only
-  discovery is broken, and it is the cheapest pass on the list (~12 requests). This has to be
-  fixed before `refresh.py` can sensibly run the IMSLP stages monthly.
+- **~~`fetch_works()` skips the category crawl when the cache has it, so a monthly run would never
+  discover a new work page.~~** — done, 2026-09-13 (#62). The crawl always runs now and prints what
+  it found. The rule it settled is worth keeping: **every ABSENCE is re-asked, and only absences.**
+  A composer page that yields no key, a P839 Wikidata does not state, a guessed category with no
+  page behind it, an article IMSLP names that does not exist — each is an answer an editor can
+  change, and a cache that never re-asks one has #62's defect a pass over. The mirror of it is that
+  **an absence nothing CAN change is written down as an answer**: en.wikipedia reports a
+  `{{wp|de:…}}` title in its own block and never under `pages`, and refuses a `{{wp|[[…]]}}` one as
+  `invalid`, so re-asking either was a question no reply could ever settle. 233 of the 236
+  unresolved titles are that shape. A warm run is 48 requests against ~238 cold, and `get()` asks
+  for gzip now — `wbgetentities` has no per-property filter, so the P839 pass alone was pulling
+  24.6 MB against 4.0 MB compressed.
+  `scripts/fetch_imslp.test.py` is what keeps it that way: the defect was a property of the request
+  SEQUENCE and nothing that reads the cache can see it. Six review rounds found five more defects
+  of the same shape, three of them introduced by the previous round's fix — an answer recorded
+  where nothing looks it up. That is the argument for the suite, not an argument about the crawl.
+- **The off-roster half of the join is [#68](https://github.com/jsundram/quartet-composers/issues/68).**
+  IMSLP holds 1,771 composers with a string quartet and this roster names 884; the join keeps only
+  the inner half and `data/imslp-audit.json` counts the rest and drops it. 2,542 pages and 1,295
+  composers in the plain category are off-roster, 539 of them identified on Wikidata and simply
+  absent from the Wikipedia list — Anton Stamitz, Praeger, Mayseder, Carl Stamitz, J.C. Bach. The
+  crawl already holds every page title and every composer page; the only fetching gap is work info
+  for the off-roster pages, 51 requests and ~0.9 MB. The issue also records why the work COUNT is
+  the hard part (two catalogue systems, no crosswalk) and why the category is clean enough not to
+  filter (95.6% state a string quartet verbatim; ~12 flute-quartet pages).
 - **`data/imslp.json` is the scrape cache and collides by name with the shipped file #61 adds.**
   Rename to `data/imslp-scrape.json`. It is also 3.5 MB and badly encoded — `markers` spends
   648 KB on four named booleans per page where an int bitmask would do, and `works` repeats three
@@ -805,10 +826,17 @@ already fought over (issue 29). The standalone file costs none of that and is th
 somebody wants the coverage numbers *while looking at the chart* — at which point the answer is
 probably the detail panel and a table column, not a second page.
 
-**Cost of a refresh.** ~165 requests, one per second, everything cached and never refetched;
-`--refresh` is the only way to re-ask. It does not belong in the monthly `refresh.py` job yet —
-IMSLP's catalogue moves slowly and the run is the one part of this pipeline that talks to a
-volunteer-funded server.
+**Cost of a refresh.** ~238 requests for a cold crawl, one per second — measured off the shipped
+cache at the batch sizes this uses, where markers (99) and work info (38) are over half of it. A warm one is 48: the two
+instrumentation categories, because they are the only place a new work page can appear, and every
+ABSENCE — the 797 composer pages that yield no key, the 485 roster QIDs stating no P839, the 477
+guesses with no page or nothing joinable behind them, and the 3 articles that genuinely do not
+resolve — the other 233 name another wiki, which en.wikipedia answers once and for good.
+Everything else tops up by page title and `--refresh` is still the only way to make it re-ask,
+which is what keeps 3.5 MB of unchanged wikitext off a volunteer-funded server. Joining the
+monthly `refresh.py` job is #61's step 4 — what is left is deciding when an IMSLP top-up is DUE,
+and that needs the shipped file that issue adds, since the pageview window cannot answer for a
+catalogue that moves on nobody's schedule.
 
 ---
 
