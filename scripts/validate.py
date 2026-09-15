@@ -557,8 +557,9 @@ def check_imslp(rows, meta, join, scrape, works):
             known.update(c[len("Category:"):] if c.startswith("Category:") else c
                          for c in (cats or []))
         for kind in ("orig", "arr"):
-            known.update(w["composer"] for w in (scrape.get("works") or {}).get(kind, [])
-                         if w.get("composer"))
+            known.update(composer
+                         for _id, _t, composer in (scrape.get("works") or {}).get(kind, [])
+                         if composer)
 
     orphans = sorted(set(composers) - set(by_name))
     if orphans:
@@ -593,7 +594,7 @@ def check_imslp(rows, meta, join, scrape, works):
             warn("%s: ships %r verbatim where the derivation already produces it — %d bytes on "
                  "every such row" % (name, cat, len(cat)))
         if known and want not in known:
-            err("%s: IMSLP category %r is not one data/imslp.json holds" % (name, want))
+            err("%s: IMSLP category %r is not one data/imslp-scrape.json holds" % (name, want))
         if imslp != e["works_n"]:
             err("%s: ships %d IMSLP works, the join counted %d" % (name, imslp, e["works_n"]))
 
@@ -724,7 +725,7 @@ def main():
         check_names(rows, people)
         check_resolved(people)
         check_imslp(rows, meta, load("data/imslp-join.json", required=False),
-                    load("data/imslp.json", required=False),
+                    load("data/imslp-scrape.json", required=False),
                     load("imslp-works.json", required=False))
         if not args.no_drift:
             check_drift(rows, baseline_rows(args.baseline))

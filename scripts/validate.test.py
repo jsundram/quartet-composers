@@ -315,7 +315,7 @@ def invented_gender(d):
 
 
 # What run_case copies and hands to a mutation, as {key in `d`: path in the checkout}. The IMSLP
-# SCRAPE is not here: it is 3.1 MB, nothing mutates it, and copying it 30-odd times doubled this
+# SCRAPE is not here: it is megabytes, nothing mutates it, and copying it 30-odd times doubled this
 # suite's runtime — it is hardlinked below instead, which costs nothing and is safe exactly because
 # no case writes it.
 MUTABLE = {
@@ -326,7 +326,7 @@ MUTABLE = {
     "join": "data/imslp-join.json",
     "works": "imslp-works.json",
 }
-READONLY = ["data/list.json", "data/imslp.json"]
+READONLY = ["data/list.json", "data/imslp-scrape.json"]
 
 
 # ---------------------------------------------------------------- the IMSLP columns
@@ -349,7 +349,7 @@ def bad_derivation(d):
     row[9] = ""
 
 
-@case("an IMSLP category the scrape never saw", "not one data/imslp.json holds")
+@case("an IMSLP category the scrape never saw", "not one data/imslp-scrape.json holds")
 def invented_cat(d):
     row, e = placed(d)
     e["cats"][0] = "Nobody, Atall"

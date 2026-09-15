@@ -8,7 +8,7 @@
     python3 scripts/imslp-report.py                    # -> imslp-coverage.html
     python3 scripts/imslp-report.py --out /tmp/x.html
 
-Reads composers.json, imslp.json and data/imslp-audit.json. Offline, no dependencies, and no
+Reads composers.json, data/imslp-join.json and data/imslp-audit.json. Offline, no dependencies, and no
 numbers of its own: every figure on the page is computed here from those three files at render
 time. That is the point of it being a script rather than a document — the roster grows, the
 monthly top-up moves every readership figure, and IMSLP gains scores, so a coverage report typed
@@ -420,7 +420,7 @@ def main():
 
     w('<footer>')
     w('<p>Source: IMSLP <code>api.php</code>, crawled at one request per second and cached in '
-      '<code>data/imslp.json</code>. Quartets are IMSLP&rsquo;s own instrumentation category '
+      '<code>data/imslp-scrape.json</code>. Quartets are IMSLP&rsquo;s own instrumentation category '
       '<em>For 2 violins, viola, cello</em>; arrangements are a separate category and are '
       'counted separately. Readership is the median of the last twelve months of English '
       'Wikipedia page views.</p>')

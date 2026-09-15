@@ -373,14 +373,15 @@ def scope_beats_pattern(_):
 
 @case("what to fetch work info for is derived from the CACHE, not from the last build's output")
 def attributable_from_cache(_):
-    # The first version read the shipped imslp.json, which fetch_imslp.py calls BEFORE that file
+    # The first version read the previous build's data/imslp-join.json, which fetch_imslp.py
+    # calls BEFORE that file
     # exists on a cold clone: it returned [], no catalogue fields were fetched, and every page
     # then read as uncatalogued — works_n silently equalled pages for the whole roster.
     people = json.load(open(os.path.join(ROOT, "data", "people.json"), encoding="utf-8"))
     qid = next(v["qid"] for v in people.values() if v.get("qid"))
     cache = {
-        "works": {"orig": [{"id": 1, "title": "String Quartet No.1", "composer": "X, Y"},
-                           {"id": 2, "title": "Nope", "composer": "Stranger, A"}],
+        "works": {"orig": [[1, "String Quartet No.1", "X, Y"],
+                           [2, "Nope", "Stranger, A"]],
                   "arr": []},
         "wikitext": {"X, Y": "{{#fte:person\n|List Pages=*{{Wikidata|%s}}\n}}" % qid,
                      "Stranger, A": "{{#fte:person\n|Sex=male\n}}"},

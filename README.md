@@ -39,7 +39,7 @@ offline and the exact bytes behind a deploy stay in git.
 python3 scripts/scrape_list.py      # the wiki page  -> data/list.json + data/list.wiki
 python3 scripts/fetch_wikidata.py   # canonical titles + P569/P570 + P21 -> data/people.json
 python3 scripts/fetch_views.py      # every month since 2015-07 -> data/pageviews.json
-python3 scripts/fetch_imslp.py      # IMSLP's quartet pages and composers -> data/imslp.json
+python3 scripts/fetch_imslp.py      # IMSLP's quartet pages and composers -> data/imslp-scrape.json
 python3 scripts/build_imslp.py      # join them onto this roster -> data/imslp-join.json
 python3 scripts/build_data.py       # combine  -> composers.json + readership.json + imslp-works.json
 ```

@@ -395,8 +395,11 @@ human grades. No test framework, and nothing to install:
   fields onto one line); a pattern that stopped at the first `|` read the article title out of
   `[[wikipedia:{{#iflang:…}}]]` as the literal `{{`, which took out Beethoven, Mozart, Haydn,
   Bach, Brahms and Dvořák — the six biggest quartet catalogues on the site — while eleven hundred
-  lesser names joined fine and the totals looked healthy. Neither crashed. The join itself is not
-  shipped yet; see TODO.md.
+  lesser names joined fine and the totals looked healthy. Neither crashed. Since #61 it also covers
+  `catalogue()`, which returns the per-page work counts and the composer's total from ONE parse —
+  derived twice, `imslp-works.json` could state four works on a row under a heading counting three
+  and neither number would look wrong — and `compress()`, which moved here from `imslp-audit.py` so
+  the shipped rows and the audit page collapse a range of opus numbers the same way.
 - `python3 scripts/fetch_imslp.test.py` — the crawl's REQUEST SEQUENCE, with `get` stubbed against
   a dict-shaped wiki and the cache in a temp file, so it needs no network and runs in CI. It is a
   separate suite from the one above because it answers a question no reader of the cache can:
@@ -412,7 +415,7 @@ human grades. No test framework, and nothing to install:
   identifier is re-read and a `{{wp}}` link added since is followed all the way to a resolved QID,
   that a P839 claim, a guessed category page and a redirect appearing since are all picked up —
   and, just as hard, what it declines to ask for, because "re-ask everything" is `--refresh` and
-  costs 3.5 MB of unchanged wikitext against a volunteer-funded server.
+  costs megabytes of unchanged wikitext against a volunteer-funded server.
 - `scripts/refresh.py` — not a test but the same discipline: it decides whether a top-up is DUE
   (does `composers.json` already cover the last complete month?), runs the three pipeline stages,
   refuses to bump `V` if `validate.py` fails, and is a pure no-op otherwise.
