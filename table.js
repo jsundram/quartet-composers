@@ -26,8 +26,8 @@ window.Table = (function () {
     { key: "quartets", label: "Quartets",  num: true,  phone: true, short: "Qts" },
     { key: "views",    label: "Views",     num: true,  phone: true },
     // What IMSLP HOLDS, beside what the composer WROTE — two different questions, and the reader
-    // is expected to go and look when they disagree (Haydn: 76 here against 68 written). `phone`
-    // is false because the four columns that are already there did not fit 360px in every face
+    // is expected to go and look when they disagree, which for the big catalogues they routinely
+    // do. `phone` is false because the four columns already there did not fit 360px in every face
     // until #53 bought the width back, and a fifth would spend it again.
     { key: "imslp",    label: "On IMSLP",  num: true,  phone: false },
   ];
@@ -201,10 +201,10 @@ window.Table = (function () {
   // them at all — and the two are deliberately not distinguished in the DIGIT (see the detail
   // panel, which does distinguish them in words).
   //
-  // A link whose text is "18" has the accessible name "18", which tells a screen-reader user
-  // nothing about where it goes; there are 884 of them on this page. The label restates the
-  // visible digit FIRST, because WCAG 2.5.3 asks the name to contain the drawn label — a voice
-  // user says "click 18".
+  // A link whose text is a bare number has that number as its accessible name, which tells a
+  // screen-reader user nothing about where it goes — and this column is hundreds of them. The
+  // label restates the visible digit FIRST, because WCAG 2.5.3 asks the name to contain the drawn
+  // label: a voice user says "click 18".
   function imslpCell(d) {
     const td = document.createElement("td");
     td.className = "num c-imslp wide-only";

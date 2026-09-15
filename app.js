@@ -23,13 +23,13 @@ const DATA_URL = "./composers.json";
 const HIST_URL = "./readership.json";
 const WIKI = name => "https://en.wikipedia.org/w/index.php?search=" + encodeURIComponent(name);
 
-// IMSLP files people "Surname, Forename", and composers.json ships that string only for the 56
-// composers it does not reduce to — the other 406 carry "" and are derived here, which is 6 KB of
-// a 53 KB boot dependency. THE ONE LINE IS THE WHOLE RISK, so nothing trusts it: build_data.py
-// emits "" only where its own copy of this reduction reproduces the category the scrape found,
-// validate.py re-derives all 462 against that cache with a third copy, and ui.test.mjs reads the
-// href the browser ends up with for one derived composer and one override. A row that ships null
-// was never placed on IMSLP at all and has nowhere to point (invariant 10's three answers).
+// IMSLP files people "Surname, Forename", and composers.json ships that string only for the
+// composers this one line does not reduce to; the rest carry "" and are derived here, which keeps
+// a few KB out of a boot dependency. THE ONE LINE IS THE WHOLE RISK, so nothing trusts it:
+// build_data.py emits "" only where its own copy of this reduction reproduces the category the
+// scrape found, validate.py re-derives every one of them against that cache with a third copy, and
+// ui.test.mjs reads the href the browser ends up with for one derived composer and one override. A
+// row that ships null was never placed on IMSLP at all and has nowhere to point (invariant 10).
 const imslpCat = name => {
   const t = name.split(" ");
   return t.length > 1 ? t[t.length - 1] + ", " + t.slice(0, -1).join(" ") : name;

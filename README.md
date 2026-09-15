@@ -167,23 +167,24 @@ identity: IMSLP files people as `Surname, Forename` and nothing guarantees it sp
 Wikipedia does. So the join matches **identifiers, never names** — the Wikidata item or Wikipedia
 article an IMSLP composer page states, resolved back through en.wikipedia to a QID this roster
 already holds — and the one rung that does start from a spelling is accepted only when IMSLP's
-birth *and* death years agree with Wikidata's. 462 of the 884 are placed; the other 422 ship
+birth *and* death years agree with Wikidata's. About half the roster is placed; the rest ship
 `null`, which is **unknown, not empty**: no P839 claim, no IMSLP page linking their article and no
 `Surname, Forename` guess reached them, which is good evidence of absence and is not the same as
 having asked. The UI says "no IMSLP page found" and never "not on IMSLP".
 
-What is counted is **works, not pages**. IMSLP's unit is a publication entry, so Beethoven's 16
-quartets occupy 23 pages — three of them complete-set editions that reprint the others. Reading the
-`Opus/Catalogue Number` off each page, expanding a set by the designation its members share and
-merging by id collapses those 23 pages to **18**, which is his 16 plus the Grosse Fuge and the Hess
-30 fugue. The UI calls them quartets, which is looser than that parse and deliberately so — it is
-IMSLP's own category and what the reader came for. What it is **not** is (b): Haydn reads 76 here
-against a stated 68, because the instrumentation category legitimately holds fugues, fragments and
-single movements no numbered list counts. The two columns sit side by side answering different
-questions from different sources; they are never subtracted, and the reader is expected to go and
-look — which is what the link on the number is for. `scripts/imslp-audit.py` renders the parse against the source
-field for the 22 composers the chart highlights, because the measure of a parser is a human reading
-it against the page (the same rule `audit_counts.py` exists for).
+What is counted is **works, not pages**. IMSLP's unit is a publication entry, so Beethoven's
+sixteen quartets occupy more pages than that — several of them complete-set editions that reprint
+the others. Reading the `Opus/Catalogue Number` off each page, expanding a set by the designation
+its members share and merging by id collapses the pages back to the works, which for him is the
+sixteen plus the Grosse Fuge and the Hess 30 fugue. The UI calls them quartets, which is looser
+than that parse and deliberately so — it is IMSLP's own category and what the reader came for. What
+it is **not** is (b): the two columns routinely disagree, because the instrumentation category
+legitimately holds fugues, fragments and single movements no numbered list counts. They sit side by
+side answering different questions from different sources; they are never subtracted, and the
+reader is expected to go and look — which is what the link on the number is for.
+`scripts/imslp-audit.py` renders the parse against the source field for the composers the chart
+highlights, because the measure of a parser is a human reading it against the page (the same rule
+`audit_counts.py` exists for).
 
 The honest name for (d) is **English Wikipedia readership**, not popularity — a Czech or Russian
 composer's readers are largely on their own language's Wikipedia, which this does not count. The

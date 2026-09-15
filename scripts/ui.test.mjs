@@ -2076,7 +2076,7 @@ check("sort by Died keeps living composers off the top",
 // --- 5b. the On IMSLP column --------------------------------------------------
 // The cell is a LINK whose text is a bare number, which is three ways to be wrong at once: it can
 // sort as a string, it can send a screen reader "18" with no destination, and its href is built
-// from a one-line rule that composers.json deliberately does not ship for 406 of the 462 composers
+// from a one-line rule that composers.json deliberately does not ship for most of the composers
 // who have one. All three are checked here, because none of them looks wrong on screen.
 // Every read below is guarded, for the reason the lens reads are (section 4m): ABLATION runs this
 // file against the tree WITHOUT the column, and a suite that throws there dies having proved
@@ -2105,13 +2105,13 @@ const imslpWho = await ev(`document.querySelector('tbody tr td.c-imslp a')
 // WCAG 2.5.3 again, and the reason #53 made this a CDP call rather than a DOM read: an aria-label
 // added later overrides the markup, so the name the BROWSER computes is the only thing worth
 // asserting. It has to contain the drawn digit (a voice user says "click 18") and the composer,
-// because there are 884 links on this page whose text is a number.
+// because this column is hundreds of links whose text is a number.
 check("an On IMSLP link's accessible name carries the digit and the composer",
       !!imslpText && !!imslpWho && imslpName.includes(imslpText)
       && imslpName.includes(imslpWho) && imslpName.includes("IMSLP"),
       `${JSON.stringify(imslpName)} for ${JSON.stringify(imslpWho)} (${imslpText})`);
 // THE ONE UNCHECKED STEP in the whole column: composers.json ships "" for a category that reduces
-// to `Surname, Forename` and the string itself for the 56 that do not, and app.js restates that
+// to `Surname, Forename` and the string itself for the ones that do not, and app.js restates that
 // reduction in JS. Python's two copies are checked against the scrape cache by validate.py; this is
 // the only thing that can say the JS agrees — one derived composer and one override.
 const hrefFor = async name => await ev(`(()=>{const r=[...document.querySelectorAll('tbody tr')]

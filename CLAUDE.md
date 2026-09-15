@@ -212,20 +212,20 @@ commit" — and the docs spent a 300-line lint keeping such numbers honest inste
    quartets and for one nothing could place — deliberately not distinguished in the digit, because
    the reader's next move is the same either way. `imslp_cat` is `null` for the second (nowhere to
    link), `""` for a composer whose category reduces to `Surname, Forename`, and the category
-   VERBATIM for the 56 whose does not (`Shostakovich, Dmitry`, `Beach, Amy Marcy`). Shipping only
+   VERBATIM for the ones whose does not (`Shostakovich, Dmitry`, `Beach, Amy Marcy`). Shipping only
    the exceptions costs ~280 bytes against 13 KB for all of them, and it is safe **because the
    build verifies it, not because the rule is trustworthy**: `build_data.py` emits `""` only where
-   its own reduction reproduces the category the scrape found, `validate.py` re-derives all 462
-   against `data/imslp-join.json` with an independent copy of the line, and `app.js` restates it a
-   third time in JS with `ui.test.mjs` reading the `href` the browser ends up with for one derived
-   composer and one override. What is COUNTED is distinct **works, not pages** — 23 Beethoven pages
-   reduce to 18 — and invariant 11's rule applies to that parse, which is what
+   its own reduction reproduces the category the scrape found, `validate.py` re-derives every one
+   of them against `data/imslp-join.json` with an independent copy of the line, and `app.js`
+   restates it a third time in JS with `ui.test.mjs` reading the `href` the browser ends up with
+   for one derived composer and one override. What is COUNTED is distinct **works, not pages** —
+   one page can hold a whole cycle — and invariant 11's rule applies to that parse, which is what
    `scripts/imslp-audit.py` grades against the page. What the UI CALLS them is "quartets", which is
    looser than the parse and deliberately so: it is IMSLP's own category and what the reader came
    for. **The thing that must never happen is subtracting it from `quartets`**, which is how many
-   the composer WROTE, from Wikipedia prose — Haydn reads 76 against a stated 68, and the two
-   columns sit one apart answering different questions from different sources. Copy about the
-   absences is the other half: "no quartets **found**" for a composer IMSLP holds none for, and "no
+   the composer WROTE, from Wikipedia prose. The two columns sit one apart, routinely disagree,
+   and answer different questions from different sources. Copy about the absences is the other
+   half: "no quartets **found**" for a composer IMSLP holds none for, and "no
    IMSLP page found", never "not on IMSLP" — what we know is that no P839 claim, no page linking
    their article and no name guess reached them, which is evidence and is not the same as having
    asked.
