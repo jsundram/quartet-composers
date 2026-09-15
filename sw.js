@@ -31,7 +31,7 @@
 // one that never updates. The seven review rounds behind this design: #7.
 
 // pwa-starter: sw.js @ d2fad01  (Google Fonts branch removed — this app ships system fonts only.)
-const V = "quartets-v67";   // <-- BUMP ON EVERY SHELL CHANGE (rename the stem freely; keep the digits)
+const V = "quartets-v68";   // <-- BUMP ON EVERY SHELL CHANGE (rename the stem freely; keep the digits)
 
 // "quartets-v" — the stem shared by every cache generation. app.js's VER_PREFIX must match it, and the
 // NUMERIC TAIL is load-bearing: it orders generations for the collect below and for checkVer()'s
@@ -61,6 +61,11 @@ const SHELL = [
   // waits for it, so precaching it buys the sparkline offline while gating a navigation on it
   // would replace a working page with the offline notice over a decoration.
   "./readership.json",
+  // The IMSLP work pages behind the table's "On IMSLP" column, on the same terms as
+  // readership.json above: SHELL so it is there offline, not a BOOT dep because the page is
+  // complete without it. composers.json carries the COUNT and the category, which is everything
+  // drawn today; this is the per-page detail behind them.
+  "./imslp-works.json",
   "./assets/icon.svg", "./assets/icon-180.png", "./assets/icon-192.png", "./assets/icon-512.png",
 ];
 

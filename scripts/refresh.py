@@ -103,8 +103,16 @@ def main():
         print("up to date — nothing fetched, nothing written")
         return 0
 
-    # fetch_views.py is the only stage that touches the network, and it only asks for months it
-    # does not already hold. build_data.py then rebuilds BOTH shipped files from the caches.
+    # fetch_views.py and fetch_imslp.py are the stages that touch the network, and both only ask
+    # for what they do not already hold. build_data.py then rebuilds all three shipped files from
+    # the caches.
+    #
+    # THE IMSLP STAGES RIDE ALONG RATHER THAN HAVING A SCHEDULE OF THEIR OWN. New scores appear
+    # continuously and nothing says when, so there is no equivalent of "composers.json already
+    # covers the last complete month" to ask — and a second cadence would mean a second PR a human
+    # has to read. The month rollover is as good a trigger as any, and it is the one that already
+    # exists. build_imslp.py runs BEFORE build_data.py: composers.json carries the IMSLP columns
+    # now, so the join has to exist before the file that ships it.
     #
     # make-og-svg.py joined the list when the Fame jitter stopped being a name hash (#45). It is
     # ranked by readership now, so a top-up that changes who out-reads whom inside one quartet
@@ -113,9 +121,21 @@ def main():
     # leaving it alone was safe; now a refresh that skips it ships a share card whose dots no
     # longer sit where the app draws them, which is precisely the drift invariant 14 exists to
     # stop. It reads composers.json and writes assets/og.svg, so it must run AFTER build_data.py.
-    for stage in (("fetch_views.py",), ("build_data.py",), ("make-og-svg.py",), ("validate.py",)):
+    # A FAILED IMSLP CRAWL IS NOT A FAILED REFRESH. It is a second network dependency on a job
+    # whose point is the readership top-up, and IMSLP is one volunteer-funded server: a bad
+    # afternoon there would otherwise cost the month's page views too, for a month. The cache is
+    # committed and build_imslp.py is offline, so carrying on ships last month's IMSLP numbers
+    # beside this month's readership — and the line below says so in the run log and therefore in
+    # the PR. Every other stage is fatal, the gate included.
+    for stage in (("fetch_views.py",), ("fetch_imslp.py",), ("build_imslp.py",),
+                  ("build_data.py",), ("make-og-svg.py",), ("validate.py",)):
         rc = run(*stage)
         if rc != 0:
+            if stage[0] == "fetch_imslp.py":
+                print("\n%s failed (exit %d) — continuing on the committed cache, so the IMSLP "
+                      "columns are as of the last successful crawl" % (stage[0], rc),
+                      file=sys.stderr)
+                continue
             print("\n%s failed (exit %d) — nothing was version-bumped" % (stage[0], rc),
                   file=sys.stderr)
             return rc
@@ -126,8 +146,12 @@ def main():
     # Outside a git checkout there is nothing to compare against, so the bump happens — a spurious
     # generation costs one re-download, while a missed one is invariant 1's failure and reaches
     # nobody.
+    # imslp-works.json is on this list because it is PRECACHED, which is the only thing the bump
+    # is about: a run where IMSLP grew and the page views did not is still a run installed copies
+    # cannot see without a new generation.
     git = subprocess.run(["git", "-C", ROOT, "status", "--porcelain",
-                          "composers.json", "readership.json", "data/pageviews.json"],
+                          "composers.json", "readership.json", "imslp-works.json",
+                          "data/pageviews.json"],
                          capture_output=True, text=True)
     if git.returncode == 0 and not git.stdout.strip():
         print("\nthe data did not actually change — no version bump")

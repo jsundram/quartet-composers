@@ -4,10 +4,16 @@
 # ///
 """Join IMSLP's string quartets onto this roster. Offline; reads only caches.
 
-    python3 scripts/build_imslp.py            # writes imslp.json, prints the join audit
+    python3 scripts/build_imslp.py            # writes data/imslp-join.json, prints the join audit
     python3 scripts/build_imslp.py --report   # audit only, writes nothing
 
-data/imslp.json (the cache) + data/people.json + composers.json  ->  imslp.json (shipped)
+data/imslp-scrape.json (the crawl) + the caches build_data.py reads  ->  data/imslp-join.json
+
+THE ROSTER COMES FROM build_data.build_rows(), NOT FROM composers.json. This stage runs BEFORE
+build_data.py now — composers.json carries an IMSLP column, so reading it here would be a cycle —
+and calling the function that decides the roster is what keeps the two from disagreeing about who
+is on this list. Reducing the caches a second time here would be a second opinion, and a join
+against a roster the app does not ship is a count filed under a name nothing looks up.
 
 THE JOIN IS BY QID AND IT IS CONFIRMED, NOT ASSUMED. Every IMSLP composer category page states
 its own Wikidata item; every roster composer already has one (data/people.json). Matching those
@@ -25,18 +31,22 @@ composer somebody else's catalogue produces entirely plausible numbers and nothi
 The dates are not overwritten here — composers.json's dates come from Wikidata (invariant 4)
 and this file is not a second opinion about when anyone was born.
 
-WHAT IS COUNTED IS PAGES, NOT QUARTETS, and the difference is not a rounding error. IMSLP's unit
-is a publication entry: "Sämtliche Streichquartette (Beethoven, Ludwig van)" is one page holding
-sixteen quartets, and Beethoven's 23 pages cover 16 quartets plus the Grosse Fuge, two
-complete-edition collections and a fugue fragment. So the field this ships is `pages`, the noun
-is "score pages on IMSLP", and nothing here claims to know how many quartets IMSLP has. Comparing
-it against composers.json's `quartets` (which counts works, from Wikipedia prose) is comparing
-two different units — the app may show both, and must not subtract one from the other.
+A PAGE IS NOT A QUARTET, and the difference is not a rounding error. IMSLP's unit is a publication
+entry: "Sämtliche Streichquartette (Beethoven, Ludwig van)" is one page holding sixteen quartets,
+and his 23 pages cover 16 of them plus the Grosse Fuge, two complete-edition collections and a
+fugue fragment. So `pages` is reported beside `works_n`, which reads the catalogue number off each
+page, expands a set by the designation its members share and merges by id — 23 pages, 18 works.
+`works_n` is the number that ships (composers.json's `imslp`) and it is STILL not that file's
+`quartets`, which counts what the composer WROTE, from Wikipedia prose: IMSLP's instrumentation
+category legitimately holds fugues, fragments and single movements no numbered list counts. The
+two are different units and must not be subtracted from one another.
 
-NULL AND ZERO ARE DIFFERENT ANSWERS (invariant 10). `pages: 0` means IMSLP holds this composer
-and none of their quartets; `null` means we could not establish who they are on IMSLP at all, and
-that is unknown, not empty. A composer with no P839 on Wikidata and no quartet page on IMSLP is
-indistinguishable from one IMSLP has never heard of, and this file says so rather than guessing.
+NULL AND ZERO ARE DIFFERENT ANSWERS (invariant 10). A composer with 0 works means IMSLP holds them
+and none of their quartets; ABSENT from this file means we could not establish who they are on
+IMSLP at all, and that is unknown, not empty. A composer with no P839 on Wikidata and no quartet
+page on IMSLP is indistinguishable from one IMSLP has never heard of, and this file says so rather
+than guessing — build_data.py carries the distinction downstream as a null `imslp_cat`, because
+the count cannot (invariant 16).
 """
 import argparse
 import collections
@@ -54,14 +64,13 @@ sys.path.insert(0, HERE)
 # (composer)" (invariant 4). Indexing the roster by the canonical title therefore misses every
 # composer who needed one, which is 27 of them and includes the fourth-biggest quartet catalogue
 # on IMSLP. A second copy of that regex here would drift from the one that names the rows.
-from build_data import QUALIFIER
+from build_data import QUALIFIER, BuildError, build_rows
 ROOT = os.path.dirname(HERE)
-CACHE = os.path.join(ROOT, "data", "imslp.json")
+CACHE = os.path.join(ROOT, "data", "imslp-scrape.json")
 PEOPLE = os.path.join(ROOT, "data", "people.json")
-COMPOSERS = os.path.join(ROOT, "composers.json")
 # An INTERMEDIATE, not a shipped file: nothing in the app reads it, and the shape the
 # app will read is decided in issue #61. Living in data/ says so, and keeps the name
-# clear of data/imslp.json, which is the scrape cache.
+# clear of data/imslp-scrape.json, which is the crawl.
 OUT = os.path.join(ROOT, "data", "imslp-join.json")
 # The audit, as a FILE rather than as scrollback. Every number in it moves when the
 # pipeline runs, so anything that reports coverage has to read it rather than quote it.
@@ -95,7 +104,7 @@ STALE_DEATH = 4
 # the site — all use it, so the failure took out exactly the rows anyone would check first.
 # Wikidata is NOT the primary key here despite being the better one: only 136 of the 1,770 state
 # {{Wikidata|Q…}} at all, so the Wikipedia article is what IMSLP actually gives us and the QID is
-# recovered from it downstream (data/imslp.json "wp"), where en.wikipedia can be asked directly.
+# recovered from it downstream (data/imslp-scrape.json "wp"), where en.wikipedia can be asked directly.
 WP_PATTERNS = (
     # {{wp|Joseph Achron}}
     re.compile(r"\{\{\s*wp\s*\|\s*([^}|]+)", re.I),
@@ -350,12 +359,59 @@ def members_of(title, f):
     return int(lead.group(1)) if lead and not MOVT.match(n) else None
 
 
-def count_works(entry, workinfo):
-    """-> (works, uncatalogued, anthologies). Distinct works on this composer's quartet pages.
+RUN = re.compile(r"^(.*?)(\d+)([a-z]?)$")
+
+
+def compress(ids):
+    """"Op.72 No.1", "Op.72 No.2", "Op.72 No.3"  ->  "Op.72 No.1-3".
+
+    A set of six reads as one designation and a span, which is how the page itself writes it
+    ("6 String Quartets, Op.18"). Only CONSECUTIVE numbers on an identical stem collapse, so a gap
+    stays visible — a run printed over a missing number would hide exactly the thing a reader
+    checking this against IMSLP is looking for.
+
+    Lives here rather than in imslp-audit.py, where it was written, because the shipped file prints
+    the same spans the audit page does and two copies of a collapsing rule would eventually collapse
+    differently in the two places a reader compares.
+    """
+    out, run = [], []
+
+    def flush():
+        if not run:
+            return
+        stem, first, last = run[0][0], run[0][1], run[-1][1]
+        out.append(f"{stem}{first}" if len(run) == 1 else f"{stem}{first}–{last}")
+        run.clear()
+
+    for i in ids:
+        m = RUN.match(i)
+        if not m or m.group(3):                 # no trailing number, or a lettered one (417b)
+            flush()
+            out.append(i)
+            continue
+        stem, n = m.group(1), int(m.group(2))
+        if run and run[-1][0] == stem and n == run[-1][1] + 1:
+            run.append((stem, n))
+        else:
+            flush()
+            run.append((stem, n))
+    flush()
+    return out
+
+
+def catalogue(entry, workinfo):
+    """-> (pages, works, uncatalogued, anthologies) for one composer's quartet pages.
+
+    `pages` is entry["works"] with two columns appended per page: how many works that page holds,
+    and the catalogue ids behind that number, range-collapsed for printing. ONE parse feeds both
+    the per-page numbers the app shows and the composer's total — derived twice, the shipped row
+    could state four works under a heading that counts three, and neither number would look wrong.
 
     A page with no catalogue number at all is one work, UNLESS IMSLP types it a Collection: an
     anthology with nothing to identify its contents ("Selected String Quartets") is a reprint of
     works catalogued elsewhere on the same composer's pages, and adding it would count them twice.
+    Such a page ships with 0 rather than being dropped, because a row saying zero next to the
+    "is a collection" flag explains the composer's total; a row that is simply missing does not.
     """
     parent = {}
 
@@ -366,22 +422,32 @@ def count_works(entry, workinfo):
             x = parent[x]
         return x
 
+    pages = []
     loose = anthologies = 0
-    for title, _id, _flags, ci in entry["works"]:
+    for title, pid, flags, ci in entry["works"]:
         f = info_fields(workinfo.get(title + " (" + entry["cats"][ci] + ")"))
         groups = work_ids(f.get("Opus/Catalogue Number", ""), members_of(title, f))
         if not groups:
-            if f.get("Page Type") == "Collection":
-                anthologies += 1
-            else:
-                loose += 1
+            anthology = f.get("Page Type") == "Collection"
+            anthologies += anthology
+            loose += not anthology
+            pages.append([title, pid, flags, ci, 0 if anthology else 1, ""])
             continue
+        # The id a group is NAMED by is its alphabetically first alias, which is also the key the
+        # union-find merges on — so the printed id and the counted work are the same thing.
+        pages.append([title, pid, flags, ci, len(groups),
+                      ", ".join(compress([sorted(g)[0] for g in groups]))])
         for g in groups:
             ids = sorted(g)
             find(ids[0])
             for other in ids[1:]:
                 parent[find(ids[0])] = find(other)
-    return len({find(x) for x in list(parent)}) + loose, loose, anthologies
+    return pages, len({find(x) for x in list(parent)}) + loose, loose, anthologies
+
+
+def count_works(entry, workinfo):
+    """-> (works, uncatalogued, anthologies). The composer's total, without the per-page detail."""
+    return catalogue(entry, workinfo)[1:]
 
 
 def strip_ns(cat):
@@ -393,7 +459,7 @@ def roster_cats(cache):
     """Every IMSLP composer category an identifier ties to this roster.
 
     Derived from the CACHE and data/people.json only. The first version read the previous build's
-    `imslp.json`, which fetch_imslp.py calls before that file exists on a cold clone: it returned
+    `data/imslp-join.json`, which fetch_imslp.py calls before that file exists on a cold clone: it returned
     [], no catalogue fields were fetched, and count_works then read every page as uncatalogued —
     `works_n` silently equalled `pages` for the whole roster, with nothing red and the documented
     one-line rebuild producing exactly that.
@@ -433,9 +499,9 @@ def attributable_titles(cache, root=ROOT):
     cats = roster_cats(cache)
     out = []
     for kind in ("orig", "arr"):
-        for w in (cache.get("works") or {}).get(kind, []):
-            if w.get("composer") in cats:
-                out.append(w["title"] + " (" + w["composer"] + ")")
+        for _id, title, composer in (cache.get("works") or {}).get(kind, []):
+            if composer in cats:
+                out.append(title + " (" + composer + ")")
     return sorted(set(out))
 
 
@@ -448,11 +514,16 @@ def main():
     facts = {c: parse_person(t) for c, t in cache["wikitext"].items()}
     wpmap = cache.get("wp", {})
     people = json.load(open(PEOPLE, encoding="utf-8"))
-    comp = json.load(open(COMPOSERS, encoding="utf-8"))
-    fields = comp["fields"]
-    NAME, BIRTH, DEATH = fields.index("name"), fields.index("birth"), fields.index("death")
-    VIEWS = fields.index("views")
-    roster = {r[NAME]: r for r in comp["rows"]}
+    # The roster build_data.py will ship, built from the same caches by the same function — see
+    # the header. The positions are its BASE fields; the IMSLP columns are appended downstream,
+    # from this file's output.
+    try:
+        rows = build_rows()[0]
+    except BuildError as e:
+        print(e, file=sys.stderr)
+        return 1
+    NAME, BIRTH, DEATH, VIEWS = 0, 1, 2, 4
+    roster = {r[NAME]: r for r in rows}
 
     # Two indexes into the roster, both built from identifiers rather than from spellings.
     by_qid, by_title = {}, {}
@@ -470,25 +541,24 @@ def main():
     pages = {}          # imslp cat -> list of [title, id, flags]
     unattributed = []
     for kind in ("orig", "arr"):
-        for w in cache["works"][kind]:
-            if not w["composer"]:
-                unattributed.append(w["title"])
+        for pid, title, composer in cache["works"][kind]:
+            if not composer:
+                unattributed.append(title)
                 continue
-            full = w["title"] + " (" + w["composer"] + ")"
-            m = cache["markers"].get(full) or {}
+            full = title + " (" + composer + ")"
+            # A page with NONE of the four markers is 0, which is a perfectly good answer and
+            # falsy — so this is `.get(full, 0)` and never `.get(full) or 0`.
+            m = cache["markers"].get(full, 0)
             # COLLECTION comes from the page's own `Page Type`, not from Category:Collections,
             # which holds 22 of the 4,926 pages and misses every one of Beethoven's complete
             # editions. Shipping the category's answer meant "17 Streichquartette" went out with
             # works=0 and nothing on the row to explain the zero. The category is the fallback
             # only where no work info was fetched.
             info = info_fields(cache.get("workinfo", {}).get(full))
-            coll = (info.get("Page Type") == "Collection") if info else m.get("collection")
-            flags = (SCORES if m.get("scores") else 0) | \
-                    (RECORDINGS if m.get("recordings") else 0) | \
-                    (COLLECTION if coll else 0) | \
-                    (ARRANGEMENTS if m.get("arrangements") else 0)
-            pages.setdefault(w["composer"], {"orig": [], "arr": []})[kind].append(
-                [w["title"], w["id"], flags])
+            coll = (info.get("Page Type") == "Collection") if info else bool(m & COLLECTION)
+            flags = (m & ~COLLECTION) | (COLLECTION if coll else 0)
+            pages.setdefault(composer, {"orig": [], "arr": []})[kind].append(
+                [title, pid, flags])
 
     # ---- 2. resolve each IMSLP composer to a roster composer ------------------------------
     matched = {}        # roster name -> list of imslp cats
@@ -582,7 +652,7 @@ def main():
                 arr.append([t, i, fl, cats.index(cat)])
         works.sort(key=lambda w: w[0])
         arr.sort(key=lambda w: w[0])
-        works_n, loose, anth = count_works(
+        works, works_n, loose, anth = catalogue(
             {"works": works, "cats": cats}, cache.get("workinfo", {}))
         out[name] = {
             "cats": cats,
@@ -607,6 +677,7 @@ def main():
                      "and death years; {{wp}} article title where IMSLP states no QID; P839 "
                      "for composers IMSLP holds with no quartet page"),
             "flags": LEGEND,
+            "work_fields": ["title", "pageid", "flags", "cat_index", "works", "ids"],
             # Stated as a RULE, not as a format string: the old
             # "https://imslp.org/wiki/{title}_({cat})" left spaces and non-ASCII unencoded, so a
             # consumer substituting into it built a broken URL for almost every page.
