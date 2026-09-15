@@ -32,23 +32,31 @@ stable picture, hovering was the only way to learn anything, and a screenshot of
 
 ## The pipeline
 
-Four cached stages. Nothing in the build touches the network, so the dataset is reproducible
+Six cached stages. Nothing in the build touches the network, so the dataset is reproducible
 offline and the exact bytes behind a deploy stay in git.
 
 ```sh
 python3 scripts/scrape_list.py      # the wiki page  -> data/list.json + data/list.wiki
 python3 scripts/fetch_wikidata.py   # canonical titles + P569/P570 + P21 -> data/people.json
 python3 scripts/fetch_views.py      # every month since 2015-07 -> data/pageviews.json
-python3 scripts/build_data.py       # combine the three -> composers.json + readership.json
+python3 scripts/fetch_imslp.py      # IMSLP's quartet pages and composers -> data/imslp-scrape.json
+python3 scripts/build_imslp.py      # join them onto this roster -> data/imslp-join.json
+python3 scripts/build_data.py       # combine  -> composers.json + readership.json + imslp-works.json
 ```
 
-`build_data.py` writes **two** files, because they are wanted at different moments.
-`composers.json` (46 KB) is the roster and carries one view number per composer — the page cannot
-paint without it. `readership.json`, an order of magnitude larger, is the monthly history behind the sparkline: nothing
-waits for it, so it is fetched after the first paint and the panel simply grows a line when it
-arrives. Both are precached; only the first is a boot dependency.
+`build_data.py` writes **three** files, because they are wanted at different moments.
+`composers.json` is the roster and carries one view number and one IMSLP work count per composer —
+the page cannot paint without it. `readership.json` is the monthly history behind the sparkline and
+`imslp-works.json` is the per-page IMSLP detail behind the count: nothing waits for either, so they
+are fetched after the first paint and the panel simply grows a line when they arrive. All three are
+precached; only the first is a boot dependency.
 
-Then run the data gate. **`V` in `sw.js` has to move** — both files are precached, so without a bump
+The order is not arbitrary. `build_imslp.py` runs **before** `build_data.py` because
+`composers.json` carries an IMSLP column, and it takes its roster by calling `build_data.py`'s own
+`build_rows()` rather than reading that file — one reduction of the caches, so the join and the app
+cannot disagree about who is on this list.
+
+Then run the data gate. **`V` in `sw.js` has to move** — all three are precached, so without a bump
 the new numbers reach the repo and nobody's phone — and nothing about that needs a human:
 `refresh.py` bumps it after the gate passes, and for a hand-edit the pre-commit hook does
 (`sw-lint.py --fix` knows which files are precached and which of them you staged). Enable it once
@@ -65,8 +73,11 @@ python3 scripts/refresh.py --check    # is one due? exit 1 if so, touch nothing
 ```
 
 It is a **no-op unless a month has completed** — the test is whether `composers.json` already
-covers the last complete month, not a timestamp — and when one has, it runs the three stages,
-fails the run if the data gate fails, and bumps `V` only after it passes.
+covers the last complete month, not a timestamp — and when one has, it runs the build stages,
+fails the run if the data gate fails, and bumps `V` only after it passes. The IMSLP crawl rides
+along on that trigger, because new scores arrive continuously and there is nothing to ask "is this
+stale?" about; a failure there is reported and does **not** fail the run, since the cache is
+committed and losing a month of readership to somebody else's bad afternoon is the worse trade.
 `.github/workflows/refresh.yml` runs it on the 3rd of each month (the API needs a day or two to
 settle a finished month) and opens a PR. A PR rather than a push because every dataset bug this
 repo has had looked entirely plausible in the file and needed a human to read a two-line diff.
@@ -83,7 +94,7 @@ python3 scripts/audit_redirects.py  # price every redirect: what summing them wo
 python3 scripts/compare_2014.py     # diff against the archived 2014 snapshot, with reasons
 ```
 
-## Five data elements, five different problems
+## Six data elements, six different problems
 
 **(a) The roster** and **(b) quartet counts** come from the list page, which is *prose, not a
 table*: `*[[Joseph Haydn]] (1732–1809): Wrote sixty-eight string quartets…`. A handful of rules read
@@ -150,6 +161,29 @@ rather than merely incomplete — and `validate.py` fails on it, so the fix is a
 mystery. A composer with no claim at all is in
 neither filter, so the provenance line states how many there are rather than letting silence read
 as none — with a branch for when there are none, which is where the roster stands today.
+
+**(f) Scores on IMSLP** is the only element joined from a *second site*, and the problem is
+identity: IMSLP files people as `Surname, Forename` and nothing guarantees it spells them the way
+Wikipedia does. So the join matches **identifiers, never names** — the Wikidata item or Wikipedia
+article an IMSLP composer page states, resolved back through en.wikipedia to a QID this roster
+already holds — and the one rung that does start from a spelling is accepted only when IMSLP's
+birth *and* death years agree with Wikidata's. 462 of the 884 are placed; the other 422 ship
+`null`, which is **unknown, not empty**: no P839 claim, no IMSLP page linking their article and no
+`Surname, Forename` guess reached them, which is good evidence of absence and is not the same as
+having asked. The UI says "no IMSLP page found" and never "not on IMSLP".
+
+What is counted is **works, not pages**. IMSLP's unit is a publication entry, so Beethoven's 16
+quartets occupy 23 pages — three of them complete-set editions that reprint the others. Reading the
+`Opus/Catalogue Number` off each page, expanding a set by the designation its members share and
+merging by id collapses those 23 pages to **18**, which is his 16 plus the Grosse Fuge and the Hess
+30 fugue. The UI calls them quartets, which is looser than that parse and deliberately so — it is
+IMSLP's own category and what the reader came for. What it is **not** is (b): Haydn reads 76 here
+against a stated 68, because the instrumentation category legitimately holds fugues, fragments and
+single movements no numbered list counts. The two columns sit side by side answering different
+questions from different sources; they are never subtracted, and the reader is expected to go and
+look — which is what the link on the number is for. `scripts/imslp-audit.py` renders the parse against the source
+field for the 22 composers the chart highlights, because the measure of a parser is a human reading
+it against the page (the same rule `audit_counts.py` exists for).
 
 The honest name for (d) is **English Wikipedia readership**, not popularity — a Czech or Russian
 composer's readers are largely on their own language's Wikipedia, which this does not count. The

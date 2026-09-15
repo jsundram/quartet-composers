@@ -4,10 +4,10 @@
 # ///
 """Fetch every string quartet IMSLP holds, and the composer identities needed to join them.
 
-    python3 scripts/fetch_imslp.py            # writes data/imslp.json
+    python3 scripts/fetch_imslp.py            # writes data/imslp-scrape.json
     python3 scripts/fetch_imslp.py --refresh  # ignore the cache and re-ask for everything
 
-Four passes over two APIs, ~238 requests for a COLD crawl, all cached in data/imslp.json so a
+Four passes over two APIs, ~238 requests for a COLD crawl, all cached in data/imslp-scrape.json so a
 rebuild is offline. A WARM run costs 48 and re-asks exactly two kinds of thing: the instrumentation
 categories, because they are the only place a new work page can appear, and every ABSENCE — a
 composer page yielding no key, a P839 claim Wikidata does not state, a guessed category with no
@@ -15,7 +15,7 @@ page behind it, an article IMSLP names that does not exist. Those are the answer
 Wikidata editor changes, and a cache that never re-asks them cannot tell "nothing to do" from
 "nothing exists". An absence NOTHING can change is not one of them and is written down as an answer
 instead — see the interwiki handling in fetch_wp, which is 233 of the 236. Everything else tops up
-by page title and --refresh is the only way to make it re-ask, which is what keeps 3.5 MB of
+by page title and --refresh is the only way to make it re-ask, which is what keeps megabytes of
 unchanged wikitext off a volunteer-funded server. That is what makes a monthly run possible — the
 earlier rule, "nothing is refetched once it is in the cache", meant a second run reported
 `cached: orig (4215)` and discovered nothing, forever, while exiting 0 (#62).
@@ -73,7 +73,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)     # build_imslp holds the readers; imported lazily, below
 PEOPLE = os.path.join(ROOT, "data", "people.json")
-OUT = os.path.join(ROOT, "data", "imslp.json")
+# -scrape, because three IMSLP files now sit within one directory of each other and the bare name
+# said which SITE they came from rather than which STAGE wrote them: this is the crawl,
+# data/imslp-join.json is what build_imslp.py made of it, and imslp-works.json is what ships.
+OUT = os.path.join(ROOT, "data", "imslp-scrape.json")
 
 IMSLP_API = "https://imslp.org/api.php"
 WD_API = "https://www.wikidata.org/w/api.php"
@@ -87,6 +90,11 @@ ARR = "Category:For 2 violins, viola, cello (arr)"
 # crawl and a 2 MB one.
 MARKERS = ["Category:Scores", "Category:Recordings", "Category:Collections",
            "Category:Pages with arrangements"]
+# They are stored as ONE INT per page rather than as four named booleans: 4,926 pages x four key
+# names cost 709 KB of a 3.3 MB cache to say what 263 KB says. The bit VALUES are build_imslp.py's,
+# imported rather than restated — it is the reader and it ships the legend, and a legend that
+# disagrees with the writer is a number that quietly means something else. They are zipped against
+# the list above, so the order of these four lines IS the encoding.
 
 # The general-information fields on a work page. Stored as the RAW lines rather than as a parse,
 # for the reason the composer pages are: the first reader of this data will be wrong about
@@ -276,8 +284,11 @@ def fetch_works(cache):
     pass below topping up against the remains. MIN_KEEP is the floor for that; --refresh is the
     way through if IMSLP ever does gut a category for real.
     """
+    # [pageid, title, composer] triples, not objects: three key names repeated 4,937 times cost
+    # 133 KB of the cache to say nothing a reader of two adjacent rows cannot see. Unpacked by
+    # name everywhere they are read, here and in build_imslp.py, so the order is never indexed.
     for key, cat in (("orig", ORIG), ("arr", ARR)):
-        was = {w["id"] for w in cache["works"].get(key) or []}
+        was = {w[0] for w in cache["works"].get(key) or []}
         rows = []
         for m in members(cat):
             hit = TITLE.match(m["title"])
@@ -285,10 +296,10 @@ def fetch_works(cache):
                 # Every work page on IMSLP is "<work> (<composer>)"; one that is not is a
                 # maintenance page that wandered in, and guessing a composer for it would be
                 # inventing an attribution. Recorded, not dropped silently.
-                rows.append({"id": m["pageid"], "title": m["title"], "composer": None})
+                rows.append([m["pageid"], m["title"], None])
                 continue
-            rows.append({"id": m["pageid"], "title": hit.group(1), "composer": hit.group(2)})
-        now = {w["id"] for w in rows}
+            rows.append([m["pageid"], hit.group(1), hit.group(2)])
+        now = {w[0] for w in rows}
         if was and len(now) < MIN_KEEP * len(was):
             raise ValueError(
                 "%s came back with %d pages against %d cached. A category does not lose a tenth "
@@ -310,8 +321,10 @@ def fetch_works(cache):
 
 def fetch_markers(cache):
     """Has scores / has recordings / is a collection, for every work page, four at a time."""
-    want = [w["title"] + " (" + w["composer"] + ")"
-            for k in ("orig", "arr") for w in cache["works"][k] if w["composer"]]
+    from build_imslp import SCORES, RECORDINGS, COLLECTION, ARRANGEMENTS
+    bits = dict(zip(MARKERS, (SCORES, RECORDINGS, COLLECTION, ARRANGEMENTS)))
+    want = [title + " (" + composer + ")"
+            for k in ("orig", "arr") for _id, title, composer in cache["works"][k] if composer]
     todo = [t for t in want if t not in cache["markers"]]
     print(f"  markers: {len(want)} works, {len(todo)} to ask", file=sys.stderr)
     done = 0
@@ -323,12 +336,7 @@ def fetch_markers(cache):
         got = {}
         for p in pages.values():
             cats = {c["title"] for c in p.get("categories", [])}
-            got[p.get("title")] = {
-                "scores": "Category:Scores" in cats,
-                "recordings": "Category:Recordings" in cats,
-                "collection": "Category:Collections" in cats,
-                "arrangements": "Category:Pages with arrangements" in cats,
-            }
+            got[p.get("title")] = sum(b for cat, b in bits.items() if cat in cats)
         # normalized[] maps what we asked to what the wiki calls it, so an underscore or a
         # capitalisation difference does not leave a title looking un-asked forever.
         for norm in d.get("query", {}).get("normalized", []):
@@ -372,8 +380,8 @@ def fetch_composers(cache):
     naming nothing at all, and they were the one group permanently shut out of the re-ask.
     Resolution is last run's answer, since fetch_wp runs after this pass: an article named for the
     first time this month is re-read once more next month and keyed after that."""
-    want = sorted({w["composer"] for k in ("orig", "arr")
-                   for w in cache["works"][k] if w["composer"]})
+    want = sorted({composer for k in ("orig", "arr")
+                   for _id, _t, composer in cache["works"][k] if composer})
     todo = [c for c in want
             if c not in cache["wikitext"] or not has_key(cache["wikitext"][c], cache["wp"])]
     new = sum(1 for c in todo if c not in cache["wikitext"])

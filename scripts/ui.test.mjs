@@ -725,7 +725,10 @@ check("selected row is marked in the table", await ev(`!!document.querySelector(
 // Readership is a median of twelve monthly counts, so the panel states two significant figures
 // and a "+" — "186,772" claimed six figures for a number that has about two, and was stale the
 // next time fetch_views.py ran. The TABLE still carries the exact value: it sorts on it.
-const exactViews = (await ev(`document.querySelector('tbody tr td:last-child').textContent`)).trim();
+// By its CLASS, not by position: `td:last-child` was the Views cell until On IMSLP was appended
+// after it, and the check then compared an IMSLP work count against a readership and failed
+// pointing at the panel.
+const exactViews = (await ev(`document.querySelector('tbody tr td.c-views').textContent`)).trim();
 const panelText = await ev(`document.getElementById('detail').textContent`);
 check("the panel rounds readership instead of claiming six figures",
       !panelText.includes(exactViews) && /\dk?\+/.test(panelText),
@@ -2070,6 +2073,59 @@ check("sort by Died keeps living composers off the top",
       (await ev(`document.querySelectorAll('tbody tr')[0].children[2].textContent`)) !== "—",
       "first Died cell = " + await ev(`document.querySelectorAll('tbody tr')[0].children[2].textContent`));
 
+// --- 5b. the On IMSLP column --------------------------------------------------
+// The cell is a LINK whose text is a bare number, which is three ways to be wrong at once: it can
+// sort as a string, it can send a screen reader "18" with no destination, and its href is built
+// from a one-line rule that composers.json deliberately does not ship for 406 of the 462 composers
+// who have one. All three are checked here, because none of them looks wrong on screen.
+// Every read below is guarded, for the reason the lens reads are (section 4m): ABLATION runs this
+// file against the tree WITHOUT the column, and a suite that throws there dies having proved
+// nothing instead of failing the checks that are supposed to notice.
+await ev(`document.querySelector('th.c-imslp button')?.click()`);
+const imslpTop = await ev(`[...document.querySelectorAll('tbody tr')].slice(0, 12)
+  .map(r => r.querySelector('td.c-imslp')?.textContent ?? '')`);
+check("sorting On IMSLP sorts on the NUMBER, not on the text",
+      imslpTop.length === 12 && imslpTop.every((v, i) => i === 0 || +imslpTop[i - 1] >= +v)
+      && imslpTop.some(v => +v > 9),
+      "top of the column: " + imslpTop.join(", "));
+// 0 is the answer for BOTH "IMSLP has this composer and none of their quartets" and "we could not
+// place them at all", by decision — the digit does not distinguish them and nothing here should
+// start expecting it to. What DOES distinguish them is whether the digit is a link.
+const zeroes = await ev(`(()=>{const rows=[...document.querySelectorAll('tbody tr')]
+  .map(r => r.querySelector('td.c-imslp'))
+  .filter(td => td && td.textContent === '0');
+  return {n: rows.length, linked: rows.filter(td => td.querySelector('a')).length}})()`);
+check("a zero renders for a composer IMSLP holds and for one it does not",
+      zeroes.n > 100 && zeroes.linked > 0 && zeroes.linked < zeroes.n,
+      `${zeroes.n} zeroes, ${zeroes.linked} of them linked to a category`);
+const imslpName = await axName("tbody tr td.c-imslp a");
+const imslpText = await ev(`document.querySelector('tbody tr td.c-imslp a')?.textContent ?? ''`);
+const imslpWho = await ev(`document.querySelector('tbody tr td.c-imslp a')
+  ?.closest('tr').querySelector('td').title ?? ''`);
+// WCAG 2.5.3 again, and the reason #53 made this a CDP call rather than a DOM read: an aria-label
+// added later overrides the markup, so the name the BROWSER computes is the only thing worth
+// asserting. It has to contain the drawn digit (a voice user says "click 18") and the composer,
+// because there are 884 links on this page whose text is a number.
+check("an On IMSLP link's accessible name carries the digit and the composer",
+      !!imslpText && !!imslpWho && imslpName.includes(imslpText)
+      && imslpName.includes(imslpWho) && imslpName.includes("IMSLP"),
+      `${JSON.stringify(imslpName)} for ${JSON.stringify(imslpWho)} (${imslpText})`);
+// THE ONE UNCHECKED STEP in the whole column: composers.json ships "" for a category that reduces
+// to `Surname, Forename` and the string itself for the 56 that do not, and app.js restates that
+// reduction in JS. Python's two copies are checked against the scrape cache by validate.py; this is
+// the only thing that can say the JS agrees — one derived composer and one override.
+const hrefFor = async name => await ev(`(()=>{const r=[...document.querySelectorAll('tbody tr')]
+  .find(r => r.querySelector('td').title === ${JSON.stringify(name)});
+  const a = r && r.querySelector('td.c-imslp a'); return a ? a.getAttribute('href') : ''})()`);
+check("a derived IMSLP category builds the same URL Python derived",
+      await hrefFor("Ludwig van Beethoven")
+        === "https://imslp.org/wiki/Category:Beethoven,_Ludwig_van",
+      await hrefFor("Ludwig van Beethoven"));
+check("an override ships verbatim instead of being derived wrong",
+      await hrefFor("Dmitri Shostakovich")
+        === "https://imslp.org/wiki/Category:Shostakovich,_Dmitry",
+      await hrefFor("Dmitri Shostakovich"));
+
 // --- 6. dark mode repaints the JS-baked colors --------------------------------
 // The timeline view, because the lifespan ramp is the legend piece that is baked from the tokens.
 await view("scatter");
@@ -2828,6 +2884,40 @@ check("the reservation covers the LONGEST caption, not just the first one tested
       Math.abs(spikeTop - (await ev(`document.querySelector('#viz .legend').getBoundingClientRect().top`))) < 2,
       `legend top with a spike caption ${spikeTop.toFixed(0)} vs empty `
       + (await ev(`document.querySelector('#viz .legend').getBoundingClientRect().top`)).toFixed(0));
+
+// The "where else this composer is" row is the one thing in the panel that says a DIFFERENT
+// SENTENCE per composer — two pills with a work count, two pills saying no quartets, or one pill
+// and a muted "no page found" — so it is the one that could quietly reintroduce the
+// variable-height paragraph #35 cut. THAT ROW's box is measured rather than the panel's, because
+// the panel's height moves with the sparkline caption and the name too and would hide a wrap in
+// here behind a shorter caption somewhere else.
+// The three composers are CHOSEN FROM THE DATA, not named: these are canonical Wikipedia titles
+// and they change spelling when the pipeline runs (invariant 7).
+const trio = await ev(`(()=>{const f=p=>(ROWS.find(p)||{}).name||'';
+  return {works: f(d=>d.imslpUrl && d.imslp > 3), none: f(d=>d.imslpUrl && !d.imslp),
+          absent: f(d=>!d.imslpUrl)}})()`);
+const imslpLines = {};
+for (const [state, who] of Object.entries(trio)) {
+  if (!who) continue;
+  await pin(who);
+  imslpLines[state] = await ev(`(()=>{const row=document.querySelector('#detail .links');
+    const im=row && row.querySelector('.imslp');
+    return row ? {h: +row.getBoundingClientRect().height.toFixed(1), t: row.textContent.trim(),
+                  pills: row.querySelectorAll('a.pill').length,
+                  linked: im ? im.tagName === 'A' : null} : null})()`);
+}
+await rest();
+const three = Object.values(imslpLines);
+check("Wikipedia and IMSLP share one row, at one height in all three states",
+      Object.keys(trio).every(k => trio[k]) && three.length === 3
+      && three.every(v => v && v.h === three[0].h)
+      // The unplaced composer keeps the Wikipedia pill and loses only the IMSLP one: the row is
+      // about where to go NEXT, and "nowhere on IMSLP" is not a reason to stop offering Wikipedia.
+      && imslpLines.works?.linked && imslpLines.none?.linked
+      && imslpLines.absent?.linked === false
+      && imslpLines.works?.pills === 2 && imslpLines.absent?.pills === 1,
+      Object.entries(imslpLines)
+        .map(([k, v]) => `${k}: ${v ? `${v.h}px ${JSON.stringify(v.t)}` : "absent"}`).join(" | "));
 
 // --- 7f. landscape full screen: the strip must not eat the chart ------------------------------
 // A phone on its side is 390px TALL. The strip takes its height out of #plot rather than floating

@@ -33,19 +33,25 @@ commit" — and the docs spent a 300-line lint keeping such numbers honest inste
 2. **`sw.js`'s `BOOT` must list every script the page dies without.** Every pixel here is drawn by
    JS, so a cached `index.html` without `d3.v7.min.js` or `composers.json` is a headline over an
    empty box; the offline page is strictly better, and one online launch repairs the precache. A
-   new load-bearing script goes into `SHELL`, into `BOOT`, and bumps `V`. `readership.json` is the
-   one deliberate exception — SHELL but not BOOT — because the sparkline is the only thing here
-   nothing waits for: gating a navigation on it would trade a working page for an offline notice
-   over a decoration.
+   new load-bearing script goes into `SHELL`, into `BOOT`, and bumps `V`. `readership.json` and
+   `imslp-works.json` are the deliberate exceptions — SHELL but not BOOT — because what they feed
+   is what nothing waits for: the sparkline arrives after the first paint, and the IMSLP work pages
+   are the detail behind a column whose number and link are already in `composers.json`. Gating a
+   navigation on either would trade a working page for an offline notice over a decoration.
 
 3. **Colors read into JS can't be reached by a CSS variable swap.** `chart.js` bakes `--c-*` into
    SVG fills and `app.js` into the legend. Both re-read through `Theme.getCssColor` inside
    `rerender()`, which `Theme.subscribe` fires on every theme change — never `getComputedStyle`
    directly. A fourth component that bakes a colour needs a fourth `rerender()` wired in there.
 
-4. **`composers.json` and `readership.json` are generated; never hand-edit them.**
-   `scrape_list.py` -> `fetch_wikidata.py` -> `fetch_views.py` -> `build_data.py`, each caching
-   into `data/`. Only the first three touch the network, so a rebuild is offline and reproducible.
+4. **`composers.json`, `readership.json` and `imslp-works.json` are generated; never hand-edit
+   them.** `scrape_list.py` -> `fetch_wikidata.py` -> `fetch_views.py` -> `fetch_imslp.py` ->
+   `build_imslp.py` -> `build_data.py`, each caching into `data/`. Only the fetches touch the
+   network, so a rebuild is offline and reproducible. **`build_rows()` in `build_data.py` is the
+   one place the roster is decided**, and `build_imslp.py` CALLS it rather than reading
+   `composers.json`, which it cannot — it is upstream of a file that now carries an IMSLP column.
+   Breaking the cycle is only half of why: a second reduction of the same caches would be a second
+   opinion about who is on this list, and the join would file counts under names nothing looks up.
    `data/pageviews.json` stores each series as a FLAT ARRAY aligned to its `months` axis — a
    quarter of the bytes of `{month: count}` and one changed line per composer per top-up. Alignment
    is load-bearing: an array one element short shifts every month by one and the numbers stay
@@ -62,11 +68,14 @@ commit" — and the docs spent a 300-line lint keeping such numbers honest inste
    permanently. `--months` narrows what counts as STALE, never what gets asked for. And a month IN
    PROGRESS is not a month — the API returns the days so far with nothing to say so — so
    `months_back()` ends at the last COMPLETE month and `--end` is refused past it.
-   The last stage writes BOTH shipped files from one set of caches and they must stay in lockstep:
-   `validate.py`'s `check_history()` recomputes each row's median, min and max from that composer's
-   own sparkline and fails when they disagree. Two internally consistent files built from different
-   fetches is a drift nothing in the app can see — the panel would print one readership and draw
-   another. `build_data.py` carries the canonical title in a list PARALLEL to the rows and reorders
+   The last stage writes ALL THREE shipped files from one set of caches and they must stay in
+   lockstep: `validate.py`'s `check_history()` recomputes each row's median, min and max from that
+   composer's own sparkline and fails when they disagree, and `check_imslp()` requires
+   `imslp-works.json` to carry the same `generated` date and every composer's total to sit between
+   the largest of their pages and the sum of them — NOT equality, because the de-duplication exists
+   precisely because pages overlap. Files that are each internally consistent but built
+   from different fetches are a drift nothing in the app can see — the panel would print one
+   readership and draw another. `build_data.py` carries the canonical title in a list PARALLEL to the rows and reorders
    both together rather than in a {name: canonical} map: `QUALIFIER` strips the disambiguator, so
    "John Adams (composer)" and a bare "John Adams" collapse to one key and the second silently
    wins, handing one composer the other's decade of history. It also refuses to write either file
@@ -197,6 +206,29 @@ commit" — and the docs spent a 300-line lint keeping such numbers honest inste
   invisible on
    a five-decade log axis, in exchange for a count that depends on how many aliases an article
    happened to accumulate. A move is not an alias; the article LIVED there.
+
+16. **The IMSLP columns are TWO fields carrying THREE answers, and `imslp_cat` is the one that can
+   tell them apart.** `imslp` is a work count and it is `0` both for a composer IMSLP holds with no
+   quartets and for one nothing could place — deliberately not distinguished in the digit, because
+   the reader's next move is the same either way. `imslp_cat` is `null` for the second (nowhere to
+   link), `""` for a composer whose category reduces to `Surname, Forename`, and the category
+   VERBATIM for the 56 whose does not (`Shostakovich, Dmitry`, `Beach, Amy Marcy`). Shipping only
+   the exceptions costs ~280 bytes against 13 KB for all of them, and it is safe **because the
+   build verifies it, not because the rule is trustworthy**: `build_data.py` emits `""` only where
+   its own reduction reproduces the category the scrape found, `validate.py` re-derives all 462
+   against `data/imslp-join.json` with an independent copy of the line, and `app.js` restates it a
+   third time in JS with `ui.test.mjs` reading the `href` the browser ends up with for one derived
+   composer and one override. What is COUNTED is distinct **works, not pages** — 23 Beethoven pages
+   reduce to 18 — and invariant 11's rule applies to that parse, which is what
+   `scripts/imslp-audit.py` grades against the page. What the UI CALLS them is "quartets", which is
+   looser than the parse and deliberately so: it is IMSLP's own category and what the reader came
+   for. **The thing that must never happen is subtracting it from `quartets`**, which is how many
+   the composer WROTE, from Wikipedia prose — Haydn reads 76 against a stated 68, and the two
+   columns sit one apart answering different questions from different sources. Copy about the
+   absences is the other half: "no quartets **found**" for a composer IMSLP holds none for, and "no
+   IMSLP page found", never "not on IMSLP" — what we know is that no P839 claim, no page linking
+   their article and no name guess reached them, which is evidence and is not the same as having
+   asked.
 
 ## Testing
 
@@ -398,8 +430,11 @@ framework, and nothing to install:
   turned every IMSLP date into `None`, because the person template packs three fields onto one line;
   a pattern that stopped at the first `|` read the article title out of `[[wikipedia:{{#iflang:…}}]]`
   as the literal `{{`, which took out the six biggest quartet catalogues on the site while the long
-  tail joined fine and the totals looked healthy. Neither crashed. The join is not shipped yet; see
-  TODO.md.
+  tail joined fine and the totals looked healthy. Neither crashed. Since #61 it also covers
+  `catalogue()`, which returns the per-page work counts and the composer's total from ONE parse —
+  derived twice, `imslp-works.json` could state one number on a row under a heading counting
+  another and neither would look wrong — and `compress()`, which moved here from `imslp-audit.py`
+  so the shipped rows and the audit page collapse a range of opus numbers the same way.
 - `python3 scripts/fetch_imslp.test.py` — the crawl's REQUEST SEQUENCE, `get` stubbed against a
   dict-shaped wiki and the cache in a temp file. Separate from the suite above because it answers a
   question no reader of the cache can: that one asks whether a string parsed correctly, this asks
@@ -408,9 +443,11 @@ framework, and nothing to install:
   pipeline — every other pass is keyed by a title it would never have been told — so a monthly run
   would have discovered nothing forever and exited 0 doing it (#62). No symptom: nothing says how
   many quartet pages IMSLP holds, every number in the cache stays plausible, and the file simply
-  stops growing. So the cases assert what a run ASKS FOR, and just as hard what it declines to ask
-  for, because "re-ask everything" is `--refresh` and costs megabytes of unchanged wikitext against
-  a volunteer-funded server.
+  stops growing. So the cases assert what a run ASKS FOR — the categories listed again, a page
+  that appeared between two runs reaching the markers and the work info, a composer page naming no
+  identifier re-read and a `{{wp}}` link added since followed all the way to a resolved QID — and,
+  just as hard, what it declines to ask for, because "re-ask everything" is `--refresh` and costs
+  megabytes of unchanged wikitext against a volunteer-funded server.
 - `scripts/refresh.py` — not a test but the same discipline: it decides whether a top-up is DUE
   (does `composers.json` already cover the last complete month?), runs the three pipeline stages,
   refuses to bump `V` if `validate.py` fails, and is a pure no-op otherwise.

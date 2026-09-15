@@ -515,10 +515,25 @@ other than a human remembering to.
 
 ## IMSLP
 
-### The dataset is built and joined; nothing is wired into the app yet — 2026-09-11
-`scripts/fetch_imslp.py` (network, cached in `data/imslp.json`) and `scripts/build_imslp.py`
-(offline, writes `imslp.json`) exist and run. `imslp.json` is NOT referenced by `index.html`,
-`sw.js` or any module, so nothing about the shipped app has changed and `V` has not moved.
+### ~~The dataset is built and joined; nothing is wired into the app yet~~ — done, 2026-09-15, [#61](https://github.com/jsundram/quartet-composers/issues/61)
+`scripts/fetch_imslp.py` (network, cached in `data/imslp-scrape.json`) and `scripts/build_imslp.py`
+(offline, writes `data/imslp-join.json`) feed `build_data.py`, which now writes TWO IMSLP columns
+into `composers.json` — `imslp`, the work count, and `imslp_cat`, the category or `""` where one
+line derives it — plus a third shipped file, `imslp-works.json` (81 KB, SHELL and not BOOT, not
+rendered yet). The table has an `On IMSLP` column linking the number to the composer's category,
+and the detail panel a row of matching Wikipedia and IMSLP pills where the bare Wikipedia
+link used to sit alone. `V` is at v68.
+
+The pipeline REORDERED to get there: `build_imslp.py` used to read `composers.json`, which would
+now be a cycle, so it calls `build_data.build_rows()` instead — one reduction of the caches, so
+the join and the app cannot disagree about who is on this list (invariant 4).
+
+What the findings below turned into, in the end: the count shipped is `works_n`, printed as
+"quartets" — looser than the parse, on purpose, because that is IMSLP's own category and what the
+reader came for, and the danger the findings are really about is subtracting it from the `Quartets`
+column rather than what it is called; `null` / `0`-with-a-link / `0`-without are the three answers,
+carried by `imslp_cat` rather than by the digit (invariant 16); and the colour channel was not
+taken.
 
 **What is in it.** IMSLP catalogues 4,215 work pages under its own instrumentation category
 `For 2 violins, viola, cello`, plus 722 more under the `(arr)` category, spread over 1,771
@@ -553,7 +568,7 @@ from a spelling, and it is accepted only when IMSLP's birth AND death years agre
 
 2. *Null, zero and absent are three answers.* `pages: 0` means IMSLP holds this composer and none
    of their quartets (159 rows — Stravinsky, Glass, Cage, Copland, Barber: all in copyright, which
-   is the real finding and a good one). A row **missing from `imslp.json` entirely** means we could
+   is the real finding and a good one). A row **missing from the join entirely** means we could
    not place them at all (423 rows), which is unknown, not empty. Colouring those two the same way
    states something false about 423 composers. This is invariant 10 arriving in a new field.
 
@@ -562,26 +577,20 @@ from a spelling, and it is accepted only when IMSLP's birth AND death years agre
    inversion of their name. That is decent evidence of absence and it is not the same as asking.
    Any copy on the page has to say "no IMSLP page found", never "not on IMSLP".
 
-**What shipping it needs**, roughly in order:
-- `build_data.py` writes the per-composer count into `composers.json` as a new field, and
-  `imslp.json` becomes the lazily-fetched companion the way `readership.json` already is — SHELL
-  but NOT BOOT (invariant 2), since links in the detail panel are decoration nothing waits for.
-- `sw.js`: add `imslp.json` to `SHELL`, leave it out of `BOOT`, bump `V` (invariant 1).
-- `validate.py`: the gate this needs is that every `imslp.json` key is a row name in
-  `composers.json` and every `cats` entry is one the cache actually holds — the drift invariant 4
-  warns about, one file over.
-- Detail panel: the composer's IMSLP category link plus their work pages, which is the feature's
-  actual point and the cheapest half.
-- Table column: the page count, sortable, `—` where absent.
-- A fourth filter would need its own module on the `applyFilters()` contract (a Set of indices or
-  null), not another special case in `app.js`.
-- `og-lint.py`'s stated-count rule needs to know about any new total that reaches a SHIPPED
-  string. A total that reaches the docs is not written down at all.
-- **A colour channel is the expensive option and should be argued for separately.** Fame already
-  spends hue on emphasis and the timeline spends it on the lifespan ramp (invariant 8), so
-  availability would be a fourth encoding competing for the one channel that is already carrying
-  the view's argument — and it is a three-state fact with a 423-row "unknown" bucket, which is the
-  hardest kind of thing to put in a legend honestly.
+**What is still NOT done, deliberately:**
+- **`imslp-works.json` is shipped and unread.** It is precached so the SHELL contract was settled
+  once rather than twice; rendering the per-page list in the detail panel is the next feature and
+  has to answer the panel's fixed-height problem first.
+- **No "has scores" filter.** A fourth filter needs its own module on the `applyFilters()`
+  contract (a Set of indices or null), not another special case in `app.js`.
+- **No colour channel, and this is the one to argue with rather than repeat.** Fame already spends
+  hue on emphasis and the timeline spends it on the lifespan ramp (invariant 8), so availability
+  would be a fourth encoding competing for the channel already carrying the view's argument — and
+  it is a three-state fact with a large "unknown" bucket, which is the hardest kind of thing to
+  put in a legend honestly.
+- **Arrangements are fetched and shipped nowhere.** Separate IMSLP category, different claim.
+- `og-lint.py`'s `check_counts()` knows the two totals the shipped strings may state, so no IMSLP
+  total may reach `manifest.json` or `index.html` without teaching it one.
 
 ### ~~Catalogue numbers de-duplicate the sets~~ — done, 2026-09-12
 The page count is no longer the only number: `build_imslp.py` now reads `Opus/Catalogue Number`
@@ -622,7 +631,7 @@ a human to grade, is the honest next step** and is not written yet.
 
 Two sources not yet used, both suggested during review: IMSLP's `List of works by <composer>`
 pages enumerate a full catalogue and would give a better denominator than Wikipedia prose; and the
-`Year/Date of Composition` field is already cached in `data/imslp.json` and unread.
+`Year/Date of Composition` field is already cached in `data/imslp-scrape.json` and unread.
 
 ### Parsing the work page: what the fields do and do not settle
 Answered with a 100-page sample, 2026-09-11. IMSLP work pages carry two structured fields the
@@ -805,16 +814,23 @@ Two things found while writing it that are defects in what already exists, not p
   for the off-roster pages, 51 requests and ~0.9 MB. The issue also records why the work COUNT is
   the hard part (two catalogue systems, no crosswalk) and why the category is clean enough not to
   filter (95.6% state a string quartet verbatim; ~12 flute-quartet pages).
-- **`data/imslp.json` is the scrape cache and collides by name with the shipped file #61 adds.**
-  Rename to `data/imslp-scrape.json`. It is also 3.5 MB and badly encoded — `markers` spends
-  648 KB on four named booleans per page where an int bitmask would do, and `works` repeats three
-  key names 4,937 times. Under 2 MB is easily reachable without giving up the raw wikitext, which
-  must stay raw: a better parser must never cost a request.
+- ~~**`data/imslp.json` is the scrape cache and reads like the two files beside it.**~~ — done,
+  2026-09-15. The name collision #61 worried about never happened, since what ships is
+  `imslp-works.json`; what the bare name did do was fail to say which STAGE wrote it, so the crawl
+  is `data/imslp-scrape.json` now and the trio reads scrape -> join -> works. It was also badly
+  encoded, and that was the real saving: `markers` spent 709 KB on four named booleans per page
+  where one int does it in 263 KB, and `works` repeated three key names 4,937 times. 3.29 MB ->
+  2.68 MB, 18% off, and every downstream file rebuilt byte-identical.
+  What was NOT done is the last 65 KB: encoding each work triple on one line rather than letting
+  `indent=1` spread it over five would get there, and it needs a serializer for one key of one
+  file — clever, contained, and the kind of thing that breaks silently. The remaining bulk is the
+  raw wikitext and it stays raw: a better parser must never cost a request. The "under 2 MB" an
+  earlier version of this claimed was never reachable without giving that up.
 
 **The coverage report is generated, not written.** `scripts/build_imslp.py` writes the audit to
 `data/imslp-audit.json` and `scripts/imslp-report.py` renders it to a self-contained
 `imslp-coverage.html`. No figure on that page is typed — every one is computed at render time from
-`composers.json`, `imslp.json` and the audit, because the roster grows, the monthly top-up moves
+`composers.json`, `data/imslp-join.json` and the audit, because the roster grows, the monthly top-up moves
 every readership number and IMSLP gains scores. A coverage report typed once is wrong by the next
 run, which is the built-or-cut rule applied to a page that is nothing but falsifiable prose.
 
@@ -833,7 +849,7 @@ ABSENCE — the 797 composer pages that yield no key, the 485 roster QIDs statin
 guesses with no page or nothing joinable behind them, and the 3 articles that genuinely do not
 resolve — the other 233 name another wiki, which en.wikipedia answers once and for good.
 Everything else tops up by page title and `--refresh` is still the only way to make it re-ask,
-which is what keeps 3.5 MB of unchanged wikitext off a volunteer-funded server. Joining the
+which is what keeps megabytes of unchanged wikitext off a volunteer-funded server. Joining the
 monthly `refresh.py` job is #61's step 4 — what is left is deciding when an IMSLP top-up is DUE,
 and that needs the shipped file that issue adds, since the pageview window cannot answer for a
 catalogue that moves on nobody's schedule.

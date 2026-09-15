@@ -25,7 +25,8 @@ appeared between two runs reaches the passes downstream of the crawl.
 
 The budget is the other half and is not decoration. This is a volunteer-funded server, the cold
 crawl is ~238 requests, and the reason the fix is "always re-crawl" rather than "--refresh
-monthly" is that re-asking everything would download 3.5 MB of wikitext that has not changed. A
+monthly" is that re-asking everything would re-download megabytes of wikitext that has not
+changed. A
 case that only proved re-asking would be satisfied by --refresh.
 """
 import gzip
@@ -197,7 +198,7 @@ def load(tmp, w):
     spec = importlib.util.spec_from_file_location("fi", os.path.join(HERE, "fetch_imslp.py"))
     fi = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(fi)
-    fi.OUT = os.path.join(tmp, "imslp.json")
+    fi.OUT = os.path.join(tmp, "imslp-scrape.json")
     fi.PEOPLE = os.path.join(tmp, "people.json")
     fi.PAUSE = 0
     # The stub goes in at get(), because what almost every case asserts is WHICH requests a run
@@ -302,7 +303,7 @@ def entities(w):
 
 
 def titles(cache, key="orig"):
-    return {w["title"] + " (" + w["composer"] + ")" for w in cache["works"][key]}
+    return {t + " (" + c + ")" for _id, t, c in cache["works"][key]}
 
 
 # ---- the cases --------------------------------------------------------------------------------
@@ -331,7 +332,7 @@ def discovers_new_page(fi, w):
         "no work info was fetched for the new page, so count_works() reads it as uncatalogued")
     assert BEETHOVEN_Q1 not in marked(w) and BEETHOVEN_Q1 not in read(w), (
         "the pages already held were re-asked as well: %r. Discovery is meant to cost ~12 "
-        "requests, not a second 3.5 MB download." % read(w))
+        "requests, not a second download of the whole cache." % read(w))
 
 
 @case("a page that left the category leaves the listing")
@@ -348,7 +349,9 @@ def drops_removed_page(fi, w):
     assert BEACH_Q not in titles(cache), (
         "the listing merged instead of replacing: %r. The category is the live answer to what is "
         "in it, and a page that is out of it is not a quartet any more." % sorted(titles(cache)))
-    assert cache["markers"].get(BEACH_Q), (
+    # `is not None`, not truthiness: a page carrying none of the four markers caches as 0, which
+    # is a real answer and a falsy one.
+    assert cache["markers"].get(BEACH_Q) is not None, (
         "the markers for a departed page were discarded: nothing reads them, and throwing them "
         "away means paying for them again if it comes back")
 
@@ -432,7 +435,7 @@ def identified_is_not_reasked(fi, w):
 @case("a warm run asks for the absences and nothing else")
 def warm_run_is_cheap(fi, w):
     # The budget half, and it is not decoration: re-asking everything is what --refresh is for,
-    # and it costs 3.5 MB of unchanged wikitext against a volunteer-funded server. What a warm run
+    # and it costs megabytes of unchanged wikitext against a volunteer-funded server. What a warm run
     # may ask for is the categories, because that is where a new page appears, and the three
     # absences that a volunteer or a Wikidata editor can turn into answers.
     run(fi)

@@ -115,7 +115,8 @@ def baseline_rows(path=None):
 # --------------------------------------------------------------- structure
 def check_structure(cur):
     fields = cur.get("fields") or []
-    expect = ["name", "birth", "death", "quartets", "views", "views_lo", "views_hi", "gender"]
+    expect = ["name", "birth", "death", "quartets", "views", "views_lo", "views_hi", "gender",
+              "imslp", "imslp_cat"]
     if fields != expect:
         err("fields changed: %s (app.js and chart.js index these POSITIONALLY, so a reorder "
             "silently shifts every column)" % fields)
@@ -130,7 +131,7 @@ def check_structure(cur):
         if len(r) != len(expect):
             err("row has %d fields, expected %d: %r" % (len(r), len(expect), r[:2]))
             continue
-        name, birth, death, quartets, views, lo, hi, gender = r
+        name, birth, death, quartets, views, lo, hi, gender, imslp, imslp_cat = r
         if not name or not isinstance(name, str):
             err("row with no name: %r" % (r,))
         if name in seen:
@@ -175,6 +176,23 @@ def check_structure(cur):
                     "index.html and the value to app.js's readHash whitelist, or the row is in "
                     "NEITHER filter while the footnote still counts only the composers with no "
                     "claim at all" % (name, gender))
+        # THREE STATES IN TWO FIELDS, and the pair has to stay legible: `imslp_cat` null means we
+        # could not place the composer on IMSLP at all, "" means we placed them and the category is
+        # the derived `Surname, Forename`, and a string means it is that string verbatim. The count
+        # cannot carry the distinction — it is 0 both for a composer nobody could place and for one
+        # IMSLP holds with no quartets (invariant 10, one field over) — so a null category is the
+        # only thing that says there is nowhere for the table's link to point.
+        if not isinstance(imslp, int) or isinstance(imslp, bool) or imslp < 0:
+            err("%s: bad IMSLP work count %r" % (name, imslp))
+        elif imslp and imslp_cat is None:
+            err("%s: %d IMSLP works but no category — the count came from somewhere the table "
+                "cannot link to" % (name, imslp))
+        if imslp_cat is not None:
+            if not isinstance(imslp_cat, str):
+                err("%s: bad IMSLP category %r" % (name, imslp_cat))
+            elif imslp_cat.startswith("Category:"):
+                err("%s: IMSLP category %r carries its namespace — table.js prefixes "
+                    "\"Category:\" itself, so this ships a doubled URL" % (name, imslp_cat))
     return rows
 
 
@@ -522,6 +540,111 @@ def check_resolved(people):
              "it if the article genuinely does not exist." % (len(bad), ", ".join(bad[:6])))
 
 
+# --------------------------------------------------------------- IMSLP
+def derive_cat(name):
+    """"Ludwig van Beethoven" -> "Beethoven, Ludwig van".
+
+    A SECOND statement of build_data.imslp_cat()'s one line, on purpose and not by oversight — the
+    same reason make-og-svg.py restates chart.js's scales. Imported, this check could only ever
+    confirm that build_data agreed with itself; written out, it is an independent reading of the
+    rule, checked against the category the scrape actually found. table.js states it a third time,
+    in JS, and ui.test.mjs pins two of the hrefs that come out.
+    """
+    toks = name.split()
+    return toks[-1] + ", " + " ".join(toks[:-1]) if len(toks) > 1 else name
+
+
+def check_imslp(rows, meta, join, scrape, works):
+    """The IMSLP columns against the join they came from, and the work file against them both.
+
+    The column is worth a gate for the reason every number here is: `imslp: 0` is plausible for any
+    composer, a category that is one letter wrong links to a page IMSLP does not have and returns a
+    perfectly ordinary red link, and nothing on the page looks wrong in either case.
+    """
+    if not join:
+        warn("no data/imslp-join.json — the IMSLP columns cannot be checked against their source")
+        return
+    composers = join.get("composers") or {}
+    by_name = {r[0]: r for r in rows}
+
+    # Every category the scrape has actually SEEN, however it saw it: a composer page it read, a
+    # page it guessed at, a work title's parenthetical, or a P839 claim. A category outside this
+    # set was invented somewhere between the crawl and the row.
+    known = set()
+    if scrape:
+        known.update(scrape.get("wikitext") or {})
+        known.update(scrape.get("candidates") or {})
+        for cats in (scrape.get("p839") or {}).values():
+            known.update(c[len("Category:"):] if c.startswith("Category:") else c
+                         for c in (cats or []))
+        for kind in ("orig", "arr"):
+            known.update(composer
+                         for _id, _t, composer in (scrape.get("works") or {}).get(kind, [])
+                         if composer)
+
+    orphans = sorted(set(composers) - set(by_name))
+    if orphans:
+        err("%d composers in data/imslp-join.json are not rows in composers.json (%s) — the join "
+            "was built against a different roster" % (len(orphans), ", ".join(orphans[:4])))
+
+    for r in rows:
+        name, imslp, cat = r[0], r[8], r[9]
+        e = composers.get(name)
+        if cat is None:
+            if e:
+                err("%s: the join places them on IMSLP (%s) but the row says not placed"
+                    % (name, e["cats"][0]))
+            elif imslp:
+                err("%s: %d IMSLP works with no join entry" % (name, imslp))
+            continue
+        if not e:
+            err("%s: ships an IMSLP category (%r) the join does not have" % (name, cat))
+            continue
+        # The whole point of the empty string: 406 of the 462 categories are NOT shipped, because
+        # one line reproduces them. That is safe only while something checks the line, and this is
+        # it — the derivation is re-read here (see derive_cat) against the category the crawl
+        # found, for every row, not for a sample.
+        want = e["cats"][0]
+        got = cat or derive_cat(name)
+        if got != want:
+            err("%s: IMSLP category resolves to %r, but the join found %r — %s"
+                % (name, got, want,
+                   "the Surname, Forename derivation does not hold for this name, so the category "
+                   "has to ship verbatim" if not cat else "the shipped override is wrong"))
+        elif cat and derive_cat(name) == want:
+            warn("%s: ships %r verbatim where the derivation already produces it — %d bytes on "
+                 "every such row" % (name, cat, len(cat)))
+        if known and want not in known:
+            err("%s: IMSLP category %r is not one data/imslp-scrape.json holds" % (name, want))
+        if imslp != e["works_n"]:
+            err("%s: ships %d IMSLP works, the join counted %d" % (name, imslp, e["works_n"]))
+
+    if not works:
+        warn("no imslp-works.json — the per-page detail cannot be checked")
+        return
+    if (works.get("meta") or {}).get("generated") != meta.get("generated"):
+        err("imslp-works.json was generated %r and composers.json %r — two internally consistent "
+            "files from different runs is the drift nothing in the app can see; rerun "
+            "scripts/build_data.py, which writes both"
+            % ((works.get("meta") or {}).get("generated"), meta.get("generated")))
+    for name, pages in sorted((works.get("works") or {}).items()):
+        r = by_name.get(name)
+        if not r:
+            err("imslp-works.json keys %r, which is not a row in composers.json" % name)
+            continue
+        if r[9] is None:
+            err("%s: has work pages in imslp-works.json but no category to build their URLs from"
+                % name)
+        counts = [p[1] for p in pages]
+        # NOT equality, and that is the point of the de-duplication: pages overlap, so a composer's
+        # total is at least the biggest single page and at most the sum. Beethoven's 18 sit between
+        # a 6-work opus page and a sum of 44.
+        if not counts or not (max(counts) <= r[8] <= sum(counts)):
+            err("%s: %d works against pages holding %s — the total must be at least the largest "
+                "page and at most their sum"
+                % (name, r[8], "%d..%d" % (max(counts), sum(counts)) if counts else "nothing"))
+
+
 # --------------------------------------------------------------- drift
 def check_drift(rows, prev):
     """Compare against the previous commit. This is the John Adams check.
@@ -576,6 +699,21 @@ def check_drift(rows, prev):
         if o[4] is not None and n[4] is None:
             warn("%s: had %s readers/mo, now has none — a deleted article, or a fetch that did "
                  "not answer and was dropped for the next run to retry" % (name, o[4]))
+        # Same length guard as the gender line above, and the commit that ADDS these two fields is
+        # exactly the one where the baseline is short. A composer who was placed on IMSLP and now
+        # is not lost their category, which reads as "no scores" on the page and is indistinguishable
+        # from IMSLP genuinely holding none; a count that moves by more than a factor of three is
+        # the join having found a different catalogue, not the site having grown.
+        if len(o) > 9 and len(n) > 9:
+            if o[9] is not None and n[9] is None:
+                warn("%s: was on IMSLP as %r, now reads as not placed — the join lost them, and "
+                     "the row now says the same thing as a composer IMSLP has never heard of"
+                     % (name, o[9] or derive_cat(name)))
+            elif o[9] != n[9]:
+                warn("%s: IMSLP category %r -> %r" % (name, o[9], n[9]))
+            if o[8] and n[8] and (n[8] / o[8] > 3 or o[8] / n[8] > 3):
+                warn("%s: IMSLP works %s -> %s (>3x) — check the catalogue field on their pages"
+                     % (name, o[8], n[8]))
         if o[4] and n[4] and (n[4] / o[4] > 20 or o[4] / n[4] > 20):
             err("%s: page views %s -> %s (>20x). A jump this size is a wrong article, not a change "
                 "in readership — check the resolved title." % (name, o[4], n[4]))
@@ -607,6 +745,9 @@ def main():
         check_moves(pv)
         check_names(rows, people)
         check_resolved(people)
+        check_imslp(rows, meta, load("data/imslp-join.json", required=False),
+                    load("data/imslp-scrape.json", required=False),
+                    load("imslp-works.json", required=False))
         if not args.no_drift:
             check_drift(rows, baseline_rows(args.baseline))
 
