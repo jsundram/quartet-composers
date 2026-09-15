@@ -173,7 +173,7 @@ def check_structure(cur):
                     % (name, gender))
             elif gender not in FILTERABLE:
                 err("%s: gender %r is a value the UI cannot filter — add a pill for it in "
-                    "index.html and the value to app.js's readHash whitelist, or the row is in "
+                    "index.html, which app.js reads its URL whitelist off, or the row is in "
                     "NEITHER filter while the footnote still counts only the composers with no "
                     "claim at all" % (name, gender))
         # THREE STATES IN TWO FIELDS, and the pair has to stay legible: `imslp_cat` null means we
@@ -405,19 +405,18 @@ def check_moves(pv):
     rebuild, or abandoned this run because a source title did not answer.
 
     THE MONTHS ARE DERIVED FROM pagemoves.holes() — the same call stitch() makes — AND NOT FROM
-    THE CHAIN. Reading them straight off the record asserts a null at every month the record
-    NAMES, which is a different set: a chain
-    whose surviving hops leave two adjacent tenures under one title crosses no boundary there, so
-    stitch() writes a real count and the gate would fail a correctly stitched series — with a
-    message saying it was written as fetched, and advice to rerun a deterministic script that
-    reproduces it exactly. Sharing the function — the whole predicate, not just tenures() under a
-    second copy of the test — is what makes the gate and the stitch unable to disagree about which
-    months are holes.
+    THE CHAIN. Reading them straight off the record asserts a null at every month the record NAMES,
+    which is a different set: a chain whose surviving hops leave two adjacent tenures under one
+    title crosses no boundary there, so stitch() writes a real count and the gate would fail a
+    correctly stitched series — with a message saying it was written as fetched, and advice to
+    rerun a deterministic script that reproduces it exactly. Sharing the function — the whole
+    predicate, not just tenures() under a second copy of the test — is what makes the gate and the
+    stitch unable to disagree about which months are holes.
 
     That last case is why this exists. fetch_views.py's recovery from a missing source is to leave
     the series and the record alone and let the gate say so, and the shape-based check below cannot
-    always say so: it ignores anything under pagemoves.GATE_FLOOR readers a month, and most of this
-    roster's tail sits under that, so a lost stitch there reads as (0.0, None) and passes. The null
+    always say so: it ignores anything under pagemoves.GATE_FLOOR readers a month, and much of
+    this roster reads below that, so a lost stitch there reads as (0.0, None) and passes. The null
     check catches those, and catches a rebuild that skipped the repair entirely.
 
     Then the shape, for the case no record can cover — a rename NOBODY has looked for:

@@ -144,7 +144,7 @@ def gender_column_lost(d):
         r[7] = None
 
 
-@case("a real P21 label the UI has no pill for", "cannot filter")
+@case("a real P21 label the UI has no pill for", "add a pill for it in index.html, which app.js")
 def unfilterable_gender(d):
     # Not a corruption: "non-binary" is a value fetch_wikidata.py labels correctly and validate.py
     # would otherwise wave through. The bug is that the app has two pills, so the row lands in
