@@ -457,9 +457,9 @@ def warm_run_is_cheap(fi, w):
 @case("a P839 claim Wikidata did not state is asked again")
 def p839_absence_is_reasked(fi, w):
     # This pass answers PRESENCE — it is the only thing that can tell a composer IMSLP holds with
-    # no quartets from one IMSLP has never heard of. Most of the roster's QIDs are stored as
-    # None, and a None nobody re-asks is #62 one pass over: the editor who adds the claim is never
-    # noticed and the composer reads as absent forever.
+    # no quartets from one IMSLP has never heard of. A large share of the roster's QIDs are stored
+    # as None, and a None nobody re-asks is #62 one pass over: the editor who adds the claim is
+    # never noticed and the composer reads as absent forever.
     cache, _log = run(fi)
     assert cache["p839"]["Q235066"] is None, (
         "the fixture already had a claim for her: %r" % (cache["p839"]["Q235066"],))
