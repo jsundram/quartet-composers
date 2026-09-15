@@ -940,9 +940,12 @@ The pipeline REORDERED to get there: `build_imslp.py` used to read `composers.js
 now be a cycle, so it calls `build_data.build_rows()` instead — one reduction of the caches, so
 the join and the app cannot disagree about who is on this list (invariant 4).
 
-What the findings below turned into, in the end: the count shipped is `works_n` and the noun is
-"works"; `null` / `0`-with-a-link / `0`-without are the three answers, carried by `imslp_cat`
-rather than by the digit (invariant 16); and the colour channel was not taken.
+What the findings below turned into, in the end: the count shipped is `works_n`, printed as
+"quartets" — looser than the parse, on purpose, because that is IMSLP's own category and what the
+reader came for, and the danger the findings are really about is subtracting it from the `Quartets`
+column rather than what it is called; `null` / `0`-with-a-link / `0`-without are the three answers,
+carried by `imslp_cat` rather than by the digit (invariant 16); and the colour channel was not
+taken.
 
 **What is in it.** IMSLP catalogues 4,215 work pages under its own instrumentation category
 `For 2 violins, viola, cello`, plus 722 more under the `(arr)` category, spread over 1,771

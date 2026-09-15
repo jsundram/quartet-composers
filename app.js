@@ -412,10 +412,16 @@ function renderDetail(i, preview) {
 // P839 claim, no IMSLP page linking their article and no Surname, Forename guess reached them —
 // good evidence, and not the same as having asked.
 //
-// "works", not "quartets". The count is of distinct works on IMSLP's own quartet-instrumentation
-// pages, which legitimately hold fugues, fragments and single movements no numbered list counts —
-// and it is not composers.json's `quartets`, which is how many the composer WROTE, from Wikipedia
-// prose. The two must not read as the same number differently measured.
+// THE NOUN IS "quartets" AND IT IS A LOOSE ONE, knowingly. What is counted is distinct works in
+// IMSLP's own quartet-instrumentation category, which legitimately holds fugues, fragments and
+// single movements no numbered list counts — Beethoven's 18 are his 16 plus the Grosse Fuge and
+// the Hess 30 fugue. "quartets" is what the reader came for and what IMSLP files them under; the
+// honest reading of the pill is "quartet pages IMSLP has for this composer", which is what the
+// link goes to. What it is NOT is the `Quartets` row three lines above it, which is how many the
+// composer WROTE, from Wikipedia prose — Haydn reads 76 here against a stated 68. Different
+// sources answering different questions: they may sit near each other and must never be
+// subtracted. The zero state says "no quartets FOUND" for the same reason the absent state says
+// "no IMSLP page found" — both are statements about what a search turned up, not about the world.
 function elsewhereRow(d) {
   const p = document.createElement("p");
   p.className = "links";
@@ -433,8 +439,8 @@ function elsewhereRow(d) {
   // label (WCAG 2.5.3, the lesson #53 left on the abbreviated header): the visible string is a
   // prefix of the spoken one rather than a different sentence.
   const label = d.imslp
-    ? `IMSLP · ${d.imslp} work${d.imslp === 1 ? "" : "s"}`
-    : "IMSLP · no quartets";
+    ? `IMSLP · ${d.imslp} quartet${d.imslp === 1 ? "" : "s"}`
+    : "IMSLP · no quartets found";
   p.appendChild(destination(d.imslpUrl, label, `${label} by ${d.name}`, "imslp"));
   return p;
 }

@@ -357,12 +357,20 @@ body.fs #filters .tablehead{ display:none }
   flex-wrap:nowrap; overflow:hidden; white-space:nowrap;
 }
 /* A link that reads as a destination rather than as a word in a sentence. Not a .btn: these are
-   11px prose furniture, and a 36px pill beside a 12px rank line would read as a control. */
+   11px prose furniture, and a 36px pill beside a 12px rank line would read as a control. No
+   `color` of its own — they are links and the global `a` rule makes them the accent, which is what
+   keeps them from sinking into the muted rank line above them. The border is tinted with the same
+   accent rather than left on --line, or blue text sits in a grey chip. */
 #detail .links .pill{
-  flex:0 0 auto; line-height:16px; border:1px solid var(--line); border-radius:999px;
-  padding:0 8px; font-size:11px; letter-spacing:.02em; color:var(--muted); text-decoration:none;
+  flex:0 0 auto; line-height:16px; border-radius:999px;
+  border:1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  padding:0 8px; font-size:11px; letter-spacing:.02em; text-decoration:none;
 }
-#detail .links .pill:hover{ color:var(--ink); border-color:var(--ink) }
+/* A tint rather than an underline: the rule above out-specifies `a:not(:hover)`, so hovering would
+   otherwise change nothing at all. */
+#detail .links .pill:hover{
+  border-color:var(--accent); background:color-mix(in srgb, var(--accent) 10%, transparent);
+}
 /* The one state with nowhere to point. Muted text, no border: a pill that is not a link would be
    a control that does nothing. */
 #detail .links .none{ font-size:11px; color:var(--muted); min-width:0; overflow:hidden;

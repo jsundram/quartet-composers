@@ -175,14 +175,16 @@ birth *and* death years agree with Wikidata's. 462 of the 884 are placed; the ot
 `Surname, Forename` guess reached them, which is good evidence of absence and is not the same as
 having asked. The UI says "no IMSLP page found" and never "not on IMSLP".
 
-The number shown is **works, not pages and not quartets**. IMSLP's unit is a publication entry, so
-Beethoven's 16 quartets occupy 23 pages — three of them complete-set editions that reprint the
-others. Reading the `Opus/Catalogue Number` off each page, expanding a set by the designation its
-members share and merging by id collapses those 23 pages to **18 works**, which is his 16 plus the
-Grosse Fuge and the Hess 30 fugue. It still is not (b): Haydn reads 76 against a stated 68, because
-the instrumentation category legitimately holds fugues, fragments and single movements no numbered
-list counts. The two columns sit side by side and the reader is expected to go and look — which is
-what the link on the number is for. `scripts/imslp-audit.py` renders the parse against the source
+What is counted is **works, not pages**. IMSLP's unit is a publication entry, so Beethoven's 16
+quartets occupy 23 pages — three of them complete-set editions that reprint the others. Reading the
+`Opus/Catalogue Number` off each page, expanding a set by the designation its members share and
+merging by id collapses those 23 pages to **18**, which is his 16 plus the Grosse Fuge and the Hess
+30 fugue. The UI calls them quartets, which is looser than that parse and deliberately so — it is
+IMSLP's own category and what the reader came for. What it is **not** is (b): Haydn reads 76 here
+against a stated 68, because the instrumentation category legitimately holds fugues, fragments and
+single movements no numbered list counts. The two columns sit side by side answering different
+questions from different sources; they are never subtracted, and the reader is expected to go and
+look — which is what the link on the number is for. `scripts/imslp-audit.py` renders the parse against the source
 field for the 22 composers the chart highlights, because the measure of a parser is a human reading
 it against the page (the same rule `audit_counts.py` exists for).
 

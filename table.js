@@ -226,7 +226,7 @@ window.Table = (function () {
     a.target = "_blank";
     a.rel = "noopener";
     a.textContent = d.imslp;
-    a.setAttribute("aria-label", `${d.imslp} works by ${d.name} on IMSLP`);
+    a.setAttribute("aria-label", `${d.imslp} quartets by ${d.name} on IMSLP`);
     // The row's own click handler selects the composer; following a link should not also do that.
     a.onclick = ev => ev.stopPropagation();
     td.appendChild(a);

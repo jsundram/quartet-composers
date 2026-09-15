@@ -228,11 +228,17 @@ plain static assets. Read README.md first for what the app is.
    its own reduction reproduces the category the scrape found, `validate.py` re-derives all 462
    against `data/imslp-join.json` with an independent copy of the line, and `app.js` restates it a
    third time in JS with `ui.test.mjs` reading the `href` the browser ends up with for one derived
-   composer and one override. The count is **works, not pages and not quartets** — invariant 11's
-   rule applies to that parse (`scripts/imslp-audit.py` grades it against the page) — and copy
-   about an unplaced composer says "no IMSLP page found", never "not on IMSLP": what we know is
-   that no P839 claim, no page linking their article and no name guess reached them, which is
-   evidence and is not the same as having asked.
+   composer and one override. What is COUNTED is distinct **works, not pages** — 23 Beethoven pages
+   reduce to 18 — and invariant 11's rule applies to that parse, which is what
+   `scripts/imslp-audit.py` grades against the page. What the UI CALLS them is "quartets", which is
+   looser than the parse and deliberately so: it is IMSLP's own category and what the reader came
+   for. **The thing that must never happen is subtracting it from `quartets`**, which is how many
+   the composer WROTE, from Wikipedia prose — Haydn reads 76 against a stated 68, and the two
+   columns sit one apart answering different questions from different sources. Copy about the
+   absences is the other half: "no quartets **found**" for a composer IMSLP holds none for, and "no
+   IMSLP page found", never "not on IMSLP" — what we know is that no P839 claim, no page linking
+   their article and no name guess reached them, which is evidence and is not the same as having
+   asked.
 
 ## Testing
 
