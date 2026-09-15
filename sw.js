@@ -57,9 +57,9 @@ const SHELL = [
   // rebuild via scripts/build_data.py must be shipped with a V bump like any other shell file.
   "./composers.json",
   // The readership history behind the detail panel's sparkline — SHELL but deliberately NOT a
-  // BOOT dep (see BOOT below). It is ten times the size of composers.json and nothing on the page
-  // waits for it, so precaching it buys the sparkline offline while gating a navigation on it
-  // would replace a working page with the offline notice over a decoration.
+  // BOOT dep (see BOOT below). It is an order of magnitude larger than composers.json, and nothing
+  // on the page waits for it, so precaching it buys the sparkline offline while gating a navigation
+  // on it would replace a working page with the offline notice over a decoration.
   "./readership.json",
   // The IMSLP work pages behind the table's "On IMSLP" column, on the same terms as
   // readership.json above: SHELL so it is there offline, not a BOOT dep because the page is
