@@ -86,8 +86,8 @@ python3 scripts/compare_2014.py     # diff against the archived 2014 snapshot, w
 ## Five data elements, five different problems
 
 **(a) The roster** and **(b) quartet counts** come from the list page, which is *prose, not a
-table*: `*[[Joseph Haydn]] (1732–1809): Wrote sixty-eight string quartets…`. Seven rules read a count for most of
-them; the rest return **null** and appear in the table but not the chart,
+table*: `*[[Joseph Haydn]] (1732–1809): Wrote sixty-eight string quartets…`. A handful of rules read
+a count for most of them; the rest return **null** and appear in the table but not the chart,
 because a wrong count ships as a confident dot while a null is merely honest. Graded by hand on a random sample:
 25 exactly right, 4 correctly null, 1 arguable. *Wikidata is not an alternative here* — Beethoven's
 quartets are typed as generic "musical work/composition" with nothing linking them to the genre, so
@@ -110,7 +110,7 @@ traps, all of which this repo fell into first:
   so every month before a page **move** was counted under the name the article held then. Fanny
   Hensel's article sat at "Fanny Mendelssohn" until March 2026 and shipped a median of **500**
   against a real **5,217** — and the sparkline caption, which names a spike when a month clears 3×
-  the composer's own 95th percentile, obligingly captioned the rename as an obituary. A dozen of the
+  the composer's own 95th percentile, obligingly captioned the rename as an obituary. Some of the
   roster's articles have moved. `scripts/pagemoves.py` finds them (a level shift proposes, the MediaWiki
   move log decides, and a traffic-handover test throws out the moves that were reverted an hour
   later), and each month is counted under the title the article actually occupied.
@@ -188,7 +188,7 @@ scripts/ui-test.sh           # the behavioural suite in a real Chrome (lens, tap
                              #   filters, theme repaint, 390/360px layout, offline, print) — no deps.
                              #   It prints its own total; that is where the count lives.
                              #   On Linux it wants xvfb-run: headless there reports no pointer at
-                             #   all, and nine of these checks are about having one
+                             #   all, and a good few of these checks are about having one
 node scripts/sw.test.mjs     # the service worker's fetch handler
 python3 scripts/sw-lint.py   # precache contract: V bumped, SHELL paths exist, no cross-origin
 python3 scripts/sw-lint.py --fix  # ...and bump V yourself if a staged shell file needs one (the hook)
