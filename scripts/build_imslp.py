@@ -4,8 +4,8 @@
 # ///
 """Join IMSLP's string quartets onto this roster. Offline; reads only caches.
 
-    python3 scripts/build_imslp.py            # writes data/imslp-join.json, prints the join audit
-    python3 scripts/build_imslp.py --report   # audit only, writes nothing
+    python3 scripts/build_imslp.py            # writes data/imslp-join.json + data/imslp-audit.json
+    python3 scripts/build_imslp.py --report   # prints the audit only, writes nothing
 
 data/imslp-scrape.json (the crawl) + the caches build_data.py reads  ->  data/imslp-join.json
 
@@ -15,13 +15,13 @@ and calling the function that decides the roster is what keeps the two from disa
 is on this list. Reducing the caches a second time here would be a second opinion, and a join
 against a roster the app does not ship is a count filed under a name nothing looks up.
 
-THE JOIN IS BY QID AND IT IS CONFIRMED, NOT ASSUMED. Every IMSLP composer category page states
-its own Wikidata item; every roster composer already has one (data/people.json). Matching those
-two is the whole join, and it matches no strings a human chose. The Wikipedia article link
-({{wp|…}}) is the SECOND source, used only where IMSLP has not filled in a QID, and it is
-accepted only when the article title is one this roster already resolved to canonically — a
-title IMSLP names that we have never seen is a composer we do not have, not a near-miss to
-guess at.
+THE JOIN IS BY QID AND IT IS CONFIRMED, NOT ASSUMED. Where an IMSLP composer category page
+states its own Wikidata item, matching it against the one every roster composer already has
+(data/people.json) is the whole join, and it matches no strings a human chose. Most pages state
+no QID, so the Wikipedia article link they do give ({{wp|…}}) carries most of the join: its QID
+where en.wikipedia has one, and otherwise the article title, accepted only when it is a title
+this roster already resolved to canonically — a title IMSLP names that we have never seen is a
+composer we do not have, not a near-miss to guess at.
 
 EVERY ACCEPTED JOIN IS CHECKED AGAINST THE DATES, and a disagreement is REPORTED rather than
 resolved. IMSLP and Wikidata are independent about birth and death years, so agreement is
@@ -32,14 +32,13 @@ The dates are not overwritten here — composers.json's dates come from Wikidata
 and this file is not a second opinion about when anyone was born.
 
 A PAGE IS NOT A QUARTET, and the difference is not a rounding error. IMSLP's unit is a publication
-entry: "Sämtliche Streichquartette (Beethoven, Ludwig van)" is one page holding sixteen quartets,
-and his 23 pages cover 16 of them plus the Grosse Fuge, two complete-edition collections and a
-fugue fragment. So `pages` is reported beside `works_n`, which reads the catalogue number off each
-page, expands a set by the designation its members share and merges by id — 23 pages, 18 works.
-`works_n` is the number that ships (composers.json's `imslp`) and it is STILL not that file's
-`quartets`, which counts what the composer WROTE, from Wikipedia prose: IMSLP's instrumentation
-category legitimately holds fugues, fragments and single movements no numbered list counts. The
-two are different units and must not be subtracted from one another.
+entry: "Sämtliche Streichquartette (Beethoven, Ludwig van)" is one page holding a whole cycle of
+quartets, and the single-work pages for the same music sit beside it. So `pages` is reported beside
+`works_n`, which reads the catalogue number off each page, expands a set by the designation its
+members share and merges by id. `works_n` is the number that ships (composers.json's `imslp`) and
+it is STILL not that file's `quartets`, which counts what the composer WROTE, from Wikipedia prose:
+IMSLP's instrumentation category legitimately holds fugues, fragments and single movements no
+numbered list counts. The two are different units and must not be subtracted from one another.
 
 NULL AND ZERO ARE DIFFERENT ANSWERS (invariant 10). A composer with 0 works means IMSLP holds them
 and none of their quartets; ABSENT from this file means we could not establish who they are on
@@ -62,22 +61,22 @@ sys.path.insert(0, HERE)
 # IMPORTED, not copied. composers.json's row names are DISPLAY names — build_data.py strips the
 # disambiguator, so the roster says "George Onslow" where Wikipedia says "George Onslow
 # (composer)" (invariant 4). Indexing the roster by the canonical title therefore misses every
-# composer who needed one, which is 27 of them and includes the fourth-biggest quartet catalogue
-# on IMSLP. A second copy of that regex here would drift from the one that names the rows.
+# composer who needed one — dozens of them, including some of the biggest quartet catalogues on
+# IMSLP. A second copy of that regex here would drift from the one that names the rows.
 from build_data import QUALIFIER, BuildError, build_rows
 ROOT = os.path.dirname(HERE)
 CACHE = os.path.join(ROOT, "data", "imslp-scrape.json")
 PEOPLE = os.path.join(ROOT, "data", "people.json")
-# An INTERMEDIATE, not a shipped file: nothing in the app reads it, and the shape the
-# app will read is decided in issue #61. Living in data/ says so, and keeps the name
+# An INTERMEDIATE, not a shipped file: nothing in the app reads it — build_data.py re-keys
+# it onto display names for the files that ship. Living in data/ says so, and keeps the name
 # clear of data/imslp-scrape.json, which is the crawl.
 OUT = os.path.join(ROOT, "data", "imslp-join.json")
 # The audit, as a FILE rather than as scrollback. Every number in it moves when the
 # pipeline runs, so anything that reports coverage has to read it rather than quote it.
 AUDIT = os.path.join(ROOT, "data", "imslp-audit.json")
 
-# Bit flags per work page, so 4,000 rows cost bytes rather than four key names each. The legend
-# ships in meta, because a bitmask nobody can read from the file is a number with no meaning.
+# Bit flags per work page, so thousands of rows cost bytes rather than four key names each. The
+# legend ships in meta, because a bitmask nobody can read from the file is a number with no meaning.
 SCORES, RECORDINGS, COLLECTION, ARRANGEMENTS = 1, 2, 4, 8
 LEGEND = {"1": "has scores", "2": "has recordings", "4": "is a collection",
           "8": "has arrangements"}
@@ -85,32 +84,33 @@ LEGEND = {"1": "has scores", "2": "has recordings", "4": "is a collection",
 DATE_SLACK = 1        # IMSLP and Wikidata disagree by a year on people born near a new year
 # How recently a composer can have died for IMSLP's silence about it to read as staleness rather
 # than as disagreement. IMSLP pages are edited when somebody uploads a score, not when somebody
-# dies, and a locked page is not edited at all — Sofia Gubaidulina's states 1931 and no death, a
-# year and a half after hers. The same lag is noted about the Wikipedia list page in
+# dies, and a locked page is not edited at all — Sofia Gubaidulina's still states no death year,
+# well over a year after hers. The same lag is noted about the Wikipedia list page in
 # fetch_wikidata.py. Bounded, because "IMSLP says alive" is real evidence for anyone who died
 # long enough ago that a score has plausibly been uploaded since.
 STALE_DEATH = 4
 
 
-# Four ways an IMSLP page names the Wikipedia article, all of them in use today, counted over
-# the 1,770 composer pages that have a quartet:
-#   [[wikipedia:Carl_Friedrich_Abel|Wikipedia]]                                          1031
-#   [[wikipedia:{{#iflang:en=Ludwig van Beethoven |af=af:… |zh=zh:…}}|Wikipedia]]         273
-#   {{wp|Joseph Achron}}                                                                  146
-#   [https://en.wikipedia.org/wiki/… …]                                                   few
+# Four ways an IMSLP page names the Wikipedia article, all of them in use today, in rough order
+# of how common they are:
+#   [[wikipedia:Carl_Friedrich_Abel|Wikipedia]]
+#   [[wikipedia:{{#iflang:en=Ludwig van Beethoven |af=af:… |zh=zh:…}}|Wikipedia]]
+#   {{wp|Joseph Achron}}
+#   [https://en.wikipedia.org/wiki/… …]
 # The #iflang switch is the one that matters and the one the first parser fell into: it names the
-# article in sixty languages, and a pattern that stops at the first "|" or "#" captures the two
+# article in dozens of languages, and a pattern that stops at the first "|" or "#" captures the two
 # braces and calls them a title. Beethoven, Mozart and Haydn — the three biggest catalogues on
 # the site — all use it, so the failure took out exactly the rows anyone would check first.
-# Wikidata is NOT the primary key here despite being the better one: only 136 of the 1,770 state
-# {{Wikidata|Q…}} at all, so the Wikipedia article is what IMSLP actually gives us and the QID is
-# recovered from it downstream (data/imslp-scrape.json "wp"), where en.wikipedia can be asked directly.
+# Wikidata is NOT the primary key here despite being the better one: only a small minority of pages
+# state {{Wikidata|Q…}} at all, so the Wikipedia article is what IMSLP actually gives us and the QID
+# is recovered from it downstream (data/imslp-scrape.json "wp"), where en.wikipedia can be asked
+# directly.
 WP_PATTERNS = (
     # {{wp|Joseph Achron}}
     re.compile(r"\{\{\s*wp\s*\|\s*([^}|]+)", re.I),
     # [[wikipedia:{{#iflang:en=Ludwig van Beethoven |af=…}}|Wikipedia]]  and the other order,
-    # [[wikipedia:{{#iflang:\n |en=Johann Sebastian Bach |de=…}}|Wikipedia]]. Both are live; Bach,
-    # Brahms and Dvorak use the second, Beethoven and Mozart the first.
+    # [[wikipedia:{{#iflang:\n |en=Johann Sebastian Bach |de=…}}|Wikipedia]]. Both orders are live,
+    # and both are in use on the biggest catalogues on the site.
     re.compile(r"\[\[\s*(?:wikipedia|w)\s*:\s*\{\{\s*#iflang\s*:"
                r"(?:[^}]*?\|)?\s*en\s*=\s*([^|}\n]+)", re.I),
     # [[wikipedia:Carl_Friedrich_Abel|Wikipedia]]. "{" is excluded from the title so this cannot
@@ -135,8 +135,7 @@ def template_fields(text):
     """
     # The person template, not the first one on the page. A maintenance banner can precede it —
     # "Boisseau, Arthur" opens with {{MoreInfo|...}} — and parsing that returns {} , losing the
-    # dates, the sex and the Biography Link with no symptom. 36 cached pages state a Born Year
-    # that the naive reader threw away.
+    # dates, the sex and the Biography Link with no symptom on every page that has one.
     start = -1
     for marker in ("{{#fte:person", "{{#imslpcomposer:"):
         i = text.find(marker)
@@ -192,7 +191,7 @@ def parse_person(text):
     # elsewhere on the page. With the loops the other way round, pattern 1 searching the WHOLE
     # page outranked pattern 2 inside Biography Link: Stravinsky's own article is behind an
     # #iflang switch in that field, and the reader returned "nl:Oeuvre van Igor Stravinsky" from
-    # further down instead. He joined anyway, but only because P839 happened to rescue him.
+    # further down instead.
     wp = None
     for scope in (f.get("Biography Link", ""), text):
         for pat in WP_PATTERNS:
@@ -217,9 +216,9 @@ def candidates(name):
     """The IMSLP category names a roster composer could plausibly be filed under.
 
     IMSLP files people "Surname, Forename", and the particle falls out for free because IMSLP
-    writes "Beethoven, Ludwig van" too. Two- and three-token surnames are tried as well, for
-    Ralph Vaughan Williams and Carl Maria von Weber. A GUESS, and only ever a guess — confirms()
-    below is what decides, and it decides on dates.
+    writes "Beethoven, Ludwig van" too. Two- and three-token surnames are tried as well, for names
+    like Vaughan Williams. A GUESS, and only ever a guess — confirms() below is what decides, and
+    it decides on dates.
     """
     toks = name.split()
     out = []
@@ -263,25 +262,26 @@ def confirms(birth, death, f, today=None):
 # `Opus/Catalogue Number`, and a set page states the one its members share: "6 String Quartets,
 # Op.18" carries Op.18 while the six individual pages carry Op.18 No.1 through No.6. Expanding the
 # set and merging by id makes those the same six works instead of twelve, which is the double
-# counting that makes a raw page count wrong for Beethoven by a factor of four.
+# counting a raw page tally cannot avoid.
 #
 # THE COUNT IS OF WORKS IMSLP HAS, and it is still not the same question as composers.json's
-# `quartets`, which is how many the composer WROTE, from Wikipedia prose. Coverage is the ratio and
-# it is finally meaningful: Cambini reads 14 pages and 76 works against a stated 149.
+# `quartets`, which is how many the composer WROTE, from Wikipedia prose. Coverage is the ratio of
+# the two, and with works rather than pages on top it is finally meaningful.
 TPL = re.compile(r"\{\{\s*([A-Za-z0-9]+)\s*\|\s*([^}|]+?)\s*\}\}")   # {{K6|417b}} -> K6.417b
 TAG = re.compile(r"<[^>]+>")
 NOTE = re.compile(r"\([^)]*\)")
 LEAD = re.compile(r"^\s*(\d+)\b")
 SETWORD = re.compile(r"quartet|quatuor|quartett", re.I)
 # A unit word that means WORKS, against one that means parts of a single work. "12 pieces" under
-# one B number is Echo of Songs, and reading it as twelve works invented eleven Dvorak quartets.
+# one B number is Echo of Songs, and reading it as twelve works invented Dvorak quartets that do
+# not exist.
 UNIT = re.compile(r"^\s*(\d+)\s+(?:quartet|quartett|quatuor|piece|work|st[uü]ck)", re.I)
 MOVT = re.compile(r"^\s*(\d+)\s+(?:movement|section|act|dance|variation|volume)", re.I)
 # A SEPARATOR between the prefix and the number is required, and the prefix may contain digits.
 # Without both, "{{K6|417b}}" -> "K6.417b" matched pre="K", num="6" and every Koechel-6 alternate
 # on the site produced the same id "K.6" — which the union-find then treated as one work, merging
-# ten distinct Mozart quartets into one and shipping him 31 works instead of ~40. Nothing went red:
-# a smaller plausible number is exactly this parser's failure mode.
+# most of Mozart's quartets into a single work and shipping a fraction of his catalogue. Nothing
+# went red: a smaller plausible number is exactly this parser's failure mode.
 REF = re.compile(r"""^(?P<pre>[A-Za-z][A-Za-z0-9]{0,7})[.\s]\s*
                       (?P<num>\d+[a-z]?)
                       (?:\s*[-\u2013]\s*(?P<to>\d+[a-z]?))?
@@ -307,9 +307,9 @@ def work_ids(raw, members=None):
 
     Alternate designations of the same music are zipped POSITIONALLY: the i-th work under one
     catalogue is the i-th under the other. Without that, "Op.24 ; G.183-188" counts as twelve
-    works and Boccherini's catalogue comes out at 153 instead of 75. Designations that disagree
-    about how many works are present cannot be aligned, so the longest wins and the shorter ones
-    are dropped rather than added — guessing an alignment invents works.
+    works and a catalogue like Boccherini's comes out at about twice its size. Designations that
+    disagree about how many works are present cannot be aligned, so the longest wins and the
+    shorter ones are dropped rather than added — guessing an alignment invents works.
     """
     lists = []
     for dg in designations(raw):
@@ -346,7 +346,7 @@ def members_of(title, f):
 
     Expanding one catalogue number into N needs evidence that N works are really here. Two things
     count: IMSLP typing the page as a Collection, or a title that opens with a number and names
-    quartets — "6 String Quartets, Op.11", which Vachon and Kammel both leave untyped.
+    quartets — "6 String Quartets, Op.11", a shape IMSLP often leaves untyped.
     """
     if f.get("Page Type") != "Collection" and not (
             LEAD.match(title) and SETWORD.search(title)):
@@ -550,10 +550,10 @@ def main():
             # falsy — so this is `.get(full, 0)` and never `.get(full) or 0`.
             m = cache["markers"].get(full, 0)
             # COLLECTION comes from the page's own `Page Type`, not from Category:Collections,
-            # which holds 22 of the 4,926 pages and misses every one of Beethoven's complete
-            # editions. Shipping the category's answer meant "17 Streichquartette" went out with
-            # works=0 and nothing on the row to explain the zero. The category is the fallback
-            # only where no work info was fetched.
+            # which a couple of dozen pages are in and which misses every one of Beethoven's
+            # complete editions. Shipping the category's answer meant "17 Streichquartette" went
+            # out with works=0 and nothing on the row to explain the zero. The category is the
+            # fallback only where no work info was fetched.
             info = info_fields(cache.get("workinfo", {}).get(full))
             coll = (info.get("Page Type") == "Collection") if info else bool(m & COLLECTION)
             flags = (m & ~COLLECTION) | (COLLECTION if coll else 0)
@@ -571,7 +571,7 @@ def main():
         name = src = None
         # Strongest evidence first, and every rung is an identifier except the last. The QID an
         # IMSLP page states is best (both sides asserted it); the QID en.wikipedia returns for
-        # the article IMSLP links is just as good and 7x more available; the canonical title is
+        # the article IMSLP links is just as good and far more available; the canonical title is
         # the fallback for an article with no Wikidata item. The raw IMSLP spelling is last and
         # is still not a name MATCH — it only counts if it is a title this roster resolved.
         if f.get("qid") and f["qid"] in by_qid:
@@ -604,8 +604,8 @@ def main():
         # Wikidata states the IMSLP id WITH its namespace ("Category:Bach,_Maria") while a work
         # title's parenthetical is the bare key ("Bach, Maria"). Keeping the prefix meant a
         # composer joined only by P839 never matched the works crawl, so they read as "on IMSLP,
-        # no quartets" while holding some: Stravinsky lost 3 pages, and 5 composers lost 15
-        # between them. Silent, because 0 is a plausible answer for exactly these composers.
+        # no quartets" while holding some. Silent, because 0 is a plausible answer for exactly
+        # these composers.
         cats = [strip_ns(c) for c in (p839.get(v.get("qid") or "") or [])]
         for cat in cats:
             matched.setdefault(canon, []).append(cat)
@@ -626,8 +626,8 @@ def main():
             if not f:
                 continue
             # The candidate page states its own identity too, and that outranks the guess that
-            # found it: this rung was MISSING, so 58 pages reached by name had their Wikidata and
-            # Wikipedia links ignored and were judged on dates alone.
+            # found it: this rung was MISSING, so every page reached by name had its Wikidata and
+            # Wikipedia links ignored and was judged on dates alone.
             r = wpmap.get(f.get("wp") or "") or {}
             if (f.get("qid") and f["qid"] == qid) or (r.get("qid") and r["qid"] == qid):
                 matched.setdefault(canon, []).append(c)

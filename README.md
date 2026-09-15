@@ -2,10 +2,10 @@
 
 **[jsundram.github.io/quartet-composers](https://jsundram.github.io/quartet-composers/)**
 
-884 composers from Wikipedia's [List of String Quartet
-Composers](https://en.wikipedia.org/wiki/List_of_string_quartet_composers), plotted by birth year
-and number of quartets written, sized by how much their article is read and coloured by lifespan —
-with a searchable, sortable table of the same data underneath.
+Every composer on Wikipedia's [List of String Quartet
+Composers](https://en.wikipedia.org/wiki/List_of_string_quartet_composers) — about 880 of them — plotted by how many
+quartets they wrote against how much their article is read — with three other views of the same
+roster (a birth-year timeline, a swarm, a fisheye lens) and a searchable, sortable table underneath.
 
 A remake of a [2014 experiment](http://viz.runningwithdata.com/quartet_composers/index.html) that
 used a *cartesian* fisheye: both axes warped continuously under
@@ -22,12 +22,12 @@ stable picture, hovering was the only way to learn anything, and a screenshot of
 | Hover-only tooltip | **A persistent detail panel.** Hover previews it, click/tap pins it — which is also why there's no hover bubble to double-fire on touch |
 | No labels | **Collision-avoided labels**, so the static view says something with no interaction at all |
 | Fixed 960px, desktop only | Responsive, dark mode, print stylesheet, and a CSS-driven full-screen chart |
-| Colour = lifespan on RdYlBu-9 | Diverging ramp pivoting on the **median** lifespan, with living composers off the ramp entirely |
-| 477 composers, frozen 2014 scrape | **884**, re-scraped, with a repeatable pipeline (below) |
-| Dot size = one month of page views | **Median of 12 months** — a single month is 12% off typical, 29% at worst |
+| Colour = lifespan on RdYlBu-9 | **Sequential** ramp (YlGnBu, stepped darker for contrast on this surface) over a fixed domain, with living composers off the ramp entirely — a diverging one needs a baseline, and pivoting on the dataset's own median moved the pivot whenever the data did |
+| 477 composers, frozen 2014 scrape | **the whole list**, re-scraped, with a repeatable pipeline (below) |
+| Dot size = one month of page views | **Median of 12 months** — a single month runs ~12% off typical, and far more than that for a small article |
 | — | **A readership sparkline** in the detail panel — every month since 2015-07, hover or arrow-key any month to read it, and a caption that names the spike (Saariaho's obituary, 18× typical) or the trend (Haydn, down 42% since 2015) |
 | — | **Readership histogram with a drag-to-filter brush**, to get the long tail out of the way |
-| — | **Gender filter** from Wikidata [P21](https://www.wikidata.org/wiki/Property:P21) — 276 of the 884 are women, and the Fame view shows the band they occupy |
+| — | **Gender filter** from Wikidata [P21](https://www.wikidata.org/wiki/Property:P21) — a third of the roster, and the Fame view shows the band they occupy |
 | — | Shareable URLs (`#v=swarm&c=Joseph+Haydn&r=1500-200000`), a share card generated from the real data, installable + offline |
 
 ## The pipeline
@@ -45,20 +45,22 @@ python3 scripts/build_data.py       # combine  -> composers.json + readership.js
 ```
 
 `build_data.py` writes **three** files, because they are wanted at different moments.
-`composers.json` (53 KB) is the roster and carries one view number and one IMSLP work count per
-composer — the page cannot paint without it. `readership.json` (487 KB) is the monthly history
-behind the sparkline and `imslp-works.json` (81 KB) is the per-page IMSLP detail behind the count:
-nothing waits for either, so they are fetched after the first paint and the panel simply grows a
-line when they arrive. All three are precached; only the first is a boot dependency.
+`composers.json` is the roster and carries one view number and one IMSLP work count per composer —
+the page cannot paint without it. `readership.json` is the monthly history behind the sparkline and
+`imslp-works.json` is the per-page IMSLP detail behind the count: nothing waits for either, so they
+are fetched after the first paint and the panel simply grows a line when they arrive. All three are
+precached; only the first is a boot dependency.
 
 The order is not arbitrary. `build_imslp.py` runs **before** `build_data.py` because
 `composers.json` carries an IMSLP column, and it takes its roster by calling `build_data.py`'s own
-`build_rows()` rather than reading that file — one reduction of the caches, so the join and the
-app cannot disagree about who is on this list.
+`build_rows()` rather than reading that file — one reduction of the caches, so the join and the app
+cannot disagree about who is on this list.
 
-Then run the data gate and **bump `V` in `sw.js`** — all three are precached, so without a bump the new
-numbers reach the repo and nobody's phone. `scripts/sw-lint.py` guards it; enable the hook with
-`git config core.hooksPath .githooks`.
+Then run the data gate. **`V` in `sw.js` has to move** — all three are precached, so without a bump
+the new numbers reach the repo and nobody's phone — and nothing about that needs a human:
+`refresh.py` bumps it after the gate passes, and for a hand-edit the pre-commit hook does
+(`sw-lint.py --fix` knows which files are precached and which of them you staged). Enable it once
+per clone with `git config core.hooksPath .githooks`.
 
 ### Keeping it current
 
@@ -88,16 +90,16 @@ Two review tools that are not part of the build:
 
 ```sh
 python3 scripts/audit_counts.py     # sample parsed counts beside their source sentence, to grade
-python3 scripts/audit_redirects.py  # price every redirect: what summing them would change (1.024x)
+python3 scripts/audit_redirects.py  # price every redirect: what summing them would change
 python3 scripts/compare_2014.py     # diff against the archived 2014 snapshot, with reasons
 ```
 
 ## Six data elements, six different problems
 
 **(a) The roster** and **(b) quartet counts** come from the list page, which is *prose, not a
-table*: `*[[Joseph Haydn]] (1732–1809): Wrote sixty-eight string quartets…`. Seven rules read 791
-of 885 entries; the rest return **null** and appear in the table but not the chart, because a wrong
-count ships as a confident dot while a null is merely honest. Graded by hand on a random sample:
+table*: `*[[Joseph Haydn]] (1732–1809): Wrote sixty-eight string quartets…`. A handful of rules read
+a count for most of them; the rest return **null** and appear in the table but not the chart,
+because a wrong count ships as a confident dot while a null is merely honest. Graded by hand on a random sample:
 25 exactly right, 4 correctly null, 1 arguable. *Wikidata is not an alternative here* — Beethoven's
 quartets are typed as generic "musical work/composition" with nothing linking them to the genre, so
 a SPARQL count over the whole corpus returns four composers.
@@ -119,39 +121,34 @@ traps, all of which this repo fell into first:
   so every month before a page **move** was counted under the name the article held then. Fanny
   Hensel's article sat at "Fanny Mendelssohn" until March 2026 and shipped a median of **500**
   against a real **5,217** — and the sparkline caption, which names a spike when a month clears 3×
-  the composer's own 95th percentile, obligingly captioned the rename as an obituary. Twelve of the
-  884 articles have moved. `scripts/pagemoves.py` finds them (a level shift proposes, the MediaWiki
+  the composer's own 95th percentile, obligingly captioned the rename as an obituary. Some of the
+  roster's articles have moved. `scripts/pagemoves.py` finds them (a level shift proposes, the MediaWiki
   move log decides, and a traffic-handover test throws out the moves that were reverted an hour
   later), and each month is counted under the title the article actually occupied.
-- *One month is weather.* Measured against a 12-month window, a single month is 12% off the median
-  typically and 29% at worst; August is a seasonal trough; one composer has a month at 2.13× his
-  own median. `monthly` granularity returns the whole range in **one request**, so twelve months
+- *One month is weather.* Measured against a 12-month window, the typical month sits ~12% off a
+  composer's own median, and the worst months run several times that — a small article's peak can be
+  double its median by chance alone. August is a seasonal trough. `monthly` granularity returns the whole range in **one request**, so twelve months
   costs exactly what one did. The stored series makes the statistic recomputable offline.
 
-The cache now holds **every month the API has** — 2015-07 onward, 134 months — for the same
-one-request reason, and the detail panel draws it as a sparkline.
-Each series is stored as a **flat array aligned to a shared `months` axis**, null where the API had
-nothing: the obvious `{month: count}` object repeats the key 884 times per month and cost 1.9 MB
-against 0.5 MB for the same numbers, and had to be rewritten whole every month. A null is *asked,
-and there was nothing there* — distinct from a **missing** month, which is *never asked*, and
-recording it is what makes a top-up cheap: without it the 62 articles created after 2015 look
-permanently incomplete and are refetched in full on every run. The corollary is that a title that
-needs fetching is fetched over the **whole axis**, never over `--months`: a flat array has no third
-value between a count and a null, so the file holds exactly one asked window, and writing a
-narrower fetch onto the wider axis would record un-asked months as nulls that then read as
-complete forever. A month **in progress** is refused outright — the API does not withhold the
-current month, it returns the days so far as though they were the month. And a title that does not
-**answer** — a 404, or five exhausted retries — is dropped from the cache rather than written,
-because the flatten would otherwise null-pad it into looking complete forever; dropping it makes
-the next run ask again in full, which is what "rerun to pick them up" promises.
-`scripts/fetch_views.test.py` holds all of that as sixteen stubbed, offline cases. The headline number did **not**
-move with it: the median is still over the last **twelve** cached months — up to twelve, since a
-null is dropped and a composer whose article moved inside the window has one — because "how much
-read is this composer" is a question about now. The rest is history, which is a different question, and
-`validate.py` recomputes one from the other so the two files cannot drift apart. What a decade
-buys is the thing twelve months structurally cannot show: Kaija Saariaho runs at ~2,000 readers a
-month for eight years and touches 42,195 in June 2023, the month she died. 61 of the 884 articles
-did not exist in 2015, and their sparklines start partway across the box and say so — a blank
+The cache now holds **every month the API has** — 2015-07 onward — for the same one-request reason,
+and the detail panel draws it as a sparkline. Each series is a **flat array aligned to a shared
+`months` axis**, null where the API had nothing: the obvious `{month: count}` object repeats the key
+once per composer per month, cost 1.9 MB against 0.5 MB, and had to be rewritten whole every month. The
+three states are what make a top-up cheap — a **null** is *asked, and there was nothing there*, a
+**missing** month is *never asked*, and a title that did not **answer** is dropped rather than
+written, so the next run asks for it again in full. Without that distinction the articles created
+after 2015 look permanently incomplete and are refetched every run. The corollary: a title is
+fetched over the **whole axis**, never over `--months`, because a flat array has no third value and
+a narrower fetch would record un-asked months as nulls that then read as complete forever. A month
+**in progress** is refused outright — the API returns the days so far as though they were the month.
+`scripts/fetch_views.test.py` holds all of that as stubbed, offline cases.
+
+The headline number did **not** move when the window grew: the median is still over the last
+**twelve** cached months, because "how much read is this composer" is a question about now. The rest
+is history, a different question, and `validate.py` recomputes one from the other so the two files
+cannot drift apart. What a decade buys is what twelve months structurally cannot show: Kaija
+Saariaho runs at ~2,000 readers a month for eight years and touches 42,195 in June 2023, the month
+she died. The articles that did not exist in 2015 start partway across the box and say so — a blank
 stretch under a line chart otherwise reads as "nobody read this" rather than "not written yet".
 
 **(e) Sex or gender** is **Wikidata [P21](https://www.wikidata.org/wiki/Property:P21)**, and it is the one element that is not a measurement but
@@ -161,7 +158,7 @@ from names or pronouns** for the composers who have no claim: `null` is a fact h
 is for an unstated quartet count. A value outside the label map ships as its raw QID rather than
 as a null — a stated fact filed under "not stated" is the one outcome that is wrong about someone
 rather than merely incomplete — and `validate.py` fails on it, so the fix is a label, not a
-mystery. 276 of the 884 are women, 219 of them plottable. A composer with no claim at all is in
+mystery. A composer with no claim at all is in
 neither filter, so the provenance line states how many there are rather than letting silence read
 as none — with a branch for when there are none, which is where the roster stands today.
 
@@ -170,23 +167,24 @@ identity: IMSLP files people as `Surname, Forename` and nothing guarantees it sp
 Wikipedia does. So the join matches **identifiers, never names** — the Wikidata item or Wikipedia
 article an IMSLP composer page states, resolved back through en.wikipedia to a QID this roster
 already holds — and the one rung that does start from a spelling is accepted only when IMSLP's
-birth *and* death years agree with Wikidata's. 462 of the 884 are placed; the other 422 ship
+birth *and* death years agree with Wikidata's. About half the roster is placed; the rest ship
 `null`, which is **unknown, not empty**: no P839 claim, no IMSLP page linking their article and no
 `Surname, Forename` guess reached them, which is good evidence of absence and is not the same as
 having asked. The UI says "no IMSLP page found" and never "not on IMSLP".
 
-What is counted is **works, not pages**. IMSLP's unit is a publication entry, so Beethoven's 16
-quartets occupy 23 pages — three of them complete-set editions that reprint the others. Reading the
-`Opus/Catalogue Number` off each page, expanding a set by the designation its members share and
-merging by id collapses those 23 pages to **18**, which is his 16 plus the Grosse Fuge and the Hess
-30 fugue. The UI calls them quartets, which is looser than that parse and deliberately so — it is
-IMSLP's own category and what the reader came for. What it is **not** is (b): Haydn reads 76 here
-against a stated 68, because the instrumentation category legitimately holds fugues, fragments and
-single movements no numbered list counts. The two columns sit side by side answering different
-questions from different sources; they are never subtracted, and the reader is expected to go and
-look — which is what the link on the number is for. `scripts/imslp-audit.py` renders the parse against the source
-field for the 22 composers the chart highlights, because the measure of a parser is a human reading
-it against the page (the same rule `audit_counts.py` exists for).
+What is counted is **works, not pages**. IMSLP's unit is a publication entry, so Beethoven's
+sixteen quartets occupy more pages than that — several of them complete-set editions that reprint
+the others. Reading the `Opus/Catalogue Number` off each page, expanding a set by the designation
+its members share and merging by id collapses the pages back to the works, which for him is the
+sixteen plus the Grosse Fuge and the Hess 30 fugue. The UI calls them quartets, which is looser
+than that parse and deliberately so — it is IMSLP's own category and what the reader came for. What
+it is **not** is (b): the two columns routinely disagree, because the instrumentation category
+legitimately holds fugues, fragments and single movements no numbered list counts. They sit side by
+side answering different questions from different sources; they are never subtracted, and the
+reader is expected to go and look — which is what the link on the number is for.
+`scripts/imslp-audit.py` renders the parse against the source field for the composers the chart
+highlights, because the measure of a parser is a human reading it against the page (the same rule
+`audit_counts.py` exists for).
 
 The honest name for (d) is **English Wikipedia readership**, not popularity — a Czech or Russian
 composer's readers are largely on their own language's Wikipedia, which this does not count. The
@@ -194,10 +192,10 @@ UI says so in the legend ("EN Wikipedia readers / mo"), the lede, and the proven
 than letting "views" imply importance. A per-language fan-out via Wikidata sitelinks would trade
 one bias for a messier one and is deliberately not attempted.
 
-Readership spans 1 to 186,772 monthly views with a **median of 233**: half the roster is composers
-essentially nobody reads, and at 884 dots they are most of the ink. Hence `histogram.js` — a
-log-scale histogram of the distribution with a drag-to-select brush, which is the control and the
-context in one 56px strip. It intersects with the search box and the gender pills; none of the three knows the others exist —
+Readership spans **four orders of magnitude**, and the median composer is read a couple of hundred
+times a month: half the roster is composers essentially nobody reads, and they are most of the ink.
+Hence `histogram.js` — a log-scale histogram of the distribution with a drag-to-select brush, which
+is the control and the context in one short strip. It intersects with the search box and the gender pills; none of the three knows the others exist —
 each returns "a Set of row indices, or null for everything" and `applyFilters()` intersects them.
 
 ## The 2014 data
@@ -213,27 +211,28 @@ matched to the same human.
 
 ```sh
 python3 scripts/validate.py       # THE DATA GATE — see below; run it after every rebuild
-python3 scripts/validate.test.py  # proves the gate catches each bug it claims to (33 + a clean pass)
-python3 scripts/fetch_views.test.py  # the page-view cache's invariants, network stubbed (17 cases)
-python3 scripts/pagemoves.test.py # the page-move rule, offline (9 cases)
+python3 scripts/validate.test.py  # proves the gate still catches each bug it claims to
+python3 scripts/fetch_views.test.py  # the page-view cache's invariants, network stubbed
+python3 scripts/pagemoves.test.py # the page-move rule, offline
+node scripts/names.test.mjs  # the display-name rules, offline against the real roster
 python3 scripts/imslp.test.py     # the IMSLP join's judgements — the wikitext readers, the
-                             #   catalogue parse, the work counting (36 cases)
+                             #   catalogue parse, the work counting
 python3 scripts/fetch_imslp.test.py # and the crawl's request sequence: that a warm run still asks
-                             #   the category, and still declines the rest (23 cases)
+                             #   the category, and still declines the rest
 scripts/ui-test.sh           # the behavioural suite in a real Chrome (lens, tap-to-pin, the three
                              #   filters, theme repaint, 390/360px layout, offline, print) — no deps.
                              #   It prints its own total; that is where the count lives.
                              #   On Linux it wants xvfb-run: headless there reports no pointer at
-                             #   all, and nine of these checks are about having one
-node scripts/sw.test.mjs     # 24 tests of the service worker's fetch handler
+                             #   all, and a good few of these checks are about having one
+node scripts/sw.test.mjs     # the service worker's fetch handler
 python3 scripts/sw-lint.py   # precache contract: V bumped, SHELL paths exist, no cross-origin
-python3 scripts/og-lint.py   # share card size (a card over ~250 KB previews as a grey box)
-python3 scripts/prose-lint.py # every number in these docs the repo can compute, vs the live value
-python3 scripts/prose-lint.test.py # its fold counter, and that every stated count is pinned (8 cases)
-python3 scripts/ui-test.test.py # the runner's per-checkout ports, so two runs on one machine
-                             #   do not kill each other, and it stops rather than driving a
-                             #   stranger's server or browser — no browser needed (13 cases)
-python3 scripts/fix-lint.test.py # the two branch gates below, on throwaway repos (46 cases)
+python3 scripts/sw-lint.py --fix  # ...and bump V yourself if a staged shell file needs one (the hook)
+python3 scripts/og-lint.py   # the link preview: card size, meta length, and the totals it states
+python3 scripts/codehash.py  # is this change comments-only, or did code go with them?
+python3 scripts/ui-test.test.py # the runner's per-checkout ports, so two runs on one machine do not
+                             #   kill each other, and it stops rather than driving a stranger's
+                             #   server or browser — no browser needed
+python3 scripts/fix-lint.test.py # the two branch gates below, on throwaway repos
 
 # The branch gates. They compare a branch against what it will merge into, so they need a base ref
 # and run on pull requests in CI; by hand, point them at main.
@@ -244,8 +243,9 @@ python3 scripts/ablate.py --base main --with-ui   # ...including the browser sui
 
 `ablate.py` is the one worth knowing about. It reverts the branch's source to the base, keeps the
 branch's tests, and requires a named check to go red — a test that still passes without the code it
-is meant to prove does not prove it. A `No-test: <reason>` trailer on any commit skips both gates
-when there is genuinely nothing to assert.
+is meant to prove does not prove it. A `No-test: <reason>` trailer excuses a file when there is
+genuinely nothing to assert — the FILES its own commit touched, so a docs-only commit cannot excuse
+code, and a file edited again without one is back in the gate.
 
 All of these run in CI, `ui-test.sh` included — `ubuntu-latest` ships a Chrome and an X server, and
 the `ui` job in `checks.yml` gives the browser suite node 22 and `xvfb-run`. It still skips with
@@ -274,7 +274,7 @@ the gate rejects it, so a weakened check goes red instead of quietly green.
 
 ```
 index.html        structure          styles.css   design system (light/dark/print)
-app.js            boot + selection   chart.js     the three views
+app.js            boot + selection   chart.js     the three views + the lens
 table.js          the data table     histogram.js the readership filter (log histogram + brush)
 names.js          canonical Wikipedia title -> the short name the chart and the table print
 theme.js          three-state theme + the JS-baked-color contract

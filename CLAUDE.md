@@ -1,270 +1,306 @@
 # CLAUDE.md — quartet-composers
 
-A static d3 visualization + data table, built on
-[pwa-starter](https://github.com/jsundram/pwa-starter). No build step ships; the deployed files are
-plain static assets. Read README.md first for what the app is.
+A static d3 visualization + data table on [pwa-starter](https://github.com/jsundram/pwa-starter).
+No build step; the deployed files are the repo's files. README.md says what the app is.
+
+Three places to put a thing, and keeping them apart is what keeps this file short. **Here: rules** —
+what to do, and what breaks otherwise. **TODO.md: history** — open work, decisions already made, and
+the incident behind each. **A check: anything mechanical** — a count, a list, a threshold, a measured
+offset — because a check can go red and a sentence cannot. So where a rule below is enforced, it
+names the enforcement instead of repeating the arithmetic.
+
+**Which means a number in here is a RECORD or it is absent.** A record is a measurement that
+happened — a run, an audit, an experiment — and cannot go stale, so it is safe to type. Anything the
+repo recomputes is not: a roster total, a list size, a suite's case count, a constant, a live
+statistic. Those are read from the thing that holds them, and writing one here buys a reader nothing
+while costing an edit every time the thing moves. `chart.js` had this right about `CANON` from the
+start — "deliberately NOT a count… every place that printed the number went stale in the same
+commit" — and the docs spent a 300-line lint keeping such numbers honest instead of not writing them.
 
 ## Invariants — break these and it fails silently
 
-1. **Bump `V` in `sw.js` on every change to a `SHELL` file.** `composers.json`, `readership.json`,
-   `imslp-works.json`,
-   `chart.js`, `table.js`, `app.js`, `styles.css`, `index.html`, `theme.js`, `d3.v7.min.js` are
-   all precached and served cache-first. Without a bump the fix reaches the repo and nobody's installed copy.
-   `scripts/sw-lint.py` guards it in TWO places, because one commit is not enough information:
-   the pre-commit hook catches a staged SHELL file with an unchanged `V`, and `--base REF` in CI
-   catches a BRANCH whose `V` does not clear the one its base is already on. The second exists
-   because two PRs off one base each bumped `v32` -> `v33` byte-identically, which a three-way
-   merge resolves silently into a net delta of zero (#32). `app.js`'s `VER_PREFIX` must keep
-   matching `V`'s stem.
-   *This bit during development*: a headless-Chrome profile kept running the previous edit's
-   `chart.js` for two test rounds. That was the feature working.
+1. **`V` in `sw.js` moves on every change to a `SHELL` file — and the hook moves it for you.** The
+   shell is precached and served cache-first, so without a bump the fix reaches the repo and
+   nobody's installed copy. `app.js`'s `VER_PREFIX` must keep matching `V`'s stem, which is why only
+   the numeric TAIL is ever incremented.
+   Nothing about this needs a human: `sw-lint.py --fix`, which the pre-commit hook runs, bumps the
+   tail and re-stages `sw.js` in the same commit, and declines only where writing would have been
+   wrong (its header says which three states). `--bump` is the same increment with no git in it and is
+   what `refresh.py` calls, so one piece of code knows how to move `V`. That covers one commit;
+   `--base REF` in CI covers the branch, because two PRs off one base can bump identically and merge
+   to a net delta of zero (#32), which looks correct from either side alone.
 
-2. **`sw.js`'s `BOOT_DEPS` must list every script the page dies without.** Unlike the skeleton's
-   root page, every pixel here is drawn by JS, so a cached `index.html` without `d3.v7.min.js` or
-   `composers.json` is a headline over an empty box. Adding a new load-bearing script means adding
-   it to `SHELL`, to `BOOT`, and bumping `V`. `readership.json` and `imslp-works.json` are the two
-   deliberate exceptions in the other direction — SHELL but NOT BOOT — because what they feed is
-   what nothing waits for: `app.js` fetches the readership after the first paint and draws nothing
-   if it never comes, and the IMSLP work pages are the detail behind a column whose number and link
-   are already in `composers.json`. Gating a navigation on either would trade a working page for
-   the offline notice over a decoration, which is the mistake the paragraph in `sw.js` warns about.
-   `sw.test.mjs` READS `BOOT` out of `sw.js` rather than keeping a copy, because a copy drifts and
-   then fails illegibly: a seeded shell missing one boot dep is judged unbootable, falls through to
-   a network that never settles under the fake clock, and the suite exits 1 having printed nothing
-   at all. If you reformat `BOOT` out of an array literal, the parse guard there fails by name —
-   fix the guard, don't delete it.
+2. **`sw.js`'s `BOOT` must list every script the page dies without.** Every pixel here is drawn by
+   JS, so a cached `index.html` without `d3.v7.min.js` or `composers.json` is a headline over an
+   empty box; the offline page is strictly better, and one online launch repairs the precache. A
+   new load-bearing script goes into `SHELL`, into `BOOT`, and bumps `V`. `readership.json` and
+   `imslp-works.json` are the deliberate exceptions — SHELL but not BOOT — because what they feed
+   is what nothing waits for: the sparkline arrives after the first paint, and the IMSLP work pages
+   are the detail behind a column whose number and link are already in `composers.json`. Gating a
+   navigation on either would trade a working page for an offline notice over a decoration.
 
 3. **Colors read into JS can't be reached by a CSS variable swap.** `chart.js` bakes `--c-*` into
-   SVG fills and `app.js` bakes them into the legend. Both re-read via `Theme.getCssColor` inside
-   `rerender()`, which `Theme.subscribe` fires on every theme change. A new baked color must go
-   through `getCssColor`, never `getComputedStyle` directly.
+   SVG fills and `app.js` into the legend. Both re-read through `Theme.getCssColor` inside
+   `rerender()`, which `Theme.subscribe` fires on every theme change — never `getComputedStyle`
+   directly. A fourth component that bakes a colour needs a fourth `rerender()` wired in there.
 
-4. **`composers.json`, `readership.json` and `imslp-works.json` are generated by a six-stage
-   pipeline; never hand-edit them.** `scrape_list.py` -> `fetch_wikidata.py` -> `fetch_views.py`
-   -> `fetch_imslp.py` -> `build_imslp.py` -> `build_data.py`,
-   each caching into `data/`. Only the fetches touch the network, so a rebuild is offline and
-   reproducible. **`build_rows()` in `build_data.py` is the one place the roster is decided**, and
-   `build_imslp.py` CALLS it rather than reading `composers.json` — which it cannot, being upstream
-   of it now that the file carries an IMSLP column. That is not just how the cycle is broken: a
-   second reduction of the same caches would be a second opinion about who is on this list, and the
-   join would be filing counts under names nothing looks up. `data/pageviews.json` stores each series as a FLAT ARRAY aligned to its `months`
-   axis, null where the API had no datum — a quarter of the bytes of the `{month: count}` form and
-   one changed line per composer per top-up instead of 884. Alignment is therefore load-bearing:
-   an array one element short shifts every month by one and produces entirely plausible numbers,
-   so `build_data.py` and `validate.py` both refuse a ragged one rather than reading it. A null
-   there means "asked, nothing was there" — or, at the month of a page move, "asked, and the answer
-   belongs to neither title" (invariant 15); a MISSING month means "never asked", and a title that
-   did not ANSWER (a 404, or five exhausted retries) is DROPPED from the cache rather than written
-   — the flatten fills every month on the axis, so writing it would null-pad the months it never
-   answered for and it would read as complete forever, silencing both the "rerun to pick them up"
-   advice and the bad-canonical report. Not `return 1` on any failure: that would discard the
-   other 883 good fetches, which is what the `except` in that loop exists to prevent. That
-   distinction is what keeps a top-up from refetching the 62 articles younger than the window on
-   every single run. **Which is why every title is fetched over the whole AXIS, never over
-   `--months`**: a flat array has no third value between a count and a null, so the file can hold
-   exactly one asked window. Fetch a title over a narrower one and its un-asked months are written
-   as nulls, and it then reads as complete forever — `--months 24` on a composer added since the
-   last run would bury nine years of their history permanently. `--months` narrows what counts as
-   STALE and never what gets asked for. And a month IN PROGRESS is not a month: the API does not
-   withhold the current one, it returns the days so far aggregated exactly like a finished month
-   with nothing to say so, so `months_back()` ends at the last COMPLETE month and `--end` is
-   refused past it.
-   The last stage writes ALL THREE shipped files from one set of caches, and they must
-   stay in lockstep: `validate.py`'s `check_history()` recomputes each row's median, min and max
-   from the last twelve points of that composer's own sparkline and fails when they disagree, and
-   `check_imslp()` requires `imslp-works.json` to carry the same `generated` date and every
-   composer's total to sit between the largest of their pages and the sum of them — NOT equality,
-   because the de-duplication exists precisely because pages overlap.
-   `build_data.py` carries the canonical title in a list PARALLEL to the rows and reorders both
-   together, rather than in a {display name: canonical} map: `QUALIFIER` strips the disambiguator,
-   so "John Adams (composer)" and a bare "John Adams" — invariant 5's own pair — collapse to one
-   key and the second silently wins, handing one composer the other's decade of history. It also
-   refuses to write either file when two rows print the same name, because readership.json is
-   keyed by that name and cannot tell them apart.
-   Two internally-consistent files built from different fetches is a drift nothing in the app can
-   see — the panel would print one readership and draw another.
+4. **`composers.json`, `readership.json` and `imslp-works.json` are generated; never hand-edit
+   them.** `scrape_list.py` -> `fetch_wikidata.py` -> `fetch_views.py` -> `fetch_imslp.py` ->
+   `build_imslp.py` -> `build_data.py`, each caching into `data/`. Only the fetches touch the
+   network, so a rebuild is offline and reproducible. **`build_rows()` in `build_data.py` is the
+   one place the roster is decided**, and `build_imslp.py` CALLS it rather than reading
+   `composers.json`, which it cannot — it is upstream of a file that now carries an IMSLP column.
+   Breaking the cycle is only half of why: a second reduction of the same caches would be a second
+   opinion about who is on this list, and the join would file counts under names nothing looks up.
+   `data/pageviews.json` stores each series as a FLAT ARRAY aligned to its `months` axis — a
+   quarter of the bytes of `{month: count}` and one changed line per composer per top-up. Alignment
+   is load-bearing: an array one element short shifts every month by one and the numbers stay
+   plausible, so `build_data.py` and `validate.py` both refuse a ragged one.
+   The three states are distinct. `null` means "asked, nothing there" — or, at the month of a move,
+   "asked, and the answer belongs to neither title" (invariant 15). A MISSING month means "never
+   asked". A title that did not ANSWER is DROPPED rather than written, because the flatten fills
+   every month on the axis and writing it would null-pad the months it never answered for and read
+   as complete forever. One failure never aborts the run: that would discard the other eight
+   hundred-odd good fetches.
+   **Every title is fetched over the whole AXIS, never over `--months`.** A flat array has no third
+   value, so the file holds exactly one asked window; a narrower fetch writes nulls for months
+   nobody asked about, and `--months 24` on a newly added composer would bury nine years of history
+   permanently. `--months` narrows what counts as STALE, never what gets asked for. And a month IN
+   PROGRESS is not a month — the API returns the days so far with nothing to say so — so
+   `months_back()` ends at the last COMPLETE month and `--end` is refused past it.
+   The last stage writes ALL THREE shipped files from one set of caches and they must stay in
+   lockstep: `validate.py`'s `check_history()` recomputes each row's median, min and max from that
+   composer's own sparkline and fails when they disagree, and `check_imslp()` requires
+   `imslp-works.json` to carry the same `generated` date and every composer's total to sit between
+   the largest of their pages and the sum of them — NOT equality, because the de-duplication exists
+   precisely because pages overlap. Files that are each internally consistent but built
+   from different fetches are a drift nothing in the app can see — the panel would print one
+   readership and draw another. `build_data.py` carries the canonical title in a list PARALLEL to the rows and reorders
+   both together rather than in a {name: canonical} map: `QUALIFIER` strips the disambiguator, so
+   "John Adams (composer)" and a bare "John Adams" collapse to one key and the second silently
+   wins, handing one composer the other's decade of history. It also refuses to write either file
+   when two rows print the same name, which `readership.json` is keyed by.
    Composer NAMES are canonical Wikipedia titles and change spelling when the pipeline runs, so
    anything hardcoding one (`make-og-svg.py`'s `LABELS`, a test assertion) must use the canonical
-   form — `make-og-svg.py` now fails rather than silently dropping a label.
+   form.
 
 5. **Never ask the pageviews API for an unresolved title.** Views are counted per title, a redirect
    is its own title with its own tiny count, and the request succeeds either way — Bartók returned
-   41 instead of 14,330. And resolve the DISAMBIGUATED title: a bare "John Adams" resolves
-   correctly to the second President of the United States, whose views outranked Beethoven here.
-   Asking the RIGHT title is only half of it; invariant 15 is the other half.
+   41 instead of 14,330. Resolve the DISAMBIGUATED title too: a bare "John Adams" resolves to the
+   second President of the United States, whose views outranked Beethoven here. Asking the right
+   title is half of it; invariant 15 is the other half.
 
 6. **Wikidata claim RANK is not metadata.** A known-wrong value is marked `deprecated` rather than
    deleted, so reading `claims[0]` reported Tania León — alive, Pulitzer 2021 — as dead since 1996.
    `year_of()` drops deprecated, prefers `preferred`, and ignores novalue/somevalue snaks.
 
 7. **The Fame view is the default, and the only place the app hardcodes composer NAMES.**
-   `CANON` (the REPERTOIRE — ten composers a quartet actually plays, in birth order),
-   `OUTLIERS` (three) and `WOMEN_CANON` (nine, shown only under the Women filter) in `chart.js`
-   are twenty-two canonical Wikipedia titles, which change
-   spelling when the pipeline runs (invariant 4). `Chart.missingNames()` reports any that stop
-   resolving and the UI suite asserts it empty, so a rename fails loudly instead of dropping a
-   composer out of the argument the view is making — and it checks EVERY list, not just the
-   active one, or a rename inside `WOMEN_CANON` would sit unreported until somebody pressed
-   the pill. `names.js`'s `SURNAME` override map carries
-   the same contract via `Names.staleOverrides()`. Adding a name to either means adding it to the
-   list, not to a comment. The gender pills are a third such vocabulary: `index.html` names the
-   values the UI can filter, `app.js` reads its URL whitelist off the pills rather than repeating
-   them, and a stated P21 label no pill reaches fails both `validate.py` and
-   `unfilterableGenders()` — that composer is in NEITHER filter while the footnote counts only the
-   ones with no claim at all. `REPERTOIRES` is keyed by those same pill values, so the two
-   vocabularies are one: a curated list keyed to a pill that does not exist can never be shown
-   while looking maintained, which `unreachableRepertoires()` in `app.js` fails on and the UI
-   suite asserts empty.
+   `CANON` (the REPERTOIRE — the composers a quartet actually plays, in birth order),
+   `OUTLIERS` and `WOMEN_CANON` (shown only under the Women filter) in `chart.js` hold canonical
+   Wikipedia titles, which change spelling when the pipeline runs (invariant 4). `Chart.missingNames()` reports any that stop resolving and the UI suite asserts
+   it empty, so a rename fails loudly instead of dropping a composer out of the argument the view
+   is making — and it checks EVERY list, or a rename inside `WOMEN_CANON` would sit unreported
+   until somebody pressed the pill. `names.js`'s `SURNAME` map carries the same contract through
+   `Names.staleOverrides()`. Adding a name means adding it to the list, not to a comment.
+   The gender pills are a third such vocabulary: `index.html` names the values the UI can filter,
+   `app.js` reads its URL whitelist off the pills, and a stated P21 label no pill reaches fails
+   both `validate.py` and `unfilterableGenders()` — that composer is in NEITHER filter while the
+   footnote counts only the ones with no claim at all. `REPERTOIRES` is keyed by those same pill
+   values, so a curated list keyed to a pill that does not exist can never be shown while looking
+   maintained; `unreachableRepertoires()` fails on it.
 
-8. **Each view encodes different things, so each needs its own key.** In Fame, size is the y
-   AXIS and hue is emphasis; the lifespan ramp and the size key would be labelling channels that
-   carry nothing, so `renderLegend()` branches on the mode and `setMode()` re-renders both the
-   legend and the table (the row chips are painted from `Chart.colorOf`, which follows the view).
-   The RING also changes meaning under a filter (see below). It is no longer CAPTIONED — the key
-   named the crowd it was talking about ("the outliers at either end" against "the ones that stand
-   out in this group") and that sentence is gone, so the wrong-channel failure is now prevented by
-   having no words to get wrong rather than by keeping two of them correct. `renderLegend()` still
-   re-renders on every settled change, because the swatches it does draw follow the view.
+8. **Each view encodes different things, so each needs its own key.** In Fame, size is the y AXIS
+   and hue is emphasis, so the lifespan ramp and the size key would label channels that carry
+   nothing: `renderLegend()` branches on the mode and `setMode()` re-renders the legend and the
+   table (row chips are painted from `Chart.colorOf`, which follows the view). The ring's meaning
+   also changes under a filter, and the key no longer captions it — the wrong-channel failure is
+   prevented by having no words to get wrong rather than by keeping two of them correct.
 
 9. **Readership is a measure, not a tally — round it everywhere except the table.** It is the
-   median of the last TWELVE monthly page-view counts (`STAT_MONTHS` in `build_data.py`) — up to
-   twelve, strictly: a null is dropped rather than counted, and a composer whose article MOVED
-   inside the window has one (invariant 15), so Fanny Hensel's median is over eleven. Not, either
-   way, however many months `data/pageviews.json` happens to cache, which is 134 and grows every run.
-   Widening that window would resize every dot on the chart and bake a 2016 readership into a 2026
-   picture. The rest of the series belongs to the sparkline, which answers a different question —
-   and the SPARKLINE prints exact counts, on purpose: a month on that line is a raw tally of one
-   month, the same kind of number the table carries exactly, and rounding the figure someone
-   hovered in order to read defeats the hovering. The rounding rule is about the MEDIAN.
-   Any one month runs ~12% off typical, so the
-   detail panel states two significant figures floored, plus a "+" (`twoSig`/`atLeast` in
-   `app.js`), and formats through `Histogram.fmt` so the brush readout and the panel agree. The
-   table keeps the exact number because it sorts on that column. A new place that prints a view
-   count almost certainly wants `atLeast()`, not the raw integer.
+   median of `STAT_MONTHS` monthly page-view counts (`build_data.py`), and at most that: a null is
+   dropped, and a composer whose article moved inside the window has one fewer (invariant 15). Not
+   however many months
+   `data/pageviews.json` happens to cache. Widening that window would resize every dot on the chart
+   and bake a 2016 readership into a 2026 picture — and it rebuilds CLEANLY, both files internally
+   consistent, so `validate.py`'s `STAT_WINDOW` pins it in all three places that state it: the
+   `views_months` axis, `readership.json`'s `stat_months`, and the `views_stat` prose the provenance
+   line prints to a reader. Typed there rather than imported from `build_data.py`, or the check could
+   only agree with the code it is checking.
+   Any one month runs ~12% off typical, so the detail panel states two significant figures floored
+   plus a "+" (`twoSig`/`atLeast` in `app.js`), formatted through `Histogram.fmt` so the brush
+   readout and the panel agree. A new place that prints a view count almost certainly wants
+   `atLeast()`. Two exceptions, both deliberate: the table keeps the exact number because it sorts
+   on that column, and the SPARKLINE prints exact counts because a month on that line is a raw
+   tally and rounding the figure somebody hovered to read defeats the hovering.
 
-10. **`null` means unknown and must stay null.** `quartets: null` (the page's prose states no count),
-   `death: null` (living) and `gender: null` (no Wikidata P21 claim) are facts, not gaps to fill.
-   Null quartets are shown in the table and excluded from the chart via `plottable()`; null death
-   means the lifespan ramp does not apply and the dot is drawn open; null gender is in NEITHER the
-   Women nor the Men filter, because "Women" means Wikidata says female, not "everyone we didn't
-   call a man". Substituting a default puts a fabricated dot on the chart. Gender is the one field
-   where the tempting default is a guess about a PERSON — never infer it from a name or a pronoun;
-   an unmapped P21 value ships as its raw QID and `validate.py` fails on it.
+10. **`null` means unknown and must stay null.** `quartets: null` (the page's prose states no
+   count), `death: null` (living) and `gender: null` (no P21 claim) are facts, not gaps. Null
+   quartets are in the table and excluded from the chart by `plottable()`; null death means the
+   lifespan ramp does not apply and the dot is drawn open; null gender is in NEITHER the Women nor
+   the Men filter, because "Women" means Wikidata says female, not "everyone we didn't call a man".
+   A default puts a fabricated dot on the chart. Gender is the one field where the tempting default
+   is a guess about a PERSON — never infer it from a name or a pronoun; an unmapped P21 value ships
+   as its raw QID and `validate.py` fails on it.
 
 11. **Grade the parser against the PAGE, not against 2014.** `scripts/audit_counts.py` samples
    parsed counts beside their source sentence for a human to grade; that is the real measure.
    `compare_2014.py` is useful for row matching (birth years agree 98.2%) but its count column is
    misleading — the page has been rewritten over twelve years, so disagreement is usually the
-   parser being right. Optimising toward 2014 optimises toward being out of date.
+   parser being right.
 
 12. **The 2014 page views are not comparable to modern ones** and must never be plotted alongside
-   them: the pageviews API has no per-article data before 2015-07, so they came from a different
-   measurement system. They are archived for provenance only.
+   them: the API has no per-article data before 2015-07, so they came from a different measurement
+   system. Archived for provenance only.
 
-13. **Search folds `ł ø đ ð þ ß æ œ ı` before NFD** (`table.js`). Those have no Unicode
-   decomposition, so NFD alone leaves them intact and "lutoslawski" misses "Lutosławski". 8
-   names carry such characters; a new one means a new `FOLD` entry. Both the list and the
-   count are pinned by `scripts/prose-lint.py` — they had each drifted from `FOLD` before it
-   existed.
+13. **Search folds the characters NFD cannot decompose, before NFD** — `ł`, `ø`, `ß` and the rest
+   of `FOLD` in `table.js`. They have no Unicode decomposition, so NFD alone leaves them intact and
+   "lutoslawski" misses "Lutosławski". A name that needs a new one means a new `FOLD` entry, and the
+   suite types a folded query so the RULE is what is checked rather than the table: a transcription
+   of `FOLD` in here was pinned three ways while the call site that uses it was pinned nowhere, and
+   deleting the `.replace()` left every check green.
 
 14. **`scripts/make-og-svg.py` duplicates chart.js's scales on purpose.** Same log domains, same
-   jitter (`spread_jq()` there, `spreadJq()` here — RANKED by readership within a quartet count
-   since #45, not hashed from the name, so it is a function of the whole roster and a top-up can
-   move it), same emphasis, the same two uniform radii — readership is the Y AXIS in this
-   view, so the card has no radius scale either — and the same short-name rule from `names.js`.
-   It renders the FAME view AT REST, because that is what a bare URL opens on — so the derived
-   rings never reach it and it needs only the curated three. Changing an encoding in `chart.js` means changing it there too, or
-   the share card stops matching the page. They are duplicated rather than shared because the app
-   must not ship a build step and the card must not ship a JS runtime.
+   jitter (`spread_jq()` there, `spreadJq()` here — ranked by readership within a quartet count, so
+   a top-up can move it), same emphasis, the same two uniform radii (readership is the y AXIS here,
+   so there is no radius scale), and the same short-name rule from `names.js`. It renders the Fame
+   view AT REST, which is what a bare URL opens on, so no derived ring and no second repertoire
+   ever reaches it. Change an encoding in `chart.js` and change it there too, or the share card
+   stops matching the page. Duplicated rather than shared because the app must not ship a build
+   step and the card must not ship a JS runtime.
 
 15. **A canonical title is only canonical TODAY, so a page MOVE is a hole in the series.** The API
-   counts the string that was requested, so every month before a move was counted under the name
-   the article held then — asking the current one returns the redirect traffic nobody followed.
-   Fanny Hensel's article sat at "Fanny Mendelssohn" until March 2026 and shipped a median of
-   **500** against a real 5,217; worse, the app NARRATED the artefact, because 5,198 against a 95th
-   percentile of 149 fires `SPIKE` in `app.js` at 34.9x and captions a rename as an obituary.
-   `scripts/pagemoves.py` is the one place that rule lives and the three parts are deliberately
-   split: `step()`/`suspects()` are OFFLINE and only generate suspects (the shape has no clean
-   threshold — real moves here run 9x to 1163x and genuine growth reaches 8x, because the Chevalier
-   de Saint-Georges got a film); `find_moves()` reads the MediaWiki move log, which STATES the old
-   title and the date rather than leaving them to be inferred; and `confirm()` throws out the hops
-   the numbers do not support, because **the log records events, not tenures** — a move reverted
+   counts the string requested, so every month before a move was counted under the name the article
+   held then and asking the current one returns the redirect traffic nobody followed. Fanny
+   Hensel's article sat at "Fanny Mendelssohn" until March 2026 and shipped a median of **500**
+   against a real 5,217 — and the app NARRATED the artefact, because 5,198 against a 95th
+   percentile of 149 fires `SPIKE` at 34.9x and captions a rename as an obituary.
+   `scripts/pagemoves.py` is the one place that rule lives, in three deliberately separate parts.
+   `step()`/`suspects()` are offline and only generate suspects, because the shape has no clean
+   threshold — real moves here run 9x to 1163x and genuine growth reaches 8x. `find_moves()` reads
+   the MediaWiki move log, which STATES the old title and the date. `confirm()` throws out the hops
+   the numbers do not support, because **the log records events, not tenures**: a move reverted
    twenty minutes later leaves the same two entries a permanent one does, and a chain walked from
-   the log alone put Roberto Gerhard at a title he never occupied and would have made his series
-   worse than leaving it alone. The test is the one the issue asked for: the traffic has to CHANGE
-   HANDS across the move, old-against-new before over old-against-new after.
-   **The month of the move itself is null.** It is the one month the rule cannot answer for — a
-   move happens on a day, so either title alone is a partial month and the SUM quietly adds the
-   redirect share every other month excludes. For an ASCII-to-diacritic rename that share is large,
-   so summing invented a peak rather than a rounding error (Takemitsu's 2020-10 came out 53% over
-   its neighbours), and invariant 9 is why that matters: the sparkline prints exact counts on hover.
-   `null` already means "no answer to give" here, already breaks the sparkline's path, and is
+   the log alone put Roberto Gerhard at a title he never occupied. The test is that traffic CHANGES
+   HANDS across the move — old-against-new before, over old-against-new after.
+   **The month of the move itself is null.** A move happens on a day, so either title alone is a
+   partial month and the sum quietly adds the redirect share every other month excludes — for an
+   ASCII-to-diacritic rename that share is large enough to invent a peak (Takemitsu's 2020-10 came
+   out 53% over its neighbours), and invariant 9 is why that matters: the sparkline prints exact
+   counts on hover. `null` already means "no answer to give", already breaks the path, and is
    already dropped from the median.
-   The repair is **not a migration that happens once**: a refetch overwrites the stitched series
+   **The repair is not a migration that happens once.** A refetch overwrites the stitched series
    with the API's per-title answer, so `fetch_views.py` re-applies every recorded move on every run
-   that touches the title, and `data/pageviews.json`'s `moves` block records what it did — with an
-   EMPTY list meaning "the log was asked and said none", which is both what stops a no-op run
-   re-investigating the same eight noisy articles and how `validate.py` tells genuine growth from a
-   rename nobody has checked. **A chain on record is trusted, never re-derived**, and nothing
-   records an answer it does not have: a move log that could not be READ and a source title that
-   did not ANSWER both leave the series and the record exactly as they were, and the gate then
-   fails on a recorded move whose stitch is missing. Re-confirming a recorded chain gave it a way
-   back out — one 404 on a redirect and Fanny reads 500 again with `moves` agreeing nothing is
-   wrong — so a chain now only ever goes from non-empty to empty by a human editing the file. Twelve articles in this roster moved; only Fanny's moved inside the
-   twelve-month statistic window, so the other eleven changed the SPARKLINE and not one dot.
-   **Do not sum redirects generally** — that is a different policy and it was measured and
-   rejected: `scripts/audit_redirects.py` prices all 2,888 of them and the median correction is
-   1.024x, invisible on a five-decade log axis, in exchange for a count that depends on how many
-   aliases an article happened to accumulate. A move is not an alias; the article LIVED there.
+   that touches the title, and `data/pageviews.json`'s `moves` block records what it did — an EMPTY
+   list meaning "the log was asked and said none", which is what stops a no-op run re-investigating
+   the same noisy articles and how `validate.py` tells genuine growth from a rename nobody has
+   checked. **A chain on record is trusted, never re-derived**, and nothing records an answer it
+   does not have: a log that could not be READ and a source that did not ANSWER both leave the
+   series and the record exactly as they were, and the gate then fails on a recorded move whose
+   stitch is missing. Re-confirming gave a good record a way back out — one 404 on a redirect and
+   Fanny reads 500 again with `moves` agreeing nothing is wrong — so a chain only ever goes from
+   non-empty to empty by a human editing the file.
+   Of the articles in this roster that moved, only Fanny's moved inside the statistic window — the
+   rest changed a sparkline and not one dot.
+   **Do not sum redirects generally.** That is a different policy, measured and rejected:
+   `audit_redirects.py` priced every redirect into every article and the median correction was 1.02x,
+  invisible on
+   a five-decade log axis, in exchange for a count that depends on how many aliases an article
+   happened to accumulate. A move is not an alias; the article LIVED there.
 
 16. **The IMSLP columns are TWO fields carrying THREE answers, and `imslp_cat` is the one that can
    tell them apart.** `imslp` is a work count and it is `0` both for a composer IMSLP holds with no
    quartets and for one nothing could place — deliberately not distinguished in the digit, because
    the reader's next move is the same either way. `imslp_cat` is `null` for the second (nowhere to
    link), `""` for a composer whose category reduces to `Surname, Forename`, and the category
-   VERBATIM for the 56 whose does not (`Shostakovich, Dmitry`, `Beach, Amy Marcy`). Shipping only
+   VERBATIM for the ones whose does not (`Shostakovich, Dmitry`, `Beach, Amy Marcy`). Shipping only
    the exceptions costs ~280 bytes against 13 KB for all of them, and it is safe **because the
    build verifies it, not because the rule is trustworthy**: `build_data.py` emits `""` only where
-   its own reduction reproduces the category the scrape found, `validate.py` re-derives all 462
-   against `data/imslp-join.json` with an independent copy of the line, and `app.js` restates it a
-   third time in JS with `ui.test.mjs` reading the `href` the browser ends up with for one derived
-   composer and one override. What is COUNTED is distinct **works, not pages** — 23 Beethoven pages
-   reduce to 18 — and invariant 11's rule applies to that parse, which is what
+   its own reduction reproduces the category the scrape found, `validate.py` re-derives every one
+   of them against `data/imslp-join.json` with an independent copy of the line, and `app.js`
+   restates it a third time in JS with `ui.test.mjs` reading the `href` the browser ends up with
+   for one derived composer and one override. What is COUNTED is distinct **works, not pages** —
+   one page can hold a whole cycle — and invariant 11's rule applies to that parse, which is what
    `scripts/imslp-audit.py` grades against the page. What the UI CALLS them is "quartets", which is
    looser than the parse and deliberately so: it is IMSLP's own category and what the reader came
    for. **The thing that must never happen is subtracting it from `quartets`**, which is how many
-   the composer WROTE, from Wikipedia prose — Haydn reads 76 against a stated 68, and the two
-   columns sit one apart answering different questions from different sources. Copy about the
-   absences is the other half: "no quartets **found**" for a composer IMSLP holds none for, and "no
+   the composer WROTE, from Wikipedia prose. The two columns sit one apart, routinely disagree,
+   and answer different questions from different sources. Copy about the absences is the other
+   half: "no quartets **found**" for a composer IMSLP holds none for, and "no
    IMSLP page found", never "not on IMSLP" — what we know is that no P839 claim, no page linking
    their article and no name guess reached them, which is evidence and is not the same as having
    asked.
 
 ## Testing
 
-Fifteen entries, one per bullet below — ten checks that run offline, one that needs a
-browser, one pair of branch gates only CI can run, the monthly top-up, and two audits a
-human grades. No test framework, and nothing to install:
+**The ethos, measured.** A mutation run in Sep 2026 — 39 plausible one-line bugs injected into
+source, suites run, tree restored — caught 25. The data gate caught 6 of 7, five of them failure
+modes this repo has never had; the browser suite caught 13 of 22; `sw.test.mjs` caught 1 of 5.
+Every miss was a pure function or an untested entry point, and not one was a layout or interaction
+bug. Four rules come out of that, and they decide what gets written here from now on:
 
-- `node scripts/sw.test.mjs` — the service worker's fetch handler under mocked SW globals.
+**Budget checks by how silent the failure is, not by how much code there is.** A chart bug is
+visible the moment you open the page; a precache bug is visible only on somebody else's installed
+client, a month later. Coverage should run the other way round from file size, and today it does
+not: `sw.js`, the largest file here, is exercised through one of five entry points.
+
+**A check may not read its expectation out of the code under test.** `fetch_views.test.py` derived
+its window from `months_back()` — to stop a copy drifting, and unfalsifiable for exactly the value
+it was named after: a `months_back()` ending ON the month in progress answered the question, the
+case refused the month after that, and it passed (measured). It runs against a FROZEN clock now, and
+the months are the calendar's. `sw.test.mjs` reads `BOOT` out of `sw.js` the same way and is left
+alone on purpose — it is vendored pwa-starter, so the fix belongs upstream. Where anti-drift pushes
+you there, cross-check two independent artifacts instead (a date function against a frozen clock,
+`BOOT` against `index.html`'s script tags).
+
+**Prefer a positive assertion.** `!panel.includes(exact)` passes when the formatting differs, not
+only when the rounding is right. Assert the shape you want, not the absence of one you don't.
+
+**A number the repo can compute does not belong in prose at all.** Pinning one with a lint is the
+wrong branch of the built-or-cut rule, and it was taken: thirteen claims across two docs, eleven of
+which bought a reader nothing, kept honest by 300 lines that could not tell a reflowed paragraph
+from a stale fact. The same mistake as `reserveLede()`, which built a `ResizeObserver` to manage a
+sentence that should not have existed. When a claim is about behaviour, test the behaviour; when it
+is a count, read it off the thing that holds it.
+
+And the growth rule: **a check earns its place by failing without the code it covers, and keeps it
+by being the only one that does.** `ablate.py` enforces the first half on every branch. The second
+half is why deletions are welcome — re-run the suite without a check, and if nothing else noticed,
+it was never the thing holding that property up.
+
+One entry per bullet below: the checks that run offline, the one that needs a browser, the pair of
+branch gates only CI can run, the monthly top-up, and the two audits a human grades. No test
+framework, and nothing to install:
+
+- `node scripts/sw.test.mjs` — the fetch handler under mocked SW globals: cache-first, lie-fi
+  bounds, offline fallbacks. It drives the `fetch` listener only; install, activate, `cachePut`'s
+  SHELL refusal and `cacheLookup`'s version scoping are unexercised, which is where its 1-of-5
+  came from.
 - `python3 scripts/sw-lint.py` — the precache contract (invariant 1). Five of its six checks read
-  one commit; the sixth, `--base REF`, reads two and so takes the other one as an argument. CI runs
-  it on pull requests against the base sha, which is the only place with both sides of the merge.
-  `python3 scripts/sw-lint.test.py` covers that sixth check alone, in eighteen cases that each
-  build a throwaway repo with real branches — the failure it catches (#32) looks correct from
-  either side alone and cannot be staged from a single commit. It is a vendored pwa-starter file,
-  so its stamp reads `(+ the --base branch check)`; keep that current if you touch it again.
-- `python3 scripts/validate.py` — **the data gate**, and the most important one here. Every serious
-  defect this dataset has had was a plausible-looking wrong number that no test caught; this
-  compares composers.json against its schema, the other caches, readership.json and the previous
-  commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still catches each incident —
-  if you weaken a check, that goes red.
+  one commit; the sixth, `--base REF`, reads two and takes the other as an argument, so CI runs it
+  on pull requests against the base sha. `python3 scripts/sw-lint.test.py` covers the two halves a
+  reader cannot check by eye, in cases that each build a throwaway repo with real branches: the `--base` failure (#32), which looks correct from either side alone, and `--fix`,
+  which WRITES — so its cases assert the staged result, and five of them also pin the three
+  declines, the states where writing would be wrong. It is a vendored pwa-starter file; keep the
+  stamp current.
+- `python3 scripts/validate.py` — **the data gate**, and the most important thing here. Every
+  serious defect this dataset has had was a plausible-looking wrong number no test caught, so this
+  compares `composers.json` against its schema, the other caches, `readership.json` and the
+  previous commit. Run it after every pipeline run. `scripts/validate.test.py` proves it still
+  catches each past incident; weaken a check and it goes red.
+- `node scripts/names.test.mjs` — the display-name rules, offline, in the module loaded under a
+  one-line `window` stub. It is the one app module with a suite of its own because it is the one
+  that is PURE — a roster in, two strings out — and the most heuristic thing here: the last-word
+  rule, the five kinds of name it is wrong about, and the floor-AND-margin that awards a bare
+  surname. Three of its cases run against the shipped roster rather than a fixture, and they are
+  what the shared-surname map is for: no two composers may get the same chart label, nor the same
+  filed name, and sorting the filed column must keep every surname group contiguous. The counts
+  this file used to state in prose — how many names the rule is wrong about, which groups qualify
+  today — are gone; they moved every time the pipeline ran.
 - `scripts/ui-test.sh` — the behavioural suite, against a real Chrome over CDP. **Its size is not
   stated here: run it and read the total it prints.** Some of its checks are registered in loops,
-  so the literal `check(` count is not that total and no offline count is exact — it is the one
-  number `prose-lint.py` cannot take, so a figure written here could only be re-typed by hand every
-  time somebody adds a check, which is churn in exchange for a number the suite already reports.
-  The docs used to state it and a check used to assert the statement; both are gone. It starts
+  so the literal `check(` count is not that total and no offline count is exact. A figure written here
+  could only be re-typed by hand every time somebody adds a check, which is churn in exchange for a
+  number the suite already reports. It starts
   its own server and browser and skips cleanly (exit 0) if no Chromium is installed — right for a
   laptop and wrong for a runner, where a job that quietly lost its Chrome would go green having
   tested nothing, so `REQUIRE_BROWSER=1` turns that skip and both pointer warnings into a failure
@@ -326,7 +362,7 @@ human grades. No test framework, and nothing to install:
   it is checked for rather than assumed: this Chromium drops a synthetic wheel now and then under
   emulation, so `wheel()` re-sends one that moved nothing and the run prints how often it had to.
 - `python3 scripts/ui-test.test.py` — the RUNNER rather than the app: the two ports
-  `ui-test.sh` derives from the checkout's own path, in thirteen cases that need no browser. They
+  `ui-test.sh` derives from the checkout's own path, in cases that need no browser. They
   were fixed at 8765/9333 and are cleared with a `pkill -f` that matches every process on the
   machine, so a second checkout starting up killed the first one's browser and server mid-run —
   and the victim was the run that had done nothing wrong (#49). Deriving the default gives every
@@ -357,77 +393,83 @@ human grades. No test framework, and nothing to install:
   `ablate.py`'s `COVERS` maps `scripts/ui-test.sh` to these cases, so a change to it has to be
   proved by one of them. Filed as a test — which it was, back when it only started a server and a
   browser — the port derivation was logic nothing ablated, and the branch that wrote it was
-  ablated on `prose-lint.py` alone.
+  ablated on one unrelated file alone.
 - `python3 scripts/og-lint.py` — the link preview. The card-SIZE half is hook-only (it reads
   `git diff --cached`); the meta-length and stated-count halves read the working tree and run in
-  CI. `check_counts()` knows BOTH live totals — the roster (884) and what the chart can plot
-  (790) — and requires a stated count to be one of them rather than guessing which one a sentence
-  means, because "884 quartet composers" and "790 quartet composers" are both grammatical. It
-  pins per FILE where the file settles the question: `manifest.json` holds exactly one description
-  of the app and describes what the app DRAWS, so it may state only 790, and the two numbers
-  cannot swap places unnoticed. It holds the bands a scraper actually renders, so "og:description is too long" is caught
-  before a deploy rather than by pasting the live URL into a validator afterwards. The two
-  descriptions in `index.html` are deliberately different lengths — a SERP snippet wants 120-160,
-  a phone link preview truncates near 125 — and re-unifying them fails the lint.
-  `check_card_axis()` refuses a card labelling a readership its own axis does not contain. That is
-  invariant 14's duplication caught where it goes silent: `logscale()` clamps, so a tick under the
-  floor is painted on the bottom edge with the wrong number beside it rather than dropped. Read
-  from the file, so a stale `og.svg` fails it too.
+  CI, so "og:description is too long" is caught before a deploy rather than by pasting the live URL
+  into a validator afterwards. `check_counts()` knows both live totals and requires a stated count
+  to be one of them, because "884 quartet composers" and "790 quartet composers" are both
+  grammatical — and this is the one place a count is worth holding, because these strings SHIP to
+  readers. It pins per FILE where the file settles the question: `manifest.json` holds exactly one
+  description and describes what the app DRAWS, so it may state only the plottable total. The two descriptions
+  in `index.html` are deliberately different lengths — a SERP snippet wants 120-160, a phone link
+  preview truncates near 125 — and re-unifying them fails the lint. `check_card_axis()` refuses a
+  card labelling a readership its own axis does not contain: `logscale()` clamps, so a tick under
+  the floor is painted on the bottom edge with the wrong number beside it rather than dropped.
 - `python3 scripts/pagemoves.test.py` — the page-move rule (invariant 15), offline: `step`,
-  `tenures`, `confirm` and `stitch` are pure, and `find_moves`'s walk runs against a stubbed log.
-  It exists because every defect that module has had is one the PIPELINE cannot show you — a
-  dropped middle hop double-counting one month, a complete chain thrown away as truncated, a
-  reverted move read as a permanent one. None crashes, none moves a number by an order of
-  magnitude, and the shipped twelve chains happen to miss all three.
-- `python3 scripts/fetch_views.test.py` — the page-view cache's invariants, with `fetch` stubbed
-  and the cache in a temp file, so it needs no network and runs in CI. It exists because the flat
-  array has only two values, a count and a null, and **every bug in that file has been a null no
-  request justified** — invisible afterwards, because the array is the right length and every
-  number in it is plausible. The only symptom is that `todo` quietly stops asking. Nine of its
-  cases stub the move log as well and cover invariant 15: that a move is stitched and the month of
-  the move nulled, that the stitch is re-applied on every refetch (or the next monthly top-up
-  silently undoes every one of them), that a chain already on record is not re-judged, that a
-  logged move the traffic does not support is recorded and NOT stitched, that a source which does
-  not answer — by raising, or by a 200 carrying nothing — leaves both the series and the record
-  alone, that a log which could not be READ is not written down as "no move" (the `None`/`[]`
-  distinction invariant 15 turns on), that what gets RECORDED names only boundaries the article
-  actually crossed, and that a record collapsing to nothing is not written down either.
-- `python3 scripts/imslp.test.py` — the IMSLP join's judgements, offline: the wikitext readers,
-  the catalogue parse, the work counting and the date confirmation all read strings, so it needs
-  no network. It exists
-  because every defect that join has had was a wrong PARSE presenting as a missing row, and a
-  missing row here is invisible — there is no baseline saying how many rows there should be. A
-  line-anchored field reader turned every IMSLP date into `None` (the person template packs three
-  fields onto one line); a pattern that stopped at the first `|` read the article title out of
-  `[[wikipedia:{{#iflang:…}}]]` as the literal `{{`, which took out Beethoven, Mozart, Haydn,
-  Bach, Brahms and Dvořák — the six biggest quartet catalogues on the site — while eleven hundred
-  lesser names joined fine and the totals looked healthy. Neither crashed. Since #61 it also covers
+  `tenures`, `confirm` and `stitch` are pure and `find_moves`'s walk runs against a stubbed log. It
+  exists because every defect that module has had is one the pipeline cannot show you — a dropped
+  middle hop double-counting a month, a complete chain thrown away as truncated, a reverted move
+  read as permanent. None crashes, none moves a number by an order of magnitude, and
+  the chains this roster ships happen to miss all three.
+- `python3 scripts/fetch_views.test.py` — the page-view cache's invariants, `fetch` stubbed, the
+  cache in a temp file and the clock FROZEN at a mid-month date, so "the month in progress" is the
+  calendar's fact and not `months_back()`'s opinion of it. It exists because the flat array has only two values and **every bug in
+  that file has been a null no request justified** — invisible afterwards, because the array is the
+  right length and every number in it is plausible, and the only symptom is that `todo` quietly
+  stops asking. Some of its cases stub the move log and cover invariant 15: that a move is stitched and
+  its month nulled, that the stitch is re-applied on every refetch, that a chain on record is not
+  re-judged, that a logged move the traffic does not support is recorded and NOT stitched, that a
+  source which does not answer leaves both series and record alone, that a log which could not be
+  READ is not written down as "no move", and that a record collapsing to nothing is not written
+  down either.
+- `python3 scripts/imslp.test.py` — the IMSLP join's judgements, offline: the wikitext readers, the
+  catalogue parse, the work counting and the date confirmation all read strings. It exists because
+  every defect that join has had was a wrong PARSE presenting as a missing row, and a missing row
+  here is invisible — nothing says how many rows there should be. A line-anchored field reader
+  turned every IMSLP date into `None`, because the person template packs three fields onto one line;
+  a pattern that stopped at the first `|` read the article title out of `[[wikipedia:{{#iflang:…}}]]`
+  as the literal `{{`, which took out the six biggest quartet catalogues on the site while the long
+  tail joined fine and the totals looked healthy. Neither crashed. Since #61 it also covers
   `catalogue()`, which returns the per-page work counts and the composer's total from ONE parse —
-  derived twice, `imslp-works.json` could state four works on a row under a heading counting three
-  and neither number would look wrong — and `compress()`, which moved here from `imslp-audit.py` so
-  the shipped rows and the audit page collapse a range of opus numbers the same way.
-- `python3 scripts/fetch_imslp.test.py` — the crawl's REQUEST SEQUENCE, with `get` stubbed against
-  a dict-shaped wiki and the cache in a temp file, so it needs no network and runs in CI. It is a
-  separate suite from the one above because it answers a question no reader of the cache can:
-  `imslp.test.py` asks whether a string parsed correctly, and this asks whether a warm run asked
-  the site anything at all. It exists because `fetch_works()` returned early on a cached listing,
-  so a second run printed `cached: orig (4215)` and stopped — and the category crawl is the only
-  place a work page or a composer can ENTER this pipeline, every other pass being keyed by a title
-  it would never have been told. A monthly run would have discovered nothing forever and exited 0
-  doing it (#62), with no symptom: there is no baseline saying how many quartet pages IMSLP holds,
-  every number in the cache stays plausible, and the file simply stops growing. So the cases
-  assert what a run ASKS FOR — that the categories are listed again, that a page which appeared
-  between two runs reaches the markers and the work info, that a composer page naming no
-  identifier is re-read and a `{{wp}}` link added since is followed all the way to a resolved QID,
-  that a P839 claim, a guessed category page and a redirect appearing since are all picked up —
-  and, just as hard, what it declines to ask for, because "re-ask everything" is `--refresh` and
-  costs megabytes of unchanged wikitext against a volunteer-funded server.
+  derived twice, `imslp-works.json` could state one number on a row under a heading counting
+  another and neither would look wrong — and `compress()`, which moved here from `imslp-audit.py`
+  so the shipped rows and the audit page collapse a range of opus numbers the same way.
+- `python3 scripts/fetch_imslp.test.py` — the crawl's REQUEST SEQUENCE, `get` stubbed against a
+  dict-shaped wiki and the cache in a temp file. Separate from the suite above because it answers a
+  question no reader of the cache can: that one asks whether a string parsed correctly, this asks
+  whether a warm run asked the site anything at all. `fetch_works()` returned early on a cached
+  listing, and the category crawl is the only place a work page or a composer can ENTER this
+  pipeline — every other pass is keyed by a title it would never have been told — so a monthly run
+  would have discovered nothing forever and exited 0 doing it (#62). No symptom: nothing says how
+  many quartet pages IMSLP holds, every number in the cache stays plausible, and the file simply
+  stops growing. So the cases assert what a run ASKS FOR — the categories listed again, a page
+  that appeared between two runs reaching the markers and the work info, a composer page naming no
+  identifier re-read and a `{{wp}}` link added since followed all the way to a resolved QID — and,
+  just as hard, what it declines to ask for, because "re-ask everything" is `--refresh` and costs
+  megabytes of unchanged wikitext against a volunteer-funded server.
 - `scripts/refresh.py` — not a test but the same discipline: it decides whether a top-up is DUE
   (does `composers.json` already cover the last complete month?), runs the three pipeline stages,
   refuses to bump `V` if `validate.py` fails, and is a pure no-op otherwise.
-  `.github/workflows/refresh.yml` runs it monthly and opens a PR. NB a PR opened with the built-in
-  `GITHUB_TOKEN` does NOT trigger `checks.yml`, which is why refresh.py runs the gate itself —
-  the gate must not be skippable because a robot opened the PR.
+  `.github/workflows/refresh.yml` runs it monthly and opens a PR. A PR opened with the built-in
+  `GITHUB_TOKEN` does not trigger `checks.yml`, which is why refresh.py runs the gate itself — the
+  gate must not be skippable because a robot opened the PR.
+- `python3 scripts/codehash.py` — **is this change comments-only, or did code go with them?**
+  A comment-compression pass through `chart.js` deleted `function hash()` and `const MIN_SEP` from
+  inside the blocks it was rewriting, and the audit that missed it was a human reading a long diff
+  for an ABSENCE. This isolates the code and hashes it: the AST for Python, where comments and
+  formatting are absent by construction, and a scanner for JS and CSS that knows strings, template
+  literals and regex literals, so `"http://x"` is code. The scanner is **verified by re-parsing**
+  both the source and the stripped text with `node --check`, which is what makes its imperfection
+  affordable — a misclassification leaves something that does not parse, so it degrades to "cannot
+  tell" rather than to a false pass, and cannot-tell is a third exit code rather than a pass.
+  Newlines survive the strip deliberately: collapsing them would hide a reflow of code too, and in
+  JS it would change meaning (`return` and its value on two lines). A template literal is copied
+  whole, so a comment inside `${…}` reads as code — the conservative direction, because recursing
+  would mean deleting inside a string. `ablate.py` and `fix-lint.py` both import `unchanged()` and
+  stop asking a comments-only hunk for a test, which is the only place the claim is acted on rather
+  than reported. `scripts/codehash.test.py` is where the awkward cases live, and two of them are
+  defects it found in the tool.
 - `python3 scripts/fix-lint.py --base REF` and `python3 scripts/ablate.py --base REF` — **the two
   branch gates**, and the answer to why simple changes were taking six rounds of review. Both read
   TWO commits, so like `sw-lint.py --base` they run on pull requests only and CI is the one place
@@ -445,24 +487,14 @@ human grades. No test framework, and nothing to install:
   uncommitted work with it. `--with-ui` adds the browser suite, and the `gates` job passes it — a
   UI branch is ablated by CI rather than told its ablation is owed locally, which is what this
   sentence used to say and the whole point of #56. On a machine with no browser the suite still
-  skips, and the report says so rather than passing quietly. One `No-test: <reason>` trailer
-  on any commit in the range skips BOTH, so an untested source change is a sentence somebody wrote
-  on purpose and a reviewer can read, not a silence. `scripts/fix-lint.test.py` covers both in
-  forty-six cases that each build a throwaway repo with real branches.
-- `python3 scripts/prose-lint.py` — **every number in README.md and CLAUDE.md that the repo can
-  COMPUTE**, checked against the live value: the curated list sizes in `chart.js`, each suite's
-  `len(CASES)` by importing it, the recorded page-move chains, the `FOLD` characters and the names
-  that need them, and — permissively, the way `og-lint.py` does it — any stated composer count.
-  This file's own rule was that prose the app can falsify is built or cut; it had never been
-  applied to the docs, and three claims had drifted by the time it was written, one of which was
-  spotted during #23, deferred to a follow-up, and never done. A pinned claim that stops MATCHING
-  is a failure and not a pass, which is round 5 of #23's lesson one file over: a check that can go
-  vacuous proves nothing. What it deliberately does not pin is anything with two readings — the
-  entry count above, or which of 884 and 790 a sentence means.
-  `scripts/prose-lint.test.py` covers `fold_count`, which is the one part of it a reader cannot
-  check by eye: it duplicates a rule written in another language in `table.js` (fold AFTER
-  lowercasing), and its failure mode is a plausible number written into invariant 13 as a
-  correction, by the one file whose job is stopping that.
+  skips, and the report says so rather than passing quietly. A `No-test: <reason>` trailer skips BOTH, so an
+  untested source change is a sentence somebody wrote on purpose and a reviewer can read, not a
+  silence — and it is scoped PER FILE, to the ones its own commit touched. Read anywhere in the range
+  it was two holes at once: a docs-only "No-test: TODO.md only" disarmed both gates for every source
+  change on the branch, and one legitimately excused file excused every file beside it. A file edited
+  again with no trailer is back in the gate, because the second edit is the unexplained one.
+  `scripts/fix-lint.test.py` covers both, in cases that each build a throwaway repo with real
+  branches.
 - `scripts/audit_counts.py` — not automated: it prints parsed quartet counts beside the sentence
   they came from so a human can grade them. Run it after touching `scrape_list.py`.
 - `scripts/audit_redirects.py` — not automated either, and for the same reason: it answers a POLICY
@@ -470,56 +502,26 @@ human grades. No test framework, and nothing to install:
   which is the evidence behind invariant 15's refusal to. `--limit N` audits the N most-read
   instead of all 884, which is the difference between two minutes and ten.
 
-Everything above that does not need a browser or a network runs in CI, and since #56 so does the
-one that needs a browser: `checks.yml` has a `ui` job. Still run `ui-test.sh` by hand after
-touching `chart.js`, `table.js` or `styles.css` — it is faster than a push, and a UI change is one
-you want to LOOK at — but it is no longer the only thing standing between a regression and main.
-**It was never kept out for want of a browser**, which is what this line used to say:
-`ubuntu-latest` ships `/usr/bin/google-chrome` and `find_chrome` finds it. Measured on #43, the
-suite RUNS there and scored 231 of the 240 checks it had then — a RECORD of one past run, which is
-why it carries a number at all: it is a fact about that afternoon and cannot go stale. Of those nine, eight were the missing POINTER and are
-fixed (#50, above); the ninth was a FONT metric — `system-ui` is DejaVu Sans on a Linux runner and
-the four phone columns measured 9px wider than on a Mac, so `table does not overflow its box at
-390px` read 335 against 326 — and it is fixed too (#53). It was never a harness artefact: the
-layout had no margin, and at 360px it overflowed in every face including the Mac's own.
-Three things the job needs, and only one of them is about the browser. **node 22**, because
-`ui.test.mjs`'s whole CDP client is the global `WebSocket` that node 20 does not have — the two
-jobs that set node up at all pinned 20, so copying one was the way to get an immediate failure
-that reads like a browser problem and is not. **`xvfb-run`**, for the pointer. And **the full
-Chrome**, never `chrome-headless-shell`, which reports no pointer even under a display.
-The fourth thing is that a SKIP IS A PASS: `ui-test.sh` exits 0 when it finds no browser, which is
-right for a laptop and would let a runner that quietly lost its Chrome go green having tested
-nothing. `REQUIRE_BROWSER=1` turns that skip — and both pointer warnings — into a failure, and
-both jobs that reach the suite set it, the gates one included, since `ablate.py --with-ui` reads a
-skipped suite as "proves nothing" and then exits 0.
-**The prize is bigger than the suite**: with a browser on the runner, `ablate.py --with-ui` runs
-there, so a branch whose source is `chart.js`, `table.js` or `styles.css` is finally ablated by
-something other than a human remembering to. That was #55's own ablation — owed locally, run by
-hand, red in the right two places, and invisible to CI.
+Everything that needs neither a browser nor a network runs in CI, and since #56 so does the browser
+suite — `checks.yml` has a `ui` job, with `xvfb-run` and node 22 (the whole CDP client is the global
+`WebSocket`). Still run `ui-test.sh` by hand after touching `chart.js`, `table.js` or `styles.css`:
+it is faster than a push, and a UI change is one you want to LOOK at. The prize of a browser on the
+runner is bigger than the suite, because `ablate.py --with-ui` runs there too — a branch whose
+source is the page is finally ablated by something other than a human remembering to.
 
 ## Design artifacts
 
 `mocks/` holds the artboards a design decision was made from — currently the canvas that chose the
-Fame view over two alternatives. They are drawn from `composers.json` by `mocks/gen.py`, which
-duplicates chart.js's scales for the same reason `make-og-svg.py` does. Nothing there ships, and
-nothing there follows a change to `chart.js`: they are a record of a decision, not a second
-implementation of it. See `mocks/README.md`.
-
-## Where to pick up
-
-`TODO.md` holds the open work with the reasoning behind each item, including one known defect (the
-readership brush has no keyboard path) and three things deliberately NOT being done, with why. Read
-it before starting something; it exists so a cold session doesn't re-derive a decision that was
-already made on evidence — or re-derive one badly, which the issue-31 entry records an instance of:
-a layout fix prescribed from a description of the bug rather than from a measurement of it, which
-would not have worked.
+Fame view over two alternatives, drawn from `composers.json` by `mocks/gen.py`, which duplicates
+chart.js's scales for the reason `make-og-svg.py` does. Nothing there ships and nothing there
+follows a change to `chart.js`: it is a record of a decision, not a second implementation of one.
 
 ## Conventions
 
 - Vendored pwa-starter files carry `pwa-starter: <file> @ <sha>` near the top. Keep the stamp when
   editing them; it is how `check-downstream.py` upstream finds this repo.
-- Comments explain *why*, and especially what breaks otherwise. Match that; don't narrate what the
-  next line does.
+- Comments explain *why*, and especially what breaks otherwise. Don't narrate the next line, and
+  don't recount how a bug was found — that is TODO.md's job.
 - **A comment may not assert a mechanical fact about the code beside it — that becomes a check, or
   it goes.** This is the built-or-cut rule applied one level down, and it is the rule the steady
   trickle of low-severity review findings has been about: `histogram.js`'s "Keyed by side" over a
@@ -528,9 +530,10 @@ would not have worked.
   could fail — a comment cannot go red. The repo already had the answer and was applying it
   everywhere except to its own prose: `Chart.missingNames()`, `Names.staleOverrides()`,
   `unfilterableGenders()` and `unreachableRepertoires()` all turn a claim into something a suite
-  asserts, and `scripts/prose-lint.py` now does it for every computable number in the docs. So a
-  comment that states a join key, a count, a list or a threshold either gets pinned by a check or
-  gets written loosely enough to stay true. A comment about WHY is never in this category, which is
+  asserts. For the DOCS the answer is not a lint — that was tried and deleted, because a check
+  cannot tell a reflowed paragraph from a stale fact — it is not writing the number. So a comment
+  that states a join key, a count, a list or a threshold either gets pinned by a check or gets
+  written loosely enough to stay true. A comment about WHY is never in this category, which is
   most of them, and none of this is an argument for fewer comments.
 - **A fix ships with the test that goes red without it — not with the next review.** `ablate.py`
   enforces it on a branch, but the discipline is the point: run the fix's test against the tree
@@ -640,56 +643,43 @@ would not have worked.
   an engine does.
 
 - **The chart's controls sit ABOVE the plot, because the plot's height is a function of the VIEW.**
-  `measure()` in `chart.js` gives each mode its own aspect ratio (0.98 for Fame against 0.82 for
-  the timeline on a phone, 0.44 for the swarm), which is right — the picture is a different shape
-  in each — so a row underneath moves when you press it: 61px on a phone and 150px at 1280,
-  lifting the pill out from under a second tap at the same spot. Nothing a finger rests on may be
-  placed by a box the same press resizes, which is the rule the full-screen strip's fixed height
-  and `.compact`'s reserved box already follow. Full screen is the exception and stays underneath:
-  `#plot` is `flex:1` there, sized by the viewport rather than by the view, so there is nothing to
-  absorb and every pixel above the chart is a pixel of chart. It costs 94px of a phone's first
-  screen, which is what the old ordering was buying (issue 29). `placeDetail()`'s phone anchor
-  moved with the row — it inserts before `.legend`, or the panel lands above the chart. The rule
-  reaches one row up too, and there it is now satisfied by CONSTRUCTION rather than by placement:
-  **no filter control appears or disappears at all.** Issue 31 fixed the readership brush's own
-  Clear button in place, twice — inside the `settled` guard so it arrived at the end of a drag
-  rather than its first frame, then onto the gender pills' line so that arriving cost no height.
-  Issue 35 deleted the category instead. There is one permanent `Reset filters` button in
-  `.controls` beside `Reset zoom`, it clears all three filters, and it is `disabled` at rest and
-  accent-filled when live — a state change that moves no box, which is why `applyFilters()` may
-  update it ABOVE the `settled` guard and light it on the drag's first frame. Being the page's one
-  answer to "is anything filtered?" is what makes `anyFilter()` read the query the way
-  `Table.matches()` does, TRIMMED: a lone space filters nothing, and the button lit over a `#count`
-  still reading 884 answers its own question wrong. It does not focus the search box afterwards,
-  though `#clear` does — `#clear` sits inside the search row, while this one is a card below it,
-  where `focus()` scrolls the viewport back up and opens the soft keyboard over a box the reader had
-  left. Nothing is left to reset, so disabling itself out of the tab order is the honest end. `ui.test.mjs` 4m5
-  asserts the whole row is unmoved through a brush drag and under all three filters at once, under
-  TOUCH emulation — without it a 390px box is a narrow desktop, buttons measure 28px not 40px, and
-  the numbers are the wrong ones. Two lessons from #31 outlived its fix and are worth keeping: the
-  row NEVER wrapped (below 640px `#hist` is `flex:1 0 100%`, so the lines are pinned by `order`,
-  not by width), so a fix prescribed from a description of the bug rather than a measurement of it
-  would have reserved a width that was never the constraint; and an ID selector out-specifies
-  `.btn`, which is how that button sat 12px under the touch floor unseen.
-- **The table and the chart show short names; the detail panel shows the full title.**
-  `names.js` is the only place that takes a canonical Wikipedia name apart, and it is a heuristic
-  — see `SURNAME` there. It derives BOTH forms from one shared-surname map, so the two can never
-  disagree about who needs more than a surname: `filed()` gives the table "Haydn, Joseph" (a
-  column that sorts on the string it prints), `short()` gives the chart "M. Haydn" (a label that
-  has to fit beside its dot), and a surname shared by two people whose initials also match falls
-  through to the full name — Ferdinand and Félicien David. The detail panel, the hover flag and
-  the row's `title` attribute all keep the canonical title, where recognising the person is the
-  job. `make-og-svg.py` duplicates `short()` for the same reason it duplicates the scales.
-  **The chart form has one exception on top of that rule: a surname only one composer is READ for
-  prints bare.** "Haydn" is Joseph and "Tchaikovsky" is Pyotr Ilyich on any programme; the initial
-  is what Michael and Boris need. `DOMINANT_VIEWS` (10,000) in `names.js` is the test, and it has
-  to stay decisive — the most-read member takes it only if nobody in the group ties them, or two
-  dots get the same label. Two groups of the 884 qualify. It is `short()` ONLY: the table sorts on
-  what it prints, and a bare "Haydn" filed beside "Haydn, Michael" makes that column inconsistent
-  about who gets a forename to save width a table has anyway. This is why `Names.setData()` takes
-  readership alongside the names — as a PARALLEL array, for the reason `build_data.py` carries
-  canonical titles in one (invariant 4) — and why `make-og-svg.py`'s `short_names()` now takes
-  rows rather than names: Joseph Haydn is one of the card's six labels.
+  `measure()` gives each mode its own aspect ratio — the swarm the widest of them, Fame the most
+  nearly square, and every one of them taller on a phone — so a row underneath moves when you press it — 61px on a phone, 150px at 1280,
+  lifting the pill out from under a second tap at the same spot. **Nothing a finger rests on may be
+  placed by a box the same press resizes.** Full screen is the exception and stays underneath:
+  `#plot` is `flex:1` there, sized by the viewport rather than the view, so there is nothing to
+  absorb. Above the plot costs 94px of a phone's first screen (#29), and `placeDetail()`'s phone
+  anchor moved with the row — it inserts before `.legend`, or the panel lands above the chart.
+- **No filter control appears or disappears at all.** The rule above, satisfied by construction one
+  row up: #31 fixed the brush's own Clear button in place twice, #35 deleted the category instead.
+  One permanent `Reset filters` sits in `.controls` beside `Reset zoom`, clears all three filters,
+  and is `disabled` at rest and accent-filled when live — a state change that moves no box, which is
+  why `applyFilters()` may light it on the drag's first frame, above the `settled` guard. Being the
+  page's one answer to "is anything filtered?" is why `anyFilter()` reads the query TRIMMED, the way
+  `Table.matches()` does: a lone space filters nothing, and the button lit over an unchanged
+  `#count` answers its own question wrong. It does not focus the search box, though `#clear` does —
+  this one is a card below the row, where `focus()` scrolls the viewport back up and opens the
+  keyboard over a box the reader had left. Note for the next layout fix here: the row never wrapped
+  (below 640px `#hist` is `flex:1 0 100%`, so the lines are pinned by `order`, not width), and an ID
+  selector out-specifies `.btn`, which is how that button sat 12px under the touch floor unseen.
+- **The table and the chart show short names; the detail panel shows the full title.** `names.js` is
+  the only place that takes a canonical Wikipedia name apart, and it is a heuristic — see `SURNAME`
+  there. BOTH forms come from one shared-surname map, so the two can never disagree about who needs
+  more than a surname: `filed()` gives the table "Haydn, Joseph" (a column that sorts on the string
+  it prints), `short()` gives the chart "M. Haydn" (a label that has to fit beside its dot), and a
+  surname shared by two people whose initials also match falls through to the full name — Ferdinand
+  and Félicien David. The panel, the hover flag and the row's `title` keep the canonical title,
+  where recognising the person is the job.
+  **One exception, in the chart form only: a surname only one composer is READ for prints bare.**
+  "Haydn" is Joseph and "Tchaikovsky" is Pyotr Ilyich on any programme; the initial is what Michael
+  and Boris need. `DOMINANT_VIEWS` in `names.js` is the test and it has to stay decisive — the most-read
+  member takes it only if they also lead by `DOMINANT_MARGIN`, because a floor alone hands the bare
+  surname to whoever leads by one view once both clear it, and readership is refetched monthly, so
+  that is drift rather than hypothesis. `names.test.mjs` asserts the margin and, over the real
+  roster, that no two composers end up with the same label. Not in
+  `filed()`: the table sorts on what it prints, and a bare "Haydn" beside "Haydn, Michael" is
+  inconsistent about who gets a forename. This is why `Names.setData()` takes readership alongside
+  the names, as a PARALLEL array for the reason `build_data.py` carries canonical titles in one.
 - **The phone table has to fit in a font you do not choose.** `system-ui` is SF on a Mac, Segoe on
   Windows and DejaVu on most Linux — and DejaVu is wide enough that the four phone columns
   overflowed 390px outright (#53), which is how the suite came to fail on a Linux runner and
@@ -915,15 +905,12 @@ would not have worked.
   area.** d3-brush's `.handle` is `handleSize` wide by the extent PLUS `handleSize` tall, so
   painting it drew a 20x62 slab of accent above the bars and down through the tick labels — the hit
   area wearing the costume of the control (#40). The fix was a DELETION: d3-brush sets `fill:none`
-  and `pointer-events:all` on the brush `<g>` and both inherit, so the handle arrives as an
-  unpainted hit area and this stylesheet was the only thing painting it. `histogram.js` draws the
-  visible tab instead — the same felt-not-seen split the chart's icon buttons use. The one
-  load-bearing line is `pointer-events="none"` on the grips group: it sits on top of the brush and
-  outside it, so a hittable grip swallows the press and the drag does nothing. That is an
-  ATTRIBUTE, so a later `#hist .grips path{ pointer-events: … }` would silently outrank it — the
-  same specificity trap as `#hist-clear` and the chart-tools glyphs. The grips are colored from
-  CSS rather than baked (invariant 3) because they are uniform — a variable reaches them the way it
-  reaches the sparkline, so a theme change has nothing to redo.
+  and `pointer-events:all` on the brush `<g>` and both inherit, so this stylesheet was the only
+  thing painting it. `histogram.js` draws the visible tab instead, the same felt-not-seen split the
+  chart's icons use. The load-bearing line is `pointer-events="none"` on the grips group: it sits on
+  top of the brush and outside it, so a hittable grip swallows the press and the drag does nothing.
+  That is an ATTRIBUTE, so a later `#hist .grips path{ pointer-events: … }` would silently outrank
+  it — the same specificity trap as `#hist-clear` and the chart-tools glyphs.
 - **The `hidden` ATTRIBUTE is only `display:none` in the UA sheet**, so ANY author `display` on the
   same element beats it — silently, since the element stays hidden to a screen reader and to
   `.hidden` in JS while being drawn. Giving `.btn` a `display` for its icon did exactly that: the
@@ -939,16 +926,6 @@ would not have worked.
   empty. **Its height must stay constant**: `#plot` is `flex:1` in full screen, so a box that grew
   on select would trip the ResizeObserver and re-lay out the chart under the finger that just
   tapped it. `tight()` in `app.js` is what trims the content to fit that box.
-- **The sparkline's caption names the spike if there is one and the trend otherwise.** A fixed
-  "peak N× typical" was the wrong sentence for most of the roster: the median composer's biggest
-  month is 3.1× their typical one, because a composer read thirty times a month hits ninety by
-  chance, so it cried spike about noise on half the list — and it buried the real story for the
-  steady ones, where Haydn's meaningless 1.7× peak displaced a line that has slid 42% since 2015.
-  The test (`SPIKE` in `app.js`) is the peak against the 95th PERCENTILE of that composer's own
-  months, which is scale-free and judges a small noisy article against its own noise. At 3× it
-  fires on 18% of the roster and what it selects is almost entirely obituaries. The peak hairline
-  is drawn ONLY in the spike branch — an annotation pointing at a month nothing mentions has no
-  referent.
 - **Anything that handles its own arrow keys marks itself `[data-keys]`.** `app.js`'s document
   keydown listener steps the SELECTION on left/right, and its old guard was
   `matches("input, textarea")` — so the first focusable thing that was neither had its keys stolen:
@@ -961,117 +938,112 @@ would not have worked.
   group), and `ui.test.mjs` presses a key with the box focused rather than trusting the selector. Escape is handled before the guard, because it means "back out of this"
   wherever focus is. The readership brush still owes a keyboard path (TODO); when it gets one it
   needs the attribute and no edit to the listener.
-- **The sparkline is the app's one optional part, in both halves.** Its data
-  (`readership.json`, 487 KB against composers.json's 46) is precached but not a BOOT dep and is
-  fetched after the first paint; `sparkline()` in `app.js` returns null when it has not arrived,
-  when a composer has fewer than two months of data, and — via `tight()`'s early return — in the
-  full-screen strip, whose height must not change. Its colours are the one drawn thing here that
-  is NOT baked into the SVG by JS: it is plain inline SVG in the document, so `var(--accent)`
-  reaches it and `Theme.subscribe` has nothing to re-bake (invariant 3 does not apply, and
-  `ui.test.mjs` checks that the `stroke` attribute stays absent so nobody "fixes" that).
-  Linear y and zero-based, unlike the chart's log readership axis: log is there because the
-  ROSTER spans five orders of magnitude, but within one composer the question is proportion —
-  how much bigger was that month than a normal one — and a log baseline flattens exactly the
-  spike the line exists to show.
-- **Every sparkline shares one month axis, so the blank left of a young article has to be named.**
-  A shared axis is what makes two composers comparable, and it means the 61 articles created after
-  2015 draw over the right-hand end and leave the rest empty — which under a line chart reads as
-  "nobody read this" rather than "not written yet". The label row prints `from Jul 2025` instead
-  of the axis span in that case. A null month is a BREAK in the path for the same reason
-  (invariant 10); joining across it would draw a line down to zero and back.
 - **A hover previews into the detail panel, so its box is reserved wherever a pointer exists.**
   `@media (hover:hover) and (pointer:fine)` gives `.compact` a `min-height` covering its TALLEST
-  state (pinned, with the nav row) and ellipsizes the name. Without that, moving the mouse across
-  the chart pumps the legend up and down. Touch screens get neither rule — no hover to churn, and
-  the space is the chart's. The reservation is MEASURED, not guessed: `ui.test.mjs` prints the
-  pinned panel's real height beside the "pinning does not shove it either" check and fails when
-  `min-height` falls short — which is how adding the sparkline was caught at 267px against 262.
-  The check pins the composer with the LONGEST caption (a spike names a month, a count and a
-  multiple; a trend is half that), because the reservation has to cover the worst case and the
-  dot the earlier check happens to hover is not it.
-- **A chart label prints the short name, not the canonical title.** 7 characters on average
-  instead of 15, and because `pickLabels()` is first-come-first-served on space, halving every box
-  is what lets the names behind it find room at all. The label text and the width estimate must
-  come from the same string — `pickLabels()` computes it once and carries it on the placement.
-- **The ring follows the filter by RANKING; the fill follows it by TASTE.** That is the answer
-  issue #7 came to, and the two halves are deliberately different mechanisms. `refreshEmphasis()`
-  in `chart.js` keeps a ring budget of THREE — the size of `OUTLIERS` — filled first by the curated
-  outliers the filter kept and then by `prom`, the same seed-then-rank shape the label budget has.
-  So the resting view and the share card are exactly what they were, "Men" (which keeps all three)
-  changes nothing, and "Women" derives all three. `RINGS` and `OUTLIERS` must stay the same size. Below `MIN_FIELD` visible dots nothing is derived:
-  a ring means "stands out from the crowd it is drawn in", and two Haydns are not a crowd.
-  Every channel that follows emphasis — fill, stroke, radius, opacity, label colour, the table
-  chip — reads `named()`, which reads the DERIVED set (`emphSet`), not the curated `namedSet`; so
-  adding a channel needs no further wiring, and `namedSet` is still the curated thirteen for the
-  places that mean exactly those (the pool `refreshEmphasis` ranks over, `seedNames()`).
-  Derived rings are seeds in `pickLabels()` too — a dot the view rings and then declines to name
-  points at a composer it refuses to identify, which is the complaint the rings answer.
+  state (pinned, with the nav row) and ellipsizes the name; without it, moving the mouse across the
+  chart pumps the legend up and down. Touch screens get neither rule — no hover to churn, and the
+  space is the chart's. The reservation is MEASURED: the suite prints the pinned panel's real height
+  beside the "pinning does not shove it either" check and fails when `min-height` falls short, which
+  is how adding the sparkline was caught — the pinned panel measured 267px against a reservation
+  that was then a few pixels short. It pins the composer with the LONGEST
+  caption, because the reservation has to cover the worst case and the dot an earlier check happens
+  to hover is not it.
+- **The sparkline's caption names the spike if there is one and the trend otherwise.** A fixed "peak
+  N× typical" was the wrong sentence for most of the roster: when the caption was written the median
+  composer's biggest month was 3.1× their typical one, because a composer read thirty times a month hits ninety by chance, so it
+  cried spike about noise on half the list — and it buried the real story for the steady ones, where
+  Haydn's meaningless 1.7× peak displaced a line that had slid 42% since 2015. `SPIKE` tests the
+  peak against the 95th PERCENTILE of that composer's own months, which is scale-free and judges a
+  small noisy article against its own noise; at 3× it fired on 18% of that roster and selects almost
+  entirely obituaries. The peak hairline is drawn ONLY in the spike branch — an annotation pointing
+  at a month nothing mentions has no referent.
+- **The sparkline is the app's one optional part, in both halves.** Its data (`readership.json`,
+  an order of magnitude larger than the roster) is precached but not a BOOT dep and is fetched after the
+  paint; `sparkline()` returns null when it has not arrived, when a composer has fewer than two
+  months of data, and — via `tight()`'s early return — in the full-screen strip, whose height must
+  not change. Its colours are the one drawn thing here NOT baked into the SVG by JS: it is plain
+  inline SVG, so `var(--accent)` reaches it and `Theme.subscribe` has nothing to re-bake (invariant
+  3 does not apply, and a check keeps the `stroke` attribute absent so nobody "fixes" that). Linear
+  y and zero-based, unlike the chart's log readership axis: log is there because the ROSTER spans
+  orders of magnitude, but within one composer the question is proportion, and a log baseline
+  flattens exactly the spike the line exists to show.
+- **Every sparkline shares one month axis, so the blank left of a young article has to be named.** A
+  shared axis is what makes two composers comparable, and it means the articles created after
+  2015 draw over the right-hand end and leave the rest empty — which under a line chart reads as
+  "nobody read this" rather than "not written yet". The label row prints `from Jul 2025` instead of
+  the axis span in that case. A null month is a BREAK in the path for the same reason (invariant
+  10); joining across it would draw a line down to zero and back.
+- **A chart label prints the short name, not the canonical title.** Half the characters, and because `pickLabels()` is first-come-first-served on space, halving every box is what
+  lets the names behind it find room at all. The label text and the width estimate must come from
+  the same string — `pickLabels()` computes it once and carries it on the placement.
+- **Labels are a function of zoom, not a list.** `pickLabels()` spends a budget that grows with the
+  zoom (`base × (1 + log₂ k)`) on frame-culled candidates, so pinching in names what is in the
+  frame. In Fame the curated names are the SEED and fill the budget first; beyond them the
+  ranking is `prom`, z-scored distance from the centre of the visible cloud, recomputed in
+  `setFilter()`/`setData()` because a filter must rank its own group. The one special case is the
+  resting unfiltered Fame view, where the budget is pinned to the seed so the view says exactly what
+  it is about — also the state `make-og-svg.py` draws (invariant 14).
+- **The ring follows the filter by RANKING; the fill follows it by TASTE.** That is #7's answer, and
+  the two halves are deliberately different mechanisms. `refreshEmphasis()` keeps a ring budget
+  DERIVED from `OUTLIERS` (`RINGS = OUTLIERS.length`, so the two cannot drift), filled first by the
+  curated outliers the filter kept and then by `prom`, the same seed-then-rank shape the labels have.
+  So the resting view and the share card are what they were, "Men" changes nothing, and "Women"
+  derives all three. Below `MIN_FIELD` visible dots nothing is derived: a ring means "stands out
+  from the crowd it is drawn in", and two Haydns are not a crowd. Every channel that follows
+  emphasis — fill, stroke, radius, opacity, label colour, the table chip — reads `named()`, which
+  reads the DERIVED set, so adding a channel needs no further wiring; `namedSet` stays the curated
+  set where that is what is meant. Derived rings are seeds in `pickLabels()` too, because a dot
+  the view rings and then declines to name points at a composer it refuses to identify.
   The FILL is never derived: it is an editorial claim about which quartets are played, which no
   ranking recomputes — Prokofiev is on it for two quartets and Debussy for one, and TODO records
-  that the best single scalar reproduces 8 of the 13. So the women's group got a SECOND
-  hand-written list (`WOMEN_CANON`, nine) rather than a computed one, swapped in by
-  `Chart.setRepertoire()` when the pill changes and reachable no other way. Two consequences worth
-  knowing. The `--sel` fill and the sentence naming it are ONE claim, so `REPERTOIRES` carries both
-  and `renderLegend()` prints `Chart.repertoireLabel()`. Both lists now answer to the same neutral
-  noun ("the notables"), which is the other way out of invariant 8's wrong-channel trap: "the
-  repertoire" over nine women the repertoire never held was the failure, and a noun that claims
-  nothing about repertoire cannot make it. The pairing still has to hold — the suite reads the
-  label off `Chart.repertoireLabel()` rather than quoting it, so rewording the noun is free and
-  printing a different one than the chart is using is not. And the gate is the point: not one of the nine clears 10,000 readers a month (Price tops
-  them at 8,001 against `CANON`'s median of 58,023), so at rest they would be nine filled dots low
-  in the densest part of a 790-dot cloud, captioned as the set that holds Mozart. The resting view,
-  "Men", and the share card are therefore byte-identical to what they were — `make-og-svg.py` draws
-  the view AT REST (invariant 14), so no second list ever reaches it.
-  Filling a curated set also FEEDS the ring, because `refreshEmphasis` ranks over a pool that
-  excludes `namedSet`: curating Kats-Chernin and Price is what frees their ring slots.
-  **A derived ring must also stand APART — `MIN_SEP`, 3% of the plot diagonal, from every dot
+  that no single scalar reproduces that set. So the women's group got a SECOND hand-written
+  list (`WOMEN_CANON`), swapped in by `Chart.setRepertoire()`. The `--sel` fill and the sentence
+  naming it are ONE claim, so `REPERTOIRES` carries both and `renderLegend()` prints
+  `Chart.repertoireLabel()` — the suite reads the label off that function rather than quoting it, so
+  rewording is free and printing a different noun than the chart is using is not. Both lists answer
+  to the same neutral noun, which is the other way out of invariant 8's wrong-channel trap: "the
+  repertoire" over nine women the repertoire never held was the failure. The gate is the point — not
+  one of them clears `DOMINANT_VIEWS`-scale readership — the best is an order of magnitude under
+  `CANON`'s median — so at rest they would be filled dots low in the densest part of the cloud,
+  captioned as the set that holds Mozart. Filling a curated set also FEEDS the ring, since
+  `refreshEmphasis` ranks over a pool that excludes `namedSet`.
+  **A derived ring must also stand APART — `MIN_SEP`, a fraction of the plot diagonal, from every dot
   already emphasised and every ring derived before it.** Prominence is distance from the CENTRE of
-  the cloud, so a corner full of composers all scores high and the tie was broken by nothing
-  visual: the ring landed on Monk, whose disc came within 4px of Beach's, one filled and one
-  ringed. Measured in SCREEN space from `baseLayout()`, because "on top of" is a claim about
-  pixels and the three modes lay the same dots out three ways — and only x and y are read, never
-  the radius, which `layout()` derives from `named()` and this function is in the middle of
-  changing. **Measuring against the picture means re-deriving whenever the picture changes shape**,
-  so `setMode()` and `resize()` call `refreshEmphasis()` too. Reached only from `setFilter()`, it
-  chose rings in a geometry where nothing is ringed — every emphasis channel is Fame-only — and
-  those picks were drawn unchanged in Fame: `#v=scatter&g=female` then Fame put a ring 3.1px from
-  a filled dot, and a rotation did the same. The threshold is a fraction of the plot AND a floor of
-  `GAP_DOTS` named radii, because the dot radius is clamped at 3.2 while the diagonal keeps
-  shrinking, which at 320px leaves the fraction about a pixel above the bar the suite asserts. The
-  fraction is not delicate — 2.5%–5% picks the same three — and the floor is a guard, not a fix:
-  probed at eight viewports, the fraction alone clears by 20px+ once the geometry is current. Deriving FEWER than the budget is the honest outcome when nothing
-  stands clear. The result reads better too: the three it now finds under "Women" (Vrebalov,
-  Auerbach, Firsova) are all "wrote a lot, read little", which is what the curated outliers mean
-  at rest — the other end of that group is carried by the fill, where Price and Beach are.
-- **A filter fits the frame, and the fit is the RESTING view.** `computeResting()` in `chart.js`
-  is the one answer to "where should this chart be sitting right now": identity with no filter,
-  the box that contains the kept dots with one. `setFilter()` transitions there when the gesture
-  settles (never mid-brush-drag), `resetZoom()` returns there rather than to the full extent, and
-  `zoomed()` is measured against it — so a filter that fits at 4x does not light the reset button
-  as though the reader had pinched. It is memoized because `zoomed()` is asked on every frame of a
-  pinch; the memo is invalidated by the only three things it depends on (the filter, the mode, the
-  box). The fit is measured from a `layout()` at `zoomIdentity`, not from the scales, so a fourth
-  encoding cannot forget to update it — and the swarm fits x ONLY, because its y is solved once at
-  k=1 and is not under the zoom at all. This works because a filter here is a HIGHLIGHT: the other
-  600 dots are still drawn at 0.07, so closing in shows the group against the ghost of its field.
+  the cloud, so a corner full of composers all scores high and the tie was broken by nothing visual:
+  the ring landed on Monk, whose disc came within 4px of Beach's. Measured in SCREEN space from
+  `baseLayout()`, because "on top of" is a claim about pixels and the three modes lay the same dots
+  out three ways — and only x and y are read, never the radius, which `layout()` derives from
+  `named()` while this function is in the middle of changing it. **Measuring against the picture
+  means re-deriving whenever the picture changes shape**, so `setMode()` and `resize()` call it too:
+  reached only from `setFilter()`, it chose rings in a geometry where nothing is ringed and those
+  picks were drawn unchanged in Fame, 3.1px from a filled dot. The threshold is a fraction of the
+  plot AND a floor of `GAP_DOTS` named radii, because the dot radius is FLOORED while the diagonal
+  keeps shrinking; the fraction is not delicate (2.5%–5% picks the same dots) and the floor is a
+  guard, not a fix. Deriving FEWER than the budget is the honest outcome when nothing
+  stands clear.
+- **A filter fits the frame, and the fit is the RESTING view.** `computeResting()` is the one answer
+  to "where should this chart be sitting right now": identity with no filter, the box containing the
+  kept dots with one. `setFilter()` transitions there when the gesture settles, never mid-drag;
+  `resetZoom()` returns there rather than to the full extent; `zoomed()` is measured against it, so
+  a filter that fits at 4x does not light the reset button as though the reader had pinched. It is
+  memoized because `zoomed()` is asked on every frame of a pinch, and invalidated by the only three
+  things it depends on: the filter, the mode, the box. The fit is measured from a `layout()` at
+  `zoomIdentity` rather than from the scales, so a fourth encoding cannot forget to update it — and
+  the swarm fits x ONLY, because its y is solved once at k=1 and is not under the zoom. This works
+  because a filter here is a HIGHLIGHT: the rest of the cloud is still drawn at 0.07, so closing in
+  shows the group against the ghost of its field.
   **Below `MIN_FIT` placeable dots it does not fit at all.** One match is a zero-width box, so
   `fit()` returns Infinity on both axes and `k` lands on the 24x clamp — searching a composer threw
   the reader to maximum magnification, where the cloud that dot is being compared AGAINST is off
-  screen. The count is of the dots the chart can PLACE, not `visible.size`: a filter can keep rows
-  the Fame view has no y for. Skipping the fit means the FULL EXTENT, not the reader's current
-  transform — a reader pinched to 6x who searches a name is zoomed back out, the same as clearing
-  a filter — because `restingTransform()` has to stay a pure function of the filter, the mode and
-  the box or its memo is meaningless and `resetZoom()` has nothing to return to. Four or more dots
-  that happen to sit on top of each other still fit tightly; that is left alone deliberately,
-  because capping `k` would change filters that read correctly today.
-- **Labels are a function of zoom, not a list.** `pickLabels()` in `chart.js` spends a budget that
-  grows with the zoom (`base × (1 + log₂ k)`) on candidates that are frame-culled, so pinching in
-  names what is in the frame. In the Fame view the curated thirteen are the SEED and fill the
-  budget first; beyond them the ranking is `prom`, z-scored distance from the centre of the visible
-  cloud, recomputed in `setFilter()`/`setData()` because a filter must rank its own group. The one
-  special case is the resting unfiltered Fame view, where the budget is pinned to the seed so
-  the view says exactly what it is about — that is also the state `make-og-svg.py` draws, which is
-  why the share card needs the seed and no ranking (invariant 14).
-- **Anything the zoom moves must be clipped.** `chart.js` clips the dots, labels, selection ring
-  and lens to `#plot-clip`; a new zoom-transformed group needs the same `clip-path`, or a pinch
-  lays it out over the axes and past the card edge.
+  screen. The count is of dots the chart can PLACE, not `visible.size`: a filter can keep rows the
+  Fame view has no y for. Skipping the fit means the FULL EXTENT, not the reader's current
+  transform, because `restingTransform()` has to stay a pure function of the filter, the mode and
+  the box or the memo is meaningless and "reset" has nothing to return to.
+- **Anything the zoom moves must be clipped.** `chart.js` clips the dots, labels, selection ring and
+  lens to `#plot-clip`; a new zoom-transformed group needs the same `clip-path`, or a pinch lays it
+  out over the axes and past the card edge.
+## Where to pick up
+
+`TODO.md` holds the open work, one known defect (the readership brush has no keyboard path) and the
+things deliberately not being done, with why. Read it before starting something: it exists so a
+cold session doesn't re-derive a decision already made on evidence, or re-derive one badly.

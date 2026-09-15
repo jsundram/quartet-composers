@@ -25,11 +25,13 @@ plausible, and the only symptom is that `todo` silently stops asking.
 
 Each case below is one of those, stated as the property it violates.
 """
+import datetime as dt
 import io
 import json
 import os
 import sys
 import tempfile
+import types
 import importlib.util
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -45,6 +47,23 @@ def case(name, cache=None):
     return deco
 
 
+# A FROZEN CLOCK. The month in progress is a fact about the CALENDAR, so the cases that turn on it
+# are given a date rather than asking the code under test what today is: partial_month_refused used
+# to take months_back(1) as the last complete month and refuse the one after it, which a
+# months_back() that ended ON the month in progress would have answered just as happily — the case
+# could not fail for the one value it is named after. Mid-month on purpose, which is the state the
+# API has something to say about and nothing to say it with.
+TODAY = dt.date(2027, 1, 14)
+LAST_COMPLETE = "2026-12"
+IN_PROGRESS = "2027-01"
+
+
+class _Frozen(dt.date):
+    @classmethod
+    def today(cls):
+        return TODAY
+
+
 def load(tmp, cache):
     """A fresh copy of the module, pointed at a temp cache, with the network and the clock stubbed.
 
@@ -53,6 +72,7 @@ def load(tmp, cache):
     spec = importlib.util.spec_from_file_location("fv", os.path.join(HERE, "fetch_views.py"))
     fv = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(fv)
+    fv.dt = types.SimpleNamespace(date=_Frozen, timedelta=dt.timedelta)
     fv.OUT = os.path.join(tmp, "pageviews.json")
     fv.PEOPLE = os.path.join(tmp, "people.json")
     fv.PAUSE = 0
@@ -192,17 +212,26 @@ def arrays_are_aligned(fv):
     assert not bad, "ragged series against a %d-month axis: %r" % (n, bad)
 
 
+@case("the window ends at the last COMPLETE month, against a frozen clock")
+def window_ends_complete(fv):
+    # Both literals come from the calendar, not from the function: on 2026-03-14 the last complete
+    # month is December and January is half-measured. The whole axis is checked too, because an
+    # off-by-one at either end is the same bug and only one of them is at the end that matters.
+    assert fv.months_back(3) == ["2026-10", "2026-11", LAST_COMPLETE], fv.months_back(3)
+    assert fv.months_back(None)[0] == fv.FLOOR, fv.months_back(None)[:2]
+    assert fv.months_back(None)[-1] == LAST_COMPLETE, fv.months_back(None)[-2:]
+
+
 @case("a month in progress is refused rather than cached as a whole month")
 def partial_month_refused(fv):
     # The API does not withhold the current month: asked on the 6th it returns six days aggregated
     # exactly like a finished month. Nothing downstream can tell the difference, so the clock is
-    # the only guard.
+    # the only guard — and the month named here is the frozen clock's, not one derived from the
+    # guard's own arithmetic.
     fv.fetch = lambda title, months: {m: ANSWER.get(m, 1) for m in months}
-    nxt = fv.months_back(1)[0]
-    y, m = int(nxt[:4]), int(nxt[5:7])
-    y, m = (y + 1, 1) if m == 12 else (y, m + 1)
-    rc, _out, _log = run(fv, ["--months", "3", "--end", "%04d-%02d" % (y, m)])
+    rc, _out, log = run(fv, ["--months", "3", "--end", IN_PROGRESS])
     assert rc == 2, "an incomplete month was accepted (rc=%r)" % rc
+    assert LAST_COMPLETE in log, "the refusal did not name the newest complete month: %s" % log
 
 
 # ------------------------------------------------------------------ page moves

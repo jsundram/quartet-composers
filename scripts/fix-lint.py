@@ -13,7 +13,7 @@ does — what the branch changed is read from the merge base, which is the diff 
 and a stacked branch all leave alone. The pre-commit hook can never answer it: a branch's first
 commit legitimately has no test yet.
 
-The escape hatch is a `No-test: <reason>` trailer on any commit in the range, shared with
+The escape hatch is a `No-test: <reason>` trailer on the commit that changed the file, shared with
 ablate.py so there is one sentence to write and one place to look. It is deliberately a trailer
 and not a path allowlist: a comment fix, a pure rename and a data regeneration are all real, and
 each is a judgement about THIS change that belongs in the log where a reviewer reads it. An
@@ -26,7 +26,9 @@ import os, re, subprocess, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # What counts as source and what counts as a test are defined ONCE, in ablate.py, and
-# imported — the two gates ask the same question and a second copy would drift.
+# imported — the two gates ask the same question and a second copy would drift. No bytecode, for
+# the reason ablate.py gives: a gate that litters the tree it is judging cannot claim to restore it.
+sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.join(ROOT, "scripts"))
 import ablate
 SOURCE, TESTS = ablate.SOURCE, ablate.TESTS
@@ -68,17 +70,24 @@ def main():
     # because a GITHUB_TOKEN PR does not trigger checks.yml; any human-opened regeneration hits it.
     if "sw.js" in src and ablate.only_a_version_bump(mb):
         src = [f for f in src if f != "sw.js"]
+    # And the same for a file whose CODE is unchanged, for the same reason in a second shape: if
+    # ablate.py exempts a comments-only hunk and this does not, one branch gets opposite verdicts
+    # from the pair and the trailer becomes the only way through — which is how `No-test:` stops
+    # being a sentence somebody meant and becomes a thing you type to get past the gate.
+    src = [f for f in src if not ablate.only_comments(mb, f)]
     if not src or tests:
         return 0
 
-    why = None
-    for line in sh("git", "log", "--format=%B", f"{mb}..HEAD").stdout.splitlines():
-        m = re.match(r"^\s*No-test:\s*(.+?)\s*$", line, re.I)
-        if m:
-            why = m.group(1)
-            break
-    if why:
-        print(f"  fix-lint: no test on this branch, excused — {why}")
+    # ablate.excused(), imported rather than restated — the third exemption shared with the other
+    # gate, and the one that had drifted into two copies of the same regex. PER FILE: a trailer
+    # speaks for the files its own commit touched, so a docs-only commit's "No-test: TODO.md only"
+    # does not excuse somebody else's code, and one excused file does not cover the rest.
+    ex = ablate.excused(mb)
+    for f in src:
+        if f in ex:
+            print(f"  fix-lint: excused — {f}: {ex[f]}")
+    src = [f for f in src if f not in ex]
+    if not src:
         return 0
 
     print("  fix-lint:")

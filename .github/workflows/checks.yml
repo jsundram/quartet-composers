@@ -1,4 +1,4 @@
-# pwa-starter: checks.yml @ d2fad01  (+ the og-lint step, the prose lint, the gates job, the ui job)
+# pwa-starter: checks.yml @ d2fad01  (+ the og-lint step, the gates job, the ui job)
 name: checks
 
 # The repo's checks, in four jobs: `sw` (the service worker, the link preview and the prose gate),
@@ -28,10 +28,6 @@ name: checks
 #     the source to base and requiring a named check to go red. That second one is the gate PR #23
 #     needed and did not have: four of its six rounds fixed a defect in the previous round's fix,
 #     each shipped on a green suite. Both are skipped by a `No-test:` trailer.
-#   - scripts/prose-lint.py : every number in README/CLAUDE.md the repo can COMPUTE, against the
-#     live value. It reads the working tree, so it runs on pushes too. It found three drifts on
-#     the day it was written, one of which had been deferred to a follow-up during #23 and never
-#     done — which is the argument for a gate over a convention.
 #   - scripts/ui-test.sh : the browser suite, in a job of its own — see the note above it for why
 #     it is not steps in `sw`. It was kept out of CI for a long time on a premise that was simply
 #     false (that a runner has no browser); what was actually missing was a POINTER, and #50 fixed
@@ -68,6 +64,11 @@ jobs:
         run: node --check sw.js
       - name: behavioral tests (scripts/sw.test.mjs)
         run: node scripts/sw.test.mjs
+      # The display-name rules. In this job rather than `ui` because it needs no browser and
+      # should not queue behind one: names.js is pure, so the rules it is wrong about are
+      # answerable from a fixture roster in milliseconds.
+      - name: display names (scripts/names.test.mjs)
+        run: node scripts/names.test.mjs
       - name: precache lint (scripts/sw-lint.py)
         run: python3 scripts/sw-lint.py
       # Via env rather than interpolated into the shell line: a `${{ }}` inside `run:` is textual
@@ -83,12 +84,18 @@ jobs:
       # a single commit.
       - name: the --base check's own tests (scripts/sw-lint.test.py)
         run: python3 scripts/sw-lint.test.py
+      # The comment-stripper the gates act on. Its own suite runs everywhere; the tool itself needs
+      # two sides and so runs with the base sha, where it reports which changed files are
+      # comments-only. Informational here — `gates` is where the answer has teeth.
+      - name: the code-isolation tests (scripts/codehash.test.py)
+        run: python3 scripts/codehash.test.py
+      - name: code vs comments on this branch (scripts/codehash.py --base)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: python3 scripts/codehash.py --base "$BASE_SHA" || true
       - name: share-card + link-preview lint (scripts/og-lint.py)
         run: python3 scripts/og-lint.py
-      - name: computable prose (scripts/prose-lint.py)
-        run: python3 scripts/prose-lint.py
-      - name: the prose lint's own tests (scripts/prose-lint.test.py)
-        run: python3 scripts/prose-lint.test.py
       # The IMSLP join's judgements. No network; one case reads data/people.json for a QID.
       - name: the IMSLP catalogue parse (scripts/imslp.test.py)
         run: python3 scripts/imslp.test.py
@@ -140,7 +147,7 @@ jobs:
 
   # The browser suite, against a real Chrome over CDP. It used to say how many checks, and that
   # was stale inside the PR that wrote it — nothing reads THIS file for the number (ui.test.mjs
-  # scans README and CLAUDE.md, prose-lint.py reads the same two), so it could only ever drift.
+  # scans README and CLAUDE.md for it), so it could only ever drift.
   # A count that no check can redden is written loosely or not at all; here, not at all. A separate job
   # rather than steps in `sw`, because its failure means "the app regressed" and not "the service
   # worker is broken" — and because it wants a different node (see below). No --base, unlike the

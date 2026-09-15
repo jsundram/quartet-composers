@@ -7,18 +7,18 @@
 
     python3 scripts/imslp-audit.py            # -> imslp-audit.html
 
-Every work page of the 22 curated composers, with the RAW `Opus/Catalogue Number` field IMSLP
-serves printed beside the work ids this repo made of it, and a link to the page so a disagreement
-can be settled by looking. That is invariant 11's rule applied to a second parser: the measure of
+Every work page of the curated composers, with the RAW `Opus/Catalogue Number` field IMSLP serves
+printed beside the work ids this repo made of it, and a link to the page so a disagreement can be
+settled by looking. That is invariant 11's rule applied to a second parser: the measure of
 `build_imslp.py`'s counting is a human reading it against the page, not its agreement with the
 quartet count in composers.json, which answers a different question and is itself prose.
 
-WHY THESE 22. `CANON`, `OUTLIERS` and `WOMEN_CANON` in chart.js are the composers the Fame view
+WHY THESE. `CANON`, `OUTLIERS` and `WOMEN_CANON` in chart.js are the composers the Fame view
 draws filled and named, so they are the rows a reader looks at, the rows any error is seen in
-first, and — being ten canonical composers, three deliberate outliers and nine women whose
-catalogues are the least well served by reference works — a fair spread of the ways this parse can
-go wrong. The lists are READ from chart.js rather than copied, because they change spelling when
-the pipeline runs (invariant 7) and a copy here would quietly stop matching.
+first, and — canonical composers, deliberate outliers, and women whose catalogues are the least
+well served by reference works — a fair spread of the ways this parse can go wrong. The lists are
+READ from chart.js rather than copied, because they change spelling when the pipeline runs
+(invariant 7) and a copy here would quietly stop matching.
 
 Rows are marked where the parse deserves a second look: a page with no catalogue number at all, an
 anthology dropped for having none, and any page whose expansion produced more works than its title
@@ -40,8 +40,8 @@ from report_style import CSS, EXTRA                          # noqa: E402
 import build_imslp as bi                                     # noqa: E402
 
 LISTS = ("CANON", "OUTLIERS", "WOMEN_CANON")
-# No sizes here. This file reads the lists out of chart.js precisely so they cannot drift, and
-# then typing "ten"/"three"/"nine" beside them would reintroduce the drift one line down.
+# No sizes here: the lists are read from chart.js precisely so they cannot drift, and typing their
+# sizes beside them would put the drift straight back.
 BLURB = {"CANON": "the repertoire — composers a quartet actually plays, in birth order",
          "OUTLIERS": "picked out for writing far more than they are read",
          "WOMEN_CANON": "shown only under the Women filter"}
@@ -158,14 +158,13 @@ def main():
                 if not groups and cf:
                     # A field that IS there and could not be read is a PARSE FAILURE, and
                     # calling it "no catalogue number" is the one mislabel this page cannot
-                    # afford — surfacing exactly these is what it is for. Live example:
-                    # {{HaydnHob|n383|III:1-83}}, a three-argument template the reader does not match.
+                    # afford — surfacing exactly these is what it is for.
                     cls, note = "flag", "catalogue stated but not read"
                     unread += 1
                 elif groups and "<" in cf:
-                    # K<sup>9</sup>.Anh.H 12,17 reduces to "K.9" once the tags are stripped, which
-                    # is not a catalogue number anyone wrote. Rare, and flagged rather than
-                    # special-cased: the point of this page is that a human sees it.
+                    # A catalogue field carrying markup can strip down to something nobody wrote.
+                    # Rare, and flagged rather than special-cased: the point of this page is that a
+                    # human sees it.
                     cls = "flag"
                     odd += 1
                 elif not groups:

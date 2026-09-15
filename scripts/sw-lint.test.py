@@ -2,7 +2,8 @@
 # /// script
 # requires-python = ">=3.9"
 # ///
-"""Proves sw-lint.py's --base check catches the incident it was written for, and nothing else.
+"""Proves sw-lint.py's --base check catches the incident it was written for, and that --fix
+bumps V exactly when check 1 would have nagged about it.
 
 The other five checks read one commit and can be judged by eye. This one reads TWO, and the whole
 reason it exists is that the failure it catches looks correct from either side alone: #28 and #30
@@ -55,6 +56,33 @@ def run(repo, ref="main"):
     r = subprocess.run([sys.executable, LINT, "--base", ref], cwd=repo,
                        capture_output=True, text=True)
     return r.returncode, r.stdout.strip()
+
+
+def whole_repo(tmp, v="quartets-v32"):
+    """new_repo() plus the rest of the SHELL list on disk.
+
+    The --base cases do not care whether a SHELL entry exists — that is check 2, which reads one
+    commit — but the --fix cases assert on the EXIT CODE, and a missing entry makes it 1 for a
+    reason that has nothing to do with the bump. So these start from a repo with nothing else to
+    report."""
+    repo = new_repo(tmp, v)
+    write(repo, "index.html", "<p>hi\n")
+    write(repo, "app.js", 'const VER_PREFIX = "quartets-v";\n')
+    commit(repo, "the rest of the shell")
+    return repo
+
+
+def run_fix(repo, *args):
+    r = subprocess.run([sys.executable, LINT, "--fix", *args], cwd=repo,
+                       capture_output=True, text=True)
+    return r.returncode, r.stdout.strip()
+
+
+def staged_v(repo):
+    """V as the INDEX holds it — what the commit about to be made would carry."""
+    import re as _re
+    m = _re.search(r'const V\s*=\s*"([^"]*)"', git(repo, "show", ":sw.js"))
+    return m.group(1) if m else None
 
 
 def case(name, got, want, extra=""):
@@ -170,6 +198,87 @@ with tempfile.TemporaryDirectory() as tmp:
                                capture_output=True, text=True).returncode, ""
     case("--base with no ref is an error, not a silent pass", code, 1)
 
+    # --- --fix: THE BUMP IS DERIVED, NOT TYPED ---------------------------------------------------
+    # Check 1 knows which files are SHELL, which of them are staged, and what V was. Everything it
+    # needs in order to DO the bump, which is why the hook no longer asks for one. These cases are
+    # about the staged result, not the message: what matters is that the commit about to be made
+    # carries a new V and the author did not have to know that.
+    repo = whole_repo(tmp)
+    write(repo, "styles.css", "body{x}\n")
+    git(repo, "add", "-A")
+    code, out = run_fix(repo)
+    case("--fix bumps the tail when a staged SHELL file would otherwise ship unseen",
+         (code, staged_v(repo)), (0, "quartets-v33"), out.splitlines()[-1].strip() if out else "")
+    case("...and re-stages sw.js, so the bump lands in the same commit",
+         "sw.js" in git(repo, "diff", "--cached", "--name-only").split(), True)
+    case("...and says so rather than bumping silently", "bumped" in out, True)
+    case("...and the worktree matches the index afterwards",
+         git(repo, "diff", "--name-only", "--", "sw.js").strip(), "")
+    # Idempotent: V has now moved, so check 1 no longer fires and there is nothing to do.
+    code2, _ = run_fix(repo)
+    case("...and a second run does not bump again", (code2, staged_v(repo)), (0, "quartets-v33"))
+
+    # Nothing staged that is precached: the tail must not move for a README commit.
+    repo = whole_repo(tmp)
+    write(repo, "README.md", "changed\n")
+    git(repo, "add", "-A")
+    code, out = run_fix(repo)
+    case("--fix leaves V alone when no staged file is precached",
+         (code, staged_v(repo), out), (0, "quartets-v32", ""))
+
+    # Already bumped by hand: --fix has nothing to add, and must not stack a second generation.
+    repo = whole_repo(tmp)
+    write(repo, "styles.css", "body{y}\n"); write(repo, "sw.js", SW % "quartets-v40")
+    git(repo, "add", "-A")
+    code, _ = run_fix(repo)
+    case("--fix does not bump a V that already moved", (code, staged_v(repo)), (0, "quartets-v40"))
+
+    # DECLINES with unstaged sw.js edits, because `git add sw.js` would sweep work into this commit
+    # that the author deliberately left out. The nag is the right answer there.
+    repo = whole_repo(tmp)
+    write(repo, "styles.css", "body{z}\n")
+    git(repo, "add", "-A")
+    write(repo, "sw.js", SW % "quartets-v32" + "// half-finished edit\n")
+    code, out = run_fix(repo)
+    case("--fix declines when sw.js has unstaged edits, and nags instead",
+         (code, staged_v(repo), "bump V in sw.js" in out), (1, "quartets-v32", True))
+
+    # DECLINES mid-merge: the resolution is the human's, and check 6 is what catches #32 in CI.
+    repo = whole_repo(tmp)
+    git(repo, "checkout", "-q", "-b", "other")
+    write(repo, "styles.css", "body{one}\n"); commit(repo, "one")
+    git(repo, "checkout", "-q", "main")
+    write(repo, "styles.css", "body{two}\n"); commit(repo, "two")
+    subprocess.run(("git", "merge", "other"), cwd=repo, capture_output=True, text=True)
+    case("(the merge really did conflict, so MERGE_HEAD is there)",
+         os.path.exists(os.path.join(repo, ".git", "MERGE_HEAD")), True)
+    write(repo, "styles.css", "body{resolved}\n")
+    git(repo, "add", "-A")
+    code, out = run_fix(repo)
+    case("--fix declines during a merge, and nags instead",
+         (code, staged_v(repo), "bump V in sw.js" in out), (1, "quartets-v32", True))
+
+    # A V with no tail is check 4's problem; --fix must not invent one.
+    repo = whole_repo(tmp, v="quartets")
+    write(repo, "styles.css", "body{w}\n")
+    git(repo, "add", "-A")
+    code, out = run_fix(repo)
+    case("--fix declines a V with no numeric tail",
+         (code, staged_v(repo), "numeric tail" in out), (1, "quartets", True))
+
+    # --- --bump: THE ONE IMPLEMENTATION -----------------------------------------------------------
+    # refresh.py calls this instead of carrying its own regex. No git in it: the monthly top-up
+    # stages nothing, and the workflow commits afterwards.
+    repo = whole_repo(tmp)
+    r = subprocess.run([sys.executable, LINT, "--bump"], cwd=repo, capture_output=True, text=True)
+    case("--bump increments the tail and prints the new V",
+         (r.returncode, r.stdout.strip()), (0, "quartets-v33"))
+    case("...in the worktree, staging nothing",
+         git(repo, "diff", "--cached", "--name-only").strip(), "")
+    r = subprocess.run([sys.executable, LINT, "--bump"], cwd=whole_repo(tmp, v="quartets"),
+                       capture_output=True, text=True)
+    case("--bump reports a V it cannot move rather than writing one", r.returncode, 1)
+
     # --- THE SHIPPED SCRIPT AGREES WITH THE SHIPPED sw.js ----------------------------------------
     # Not a scenario: the parser reads THIS repo's real SHELL block, so a reformat that breaks
     # shell_entries() fails here rather than by quietly matching nothing in CI.
@@ -187,4 +296,4 @@ print()
 if fails:
     print(f"{len(fails)} FAILED: " + ", ".join(fails))
     sys.exit(1)
-print("all sw-lint --base cases pass")
+print("all sw-lint --base and --fix cases pass")

@@ -16,9 +16,9 @@ once is a coverage report wrong by the next run. It is this repo's built-or-cut 
 a page that is nothing BUT falsifiable prose.
 
 The page leads with coverage by birth half-century because that is the finding: availability runs
-80-89% for composers born between 1700 and 1850 and collapses to single digits after 1900. That
-is a copyright boundary, not a gap in IMSLP's collecting, and the report says so where a reader
-would otherwise conclude the library is patchy.
+around four in five for composers born between 1700 and 1850 and collapses to single digits after
+1900. That is a copyright boundary, not a gap in IMSLP's collecting, and the report says so where a
+reader would otherwise conclude the library is patchy.
 """
 import argparse
 import collections
@@ -184,7 +184,6 @@ def main():
       f'{audit["imslp_pages"]:,} quartet pages, {audit["attributable_pages"]:,} of them by '
       f'composers on this list.</p>')
 
-    # the cliff
     w('<section>')
     w('<h2>Coverage collapses at 1900</h2>')
     w('<p>Each bar is every roster composer born in that half-century, split three ways. The '
@@ -205,7 +204,6 @@ def main():
       f'score on IMSLP.</p>')
     w('</section>')
 
-    # what IMSLP is allowed to hold
     def band(r):
         if r[DEATH] is None:
             return "living"
@@ -258,7 +256,6 @@ def main():
       f'before treating the {PD_CUTOFF} line as a hard boundary in either direction.</p>')
     w('</section>')
 
-    # the two answers
     w('<section>')
     w('<h2>Zero and unknown are different answers</h2>')
     eg = ", ".join(esc(n) for _v, n, _s in
@@ -273,7 +270,6 @@ def main():
       f'page says <em>no IMSLP page found</em> and never <em>not on IMSLP</em>.</p>')
     w('</section>')
 
-    # provenance
     w('<section>')
     w('<h2>How each composer was matched</h2>')
     w('<p>No rung of the join compares names. A work page is titled '
@@ -325,7 +321,6 @@ def main():
         w('</tbody></table>')
     w('</section>')
 
-    # pages are not quartets
     w('<section>')
     w('<h2>Three numbers, three questions</h2>')
     w('<p><strong>Pages</strong> is what IMSLP catalogues, and its unit is a publication entry: '
@@ -366,7 +361,6 @@ def main():
       f'The rule is to grade the parse against the page, never against the other number.</p>')
     w('</section>')
 
-    # most read without
     w('<section>')
     w('<h2>Most-read composers without a score here</h2>')
     w('<table><thead><tr><th>Composer</th><th class="num">Readers / month</th>'
@@ -378,7 +372,6 @@ def main():
     w('</tbody></table>')
     w('</section>')
 
-    # the composers Canadian law already frees, that IMSLP does not have at all
     early = sorted((r for r in rows if r[DEATH] is not None and r[DEATH] < PD_CUTOFF
                     and state(r[NAME]) == "unknown"), key=lambda r: -(r[VIEWS] or 0))
     w('<section>')
@@ -405,7 +398,6 @@ def main():
     w('</tbody></table>')
     w('</section>')
 
-    # off roster
     w('<section>')
     w('<h2>Quartet catalogues this roster does not have</h2>')
     w(f'<p>{audit["offroster_composers"]:,} composers on IMSLP have a string quartet and are not '

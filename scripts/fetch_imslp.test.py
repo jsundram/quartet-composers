@@ -457,9 +457,9 @@ def warm_run_is_cheap(fi, w):
 @case("a P839 claim Wikidata did not state is asked again")
 def p839_absence_is_reasked(fi, w):
     # This pass answers PRESENCE — it is the only thing that can tell a composer IMSLP holds with
-    # no quartets from one IMSLP has never heard of. 485 of the 884 roster QIDs are stored as
-    # None, and a None nobody re-asks is #62 one pass over: the editor who adds the claim is never
-    # noticed and the composer reads as absent forever.
+    # no quartets from one IMSLP has never heard of. A large share of the roster's QIDs are stored
+    # as None, and a None nobody re-asks is #62 one pass over: the editor who adds the claim is
+    # never noticed and the composer reads as absent forever.
     cache, _log = run(fi)
     assert cache["p839"]["Q235066"] is None, (
         "the fixture already had a claim for her: %r" % (cache["p839"]["Q235066"],))
@@ -479,7 +479,7 @@ def p839_absence_is_reasked(fi, w):
 @case("a candidate guess that found no page is asked again")
 def candidate_absence_is_reasked(fi, w):
     # The composer with no quartets is invisible to the works crawl BY CONSTRUCTION, so this is
-    # the only pass that can ever place them — and its answer for 470 of 528 guesses is "IMSLP has
+    # the only pass that can ever place them — and its answer for nearly every guess is "IMSLP has
     # no page by this name", which is exactly the answer a volunteer changes.
     roster(fi, **{"Samuel Barber": {"canonical": "Samuel Barber", "qid": "Q234151"}})
     cache, _log = run(fi)
@@ -543,7 +543,7 @@ def candidate_without_key_is_reasked(fi, w):
 def gzip_round_trip(fi, w):
     # urllib does not ask for it, and one pass here is enormous without it: wbgetentities has no
     # per-property filter, so asking 50 items for their P839 returns their complete claim sets —
-    # 24.6 MB for the 485 the monthly run re-asks, against 4.0 MB compressed. Both halves are
+    # 24.6 MB over one monthly run's re-asks, against 4.0 MB compressed. Both halves are
     # asserted, because asking without decoding is a crash and decoding without asking is a
     # header nobody sends.
     fi.TRIES = 1
