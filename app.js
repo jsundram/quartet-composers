@@ -310,8 +310,8 @@ function pct(d, key) {
 }
 
 // TIGHT is the full-screen strip: two lines in a fixed-height box above the chart, where every
-// pixel it takes is a pixel of chart. It drops the percentile line, the Wikipedia link, Prev/Next
-// and the 12-month range beside the median — all of which are back the moment you leave full
+// pixel it takes is a pixel of chart. It drops the percentile line, the Wikipedia and IMSLP pills,
+// Prev/Next and the 12-month range beside the median — all of which are back the moment you leave full
 // screen. Fixed height and always present is the point: see placeDetail.
 const tight = () => $("detail").classList.contains("compact")
                  && document.body.classList.contains("fs");
@@ -371,8 +371,6 @@ function renderDetail(i, preview) {
       : `${atLeast(d.views)}  (${spread(d.lo, d.hi)})`);
   el.appendChild(dl);
 
-  el.appendChild(imslpLine(d));
-
   // Not in the full-screen strip: `lean` has already returned above. Its height is fixed because
   // #plot is flex:1 there, so anything that grows on select re-lays out the chart under the
   // finger that just tapped it.
@@ -389,22 +387,23 @@ function renderDetail(i, preview) {
   rank.textContent = parts.join(" · ") + ".";
   el.appendChild(rank);
 
-  const a = document.createElement("a");
-  a.href = WIKI(d.name);
-  a.target = "_blank";
-  a.rel = "noopener";
-  a.textContent = "Wikipedia →";
-  a.style.fontSize = "13px";
-  el.appendChild(a);
+  el.appendChild(elsewhereRow(d));
 
   navRow(el, preview, false);
 }
 
-// ONE LINE, ALWAYS, in all three states — because the panel's height is not free here. It is a
+// WHERE ELSE THIS COMPOSER IS, as one row of matching pills. They were two unrelated-looking
+// things a paragraph apart — a 13px accent "Wikipedia →" under the ranks and an 11px bordered
+// IMSLP chip up beside the readership — which said they answered different kinds of question. They
+// do not: both are "go and read the rest of this somewhere else", they both open a new tab, and
+// the one thing the reader wants to compare across them is which of the two has anything to offer.
+//
+// ONE ROW OF ONE HEIGHT, in all three states, because the panel's height is not free here. It is a
 // fixed-height strip in full screen (which returns before this is reached) and has a measured
 // min-height wherever a pointer exists, so a clause that appears for some composers and not others
 // would pump the legend under it every time the cursor crossed a dot. That is the mistake #35 cut
-// the generated lede for.
+// the generated lede for. The height is stated in styles.css rather than left to the content,
+// since the third state swaps a bordered pill for bare text.
 //
 // THE THREE STATES ARE THE THREE ANSWERS, and the table's digit can only carry two of them: `0`
 // there means both "IMSLP holds this composer and none of their quartets" and "we could not place
@@ -416,25 +415,39 @@ function renderDetail(i, preview) {
 // "works", not "quartets". The count is of distinct works on IMSLP's own quartet-instrumentation
 // pages, which legitimately hold fugues, fragments and single movements no numbered list counts —
 // and it is not composers.json's `quartets`, which is how many the composer WROTE, from Wikipedia
-// prose. The two sit one line apart and must not read as the same number differently measured.
-function imslpLine(d) {
+// prose. The two must not read as the same number differently measured.
+function elsewhereRow(d) {
   const p = document.createElement("p");
-  p.className = "imslp";
+  p.className = "links";
+  p.appendChild(destination(WIKI(d.name), "Wikipedia",
+                            `Wikipedia article for ${d.name}`, ""));
   if (!d.imslpUrl) {
-    p.textContent = "No IMSLP page found";
+    const none = document.createElement("span");
+    none.className = "imslp none";
+    none.textContent = "No IMSLP page found";
+    p.appendChild(none);
     return p;
   }
+  // The count rides INSIDE the pill, so the row is two chips rather than a chip and a loose
+  // number — and so the accessible name can name the composer while still CONTAINING the drawn
+  // label (WCAG 2.5.3, the lesson #53 left on the abbreviated header): the visible string is a
+  // prefix of the spoken one rather than a different sentence.
+  const label = d.imslp
+    ? `IMSLP · ${d.imslp} work${d.imslp === 1 ? "" : "s"}`
+    : "IMSLP · no quartets";
+  p.appendChild(destination(d.imslpUrl, label, `${label} by ${d.name}`, "imslp"));
+  return p;
+}
+
+function destination(href, text, name, cls) {
   const a = document.createElement("a");
-  a.className = "pill";
-  a.href = d.imslpUrl;
+  a.className = "pill" + (cls ? " " + cls : "");
+  a.href = href;
   a.target = "_blank";
   a.rel = "noopener";
-  a.textContent = "IMSLP";
-  a.setAttribute("aria-label", `${d.name} on IMSLP`);
-  p.appendChild(a);
-  p.appendChild(document.createTextNode(
-    d.imslp ? ` ${d.imslp} work${d.imslp === 1 ? "" : "s"}` : " no quartets there"));
-  return p;
+  a.textContent = text;
+  a.setAttribute("aria-label", name);
+  return a;
 }
 
 // Prev/Next step through the table's order and are worth their width in the panel; in the strip

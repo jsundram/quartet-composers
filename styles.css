@@ -347,24 +347,26 @@ body.fs #filters .tablehead{ display:none }
 #detail dd{ font-variant-numeric:tabular-nums }
 #detail .empty{ color:var(--muted); font-size:13px }
 #detail .rank{ color:var(--muted); font-size:12px }
-/* One line in every state (app.js's imslpLine) — the panel's height is reserved, so a clause that
-   appears for some composers and not others would pump the legend on every hover. The HEIGHT is
-   stated rather than left to the content: two of the three states carry a pill and the third is
-   bare text, and an inline-block grows the line box past what the text alone needs — 19.9px
-   against 17.4px, which is a 2.5px jump every time the pointer crosses from a composer IMSLP has
-   to one it does not. nowrap and the ellipsis are what keep it one line in a narrow card. */
-#detail .imslp{ font-size:12px; color:var(--muted); line-height:20px; height:20px;
-  margin-bottom:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
-/* A link that reads as a destination rather than as a word in a sentence. Not a .btn: it is 12px
-   prose furniture next to a 12px line, and a 36px pill beside it would read as a control. Its box
-   is 16px inside a 20px line, centred on the text rather than sat on its baseline — on the
-   baseline it hangs below the line box and the height above stops being the height drawn. */
-#detail .imslp .pill{
-  display:inline-block; vertical-align:middle; line-height:14px; border:1px solid var(--line);
-  border-radius:999px; padding:0 8px; font-size:11px; letter-spacing:.02em; color:var(--muted);
-  text-decoration:none;
+/* Where else this composer is: Wikipedia and IMSLP as matching pills on ONE row (app.js's
+   elsewhereRow). The HEIGHT is stated rather than left to the content, because the panel's box is
+   reserved and the third state swaps a bordered pill for bare text — left to itself that is a
+   2.5px jump every time the pointer crosses from a composer IMSLP has to one it does not. nowrap
+   for the same reason: a wrap here is 20px of legend movement on a hover. */
+#detail .links{
+  display:flex; align-items:center; gap:7px; height:20px; margin-top:10px;
+  flex-wrap:nowrap; overflow:hidden; white-space:nowrap;
 }
-#detail .imslp .pill:hover{ color:var(--ink); border-color:var(--ink) }
+/* A link that reads as a destination rather than as a word in a sentence. Not a .btn: these are
+   11px prose furniture, and a 36px pill beside a 12px rank line would read as a control. */
+#detail .links .pill{
+  flex:0 0 auto; line-height:16px; border:1px solid var(--line); border-radius:999px;
+  padding:0 8px; font-size:11px; letter-spacing:.02em; color:var(--muted); text-decoration:none;
+}
+#detail .links .pill:hover{ color:var(--ink); border-color:var(--ink) }
+/* The one state with nowhere to point. Muted text, no border: a pill that is not a link would be
+   a control that does nothing. */
+#detail .links .none{ font-size:11px; color:var(--muted); min-width:0; overflow:hidden;
+  text-overflow:ellipsis }
 .detail-nav{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap }
 
 /* The readership sparkline. Colours live HERE and not in app.js on purpose: every other baked
@@ -417,8 +419,12 @@ body.fs #filters .tablehead{ display:none }
   /* The sparkline block (34px of line + two label rows) is inside the reservation, because it is
      drawn on a hover PREVIEW like everything else in the panel. The number is MEASURED, not
      guessed: ui.test.mjs prints the pinned panel's real height beside the "pinning does not shove
-     it either" check, and fails when this falls short of it. */
-  #detail.compact{ min-height:298px }
+     it either" check, and fails when this falls short of it. The few px over that measurement are
+     for the face this was not measured in — #53's lesson is that system-ui is a different font per
+     platform, and the direction that hurts here is a reservation one line short on somebody else's
+     machine. It is not a pixel test: what it has to catch is a whole clause appearing, which is
+     twenty. */
+  #detail.compact{ min-height:278px }
   #detail.compact h2{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
 }
 
@@ -441,8 +447,7 @@ body.fs #detail.compact .dates{ margin:0; font-size:12px }
 body.fs #detail.compact .empty{ font-size:12px }
 body.fs #detail.compact .detail-nav{ position:absolute; top:6px; right:6px; margin:0 }
 /* The strip carries none of these: they are back in the panel the moment you leave full screen. */
-body.fs #detail.compact dl, body.fs #detail.compact .rank, body.fs #detail.compact > a,
-body.fs #detail.compact .imslp,
+body.fs #detail.compact dl, body.fs #detail.compact .rank, body.fs #detail.compact .links,
 body.fs #detail.compact .spark, body.fs #detail.compact .spark-ax,
 body.fs #detail.compact .spark-cap{ display:none }
 

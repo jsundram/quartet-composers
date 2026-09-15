@@ -2918,11 +2918,12 @@ check("the reservation covers the LONGEST caption, not just the first one tested
       `legend top with a spike caption ${spikeTop.toFixed(0)} vs empty `
       + (await ev(`document.querySelector('#viz .legend').getBoundingClientRect().top`)).toFixed(0));
 
-// The IMSLP line is the one clause in the panel that says a DIFFERENT SENTENCE per composer — a
-// pill and a count, a pill and "no quartets there", or a muted "no page found" — so it is the one
-// that could quietly reintroduce the variable-height paragraph #35 cut. Its own box is measured
-// rather than the panel's, because the panel's height moves with the caption and the name too and
-// would hide a wrap in here behind a shorter sparkline caption somewhere else.
+// The "where else this composer is" row is the one thing in the panel that says a DIFFERENT
+// SENTENCE per composer — two pills with a work count, two pills saying no quartets, or one pill
+// and a muted "no page found" — so it is the one that could quietly reintroduce the
+// variable-height paragraph #35 cut. THAT ROW's box is measured rather than the panel's, because
+// the panel's height moves with the sparkline caption and the name too and would hide a wrap in
+// here behind a shorter caption somewhere else.
 // The three composers are CHOSEN FROM THE DATA, not named: these are canonical Wikipedia titles
 // and they change spelling when the pipeline runs (invariant 7).
 const trio = await ev(`(()=>{const f=p=>(ROWS.find(p)||{}).name||'';
@@ -2932,16 +2933,22 @@ const imslpLines = {};
 for (const [state, who] of Object.entries(trio)) {
   if (!who) continue;
   await pin(who);
-  imslpLines[state] = await ev(`(()=>{const e=document.querySelector('#detail .imslp');
-    return e ? {h: +e.getBoundingClientRect().height.toFixed(1), t: e.textContent.trim(),
-                pill: !!e.querySelector('a')} : null})()`);
+  imslpLines[state] = await ev(`(()=>{const row=document.querySelector('#detail .links');
+    const im=row && row.querySelector('.imslp');
+    return row ? {h: +row.getBoundingClientRect().height.toFixed(1), t: row.textContent.trim(),
+                  pills: row.querySelectorAll('a.pill').length,
+                  linked: im ? im.tagName === 'A' : null} : null})()`);
 }
 await rest();
 const three = Object.values(imslpLines);
-check("the IMSLP line is drawn for every composer, at one height in all three states",
+check("Wikipedia and IMSLP share one row, at one height in all three states",
       Object.keys(trio).every(k => trio[k]) && three.length === 3
       && three.every(v => v && v.h === three[0].h)
-      && imslpLines.works?.pill && imslpLines.none?.pill && !imslpLines.absent?.pill,
+      // The unplaced composer keeps the Wikipedia pill and loses only the IMSLP one: the row is
+      // about where to go NEXT, and "nowhere on IMSLP" is not a reason to stop offering Wikipedia.
+      && imslpLines.works?.linked && imslpLines.none?.linked
+      && imslpLines.absent?.linked === false
+      && imslpLines.works?.pills === 2 && imslpLines.absent?.pills === 1,
       Object.entries(imslpLines)
         .map(([k, v]) => `${k}: ${v ? `${v.h}px ${JSON.stringify(v.t)}` : "absent"}`).join(" | "));
 

@@ -933,7 +933,8 @@ hand; it went red in the right two places, and nothing in CI could have known th
 into `composers.json` — `imslp`, the work count, and `imslp_cat`, the category or `""` where one
 line derives it — plus a third shipped file, `imslp-works.json` (81 KB, SHELL and not BOOT, not
 rendered yet). The table has an `On IMSLP` column linking the number to the composer's category,
-and the detail panel a one-line pill. `V` is at v68.
+and the detail panel a row of matching Wikipedia and IMSLP pills where the bare Wikipedia
+link used to sit alone. `V` is at v68.
 
 The pipeline REORDERED to get there: `build_imslp.py` used to read `composers.json`, which would
 now be a cycle, so it calls `build_data.build_rows()` instead — one reduction of the caches, so
