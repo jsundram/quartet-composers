@@ -49,7 +49,13 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 import codehash                                                    # noqa: E402
 
-SOURCE = (".py", ".js", ".mjs", ".css")
+SOURCE = (".py", ".js", ".mjs", ".css", ".md")
+
+# A MARKDOWN FILE IS ALL PROSE, so there is no code to subtract — except a fenced block, which is
+# code somebody pasted. The docs are where this rule was broken worst: prose-lint.py existed to
+# pin seventeen numbers in CLAUDE.md and README.md, and scanning only source would leave exactly
+# the files that motivated it unwatched.
+FENCE = re.compile(r"^```.*?^```", re.M | re.S)
 
 # A bare count, which is the thing that goes stale. Anything glued to a letter, a %, a # or a . is
 # left to EXEMPT below rather than matched loosely here.
@@ -75,9 +81,22 @@ EXEMPT = re.compile(
     r"|\b(?:Op|No|K|BWV|Hob|D|G|Wq)\.\s?\d+"
     r"|\d+(?:\.\d+)?x\b"          # a ratio, which is how a measurement is stated here
     r"|\d+(?:\.\d+)?%"            # a percentage, likewise
+    r"|(?m:^\s{0,3}\d+\.\s)"    # a markdown ordered-list marker: invariant 16 numbers itself
     r"|https?://\S+"
     r"|#[0-9a-fA-F]{3,8}\b",      # a colour
     re.I)
+
+
+# SPELLED counts, from eleven up. "the shipped twelve chains", "Twelve articles in this roster
+# moved" and "in thirteen cases that need no browser" all went stale this pass and all are
+# invisible to a digit scanner. The floor is where it is because below it the word is ordinary
+# English: "one" appears 286 times in these three docs and "three" 87, against 42 for every word
+# from eleven up combined, so a lower floor reports the prose rather than the claims in it.
+WORDS = re.compile(
+    r"\b(?:eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen"
+    r"|(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)(?:[- ](?:one|two|three|four|five"
+    r"|six|seven|eight|nine))?"
+    r"|hundred|thousand)\b", re.I)
 
 
 # 0 and 1 in prose name a VALUE, not a count — "`0` both for a composer IMSLP holds with no
@@ -86,12 +105,22 @@ EXEMPT = re.compile(
 VALUES = {"0", "1"}
 
 
+def selects(path):
+    """Is this a file the lint looks at? The one place that question is answered, so a case can
+    ask it: handling markdown and never SELECTING a markdown file are the same silence."""
+    return path.endswith(SOURCE)
+
+
 def numbers(text):
     """The multiset of bare counts in text, exempt forms removed first."""
     out = {}
-    for n in NUMBER.findall(EXEMPT.sub(" ", text)):
+    clean = EXEMPT.sub(" ", text)
+    for n in NUMBER.findall(clean):
         if n not in VALUES:
             out[n] = out.get(n, 0) + 1
+    for w in WORDS.findall(clean):
+        k = w.lower()
+        out[k] = out.get(k, 0) + 1
     return out
 
 
@@ -105,9 +134,12 @@ META = re.compile(r"^# /// script$.*?^# ///$", re.M | re.S)
 def prose_numbers(path, src):
     """({number: count} for the file's PROSE, why-not). Code numbers are subtracted, not matched."""
     src = META.sub("", src)
-    code, _, how = codehash.code_of(path, src)
-    if code is None:
-        return None, how
+    if path.endswith(".md"):
+        code = "\n".join(FENCE.findall(src))
+    else:
+        code, _, how = codehash.code_of(path, src)
+        if code is None:
+            return None, how
     whole, in_code = numbers(src), numbers(code)
     return {n: c - in_code.get(n, 0) for n, c in whole.items() if c > in_code.get(n, 0)}, None
 
@@ -124,7 +156,8 @@ def lines_with(src, num):
     The multiset above has deliberately forgotten which line a number came from — that is what
     makes a reflow silent — so this finds it again, and is best-effort by construction.
     """
-    pat = re.compile(r"(?<![\w.#$%-])" + re.escape(num) + r"(?![\w%])")
+    pat = (re.compile(r"\b" + re.escape(num) + r"\b", re.I) if num.isalpha()
+           else re.compile(r"(?<![\w.#$%-])" + re.escape(num) + r"(?![\w%])"))
     hits = [(i, l.strip()) for i, l in enumerate(src.split("\n"), 1)
             if pat.search(EXEMPT.sub(" ", l))]
     return sorted(hits, key=lambda h: not PROSE_LINE.match(h[1]))
@@ -138,7 +171,7 @@ def head_src(path):
 def staged():
     r = subprocess.run(["git", "diff", "--cached", "--name-only", "--diff-filter=ACM"],
                        cwd=ROOT, capture_output=True, text=True)
-    return [p for p in r.stdout.split() if p.endswith(SOURCE)]
+    return [p for p in r.stdout.split() if selects(p)]
 
 
 def staged_src(path):
@@ -185,7 +218,7 @@ def main():
     found, notes = [], []
     if a.tree:
         r = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True)
-        for p in [x for x in r.stdout.split() if x.endswith(SOURCE)]:
+        for p in [x for x in r.stdout.split() if selects(x)]:
             f, note = check(p, "", open(os.path.join(ROOT, p), errors="ignore").read())
             found += f
             if note:

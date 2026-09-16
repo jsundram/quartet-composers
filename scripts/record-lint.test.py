@@ -100,6 +100,44 @@ def deletion_is_silent(_):
     flags("a.js", "// it holds for 406 of them\n", "// it holds for most of them\n", [])
 
 
+@case("a count written into a MARKDOWN doc is flagged")
+def markdown(_):
+    # The docs are what prose-lint.py existed for: seventeen numbers in CLAUDE.md and README.md.
+    # Scanning source only would leave the files that motivated the whole rule unwatched.
+    flags("CLAUDE.md", "The roster is large.\n", "The roster holds 884 rows.\n", ["884"])
+
+
+@case("the docs are among the files it LOOKS at")
+def selects_docs(_):
+    # check() handling markdown and staged() never offering it a markdown file are the same
+    # silence, and the second is a one-word edit that looks like tidying.
+    picked = [p for p in ("CLAUDE.md", "README.md", "app.js", "scripts/validate.py",
+                          "composers.json", "index.html", ".github/workflows/checks.yml")
+              if rl.selects(p)]
+    assert picked == ["CLAUDE.md", "README.md", "app.js", "scripts/validate.py"], picked
+
+
+@case("a fenced code block in markdown is code, not prose")
+def markdown_fence(_):
+    # Otherwise every pasted snippet reports its own literals, and the docs here are full of them.
+    new = "Run it:\n\n```\nconst N = 462;\n```\n"
+    flags("CLAUDE.md", "Run it:\n", new, [])
+
+
+@case("a SPELLED count from eleven up is flagged")
+def spelled(_):
+    # "the shipped twelve chains", "Twelve articles in this roster moved" and "in thirteen cases
+    # that need no browser" all went stale this pass, and a digit scanner sees none of them.
+    flags("CLAUDE.md", "It ships chains.\n", "It ships twelve chains.\n", ["twelve"])
+
+
+@case("a spelled number BELOW eleven is ordinary English, not a count")
+def spelled_floor(_):
+    # "one" appears 286 times in these three docs and "three" 87, against 42 for every word from
+    # eleven up combined. A lower floor reports the prose instead of the claims in it.
+    flags("CLAUDE.md", "x\n", "There are three states and two halves, one each.\n", [])
+
+
 # ---- what a number may be attached to and still be a record -----------------------------------
 
 @case("an issue reference, an invariant and a year are not counts")

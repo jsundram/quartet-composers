@@ -295,9 +295,15 @@ framework, and nothing to install:
   whole file, so a re-wrap moves every number and reports none. The prose comes from
   `codehash.code_of()` rather than a second scanner — a file's prose is its source minus its code —
   which also means DOCSTRINGS are covered by construction, and they are 44% of the Python prose
-  here. `scripts/record-lint.test.py` pins both halves; `reflow_is_silent` is the case it exists
-  for, and ablating the tool found two defects in it, one of them a four-figure count the regex
-  could not see at all.
+  here. It reads the DOCS too — they are where `prose-lint.py`'s seventeen numbers lived, so a
+  scan of source alone would leave the files that motivated the rule unwatched — and a fenced block
+  there is code. It also reads SPELLED counts from eleven up, because "the shipped twelve chains"
+  and "in thirteen cases" went stale this pass and a digit scanner sees neither; the floor is where
+  it is because below it the word is ordinary English rather than a claim.
+  `scripts/record-lint.test.py` pins every half; `reflow_is_silent` is the case it exists for, and
+  ablating the tool found three defects in it — a four-figure count the regex could not see at all,
+  a finding dropped when its line could not be located, and markdown handled by a reader that was
+  never offered a markdown file.
 - `python3 scripts/validate.py` — **the data gate**, and the most important thing here. Every
   serious defect this dataset has had was a plausible-looking wrong number no test caught, so this
   compares `composers.json` against its schema, the other caches, `readership.json` and the
