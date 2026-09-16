@@ -552,24 +552,6 @@ function placeFilters() {
 
 // WHY TWO INTERVALS: the row's width is not monotonic in the viewport's. What decides it is the CARD,
 // and the (min-width:900px) grid takes 194px off that, so the words fit in two bands and not in the
-// two between them. Measured at 4px steps; the parenthesised width is share()'s wider "Link copied",
-// which is the state that matters — a row that wraps on the PRESS drops the plot 44px under the
-// cursor that just pressed it.
-//
-//     viewport      card      row
-//      641- 743  582- 681   two lines
-//      744- 899  682- 837   ONE line (from 780)
-//      900-1055  524- 679   two lines
-//      1056+     680+       ONE line (from 1092)
-//
-// Both edges err toward ICONS, because the mistakes are not equal: words that do not fit is that
-// 44px shift, icons where words would have fitted costs 26px of data height and nothing else. One
-// machine's font metrics, so ui.test.mjs presses Share at the first width in each band and fails if
-// the row grows. Full screen skips SQUEEZED — `body.fs .grid` is display:block, so the card never
-// pays the 194px.
-//
-// WHY TWO INTERVALS: the row's width is not monotonic in the viewport's. What decides it is the CARD,
-// and the (min-width:900px) grid takes 194px off that, so the words fit in two bands and not in the
 // two between them. Measured at 2px steps with share()'s "Link copied" showing, the widest state the
 // row ever has, because a row that wraps on the PRESS drops the plot 44px under the cursor:
 //

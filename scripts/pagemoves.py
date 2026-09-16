@@ -13,7 +13,9 @@ still undercounts every month the article was not sitting there yet.
 
 Fanny Hensel is the case that made it visible. Her article was at "Fanny Mendelssohn" until March
 2026, so ten years of her history was filed under a title that was, at the time, a redirect nobody
-followed — about fifty views a month against the real 5,400. The canonical title was correct on every run.
+followed — a redirect's trickle against a readership two orders of magnitude larger. Invariant 15
+records both figures, and they are not restated here: two files stating one measurement is how this
+line came to say 5,400 while CLAUDE.md said 5,217. The canonical title was correct on every run.
 The shipped median of 500 was not a readership at all: it was the midpoint of a series that is half
 pre-move noise and half post-move reality, and the app then NARRATED the artefact, because 5,198
 against a 95th percentile of 149 fires `SPIKE` in app.js at 34.9x and captions a rename as an
@@ -52,8 +54,8 @@ title lists the moves AWAY from it and not the one we are looking for. The old t
 still reachable: a move leaves a redirect behind, so the titles an article used to live at are
 almost all in its own redirect list today. The exception is a move that DISAMBIGUATES — "Franz
 Schmidt" -> "Franz Schmidt (composer)" leaves a disambiguation PAGE behind, not a redirect, and
-that composer's series is the second-worst in this dataset (2 views a month before the move, 886
-after) — so the qualifier-stripped form is always tried as well. The canonical title itself is in
+that composer's series is the second-worst in this dataset, a trickle before the move against a
+level three orders up after it — so the qualifier-stripped form is always tried as well. The canonical title itself is in
 the candidate set too, because an article that was moved away and back (Takemitsu, three times)
 has the middle leg of that journey logged under its own name.
 """

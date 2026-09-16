@@ -133,8 +133,8 @@ def spelled(_):
 
 @case("a spelled number BELOW eleven is ordinary English, not a count")
 def spelled_floor(_):
-    # "one" appears 286 times in these three docs and "three" 87, against 42 for every word from
-    # eleven up combined. A lower floor reports the prose instead of the claims in it.
+    # Below the floor the word is ordinary English rather than a tally, and these docs use "one"
+    # and "three" constantly meaning neither as a count. A lower floor reports the prose.
     flags("CLAUDE.md", "x\n", "There are three states and two halves, one each.\n", [])
 
 

@@ -8,9 +8,10 @@
     python3 scripts/imslp-report.py                    # -> imslp-coverage.html
     python3 scripts/imslp-report.py --out /tmp/x.html
 
-Reads composers.json, data/imslp-join.json and data/imslp-audit.json. Offline, no dependencies, and no
-numbers of its own: every figure on the page is computed here from those three files at render
-time. That is the point of it being a script rather than a document — the roster grows, the
+Reads composers.json, data/imslp-join.json and data/imslp-audit.json. Offline and no dependencies.
+Almost every figure on the page is COMPUTED from those three files at render time, and the handful
+of worked examples in the prose — a named composer's pages against their works — are not; those
+are typed, they ship to a reader, and nothing pins them. That is the point of it being a script rather than a document — the roster grows, the
 monthly top-up moves every readership figure, and IMSLP gains scores, so a coverage report typed
 once is a coverage report wrong by the next run. It is this repo's built-or-cut rule applied to
 a page that is nothing BUT falsifiable prose.

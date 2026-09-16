@@ -67,9 +67,9 @@ FENCE = re.compile(r"^```.*?^```", re.M | re.S)
 # A bare count, which is the thing that goes stale. Anything glued to a letter, a %, a # or a . is
 # left to EXEMPT below rather than matched loosely here.
 # THE DIGIT RUN IS UNBOUNDED on purpose. Written `\d{1,3}(?:,\d{3})*` — thousands with separators
-# — it matched "4,926" and not "4926", so every unpunctuated four-figure count in this repo was
-# invisible to it: "1770 composer pages", "4215". A year is four figures too and is handled where
-# every other safe form is, in EXEMPT, which runs first.
+# — it matched a count written "4,926" and not the same count written "4926", so every
+# unpunctuated four-figure figure in this repo was invisible to it. A year is four figures too and
+# is handled where every other safe form is, in EXEMPT, which runs first.
 NUMBER = re.compile(r"(?<![\w.#$%-])\d+(?:,\d{3})*(?:\.\d+)?(?![\w%])")
 
 # What a number can be attached to and still be safe. Every entry is a form that either cannot go
@@ -97,8 +97,8 @@ EXEMPT = re.compile(
 # SPELLED counts, from eleven up. "the shipped twelve chains", "Twelve articles in this roster
 # moved" and "in thirteen cases that need no browser" all went stale this pass and all are
 # invisible to a digit scanner. The floor is where it is because below it the word is ordinary
-# English: "one" appears 286 times in these three docs and "three" 87, against 42 for every word
-# from eleven up combined, so a lower floor reports the prose rather than the claims in it.
+# English rather than a tally — the docs here say "one" and "three" constantly and mean neither as
+# a count — so a lower floor would report the prose instead of the claims in it.
 WORDS = re.compile(
     r"\b(?:eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen"
     r"|(?:twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)(?:[- ](?:one|two|three|four|five"

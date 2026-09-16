@@ -46,7 +46,7 @@ an article was MOVED, "asked, and the answer belongs to neither of its titles" (
 section below). It is not the same
 as a MISSING month, which is "never asked", and recording it is what keeps a top-up cheap: without
 it an article created in 2019 is forever missing its 2015 months, so it looks incomplete and is
-refetched in full on every single run (62 of 884 titles). Same distinction the app makes
+refetched in full on every single run, which is dozens of titles. Same distinction the app makes
 everywhere else; see invariant 10 in CLAUDE.md.
 
 WHICH MEANS EVERY TITLE IS FETCHED OVER THE WHOLE AXIS, not over `--months`. A flat array cannot
@@ -64,7 +64,8 @@ error. Canonical titles come from data/people.json (scripts/fetch_wikidata.py). 
 AND THE CANONICAL TITLE IS ONLY CANONICAL TODAY. An article that was MOVED inside the window was
 counted under its old name for every month before the move, so asking the right title still
 undercounts — Fanny Hensel's article sat at "Fanny Mendelssohn" until March 2026 and her shipped
-median of 500 was eleven times too small. scripts/pagemoves.py holds that rule and the reasoning;
+median of 500 was an order of magnitude too small. scripts/pagemoves.py holds that rule and the
+reasoning;
 this file applies it, after the fetch, to the series it just wrote. Two passes, for two different
 failure modes: a move already recorded in `moves` is re-applied UNCONDITIONALLY to any title this
 run refetched (the refetch has just overwritten the stitched series with the raw per-title counts,
