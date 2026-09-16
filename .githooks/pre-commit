@@ -17,6 +17,12 @@ python3 scripts/og-lint.py || true
 # is how a deleted `function hash()` would have been caught the day it happened instead of two
 # commits later. Warn-only like the rest; ablate.py acts on the same answer in CI.
 python3 scripts/codehash.py || true
+
+# Did a number reach a comment or a docstring? CLAUDE.md's rule is that prose states a RECORD or
+# no number at all, and that rule was in force while forty-nine claims went stale under it —
+# nothing asked. Hook-only and warn-only on purpose: whether a number is a record is a judgement,
+# so this prompts a human and must never block a pull request. See the header there.
+python3 scripts/record-lint.py || true
 python3 scripts/codehash.test.py >/dev/null 2>&1 || echo "  (warning only — codehash tests failed; run python3 scripts/codehash.test.py)"
 
 

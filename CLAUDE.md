@@ -282,6 +282,22 @@ framework, and nothing to install:
   which WRITES — so its cases assert the staged result, and five of them also pin the three
   declines, the states where writing would be wrong. It is a vendored pwa-starter file; keep the
   stamp current.
+- `python3 scripts/record-lint.py` — **did a number reach a comment or a docstring?** The rule
+  above says prose states a RECORD or no number at all, and that rule was in force while forty-nine
+  claims went stale under it, thirty of them in one feature. Nothing asked, because both gates
+  import `codehash.unchanged()` and stop asking a comments-only hunk for a test — correctly, since
+  a comment cannot be tested, and the side effect is that prose is the one unguarded surface here.
+  It is HOOK-ONLY and WARN-ONLY: whether a number is a record is a judgement, so a nonzero exit is
+  a prompt and never a verdict, and putting it in CI would block a PR on one. **It is not
+  `prose-lint.py` reborn**, and the difference is the whole design — that one stored each claim's
+  VALUE and re-checked it, so it could not tell a reflowed paragraph from a stale fact. This stores
+  nothing: it asks only whether a number is NEW to a file's prose, comparing multisets over the
+  whole file, so a re-wrap moves every number and reports none. The prose comes from
+  `codehash.code_of()` rather than a second scanner — a file's prose is its source minus its code —
+  which also means DOCSTRINGS are covered by construction, and they are 44% of the Python prose
+  here. `scripts/record-lint.test.py` pins both halves; `reflow_is_silent` is the case it exists
+  for, and ablating the tool found two defects in it, one of them a four-figure count the regex
+  could not see at all.
 - `python3 scripts/validate.py` — **the data gate**, and the most important thing here. Every
   serious defect this dataset has had was a plausible-looking wrong number no test caught, so this
   compares `composers.json` against its schema, the other caches, `readership.json` and the
