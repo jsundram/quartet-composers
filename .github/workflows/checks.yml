@@ -94,6 +94,10 @@ jobs:
       # request; that its reflow case stays silent is not a judgement, and is what this asserts.
       - name: the record rule's tests (scripts/record-lint.test.py)
         run: python3 scripts/record-lint.test.py
+      # The suite only, again: whether a bucket is over its ceiling is a judgement about a diff's
+      # shape, but whether a stamped file counts as vendored is not.
+      - name: the volume budget's tests (scripts/volume.test.py)
+        run: python3 scripts/volume.test.py
       - name: code vs comments on this branch (scripts/codehash.py --base)
         if: github.event_name == 'pull_request'
         env:

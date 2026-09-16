@@ -480,6 +480,11 @@ with tempfile.TemporaryDirectory() as tmp:
          and any("scripts/record-lint.py" in files for files, _c in _ab.COVERS), True,
          "SOURCE must match a file for plan() to route it to its COVERS suite")
 
+    case("the volume budget is reachable by the gate that claims to cover it",
+         bool(_ab.SOURCE.match("scripts/volume.py"))
+         and any("scripts/volume.py" in files for files, _c in _ab.COVERS), True,
+         "SOURCE must match a file for plan() to route it to its COVERS suite")
+
     case("every file COVERS maps is one plan() can actually see", _inert, [],
          "plan() reads SOURCE, so an unmatched COVERS name is coverage that cannot fire"
          + (f" — {_inert}" if _inert else ""))
