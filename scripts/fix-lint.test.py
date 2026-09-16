@@ -471,6 +471,15 @@ with tempfile.TemporaryDirectory() as tmp:
           for f in ("scripts/build_imslp.py", "scripts/fetch_imslp.py")], [True, True],
          "SOURCE must match a file for plan() to route it to its COVERS suite")
 
+    # record-lint.py, for the same reason and with the hyphen as the extra hazard: the SOURCE
+    # alternation lists bare stems, so a name that does not match reads as an ordinary script
+    # nothing gates. Its own branch is what this case is for — the property above holds on a tree
+    # where the file was never registered at all.
+    case("the record rule is reachable by the gate that claims to cover it",
+         bool(_ab.SOURCE.match("scripts/record-lint.py"))
+         and any("scripts/record-lint.py" in files for files, _c in _ab.COVERS), True,
+         "SOURCE must match a file for plan() to route it to its COVERS suite")
+
     case("every file COVERS maps is one plan() can actually see", _inert, [],
          "plan() reads SOURCE, so an unmatched COVERS name is coverage that cannot fire"
          + (f" — {_inert}" if _inert else ""))
