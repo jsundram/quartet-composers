@@ -300,6 +300,25 @@ with tempfile.TemporaryDirectory() as tmp:
     case("...and says the file is new rather than claiming it was proven",
          "is NEW" in out and "(added)" in out, True)
 
+    # --- ablate: A NEW FILE ALONGSIDE AN EDITED ONE ----------------------------------------------
+    # The MIXED branch, and the one the message above does not cover: a new module plus a one-line
+    # edit somewhere covered. The edit is ablated, a suite reddens, the verdict is "proven" — and
+    # the new module, which is usually the whole point of the branch, was never looked at. This is
+    # the shape of the branch that added volume.py: `src` was the ablate.py line registering it.
+    repo = new_repo(tmp)
+    write(repo, "suite.py", SUITE)
+    commit(repo, "a suite")
+    git(repo, "checkout", "-q", "-b", "b10b")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
+    write(repo, "chart.js", "const c = 1;  // brand new module\n")
+    write(repo, "scripts/thing.test.py", "x\n")
+    commit(repo, "a new module, and a fix to an old one")
+    code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
+                    "--cmd", f"{sys.executable} suite.py")
+    case("a mixed branch is still proven by the file it CAN ablate", code, 0)
+    case("...and a GREEN verdict still names the file it could not", "chart.js" in out, True,
+         out.strip().splitlines()[0][:70] if out else "")
+
     # --- ablate: A BRANCH THAT DELETES A SOURCE FILE (the High finding on #43) --------------------
     # Restoring was one `git checkout HEAD -- <every file>`, and git validates the whole pathspec
     # list before touching anything: the deleted file is absent at HEAD, so the command aborted and
@@ -428,7 +447,7 @@ with tempfile.TemporaryDirectory() as tmp:
     # rename from an unrelated delete plus add. So the branch is NOT waved through; what it must
     # not do is claim the tests prove nothing without saying the new file was never ablated.
     case("a wholly-rewritten rename does not get a confidently wrong verdict",
-         "NOT ablated" in out, True, out.splitlines()[-1][:58] if out else "")
+         "not ablated" in out.lower(), True, out.splitlines()[-1][:58] if out else "")
     case("...and it names the file it could not ablate", "chart.js" in out, True)
 
     # --- ablate: UNCOVERED IS AN ASSERTION, NOT DECORATION ----------------------------------------

@@ -270,6 +270,22 @@ def only_a_version_bump(base_mb):
     return norm(head.stdout) == norm(base.stdout)
 
 
+def note_added(added_src):
+    """Name the files this run did not ablate, because they are new at their path.
+
+    ON EVERY RUN THAT ABLATES, not only on a failing one. A file new at its path has no base
+    version to revert to, so nothing looked at it — and on a GREEN run there is no other line
+    saying so, which is how a branch whose whole point was a new module read back as proven. The
+    sharp case is a rename git scored at 0%: it arrives as D + A at any -M threshold, so the old
+    path is ablated while the new one keeps the fix.
+    """
+    if not added_src:
+        return
+    print("   NOTE: not ablated, being new at this path — %s.\n   Nothing this run proves is "
+          "about %s." % (", ".join(f for _st, f in added_src),
+                         "it" if len(added_src) == 1 else "them"))
+
+
 def plan(files, base_mb=None):
     """Which suites this branch's source changes are answerable by, what nothing covers, what is excused."""
     # A file the branch ADDED has no version at base, so there is nothing to revert it TO — the
@@ -421,10 +437,6 @@ def main():
         print("  ablate: no source changes on this branch — nothing to prove")
         return 0
 
-    src, suites, uncovered, added_src, renamed, ex = plan(files, base_mb)
-    for f, why in ex.items():
-        print(f"   - excused by a No-test: trailer — {f}: {why}")
-
     browser = [s.split(":", 1)[1] for s in suites if s.startswith("BROWSER:")]
     runnable = [s for s in suites if not s.startswith("BROWSER:")]
     if with_ui:
@@ -443,6 +455,7 @@ def main():
             print(f"   - owed locally (needs a browser): --with-ui runs {s}")
         for f in uncovered:
             print(f"   - no suite covers {f}")
+        note_added(added_src)
         return 0
 
     if not runnable:
@@ -462,6 +475,8 @@ def main():
         print("  ablate: the working tree is dirty, and this rewrites source files in place.")
         print("   - commit or stash first; restoring would otherwise take your changes with it")
         return 2
+
+    note_added(added_src)
 
     # A suite that produced no ok/FAIL lines at all did not RUN — `ui-test.sh` prints
     # "no Chromium found — skipping (this is not a failure)" and exits 0, so on a machine with no
@@ -532,17 +547,6 @@ def main():
         return 0
 
     print("\n  ablate:")
-    if added_src:
-        # A file ADDED cannot be ablated, so a verdict of "your tests prove nothing" may be about
-        # a change this script never reverted. The sharp case is a rename git scored at 0%: it
-        # arrives as D + A at ANY -M threshold, indistinguishable from an unrelated delete plus
-        # add, so the old path is ablated while the new one keeps the fix and the suite passes.
-        # Naming the un-ablatable files turns a confidently wrong verdict into an accurate one.
-        print("   NOTE: these files are new at their path and were NOT ablated, so the verdict "
-              "below\n   may be about a change that was never reverted "
-              "(a wholly-rewritten rename arrives this way):")
-        for _st, f in added_src:
-            print(f"     {f}")
     for cmd, msg, out in problems:
         print(f"   - {cmd}: {msg}")
         if out:
