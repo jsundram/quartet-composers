@@ -18,6 +18,7 @@ skipped, because a bucket that omits what it could not read is a ratio that gets
 — and it gets better precisely on the files something is wrong with.
 """
 import importlib.util
+import json
 import os
 import subprocess
 import sys
@@ -187,6 +188,36 @@ def check_is_marginal(_):
     now, _ = vol.measure(d)
     fat = vol.delta(was["source"], now["source"])
     assert fat and vol.ratio(fat) > vol.CEILING["source"], vol.ratio(fat)
+
+
+@case("a change that REMOVED code is not a change that added prose")
+def delta_is_signed(_):
+    # Flooring each key at zero read "deleted a module, added a comment block" as 100% prose, on a
+    # commit that shrank the repo and lowered the ratio being complained about.
+    acc = {"code": 300, "comment": 10, "docstring": 0}
+    assert vol.delta(acc, {"code": 100, "comment": 10 + vol.FLOOR, "docstring": 0}) is None
+    # ...and a change that adds prose over NO new code is still the case this exists to catch.
+    d = vol.delta(acc, {"code": 300, "comment": 10 + vol.FLOOR, "docstring": 0})
+    assert d and vol.ratio(d) == 1.0, d
+
+
+@case("`*` opens a CSS rule, not a CSS comment")
+def css_marks(_):
+    # styles.css opens two rules with the universal selector today. `//` is not a CSS comment at
+    # all, and a JSDoc continuation line is already owned by the block flag.
+    assert vol.split("a.css", "*{ box-sizing:border-box }\n") == (1, 0, 0)
+    assert vol.split("a.css", "/* why */\n*, *::before{ margin:0 }\n") == (1, 1, 0)
+    assert vol.split("a.js", "/**\n * why\n */\nlet x;\n") == (1, 3, 0), "the block flag owns it"
+
+
+@case("--json prints JSON and nothing else")
+def json_is_parseable(_):
+    # The docstring calls it "for a script". The table was printed first, so it did not parse.
+    out = subprocess.run([sys.executable, os.path.join(HERE, "volume.py"), "--json", "--check"],
+                         capture_output=True, text=True)
+    got = json.loads(out.stdout)
+    assert sorted(got) == ["buckets", "ceiling", "over", "table", "unread"], sorted(got)
+    assert got["table"], "the table is handed back, not thrown away"
 
 
 @case("a change too small to have a ratio is not given one")

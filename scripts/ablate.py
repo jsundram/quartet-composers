@@ -465,6 +465,7 @@ def main():
             print(f"   - run locally with a browser: python3 scripts/ablate.py --base {base} --with-ui")
         for f in uncovered:
             print(f"   - no suite covers {f}")
+        note_added(added_src)
         return 0
 
     # TRACKED changes only. `git checkout <ref> -- <path>` can never touch an untracked file, so

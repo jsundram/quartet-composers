@@ -154,7 +154,10 @@ def split(path, src):
         code, _, _ = codehash.code_of(path, src)
         if code is None:
             return None
-        return text_split(src, ("//", "*"))
+        # `*` is NOT a mark: it is CSS's universal selector, and styles.css opens two rules with
+        # it today. A JSDoc continuation line does start with it, but `inside` already owns those
+        # — the mark only ever added the false positives.
+        return text_split(src, () if path.endswith(".css") else ("//",))
     if path.endswith((".sh", ".yml", ".yaml")):
         return text_split(src, ("#",), ("\x00", "\x00"))
     if path.endswith(".html"):
@@ -238,10 +241,17 @@ FLOOR = 20
 
 
 def delta(before, after):
-    """What this change ADDED, or None where it added too little prose to have a ratio."""
+    """What this change ADDED, or None where there is no ratio to take.
+
+    SIGNED, and a change that REMOVED code has none. Flooring each key at zero read a commit that
+    deleted a module and added a comment block as 100% prose, on a change that shrank the repo and
+    lowered the very ratio being complained about.
+    """
     before = before or {"code": 0, "comment": 0, "docstring": 0}
-    d = {k: max(0, after[k] - before[k]) for k in after}
-    return d if d["comment"] + d["docstring"] >= FLOOR else None
+    d = {k: after[k] - before[k] for k in after}
+    if d["code"] < 0 or d["comment"] + d["docstring"] < FLOOR:
+        return None
+    return {k: max(0, v) for k, v in d.items()}
 
 
 def ratio(acc):
@@ -265,8 +275,9 @@ def main():
     # `or {}`: at() answers None where there is no HEAD to read, which is a repo one commit old
     # and not a repo that held nothing.
     was = (at("HEAD") or {}) if a.check else {}
-    over, rows = [], []
-    print("  %-10s %7s %8s %8s %8s" % ("", "code", "comment", "docstr", "prose"))
+    over, rows, lines = [], [], []
+    say = lines.append if a.json else print
+    say("  %-10s %7s %8s %8s %8s" % ("", "code", "comment", "docstr", "prose"))
     for name in sorted(buckets):
         acc = buckets[name]
         cap = CEILING.get(name)
@@ -280,13 +291,16 @@ def main():
                     ";" if flag else "  <--", ratio(d) * 100, cap * 100)
                 over.append(name)
                 rows.append(dict(acc, bucket=name, change=d))
-        print("  %-10s %7d %8d %8d %6.1f%%%s"
-              % (name, acc["code"], acc["comment"], acc["docstring"], ratio(acc) * 100, flag))
+        say("  %-10s %7d %8d %8d %6.1f%%%s"
+            % (name, acc["code"], acc["comment"], acc["docstring"], ratio(acc) * 100, flag))
     for path in unread:
-        print("  could not tell code from prose: %s" % path)
+        say("  could not tell code from prose: %s" % path)
+    # NOTHING BUT JSON on stdout under --json, or what the docstring calls "for a script" does not
+    # parse. The table is kept and handed back under a key, so --json --check loses nothing.
     if a.json:
         print(json.dumps({"buckets": buckets, "ceiling": CEILING, "unread": unread,
-                          "over": rows}, indent=2))
+                          "over": rows, "table": lines}, indent=2))
+        return 1 if over else 0
     if over:
         print("\n  This change adds prose faster than %s will hold." % ", ".join(over))
         print("  Cut it, or move it where it keeps better — a rule belongs here, an incident")

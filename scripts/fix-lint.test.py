@@ -318,6 +318,11 @@ with tempfile.TemporaryDirectory() as tmp:
     case("a mixed branch is still proven by the file it CAN ablate", code, 0)
     case("...and a GREEN verdict still names the file it could not", "chart.js" in out, True,
          out.strip().splitlines()[0][:70] if out else "")
+    # Every exit that reports a verdict says it, including the one where no CI-runnable suite
+    # covers the branch at all — a UI branch that also adds a module took that path silently.
+    code, out = run(repo, os.path.join(repo, "scripts/ablate.py"))
+    case("...and so does the exit where no runnable suite covers the branch",
+         "not ablated" in out.lower() and "chart.js" in out, True, out.strip()[:70])
 
     # --- ablate: A BRANCH THAT DELETES A SOURCE FILE (the High finding on #43) --------------------
     # Restoring was one `git checkout HEAD -- <every file>`, and git validates the whole pathspec
