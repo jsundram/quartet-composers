@@ -22,6 +22,11 @@ The disagreement is never in the counting. It is in four judgements an ad-hoc sc
 every time: vendored against ours, test against source, docstring against comment, and whether data
 and design records count at all. They are answered once here and pinned by volume.test.py.
 
+WHAT YOU INHERIT IS REPORTED; WHAT YOU WRITE IS CHECKED. Every bucket's standing ratio is printed
+without a verdict, because it is history rather than this commit's doing, and every bucket's DIFF
+answers to the one ceiling. That is also why no bucket is exempt: grandfathering is free once the
+check is marginal, so a file nobody has touched never fires however much prose it carries.
+
 WHAT IT BOUNDS. A ratio only means something where the numerator and the denominator move
 together, so this bounds prose against the code it explains and says nothing about the length of
 CLAUDE.md: measured over this repo's history the two are uncorrelated, the app source holding flat
@@ -51,14 +56,25 @@ import codehash                                                    # noqa: E402
 # THE CEILINGS. Set above what a codebase with no such history would want — every invariant here
 # was bought with an incident and the rule that came out of it is worth the lines — and well under
 # where this repo sat when they were written.
-CEILING = {"source": 0.20, "test": 0.20}
+# ONE CEILING, AND EVERY BUCKET'S DIFF ANSWERS TO IT. What you inherit is history and is reported
+# as it stands; what you write is yours. Exempting a bucket was the mistake: `vendored` was let off
+# on the reasoning that its prose is upstream's and not ours to cut — but that is only true of a
+# file nobody here has touched, and the stamp cannot say which those are (see STAMP). app.js says
+# "the render/data half is this app's own" and styles.css says "app layout is this repo's own", so
+# the largest module in the app sat in a bucket with no ceiling at all. Since --check judges the
+# CHANGE, grandfathering is free: an untouched file never fires however much prose it carries, and
+# editing one means this diff obeys the same 20% as any other.
+CEILING = 0.20
 
-# A file carrying the upstream stamp is pwa-starter's, and its prose is not ours to cut: editing it
-# breaks the sync check-downstream.py does on the sha. Counted and shown, never held to a ceiling.
+# A file carrying the upstream stamp DESCENDS from pwa-starter — which is not the same as being
+# upstream's, and reading it as ownership is what exempted app.js. What it is for is the sync
+# check-downstream.py does on the sha; the bucket is a reporting label, nothing more.
 # It must OPEN a comment line, over the whole file. A byte window is too narrow for sw.js and a
 # wider one exempts this tool's own suite, which QUOTES a stamp in a fixture; the marker tells them
-# apart, because a real stamp opens its line and a quoted one sits inside a string.
-STAMP = re.compile(r"^\s*(?://|#)\s*pwa-starter: [\w.-]+ @ [0-9a-f]{7}", re.M)
+# apart, because a real stamp opens its line and a quoted one sits inside a string. `/*` is in the
+# markers because styles.css carries the same stamp in CSS syntax, and dropping it filed one
+# convention under two answers.
+STAMP = re.compile(r"^\s*(?://|#|/\*)\s*pwa-starter: [\w.-]+ @ [0-9a-f]{7}", re.M)
 
 # None of these is prose anyone writes: data/ and the shipped json are the project, mocks/ is a
 # record of a decision nothing follows, assets/ is generated.
@@ -70,7 +86,7 @@ CONFIG = (".github/", ".githooks/")
 
 
 def bucket(path, src):
-    """Which ceiling this file answers to, or None to leave it out of the ratios entirely."""
+    """Which bucket this file is reported under, or None to leave it out of the ratios entirely."""
     if path.startswith(SKIP):
         return None
     if not path.endswith(CODE) and not path.startswith(CONFIG):
@@ -264,9 +280,14 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--check", action="store_true", help="exit 1 if this change is over a ceiling")
     ap.add_argument("--json", action="store_true", help="the numbers, for a script")
+    # Not for the hook, which always means this repo. It is what lets the suite drive the REAL
+    # entry point over a throwaway tree: measure() and at() both took a root already, and main()
+    # hardcoding ROOT left every decision it makes — which bucket is exempt, what sets the exit
+    # code — reachable only by reading it.
+    ap.add_argument("--root", default=ROOT, help=argparse.SUPPRESS)
     a = ap.parse_args()
 
-    buckets, unread = measure()
+    buckets, unread = measure(a.root)
     # --check JUDGES THE CHANGE, NOT THE TOTAL. Both ceilinged buckets are well over today, so a
     # check against the total would be red on every commit — and unanswerable besides: nothing a
     # reader can do to the file in front of them clears a ratio the whole repo owns. The commit's
@@ -274,21 +295,20 @@ def main():
     # says nothing to a change whose comments are proportionate to its code.
     # `or {}`: at() answers None where there is no HEAD to read, which is a repo one commit old
     # and not a repo that held nothing.
-    was = (at("HEAD") or {}) if a.check else {}
+    was = (at("HEAD", a.root) or {}) if a.check else {}
     over, rows, lines = [], [], []
     say = lines.append if a.json else print
     say("  %-10s %7s %8s %8s %8s" % ("", "code", "comment", "docstr", "prose"))
     for name in sorted(buckets):
         acc = buckets[name]
-        cap = CEILING.get(name)
-        flag = "  <-- over %.0f%%" % (cap * 100) if cap is not None and ratio(acc) > cap else ""
-        if a.check and cap is not None:
+        # The total's flag is CONTEXT, not a verdict: it is where the bucket stands, which is
+        # history and not this commit's doing. Only the change's flag drives the exit code.
+        flag = "  <-- over %.0f%%" % (CEILING * 100) if ratio(acc) > CEILING else ""
+        if a.check:
             d = delta(was.get(name), acc)
-            if d and ratio(d) > cap:
-                # Appended: the total being over is the standing state, the change being over is
-                # what the reader can act on.
+            if d and ratio(d) > CEILING:
                 flag += "%s this change is %.0f%% prose, over %.0f%%" % (
-                    ";" if flag else "  <--", ratio(d) * 100, cap * 100)
+                    ";" if flag else "  <--", ratio(d) * 100, CEILING * 100)
                 over.append(name)
                 rows.append(dict(acc, bucket=name, change=d))
         say("  %-10s %7d %8d %8d %6.1f%%%s"

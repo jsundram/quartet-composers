@@ -321,12 +321,18 @@ framework, and nothing to install:
   it, what is excluded outright, and a docstring against a comment. A fifth has the teeth — a file
   `codehash` cannot classify is REPORTED, never skipped, because a bucket that omits what it could
   not read is a ratio that improves by failing, on exactly the files something is wrong with.
-  **`--check` judges the CHANGE, not the total.** Both ceilinged buckets are well over today, so a
-  check against the total would be red on every commit and unanswerable besides — nothing a reader
-  can do to the file in front of them clears a ratio the whole repo owns. The commit's own ratio
-  against the same ceiling is answerable, converges from wherever history sits, and says nothing to
-  a change whose comments are proportionate to its code. Below a floor of added prose lines it says
-  nothing at all, because a one-line fix to a comment is 100% prose and means nothing by it.
+  **`--check` judges the CHANGE, not the total.** Every bucket is well over today, so a check
+  against the total would be red on every commit and unanswerable besides — nothing a reader can do
+  to the file in front of them clears a ratio the whole repo owns. The commit's own ratio against
+  the ceiling is answerable, converges from wherever history sits, and says nothing to a change
+  whose comments are proportionate to its code. Below a floor of added prose lines it says nothing
+  at all, because a one-line fix to a comment is 100% prose and means nothing by it.
+  **So what you inherit is reported and what you write is checked, and no bucket is exempt.**
+  `vendored` was, on the reasoning that its prose is upstream's and not ours to cut — but the stamp
+  marks DESCENT, not ownership: `app.js` says the render/data half is this app's own and
+  `styles.css` says the app layout is, so the largest module in the app answered to no ceiling.
+  Grandfathering is free once the check is marginal, because a file nobody has touched never fires
+  however much prose it carries, and a diff to one obeys what every other diff does.
   **It bounds prose against the code it explains and says nothing about CLAUDE.md.** Measured over
   this repo's history the two do not move together: the app source held flat while this file grew by
   a third, so a doc-to-code ratio would license the briefing to grow on any commit that adds code.

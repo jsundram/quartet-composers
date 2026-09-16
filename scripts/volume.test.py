@@ -166,10 +166,10 @@ def check_exit(_):
     lean = "x = 1\n" * 90 + "# c\n" * 10
     d = tree({"scripts/a.py": lean})
     buckets, _ = vol.measure(d)
-    assert vol.ratio(buckets["source"]) <= vol.CEILING["source"], vol.ratio(buckets["source"])
+    assert vol.ratio(buckets["source"]) <= vol.CEILING, vol.ratio(buckets["source"])
     fat = tree({"scripts/a.py": "x = 1\n" * 10 + "# c\n" * 90})
     b2, _ = vol.measure(fat)
-    assert vol.ratio(b2["source"]) > vol.CEILING["source"]
+    assert vol.ratio(b2["source"]) > vol.CEILING
 
 
 @case("--check judges what the CHANGE added, not what history holds")
@@ -178,16 +178,16 @@ def check_is_marginal(_):
     # unanswerable: nothing a reader can do here clears a ratio the whole repo owns.
     d = tree({"scripts/a.py": "x = 1\n" * 10 + "# c\n" * 90}, commit=True)
     was = vol.at("HEAD", d)
-    assert vol.ratio(was["source"]) > vol.CEILING["source"], "the history is fat on purpose"
+    assert vol.ratio(was["source"]) > vol.CEILING, "the history is fat on purpose"
     write(d, {"scripts/b.py": "y = 1\n" * 100 + "# c\n" * 25})
     now, _ = vol.measure(d)
-    assert vol.ratio(now["source"]) > vol.CEILING["source"], "and still is"
+    assert vol.ratio(now["source"]) > vol.CEILING, "and still is"
     lean = vol.delta(was["source"], now["source"])
-    assert lean and vol.ratio(lean) <= vol.CEILING["source"], vol.ratio(lean)
+    assert lean and vol.ratio(lean) <= vol.CEILING, vol.ratio(lean)
     write(d, {"scripts/b.py": "y = 1\n" * 5 + "# c\n" * 100})
     now, _ = vol.measure(d)
     fat = vol.delta(was["source"], now["source"])
-    assert fat and vol.ratio(fat) > vol.CEILING["source"], vol.ratio(fat)
+    assert fat and vol.ratio(fat) > vol.CEILING, vol.ratio(fat)
 
 
 @case("a change that REMOVED code is not a change that added prose")
@@ -213,8 +213,9 @@ def css_marks(_):
 @case("--json prints JSON and nothing else")
 def json_is_parseable(_):
     # The docstring calls it "for a script". The table was printed first, so it did not parse.
-    out = subprocess.run([sys.executable, os.path.join(HERE, "volume.py"), "--json", "--check"],
-                         capture_output=True, text=True)
+    d = tree({"scripts/a.py": "x = 1\n" * 30 + "# c\n" * 20}, commit=True)
+    out = subprocess.run([sys.executable, os.path.join(HERE, "volume.py"), "--json", "--check",
+                          "--root", d], capture_output=True, text=True)
     got = json.loads(out.stdout)
     assert sorted(got) == ["buckets", "ceiling", "over", "table", "unread"], sorted(got)
     assert got["table"], "the table is handed back, not thrown away"
@@ -263,20 +264,47 @@ def at_filters_before_reading(_):
     assert vol.at("nosuchref", d) is None, "a ref that cannot be read is not an empty repo"
 
 
-@case("a vendored file has no ceiling, however much prose it carries")
-def vendored_has_no_ceiling(_):
-    # Its prose is upstream's and editing it breaks the sha check-downstream.py syncs on, so a
-    # ceiling there would be a standing failure nobody here is allowed to fix.
-    assert "vendored" not in vol.CEILING
-    d = tree({"app.js": "// pwa-starter: app.js @ 1a2b3c4\n" + "// prose\n" * 90 + "let x;\n"})
-    buckets, _ = vol.measure(d)
+@case("a vendored file's STANDING prose is grandfathered; its diff is not")
+def vendored_is_grandfathered(_):
+    # The stamp marks DESCENT from pwa-starter, not ownership: app.js says "the render/data half is
+    # this app's own". Read as ownership it exempted the largest module in the app from any
+    # ceiling. Since --check judges the change, no exemption is needed — an untouched file never
+    # fires however much prose it carries, and a diff to one obeys what every other diff does.
+    fat = "// pwa-starter: app.js @ 1a2b3c4\n" + "// prose\n" * 90 + "let x;\n"
+    d = tree({"app.js": fat}, commit=True)
+    was = vol.at("HEAD", d)
     # Asserted before it is indexed: without the stamp rule that file lands in `source`, and a
     # KeyError here would report as a crash rather than as the classification being wrong —
     # ablate.py calls that INCONCLUSIVE, which proves nothing either way.
-    assert "vendored" in buckets, "a stamped file was not classified vendored: %s" % list(buckets)
-    assert vol.ratio(buckets["vendored"]) > 0.9
-    over = [n for n in buckets if n in vol.CEILING and vol.ratio(buckets[n]) > vol.CEILING[n]]
-    assert over == [], over
+    assert "vendored" in was, "a stamped file was not classified vendored: %s" % list(was)
+    assert vol.ratio(was["vendored"]) > 0.9, "and it is far over the ceiling standing still"
+    buckets, _ = vol.measure(d)
+    assert vol.delta(was["vendored"], buckets["vendored"]) is None, "untouched, so it says nothing"
+    write(d, {"app.js": fat + "// prose\n" * vol.FLOOR})
+    now, _ = vol.measure(d)
+    edited = vol.delta(was["vendored"], now["vendored"])
+    assert edited and vol.ratio(edited) > vol.CEILING, edited
+
+
+@case("--check exempts NO bucket, vendored included")
+def check_exempts_nothing(_):
+    # Through the real entry point, because which buckets main() puts on the exit code is a
+    # decision no assertion against delta() can reach.
+    fat = "// pwa-starter: app.js @ 1a2b3c4\nlet x;\n"
+    d = tree({"app.js": fat}, commit=True)
+    write(d, {"app.js": fat + "// prose\n" * (vol.FLOOR + 5)})
+    out = subprocess.run([sys.executable, os.path.join(HERE, "volume.py"), "--check",
+                          "--root", d], capture_output=True, text=True)
+    assert out.returncode == 1, out.stdout
+    assert "vendored" in out.stdout.split("wrong way")[0], out.stdout
+
+
+@case("the CSS stamp is the same stamp")
+def stamp_in_css(_):
+    # styles.css carries it as `/* pwa-starter: styles.css @ ...`, and a markers list of ("//", "#")
+    # filed one convention under two answers — styles.css source, app.js vendored.
+    assert vol.bucket("styles.css", "/* pwa-starter: styles.css @ 1a2b3c4\n*{ margin:0 }\n") \
+        == "vendored"
 
 
 def main():
