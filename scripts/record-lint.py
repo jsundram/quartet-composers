@@ -20,6 +20,13 @@ one feature. Nothing asked. Both branch gates import codehash.unchanged() and st
 comments-only hunk for a test, correctly, because a comment cannot be tested; the side effect is
 that prose is the one surface here with no check on it at all.
 
+WHAT IT ASKS, AND THE ORDER. Not "record or not" — that is a binary, and it sends a reader
+straight to a vaguer rewrite. The repo's own rule puts deletion first ("CUT is the first branch to
+try"), and the pass that produced this file under-applied it: "there are 884 links on this page
+whose text is a number" became "this column is hundreds of them", which keeps a clause that was
+only ever hosting the count. One such link is exactly as wrong as hundreds. So the report names
+three branches in order, and the first is to take the number out and read what is left.
+
 IT IS NOT prose-lint.py, WHICH WAS DELETED, and the difference is the whole design. That one stored
 the VALUE of each claim and re-checked it, so it could not tell a reflowed paragraph from a stale
 fact and twice forced an edit over a line wrap. This stores nothing and re-checks nothing. It asks
@@ -202,8 +209,12 @@ def report(found, notes):
         print(f"  record-lint: {note}")
     if not found:
         return 0
-    print("  record-lint: a number reached prose. Is it a RECORD — a measurement that happened —")
-    print("               or something the repo recomputes? See CLAUDE.md's rule.")
+    print("  record-lint: a number reached prose. Three branches, and CUT IS THE FIRST TO TRY:")
+    print("    1. delete it — take the number out and read what is left. A clause that now says")
+    print("       nothing was hosting the number, not making a point, and a vaguer rewrite of it")
+    print("       (\"hundreds of them\", \"a couple of dozen\") keeps the filler and loses the fact.")
+    print("    2. keep it — a RECORD is a measurement that happened and cannot go stale.")
+    print("    3. reword it — last resort, when the sentence needs the shape but not the figure.")
     for path, ln, num, text in found:
         print(f"   * {path}:{ln}  [{num}]  {text[:88]}")
     return 1

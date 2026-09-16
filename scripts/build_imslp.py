@@ -550,10 +550,9 @@ def main():
             # falsy — so this is `.get(full, 0)` and never `.get(full) or 0`.
             m = cache["markers"].get(full, 0)
             # COLLECTION comes from the page's own `Page Type`, not from Category:Collections,
-            # which a couple of dozen pages are in and which misses every one of Beethoven's
-            # complete editions. Shipping the category's answer meant "17 Streichquartette" went
-            # out with works=0 and nothing on the row to explain the zero. The category is the
-            # fallback only where no work info was fetched.
+            # which misses every one of Beethoven's complete editions. Shipping the category's
+            # answer meant "17 Streichquartette" went out with works=0 and nothing on the row to
+            # explain the zero. The category is the fallback only where no work info was fetched.
             info = info_fields(cache.get("workinfo", {}).get(full))
             coll = (info.get("Page Type") == "Collection") if info else bool(m & COLLECTION)
             flags = (m & ~COLLECTION) | (COLLECTION if coll else 0)

@@ -284,7 +284,13 @@ framework, and nothing to install:
   stamp current.
 - `python3 scripts/record-lint.py` — **did a number reach a comment or a docstring?** The rule
   above says prose states a RECORD or no number at all, and that rule was in force while forty-nine
-  claims went stale under it, thirty of them in one feature. Nothing asked, because both gates
+  claims went stale under it, thirty of them in one feature. **What it asks is not "record or
+  not"** — that is a binary, and it sends a reader straight to a vaguer rewrite. It names three
+  branches in the order the built-or-cut rule gives them, and the first is DELETE: take the number
+  out and read what is left, because a clause that then says nothing was hosting the count rather
+  than making a point. The pass that produced this tool under-applied that on itself — "there are
+  884 links on this page whose text is a number" became "this column is hundreds of them", and one
+  such link is exactly as wrong as hundreds. Nothing asked, because both gates
   import `codehash.unchanged()` and stop asking a comments-only hunk for a test — correctly, since
   a comment cannot be tested, and the side effect is that prose is the one unguarded surface here.
   It is HOOK-ONLY and WARN-ONLY: whether a number is a record is a judgement, so a nonzero exit is
