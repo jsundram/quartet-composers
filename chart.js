@@ -337,11 +337,11 @@ window.Chart = (function () {
     const aspect = mode === "swarm" ? (narrow ? 0.58 : 0.44)
                  : mode === "fame" ? (narrow ? 0.98 : 0.62)
                  : (narrow ? 0.82 : 0.6);
-    // The full-screen floor is 120, not the 240 the windowed branch can afford. In full screen the
-    // SVG is height:100% of its box, so a viewBox TALLER than the box does not scroll or crop — it
-    // LETTERBOXES, scaling the whole chart down, fonts included, and centring it in a band of
-    // empty card. A phone in landscape is 390px tall and the plot box lands under 240, so the
-    // floor meant to protect the chart was the thing shrinking it.
+    // The full-screen floor is 120, well under what the windowed branch below can afford. In full
+    // screen the SVG is height:100% of its box, so a viewBox TALLER than the box does not scroll
+    // or crop — it LETTERBOXES, scaling the whole chart down, fonts included, and centring it in a
+    // band of empty card. A phone in landscape is 390px tall and the plot box lands well under the
+    // windowed floor, so the floor meant to protect the chart was the thing shrinking it.
     const ch = full
       ? Math.max(120, Math.round(box.height))
       : Math.round(Math.max(260, Math.min(540, cw * aspect)));
@@ -451,7 +451,10 @@ window.Chart = (function () {
   // The fisheye, over a picture that is already laid out. The RADIUS follows the local
   // magnification and not just the position: a dot pushed outward but drawn the same size reads as
   // displaced rather than as nearer, which is the artefact that made the 2014 chart hard to read.
-  // Clamped at 2.6 because the focus magnifies ~6x and a 6x dot is a blob with a name under it.
+  // The radius is clamped because a dot magnified without limit is a blob with a name under it.
+  // The clamp does NOT bind at the distortion set below — the fisheye peaks a little over 2x at the
+  // focus — so it is a guard against a future distortion, not a thing you can see today. It said
+  // "~6x" and named a magnification this lens has never produced.
   function warp(out) {
     const f = makeLens(lensRadius(), 2.2);
     for (const p of out) {

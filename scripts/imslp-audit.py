@@ -218,7 +218,7 @@ def main():
 
 # Each composer's table sorts on its own, because the question is always "does THIS catalogue read
 # correctly" — a sort across the page would interleave composers and answer nothing. No library:
-# the CSP admits no external script and this is thirty lines.
+# the CSP admits no external script and this is short enough not to want one.
 SORT_JS = """
 document.querySelectorAll('table.audit').forEach(function (t) {
   var body = t.tBodies[0];

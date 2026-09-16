@@ -282,6 +282,34 @@ framework, and nothing to install:
   which WRITES — so its cases assert the staged result, and five of them also pin the three
   declines, the states where writing would be wrong. It is a vendored pwa-starter file; keep the
   stamp current.
+- `python3 scripts/record-lint.py` — **did a number reach a comment or a docstring?** The rule
+  above says prose states a RECORD or no number at all, and that rule was in force while forty-nine
+  claims went stale under it, thirty of them in one feature. **What it asks is not "record or
+  not"** — that is a binary, and it sends a reader straight to a vaguer rewrite. It names three
+  branches in the order the built-or-cut rule gives them, and the first is DELETE: take the number
+  out and read what is left, because a clause that then says nothing was hosting the count rather
+  than making a point. The pass that produced this tool under-applied that on itself — "there are
+  884 links on this page whose text is a number" became "this column is hundreds of them", and one
+  such link is exactly as wrong as hundreds. Nothing asked, because both gates
+  import `codehash.unchanged()` and stop asking a comments-only hunk for a test — correctly, since
+  a comment cannot be tested, and the side effect is that prose is the one unguarded surface here.
+  It is HOOK-ONLY and WARN-ONLY: whether a number is a record is a judgement, so a nonzero exit is
+  a prompt and never a verdict, and putting it in CI would block a PR on one. **It is not
+  `prose-lint.py` reborn**, and the difference is the whole design — that one stored each claim's
+  VALUE and re-checked it, so it could not tell a reflowed paragraph from a stale fact. This stores
+  nothing: it asks only whether a number is NEW to a file's prose, comparing multisets over the
+  whole file, so a re-wrap moves every number and reports none. The prose comes from
+  `codehash.code_of()` rather than a second scanner — a file's prose is its source minus its code —
+  which also means DOCSTRINGS are covered by construction, and they are 44% of the Python prose
+  here. It reads the DOCS too — they are where `prose-lint.py`'s seventeen numbers lived, so a
+  scan of source alone would leave the files that motivated the rule unwatched — and a fenced block
+  there is code. It also reads SPELLED counts from eleven up, because "the shipped twelve chains"
+  and "in thirteen cases" went stale this pass and a digit scanner sees neither; the floor is where
+  it is because below it the word is ordinary English rather than a claim.
+  `scripts/record-lint.test.py` pins every half; `reflow_is_silent` is the case it exists for, and
+  ablating the tool found three defects in it — a four-figure count the regex could not see at all,
+  a finding dropped when its line could not be located, and markdown handled by a reader that was
+  never offered a markdown file.
 - `python3 scripts/validate.py` — **the data gate**, and the most important thing here. Every
   serious defect this dataset has had was a plausible-looking wrong number no test caught, so this
   compares `composers.json` against its schema, the other caches, `readership.json` and the

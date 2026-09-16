@@ -20,7 +20,7 @@ THE PAGE IS PROSE, NOT A TABLE. Each entry looks like:
     *[[Joseph Haydn]] (1732-1809): Wrote [[...|sixty-eight string quartets]] (some of which ...
 
 so the count has to be read out of a sentence, and the sentence is written by whoever last edited
-it. Seven rules cover 791 of 885 entries; the rest return null rather than a guess, because a wrong
+it. A handful of rules cover most entries; the rest return null rather than a guess, because a wrong
 count is worse than a missing one — it lands on the chart as a confident dot, while a null lands in
 the table and is honest.
 
@@ -32,9 +32,9 @@ VALIDATION, measured two ways, because the obvious one is misleading:
          python3 scripts/audit_counts.py
 
   2. AGAINST THE 2014 SCRAPE — useful for row matching, MISLEADING for counts. Birth year agrees
-     98.2% on the 448 composers in both, which is the check worth having: it proves rows are being
+     98.2% on the composers in both, which is the check worth having: it proves rows are being
      matched to the same human independent of anything the count parser does. Quartet counts agree
-     only ~74%, but that is mostly twelve years of editing rather than parser error — Wanhal went
+     far less often, but that is mostly twelve years of editing rather than parser error — Wanhal went
      from 53 to "Over seventy string quartets", Ellerton from 20 to "Some 100". Reproducing 2014
      is NOT the goal; the page today is the source of truth. See scripts/compare_2014.py.
 

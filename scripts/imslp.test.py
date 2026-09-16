@@ -59,7 +59,7 @@ def nested_pipe(_):
 
 
 # ------------------------------------------------------------------ parse_person / the article
-@case("[[wikipedia:Title|…]] — the plain form, 1031 of the 1770 pages")
+@case("[[wikipedia:Title|…]] — the plain form, and the commonest one")
 def plain_link(_):
     got = bi.parse_person("{{#imslpcomposer:\n"
                           "|Biography Link=[[wikipedia:Carl_Friedrich_Abel|Wikipedia]]\n}}")

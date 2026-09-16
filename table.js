@@ -202,9 +202,8 @@ window.Table = (function () {
   // panel, which does distinguish them in words).
   //
   // A link whose text is a bare number has that number as its accessible name, which tells a
-  // screen-reader user nothing about where it goes — and this column is hundreds of them. The
-  // label restates the visible digit FIRST, because WCAG 2.5.3 asks the name to contain the drawn
-  // label: a voice user says "click 18".
+  // screen-reader user nothing about where it goes. The label restates the visible digit FIRST,
+  // because WCAG 2.5.3 asks the name to contain the drawn label: a voice user says "click 18".
   function imslpCell(d) {
     const td = document.createElement("td");
     td.className = "num c-imslp wide-only";

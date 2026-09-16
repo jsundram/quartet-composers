@@ -89,6 +89,11 @@ jobs:
       # comments-only. Informational here — `gates` is where the answer has teeth.
       - name: the code-isolation tests (scripts/codehash.test.py)
         run: python3 scripts/codehash.test.py
+      # The SUITE runs here and the lint does not, deliberately. Whether a number in a comment is a
+      # record is a judgement, so record-lint.py is a pre-commit nag that must never fail a pull
+      # request; that its reflow case stays silent is not a judgement, and is what this asserts.
+      - name: the record rule's tests (scripts/record-lint.test.py)
+        run: python3 scripts/record-lint.test.py
       - name: code vs comments on this branch (scripts/codehash.py --base)
         if: github.event_name == 'pull_request'
         env:
