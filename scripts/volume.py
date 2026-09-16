@@ -91,11 +91,21 @@ CODE = (".py", ".js", ".mjs", ".css", ".html", ".sh", ".yml", ".yaml")
 CONFIG = (".github/", ".githooks/")
 
 
+def selects(path):
+    """Is this file in the ratios at all? Answerable from the PATH, so it runs before any read.
+
+    Both readers ask it first. measure() used to read every tracked blob and let bucket() throw
+    the answer away — megabytes of shipped json, and under --check a `git show` apiece — while at()
+    carried its own copy of the test and had already drifted off SKIP_SUFFIX.
+    """
+    if path.startswith(SKIP) or path.endswith(SKIP_SUFFIX):
+        return False
+    return path.endswith(CODE) or path.startswith(CONFIG)
+
+
 def bucket(path, src):
     """Which bucket this file is reported under, or None to leave it out of the ratios entirely."""
-    if path.startswith(SKIP) or path.endswith(SKIP_SUFFIX):
-        return None
-    if not path.endswith(CODE) and not path.startswith(CONFIG):
+    if not selects(path):
         return None
     # ROLE BEFORE ORIGIN. sw.test.mjs carries the stamp and is a suite; filed as `vendored` it left
     # the test bucket short and put a suite in with the app shell. Now that no bucket is exempt,
@@ -163,8 +173,8 @@ def text_split(src, marks, block=("/*", "*/")):
             com += 1
         else:
             code += 1
-            # `let x; /* why` opens a block the next lines belong to, and styles.css is one wrap
-            # away from it in about ten places.
+            # `<div> <!-- why` opens a block the next lines belong to. Live for HTML only now
+            # that JS and CSS are counted off codehash's strip.
             if block[0] in s and block[1] not in s.split(block[0], 1)[1]:
                 inside = True
     return code, com, 0
@@ -203,6 +213,15 @@ def split(path, src):
     return None
 
 
+def by_bucket(unread):
+    """{bucket: {path}} — compared per FILE, because two files swapping readability inside one
+    bucket cancel out over bucket names and the delta is then taken over mismatched sets."""
+    out = {}
+    for b, path in unread:
+        out.setdefault(b, set()).add(path)
+    return out
+
+
 def in_merge(root=ROOT):
     """Is a merge in progress? Its HEAD is the first parent, so a delta against it is the branch."""
     got = subprocess.run(["git", "rev-parse", "--git-dir"], cwd=root, capture_output=True, text=True)
@@ -231,10 +250,7 @@ def at(ref, root=ROOT):
         raise RuntimeError("git ls-tree %s failed in %s: %s" % (ref, root, ls.stderr.strip()))
     out, unread = {}, []
     for path in ls.stdout.split("\0"):
-        # Filtered BEFORE the blob is read: a tree holds the PNGs and the shipped json too, and
-        # that is a subprocess and a pipe apiece for an answer bucket() discards.
-        if not path or path.startswith(SKIP) \
-                or (not path.endswith(CODE) and not path.startswith(CONFIG)):
+        if not path or not selects(path):
             continue
         src = sh_show(root, "%s:%s" % (ref, path))
         if src is None:
@@ -270,6 +286,8 @@ def measure(root=ROOT, staged=False):
         raise RuntimeError("git ls-files failed in %s: %s" % (root, listing.stderr.strip()))
     for path in listing.stdout.split("\0"):
         if not path:
+            continue
+        if not selects(path):
             continue
         full = os.path.join(root, path)
         if not staged and not os.path.isfile(full):
@@ -347,7 +365,8 @@ def main():
         # merge commit. sw-lint.py --fix declines in this state for the same reason.
         was, moot = {}, set(buckets)
     else:
-        moot = {b for b, _p in unread} ^ {b for b, _p in was_unread}
+        moot = {b for b in set(buckets) | set(was)
+                if by_bucket(unread).get(b) != by_bucket(was_unread).get(b)}
     over, rows, lines = [], [], []
     say = lines.append if a.json else print
     say("  %-10s %7s %8s %8s %8s" % ("", "code", "comment", "docstr", "prose"))

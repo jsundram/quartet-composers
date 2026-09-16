@@ -109,10 +109,10 @@ def trailing_comment(_):
 
 @case("a block comment OPENED after code on the same line swallows the lines under it")
 def block_after_code(_):
-    # Testing only the start of the line left `inside` false and read the whole body as code, and
-    # styles.css is one wrap away from this in about ten places.
-    src = "let x; /* why\n   because\n   of this */\nlet y;\n"
-    assert vol.split("a.js", src) == (2, 2, 0), vol.split("a.js", src)
+    # HTML, because that is the only thing text_split still reads: JS and CSS are counted off
+    # codehash's strip now, so a case written against a.js proved nothing about this branch.
+    src = "<div> <!-- why\n   because\n   of this -->\n<p>\n"
+    assert vol.split("a.html", src) == (2, 2, 0), vol.split("a.html", src)
 
 
 @case("a stamp must OPEN a comment line, not merely appear in the file")
@@ -300,7 +300,7 @@ def at_filters_before_reading(_):
     # `git show` on a PNG decoded as text raises outright, and every shipped json would be a
     # subprocess and a megabyte through a pipe, for an answer bucket() discards.
     d = tree({"scripts/a.py": "x = 1\n", "mocks/shot.png": "PNG\n",
-              "composers.json": "[]\n"}, commit=True)
+              "d3.v7.min.js": "var d3=1;\n", "composers.json": "[]\n"}, commit=True)
     real, read = subprocess.run, []
 
     def spy(argv, **kw):
@@ -354,6 +354,21 @@ def check_exempts_nothing(_):
     assert "this change is" in row, row
 
 
+@case("measure() does not READ a blob it is going to throw away")
+def measure_filters_before_reading(_):
+    # It read every tracked blob and let bucket() discard the answer — megabytes of it, and
+    # under --check (the hook path) that is a `git show` apiece on every commit.
+    d = tree({"scripts/a.py": "x = 1\n", "composers.json": "[]\n",
+              "d3.v7.min.js": "var d3=1;\n"}, commit=True)
+    real, read = vol.sh_show, []
+    vol.sh_show = lambda root, spec: read.append(spec) or real(root, spec)
+    try:
+        vol.measure(d, staged=True)
+    finally:
+        vol.sh_show = real
+    assert read == [":scripts/a.py"], read
+
+
 @case("--check judges what is STAGED, not what is on disk")
 def check_reads_the_index(_):
     # The hook is judging what is about to be committed. Under `git add -p` that is not what is on
@@ -398,6 +413,20 @@ def readability_moot(_):
     was, was_unread = vol.at("HEAD", d)
     assert [p for _b, p in was_unread] == ["a.js"], was_unread
     write(d, {"a.js": broken.replace("function ( {", "function f() {}")})
+    out = subprocess.run([sys.executable, os.path.join(HERE, "volume.py"), "--check",
+                          "--root", d], capture_output=True, text=True)
+    assert out.returncode == 0, out.stdout
+
+
+@case("readability is compared per FILE, not per bucket")
+def moot_is_per_file(_):
+    # Two files swapping readability inside one bucket cancel over bucket NAMES, and the delta is
+    # then taken over mismatched sets — which is the whole defect, arriving in a pair.
+    prose = "// prose\n" * (vol.FLOOR * 3)
+    d = tree({"a.js": "function ( {\n" + prose, "b.js": "let x;\n"}, commit=True)
+    # a.js starts parsing and brings its prose into the bucket with it; b.js stops, and takes the
+    # only code line out. Over bucket NAMES the two cancel and the delta reads as pure prose.
+    write(d, {"a.js": "let a;\n" + prose, "b.js": "function ( {\n"})
     out = subprocess.run([sys.executable, os.path.join(HERE, "volume.py"), "--check",
                           "--root", d], capture_output=True, text=True)
     assert out.returncode == 0, out.stdout
