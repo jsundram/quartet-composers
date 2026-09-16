@@ -148,7 +148,7 @@ def unreadable_is_reported(_):
     assert vol.split("a.py", "def f(:\n") is None
     d = tree({"broken.js": "function ( {\n", "ok.py": "x = 1\n"})
     buckets, unread = vol.measure(d)
-    assert unread == ["broken.js"], unread
+    assert unread == [("source", "broken.js")], unread
     assert buckets["source"]["code"] == 1, buckets
 
 
@@ -177,7 +177,7 @@ def check_is_marginal(_):
     # A check against the TOTAL is red on every commit while the repo sits over its ceiling, and
     # unanswerable: nothing a reader can do here clears a ratio the whole repo owns.
     d = tree({"scripts/a.py": "x = 1\n" * 10 + "# c\n" * 90}, commit=True)
-    was = vol.at("HEAD", d)
+    was, _ = vol.at("HEAD", d)
     assert vol.ratio(was["source"]) > vol.CEILING, "the history is fat on purpose"
     write(d, {"scripts/b.py": "y = 1\n" * 100 + "# c\n" * 25})
     now, _ = vol.measure(d)
@@ -310,7 +310,7 @@ def at_filters_before_reading(_):
 
     vol.subprocess.run = spy
     try:
-        got = vol.at("HEAD", d)
+        got, _ = vol.at("HEAD", d)
     finally:
         vol.subprocess.run = real
     assert read == ["HEAD:scripts/a.py"], read
@@ -326,7 +326,7 @@ def vendored_is_grandfathered(_):
     # fires however much prose it carries, and a diff to one obeys what every other diff does.
     fat = "// pwa-starter: app.js @ 1a2b3c4\n" + "// prose\n" * 90 + "let x;\n"
     d = tree({"app.js": fat}, commit=True)
-    was = vol.at("HEAD", d)
+    was, _ = vol.at("HEAD", d)
     # Asserted before it is indexed: without the stamp rule that file lands in `source`, and a
     # KeyError here would report as a crash rather than as the classification being wrong —
     # ablate.py calls that INCONCLUSIVE, which proves nothing either way.
@@ -366,6 +366,61 @@ def check_reads_the_index(_):
     assert "50.0%" in run().stdout, "...but the bare table does show the working tree"
     subprocess.run(["git", "add", "-A"], cwd=d, capture_output=True)
     assert run("--check").returncode == 1, "and staging it makes it this commit's"
+
+
+@case("a STRING holding `/*` does not turn the rest of the file into prose")
+def strings_are_not_comments(_):
+    # The counting was a line reader that had no idea what a string was, while the docstring said
+    # the prose came from codehash. One such line in chart.js swallowed the whole file.
+    trap = 'const SEP = "/* not a comment";\nlet a = 1;\nlet b = 2;\n// real\n'
+    assert vol.split("a.js", trap) == (3, 1, 0), vol.split("a.js", trap)
+    css = '.x{ content:"/*" }\n.y{ margin:0 }\n/* real */\n'
+    assert vol.split("a.css", css) == (2, 1, 0), vol.split("a.css", css)
+
+
+@case("a minified library is not our code, and a suite is not the app shell")
+def role_before_origin(_):
+    # d3.v7.min.js is a quarter of a megabyte we did not write; filed as `source` it was counted
+    # as ours. sw.test.mjs carries the stamp AND is a suite — filed as `vendored` it left the test
+    # bucket short and put a suite in with the app shell.
+    assert vol.bucket("d3.v7.min.js", "var d3=...") is None
+    assert vol.bucket("scripts/sw.test.mjs", "// pwa-starter: sw.test.mjs @ 1a2b3c4\n") == "test"
+    assert vol.bucket("sw.js", "// pwa-starter: sw.js @ 1a2b3c4\n") == "vendored"
+
+
+@case("a file that changed READABILITY has no delta")
+def readability_moot(_):
+    # at() dropped what it could not classify while measure() reported it, so the two sides held
+    # different file sets — and a one-character syntax fix to a JS file that did not parse at HEAD
+    # arrived as its whole length of new prose.
+    broken = "function ( {\n" + "// prose\n" * 60
+    d = tree({"a.js": broken}, commit=True)
+    was, was_unread = vol.at("HEAD", d)
+    assert [p for _b, p in was_unread] == ["a.js"], was_unread
+    write(d, {"a.js": broken.replace("function ( {", "function f() {}")})
+    out = subprocess.run([sys.executable, os.path.join(HERE, "volume.py"), "--check",
+                          "--root", d], capture_output=True, text=True)
+    assert out.returncode == 0, out.stdout
+
+
+@case("a MERGE is not a commit that wrote the branch it merges")
+def merge_is_not_authorship(_):
+    # HEAD during a merge is the FIRST PARENT, so the whole incoming branch is charged to the
+    # merge commit. sw-lint.py --fix declines in this state for the same reason.
+    d = tree({"scripts/a.py": "x = 1\n" * 40}, commit=True)
+    q = dict(cwd=d, capture_output=True)
+    subprocess.run(["git", "checkout", "-q", "-b", "side"], **q)
+    write(d, {"scripts/b.py": "# prose\n" * 80})
+    subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "docs"], **q)
+    subprocess.run(["git", "checkout", "-q", "-"], **q)
+    write(d, {"scripts/c.py": "y = 1\n" * 40})
+    subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "code"], **q)
+    subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
+                    "merge", "--no-commit", "--no-ff", "side"], **q)
+    assert vol.in_merge(d), "the fixture did not actually leave a merge in progress"
+    out = subprocess.run([sys.executable, os.path.join(HERE, "volume.py"), "--check",
+                          "--root", d], capture_output=True, text=True)
+    assert out.returncode == 0, out.stdout
 
 
 @case("the CSS stamp is the same stamp")

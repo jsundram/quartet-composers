@@ -427,6 +427,7 @@ def main():
     if not src:
         if ex:
             print("  ablate: every source change on this branch is excused by a No-test: trailer")
+            note_added(added_src)
             return 0
         if added_src:
             print("  ablate: every source file this branch changed is NEW, so there is no "

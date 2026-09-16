@@ -82,6 +82,9 @@ STAMP = re.compile(r"^\s*(?://|#|/\*)\s*pwa-starter: [\w.-]+ @ [0-9a-f]{7}", re.
 # None of these is prose anyone writes: data/ and the shipped json are the project, mocks/ is a
 # record of a decision nothing follows, assets/ is generated.
 SKIP = ("data/", "mocks/", "assets/")
+# d3.v7.min.js is a library we did not write and cannot read: filed as `source` it was a quarter of
+# a megabyte of somebody else's code counted as ours.
+SKIP_SUFFIX = (".min.js", ".min.css")
 CODE = (".py", ".js", ".mjs", ".css", ".html", ".sh", ".yml", ".yaml")
 # A git hook is a shell script with no extension, so the extension test alone dropped every one of
 # them — including .githooks/pre-commit, which this very tool is wired into.
@@ -90,19 +93,20 @@ CONFIG = (".github/", ".githooks/")
 
 def bucket(path, src):
     """Which bucket this file is reported under, or None to leave it out of the ratios entirely."""
-    if path.startswith(SKIP):
+    if path.startswith(SKIP) or path.endswith(SKIP_SUFFIX):
         return None
     if not path.endswith(CODE) and not path.startswith(CONFIG):
         return None
-    if STAMP.search(src):
-        return "vendored"
-    if path.startswith(CONFIG) or path.endswith((".yml", ".yaml")):
-        return "config"
+    # ROLE BEFORE ORIGIN. sw.test.mjs carries the stamp and is a suite; filed as `vendored` it left
+    # the test bucket short and put a suite in with the app shell. Now that no bucket is exempt,
+    # origin only chooses between the two remaining kinds.
     # ui-test.sh is SOURCE to the gates (it derives its own ports and refuses one it did not take),
     # so it is source here too — ablate.py already settled that argument and this must not reopen it.
     if ".test." in path:
         return "test"
-    return "source"
+    if path.startswith(CONFIG) or path.endswith((".yml", ".yaml")):
+        return "config"
+    return "vendored" if STAMP.search(src) else "source"
 
 
 def py_split(src):
@@ -137,8 +141,12 @@ def py_split(src):
     return code, len(com), len(doc)
 
 
+def nonblank(text):
+    return sum(1 for line in text.split("\n") if line.strip())
+
+
 def text_split(src, marks, block=("/*", "*/")):
-    """(code, comment, 0) for a language codehash strips but does not count per line."""
+    """(code, comment, 0) for a language codehash does not read at all — shell, yaml, html."""
     code = com = 0
     inside = False
     for line in src.split("\n"):
@@ -167,18 +175,19 @@ def split(path, src):
     if path.endswith(".py"):
         return py_split(src)
     if path.endswith((".js", ".mjs", ".css")):
-        # codehash is the authority on WHETHER this parses — it re-parses both sides. Asking it
-        # first means an unterminated block comment is reported rather than counted by a line
-        # reader that would not notice.
+        # COUNTED OFF codehash's STRIPPED TEXT, which is what "prose is source minus code" means
+        # and what this file claimed to be doing while a line reader did the counting. That reader
+        # had no idea what a string was, so one `const SEP = "/* not a comment";` opened a block
+        # comment running to EOF and collapsed chart.js's whole body into it. codehash's scanner
+        # knows strings, template literals and regex literals, and re-parses to prove it — which is
+        # also why HOW it verified is part of the answer: without node nothing is re-parsed, `code`
+        # comes back non-None for a file nothing checked, and cannot-tell degrades to a false pass.
+        # The lines do not align, a whole-line comment taking its newline with it, so they are
+        # counted rather than zipped; JS has no docstrings to separate out.
         code, _, how = codehash.code_of(path, src)
-        # HOW it was verified is part of the answer: without node nothing is re-parsed, so `code`
-        # comes back non-None for a file nothing checked and cannot-tell degrades to a false pass.
         if code is None or how.startswith("UNVERIFIED"):
             return None
-        # `*` is NOT a mark: it is CSS's universal selector, and styles.css opens two rules with
-        # it today. A JSDoc continuation line does start with it, but `inside` already owns those
-        # — the mark only ever added the false positives.
-        return text_split(src, () if path.endswith(".css") else ("//",))
+        return nonblank(code), nonblank(src) - nonblank(code), 0
     if path.endswith((".sh", ".yml", ".yaml")):
         return text_split(src, ("#",), ("\x00", "\x00"))
     if path.endswith(".html"):
@@ -194,6 +203,13 @@ def split(path, src):
     return None
 
 
+def in_merge(root=ROOT):
+    """Is a merge in progress? Its HEAD is the first parent, so a delta against it is the branch."""
+    got = subprocess.run(["git", "rev-parse", "--git-dir"], cwd=root, capture_output=True, text=True)
+    return not got.returncode and os.path.exists(
+        os.path.join(root, got.stdout.strip(), "MERGE_HEAD"))
+
+
 def sh_show(root, spec):
     """`git show <spec>` as text, or None where it cannot be read."""
     got = subprocess.run(["git", "show", spec], cwd=root, capture_output=True,
@@ -202,7 +218,7 @@ def sh_show(root, spec):
 
 
 def at(ref, root=ROOT):
-    """measure() against a git ref, or None where the ref cannot be read (a first commit)."""
+    """measure() against a git ref, or None where the ref does not resolve (a first commit)."""
     # ASKED SEPARATELY: a ref that does not resolve is a repo one commit old, and a ref that
     # resolves and then fails to list is broken. `or {}` in main() reads None as a base holding
     # nothing, which would report the whole repo as this one commit's work.
@@ -213,7 +229,7 @@ def at(ref, root=ROOT):
                         cwd=root, capture_output=True, text=True)
     if ls.returncode:
         raise RuntimeError("git ls-tree %s failed in %s: %s" % (ref, root, ls.stderr.strip()))
-    out = {}
+    out, unread = {}, []
     for path in ls.stdout.split("\0"):
         # Filtered BEFORE the blob is read: a tree holds the PNGs and the shipped json too, and
         # that is a subprocess and a pipe apiece for an answer bucket() discards.
@@ -228,12 +244,13 @@ def at(ref, root=ROOT):
             continue
         got = split(path, src)
         if got is None:
+            unread.append((b, path))
             continue
         acc = out.setdefault(b, {"code": 0, "comment": 0, "docstring": 0})
         acc["code"] += got[0]
         acc["comment"] += got[1]
         acc["docstring"] += got[2]
-    return out
+    return out, unread
 
 
 def measure(root=ROOT, staged=False):
@@ -268,7 +285,7 @@ def measure(root=ROOT, staged=False):
             continue
         got = split(path, src)
         if got is None:
-            unread.append(path)
+            unread.append((b, path))
             continue
         acc = out.setdefault(b, {"code": 0, "comment": 0, "docstring": 0})
         acc["code"] += got[0]
@@ -321,7 +338,16 @@ def main():
     # says nothing to a change whose comments are proportionate to its code.
     # `or {}`: at() answers None where there is no HEAD to read, which is a repo one commit old
     # and not a repo that held nothing.
-    was = (at("HEAD", a.root) or {}) if a.check else {}
+    # A FILE THAT CHANGED READABILITY HAS NO DELTA. at() used to drop what it could not classify
+    # while measure() reported it, so the two sides held different file sets — and a one-character
+    # syntax fix to a JS file that did not parse at HEAD arrived as its whole length of new prose.
+    was, was_unread = (at("HEAD", a.root) or ({}, [])) if a.check else ({}, [])
+    if in_merge(a.root):
+        # HEAD during a merge is the FIRST PARENT, so the whole incoming branch is charged to the
+        # merge commit. sw-lint.py --fix declines in this state for the same reason.
+        was, moot = {}, set(buckets)
+    else:
+        moot = {b for b, _p in unread} ^ {b for b, _p in was_unread}
     over, rows, lines = [], [], []
     say = lines.append if a.json else print
     say("  %-10s %7s %8s %8s %8s" % ("", "code", "comment", "docstr", "prose"))
@@ -330,7 +356,7 @@ def main():
         # The total's flag is CONTEXT, not a verdict: it is where the bucket stands, which is
         # history and not this commit's doing. Only the change's flag drives the exit code.
         flag = "  <-- over %.0f%%" % (CEILING * 100) if ratio(acc) > CEILING else ""
-        if a.check:
+        if a.check and name not in moot:
             d = delta(was.get(name), acc)
             # Capped: prose up while code comes down is a ratio over 1, which reads as a bug.
             if d and ratio(d) > CEILING:
@@ -340,12 +366,12 @@ def main():
                 rows.append(dict(acc, bucket=name, change=d))
         say("  %-10s %7d %8d %8d %6.1f%%%s"
             % (name, acc["code"], acc["comment"], acc["docstring"], ratio(acc) * 100, flag))
-    for path in unread:
+    for _b, path in unread:
         say("  could not tell code from prose: %s" % path)
     # NOTHING BUT JSON on stdout under --json, or what the docstring calls "for a script" does not
     # parse. The table is kept and handed back under a key, so --json --check loses nothing.
     if a.json:
-        print(json.dumps({"buckets": buckets, "ceiling": CEILING, "unread": unread,
+        print(json.dumps({"buckets": buckets, "ceiling": CEILING, "unread": [p for _b, p in unread],
                           "over": rows, "table": lines}, indent=2))
         return 1 if over else 0
     if over:

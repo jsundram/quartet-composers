@@ -323,6 +323,19 @@ with tempfile.TemporaryDirectory() as tmp:
     code, out = run(repo, os.path.join(repo, "scripts/ablate.py"))
     case("...and so does the exit where no runnable suite covers the branch",
          "not ablated" in out.lower() and "chart.js" in out, True, out.strip()[:70])
+    # ...and the exit where a trailer excused every file that COULD be ablated. That one reads
+    # "every source change on this branch is excused", which is true and was the whole message.
+    repo = new_repo(tmp)
+    write(repo, "suite.py", SUITE)
+    commit(repo, "a suite")
+    git(repo, "checkout", "-q", "-b", "b10c")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
+    write(repo, "chart.js", "const c = 1;  // brand new module\n")
+    commit(repo, "a new module\n\nNo-test: app.js is a one-line rename")
+    code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
+                    "--cmd", f"{sys.executable} suite.py")
+    case("...and so does the exit where a trailer excused everything ablatable",
+         "not ablated" in out.lower() and "chart.js" in out, True, out.strip()[:70])
 
     # --- ablate: A BRANCH THAT DELETES A SOURCE FILE (the High finding on #43) --------------------
     # Restoring was one `git checkout HEAD -- <every file>`, and git validates the whole pathspec
