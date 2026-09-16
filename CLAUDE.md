@@ -310,18 +310,23 @@ framework, and nothing to install:
   ablating the tool found three defects in it — a four-figure count the regex could not see at all,
   a finding dropped when its line could not be located, and markdown handled by a reader that was
   never offered a markdown file.
-- `python3 scripts/volume.py` — **how much of this repo is prose, and is any bucket over its
-  ceiling?** Hook-only and warn-only, for the reason `record-lint.py` is: a ratio crosses its line
-  on the commit that adds a function as readily as on the one that adds a paragraph, and CI
-  blocking a large feature for being large is the wrong trade. It exists because the rule says a
-  number the repo recomputes is read off the thing that holds it, and nothing held these — so
-  every measurement was written fresh and they disagreed, once reporting `scripts/` at 83% against
-  a real 35%. The disagreement is never in the counting; it is in four judgements an ad-hoc script
-  re-decides each time, and `scripts/volume.test.py` pins all four: vendored by its STAMP rather
-  than by a path list, a suite against the runner that launches it, what is excluded outright, and
-  a docstring against a comment. The fifth case is the one with teeth — a file `codehash` cannot
-  classify is REPORTED, never skipped, because a bucket that omits what it could not read is a
-  ratio that improves by failing, on exactly the files something is wrong with.
+- `python3 scripts/volume.py` — **how much of this repo is prose, and is this change adding more of
+  it?** Hook-only and warn-only, for the reason `record-lint.py` is: the classifying is exact but
+  the judgement is not, and CI blocking a large feature for being large is the wrong trade. It
+  exists because the rule says a number the repo recomputes is read off the thing that holds it,
+  and nothing held these — so every measurement was written fresh and they disagreed, once
+  reporting `scripts/` at 83% against a real 35%. The disagreement is never in the counting; it is
+  in four judgements an ad-hoc script re-decides each time, and `scripts/volume.test.py` pins all
+  four: vendored by its STAMP rather than by a path list, a suite against the runner that launches
+  it, what is excluded outright, and a docstring against a comment. A fifth has the teeth — a file
+  `codehash` cannot classify is REPORTED, never skipped, because a bucket that omits what it could
+  not read is a ratio that improves by failing, on exactly the files something is wrong with.
+  **`--check` judges the CHANGE, not the total.** Both ceilinged buckets are well over today, so a
+  check against the total would be red on every commit and unanswerable besides — nothing a reader
+  can do to the file in front of them clears a ratio the whole repo owns. The commit's own ratio
+  against the same ceiling is answerable, converges from wherever history sits, and says nothing to
+  a change whose comments are proportionate to its code. Below a floor of added prose lines it says
+  nothing at all, because a one-line fix to a comment is 100% prose and means nothing by it.
   **It bounds prose against the code it explains and says nothing about CLAUDE.md.** Measured over
   this repo's history the two do not move together: the app source held flat while this file grew by
   a third, so a doc-to-code ratio would license the briefing to grow on any commit that adds code.

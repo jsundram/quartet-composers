@@ -9,14 +9,13 @@
 NO NETWORK, NO REPO: every case is a string or a temp tree, so this runs anywhere.
 
 WHY THIS FILE EXISTS. The counting is arithmetic and nobody gets it wrong. The CLASSIFYING is four
-judgements, and an ad-hoc measurement re-decides all of them every time it is written — which is
-how this repo came to report `scripts/` at 83% prose when it was 35%. Those four are what the cases
-below pin: vendored against ours, test against source, what is excluded outright, and comment
-against docstring.
+judgements an ad-hoc measurement re-decides every time it is written, which is how this repo came
+to report `scripts/` at 83% prose when it was 35%. Those four are what the cases pin: vendored
+against ours, test against source, what is excluded outright, comment against docstring.
 
-The fifth is the one with teeth. A file whose code cannot be told from its prose must be REPORTED,
-never skipped, because a bucket that silently omits what it could not read is a ratio that gets
-better by failing — and it gets better precisely on the files something is wrong with.
+The fifth has the teeth. A file whose code cannot be told from its prose must be REPORTED, never
+skipped, because a bucket that omits what it could not read is a ratio that gets better by failing
+— and it gets better precisely on the files something is wrong with.
 """
 import importlib.util
 import os
@@ -39,17 +38,25 @@ def case(name):
     return deco
 
 
-def tree(files):
+def tree(files, commit=False):
     """A throwaway git repo holding `files`, so measure() sees it through git ls-files."""
     d = tempfile.mkdtemp()
+    q = dict(cwd=d, capture_output=True)
+    subprocess.run(["git", "init", "-q"], **q)
+    write(d, files)
+    if commit:
+        subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
+                        "commit", "-qm", "base"], **q)
+    return d
+
+
+def write(d, files):
+    """Add files to an existing tree. Staged, because measure() reads git ls-files."""
     for path, body in files.items():
         full = os.path.join(d, path)
         os.makedirs(os.path.dirname(full), exist_ok=True)
         open(full, "w").write(body)
-    q = dict(cwd=d, capture_output=True)
-    subprocess.run(["git", "init", "-q"], **q)
-    subprocess.run(["git", "add", "-A"], **q)
-    return d
+    subprocess.run(["git", "add", "-A"], cwd=d, capture_output=True)
 
 
 STAMPED = "// pwa-starter: app.js @ 1a2b3c4\nconst x = 1;\n// a comment\n"
@@ -85,7 +92,49 @@ def excluded(_):
 @case("a python docstring and a python comment are counted apart")
 def docstring_vs_comment(_):
     src = '"""Module.\n\nTwo lines.\n"""\n# a comment\nx = 1\n'
-    assert vol.split("a.py", src) == (1, 1, 4), vol.split("a.py", src)
+    # The blank line INSIDE the docstring is blank, like every other blank line the count skips.
+    # Charging it to prose made a spaced-out module header read as denser than a packed one saying
+    # the same thing, which is the opposite of what this measures.
+    assert vol.split("a.py", src) == (1, 1, 3), vol.split("a.py", src)
+
+
+@case("a trailing comment is a line of CODE that also explains itself")
+def trailing_comment(_):
+    # Counting it as prose deleted the code line outright, and the two languages then disagreed
+    # about the identical construct — Python's answer being the one that flattered the ratio.
+    assert vol.split("a.py", "x = 1  # note\n") == (1, 0, 0), vol.split("a.py", "x = 1  # note\n")
+    assert vol.split("a.js", "let x; // note\n") == (1, 0, 0), vol.split("a.js", "let x; // note\n")
+
+
+@case("a block comment OPENED after code on the same line swallows the lines under it")
+def block_after_code(_):
+    # Testing only the start of the line left `inside` false and read the whole body as code, and
+    # styles.css is one wrap away from this in about ten places.
+    src = "let x; /* why\n   because\n   of this */\nlet y;\n"
+    assert vol.split("a.js", src) == (2, 2, 0), vol.split("a.js", src)
+
+
+@case("a stamp must OPEN a comment line, not merely appear in the file")
+def stamp_must_open_a_comment(_):
+    # This suite QUOTES the stamp, so a substring test exempted the one file whose job is
+    # enforcing the ceiling.
+    quoted = 'STAMPED = "// pwa-starter: app.js @ 1a2b3c4"\nx = 1\n'
+    assert vol.bucket("scripts/volume.test.py", quoted) == "test", vol.bucket("x.py", quoted)
+    # And it is read over the WHOLE file rather than a byte window: sw.js carries a long header
+    # above its stamp, and it is the largest vendored file here.
+    deep = "// header\n" * 400 + "// pwa-starter: sw.js @ 1a2b3c4\nlet x;\n"
+    assert vol.bucket("sw.js", deep) == "vendored"
+
+
+@case("a hook says what it is on its FIRST LINE, having no extension to say it with")
+def shebang(_):
+    # .githooks/pre-commit has no extension and this tool is wired into it, so the extension
+    # dispatch reported the one file it most obviously has to read.
+    # The shebang line counts with the comments, as it does in every .sh file here — one line per
+    # shell script, and singling it out would be a rule the extension dispatch does not have.
+    assert vol.split(".githooks/pre-commit", "#!/bin/sh\n# why\ntrue\n") == (1, 2, 0)
+    assert vol.split("hook", '#!/usr/bin/env python3\n"""Doc."""\nx = 1\n') == (1, 1, 1)
+    assert vol.split("whatever", "just text\n") is None, "still None with nothing to go on"
 
 
 # ---- and it never improves a ratio by failing --------------------------------------------------
@@ -122,6 +171,67 @@ def check_exit(_):
     assert vol.ratio(b2["source"]) > vol.CEILING["source"]
 
 
+@case("--check judges what the CHANGE added, not what history holds")
+def check_is_marginal(_):
+    # A check against the TOTAL is red on every commit while the repo sits over its ceiling, and
+    # unanswerable: nothing a reader can do here clears a ratio the whole repo owns.
+    d = tree({"scripts/a.py": "x = 1\n" * 10 + "# c\n" * 90}, commit=True)
+    was = vol.at("HEAD", d)
+    assert vol.ratio(was["source"]) > vol.CEILING["source"], "the history is fat on purpose"
+    write(d, {"scripts/b.py": "y = 1\n" * 100 + "# c\n" * 25})
+    now, _ = vol.measure(d)
+    assert vol.ratio(now["source"]) > vol.CEILING["source"], "and still is"
+    lean = vol.delta(was["source"], now["source"])
+    assert lean and vol.ratio(lean) <= vol.CEILING["source"], vol.ratio(lean)
+    write(d, {"scripts/b.py": "y = 1\n" * 5 + "# c\n" * 100})
+    now, _ = vol.measure(d)
+    fat = vol.delta(was["source"], now["source"])
+    assert fat and vol.ratio(fat) > vol.CEILING["source"], vol.ratio(fat)
+
+
+@case("a change too small to have a ratio is not given one")
+def delta_floor(_):
+    # Below the floor the marginal ratio is arithmetic on a handful of lines.
+    acc = {"code": 100, "comment": 10, "docstring": 0}
+    assert vol.delta(acc, {"code": 101, "comment": 13, "docstring": 0}) is None
+    assert vol.delta(acc, {"code": 100, "comment": 10 + vol.FLOOR, "docstring": 0}) is not None
+    assert vol.delta(acc, {"code": 200, "comment": 0, "docstring": 0}) is None, "deleting is silent"
+
+
+@case("a listing that FAILED is not a repo with no prose in it")
+def listing_failure_raises(_):
+    # Empty buckets are a clean run, so swallowing the return code turns "not a git repo" into a
+    # pass and the hook goes quiet everywhere it is misconfigured.
+    try:
+        vol.measure(tempfile.mkdtemp())
+    except RuntimeError:
+        return
+    assert False, "measure() passed on a directory git cannot list"
+
+
+@case("at() does not READ a blob it is going to throw away")
+def at_filters_before_reading(_):
+    # `git show` on a PNG decoded as text raises outright, and every shipped json would be a
+    # subprocess and a megabyte through a pipe, for an answer bucket() discards.
+    d = tree({"scripts/a.py": "x = 1\n", "mocks/shot.png": "PNG\n",
+              "composers.json": "[]\n"}, commit=True)
+    real, read = subprocess.run, []
+
+    def spy(argv, **kw):
+        if argv[:2] == ["git", "show"]:
+            read.append(argv[2])
+        return real(argv, **kw)
+
+    vol.subprocess.run = spy
+    try:
+        got = vol.at("HEAD", d)
+    finally:
+        vol.subprocess.run = real
+    assert read == ["HEAD:scripts/a.py"], read
+    assert got["source"]["code"] == 1, got
+    assert vol.at("nosuchref", d) is None, "a ref that cannot be read is not an empty repo"
+
+
 @case("a vendored file has no ceiling, however much prose it carries")
 def vendored_has_no_ceiling(_):
     # Its prose is upstream's and editing it breaks the sha check-downstream.py syncs on, so a
@@ -143,9 +253,12 @@ def main():
         try:
             fn(None)
             print("  ok   %s" % name)
-        except AssertionError as e:
+        except Exception as e:
+            # Not AssertionError alone: an ablated tree is this branch's cases over the base's
+            # code, where a crash reports as INCONCLUSIVE and proves nothing. ablate.py is looking
+            # for a named FAIL.
             FAILED.append(name)
-            print("  FAIL %s\n       %s" % (name, e))
+            print("  FAIL %s\n       %s: %s" % (name, type(e).__name__, e))
     print("\n%d passed, %d failed" % (len(CASES) - len(FAILED), len(FAILED)))
     return 1 if FAILED else 0
 
