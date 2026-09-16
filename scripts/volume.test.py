@@ -230,6 +230,60 @@ def delta_floor(_):
     assert vol.delta(acc, {"code": 200, "comment": 0, "docstring": 0}) is None, "deleting is silent"
 
 
+@case("the NET decides, so one deleted line does not buy a commit silence")
+def delta_is_net(_):
+    # A bucket is every file at once. Refusing any negative code delta meant removing one import
+    # anywhere silenced the whole commit — a bigger hole than the flooring it replaced.
+    acc = {"code": 300, "comment": 10, "docstring": 0}
+    d = vol.delta(acc, {"code": 299, "comment": 10 + vol.FLOOR + 10, "docstring": 0})
+    assert d and vol.ratio(d) > vol.CEILING, d
+    # ...but a change that did not GROW the bucket has no growth for prose to be a fraction of.
+    assert vol.delta(acc, {"code": 100, "comment": 10 + vol.FLOOR, "docstring": 0}) is None
+
+
+@case("a ref that cannot be LISTED is not a ref that does not exist")
+def at_distinguishes_failure(_):
+    # `or {}` in main() reads None as a base holding nothing, which reports the whole repo as this
+    # one commit's work. A repo with no HEAD is that; a broken git call is not.
+    d = tree({"scripts/a.py": "x = 1\n"})
+    assert vol.at("HEAD", d) is None, "nothing committed yet, so there is no base"
+    d = tree({"scripts/a.py": "x = 1\n"}, commit=True)
+    real = subprocess.run
+
+    def ls_tree_fails(argv, **kw):
+        if "ls-tree" in argv:
+            return subprocess.CompletedProcess(argv, 128, "", "fatal: not a tree object")
+        return real(argv, **kw)
+
+    vol.subprocess.run = ls_tree_fails
+    try:
+        vol.at("HEAD", d)
+    except RuntimeError:
+        return
+    finally:
+        vol.subprocess.run = real
+    assert False, "a ref that resolves and then fails to list is not an empty tree"
+
+
+@case("JS nothing re-parsed is REPORTED, not counted")
+def unverified_is_unreadable(_):
+    # codehash's imperfection is affordable because a misclassification leaves something that does
+    # not parse. Without node on PATH nothing re-parses, so `code` comes back non-None for a file
+    # nothing checked and cannot-tell degrades to a false pass.
+    real = vol.codehash.code_of
+
+    def unverified(path, src):
+        code, n, _how = real(path, src)
+        return code, n, "UNVERIFIED (no node)"
+
+    vol.codehash.code_of = unverified
+    try:
+        assert vol.split("a.js", "let x; // c\n") is None
+    finally:
+        vol.codehash.code_of = real
+    assert vol.split("a.js", "let x; // c\n") == (1, 0, 0), "and verified JS still counts"
+
+
 @case("a listing that FAILED is not a repo with no prose in it")
 def listing_failure_raises(_):
     # Empty buckets are a clean run, so swallowing the return code turns "not a git repo" into a
@@ -296,7 +350,22 @@ def check_exempts_nothing(_):
     out = subprocess.run([sys.executable, os.path.join(HERE, "volume.py"), "--check",
                           "--root", d], capture_output=True, text=True)
     assert out.returncode == 1, out.stdout
-    assert "vendored" in out.stdout.split("wrong way")[0], out.stdout
+    row = next(l for l in out.stdout.splitlines() if l.strip().startswith("vendored"))
+    assert "this change is" in row, row
+
+
+@case("--check judges what is STAGED, not what is on disk")
+def check_reads_the_index(_):
+    # The hook is judging what is about to be committed. Under `git add -p` that is not what is on
+    # disk, and record-lint.py reads the index for the same reason.
+    d = tree({"scripts/a.py": "x = 1\n" * 40}, commit=True)
+    open(os.path.join(d, "scripts/a.py"), "a").write("# c\n" * 40)   # written, NOT staged
+    run = lambda *a: subprocess.run([sys.executable, os.path.join(HERE, "volume.py"), "--root", d]
+                                    + list(a), capture_output=True, text=True)
+    assert run("--check").returncode == 0, "unstaged prose is not this commit's"
+    assert "50.0%" in run().stdout, "...but the bare table does show the working tree"
+    subprocess.run(["git", "add", "-A"], cwd=d, capture_output=True)
+    assert run("--check").returncode == 1, "and staging it makes it this commit's"
 
 
 @case("the CSS stamp is the same stamp")

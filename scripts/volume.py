@@ -33,6 +33,9 @@ CLAUDE.md: measured over this repo's history the two are uncorrelated, the app s
 while CLAUDE.md grew by a third. A doc-to-code ratio would license the briefing to grow on any
 commit that adds code. CLAUDE.md's ceiling is attention, and it is stated there.
 
+The deltas are per BUCKET, so a rename across one reports as that file's own ratio — known, and
+cheaper than per-file identity across a commit.
+
 THE PROSE COMES FROM codehash, NOT A SECOND SCANNER, for the reason record-lint.py does it: a
 file's prose is its source minus its code, and the one place that question is settled is the file
 verified by re-parsing. A file codehash cannot classify is REPORTED rather than counted, because a
@@ -167,8 +170,10 @@ def split(path, src):
         # codehash is the authority on WHETHER this parses — it re-parses both sides. Asking it
         # first means an unterminated block comment is reported rather than counted by a line
         # reader that would not notice.
-        code, _, _ = codehash.code_of(path, src)
-        if code is None:
+        code, _, how = codehash.code_of(path, src)
+        # HOW it was verified is part of the answer: without node nothing is re-parsed, so `code`
+        # comes back non-None for a file nothing checked and cannot-tell degrades to a false pass.
+        if code is None or how.startswith("UNVERIFIED"):
             return None
         # `*` is NOT a mark: it is CSS's universal selector, and styles.css opens two rules with
         # it today. A JSDoc continuation line does start with it, but `inside` already owns those
@@ -189,12 +194,25 @@ def split(path, src):
     return None
 
 
+def sh_show(root, spec):
+    """`git show <spec>` as text, or None where it cannot be read."""
+    got = subprocess.run(["git", "show", spec], cwd=root, capture_output=True,
+                         text=True, errors="ignore")
+    return None if got.returncode else got.stdout
+
+
 def at(ref, root=ROOT):
     """measure() against a git ref, or None where the ref cannot be read (a first commit)."""
+    # ASKED SEPARATELY: a ref that does not resolve is a repo one commit old, and a ref that
+    # resolves and then fails to list is broken. `or {}` in main() reads None as a base holding
+    # nothing, which would report the whole repo as this one commit's work.
+    if subprocess.run(["git", "rev-parse", "--verify", "-q", ref + "^{commit}"],
+                      cwd=root, capture_output=True).returncode:
+        return None
     ls = subprocess.run(["git", "ls-tree", "-r", "-z", "--name-only", ref],
                         cwd=root, capture_output=True, text=True)
     if ls.returncode:
-        return None
+        raise RuntimeError("git ls-tree %s failed in %s: %s" % (ref, root, ls.stderr.strip()))
     out = {}
     for path in ls.stdout.split("\0"):
         # Filtered BEFORE the blob is read: a tree holds the PNGs and the shipped json too, and
@@ -202,14 +220,13 @@ def at(ref, root=ROOT):
         if not path or path.startswith(SKIP) \
                 or (not path.endswith(CODE) and not path.startswith(CONFIG)):
             continue
-        blob = subprocess.run(["git", "show", "%s:%s" % (ref, path)],
-                              cwd=root, capture_output=True, text=True, errors="ignore")
-        if blob.returncode:
+        src = sh_show(root, "%s:%s" % (ref, path))
+        if src is None:
             continue
-        b = bucket(path, blob.stdout)
+        b = bucket(path, src)
         if b is None:
             continue
-        got = split(path, blob.stdout)
+        got = split(path, src)
         if got is None:
             continue
         acc = out.setdefault(b, {"code": 0, "comment": 0, "docstring": 0})
@@ -219,9 +236,16 @@ def at(ref, root=ROOT):
     return out
 
 
-def measure(root=ROOT):
-    """({bucket: {code, comment, docstring}}, [paths it could not read])."""
+def measure(root=ROOT, staged=False):
+    """({bucket: {code, comment, docstring}}, [paths it could not read]).
+
+    `staged` reads the INDEX rather than disk, which is what --check wants: the hook judges what
+    is about to be committed, and under `git add -p` that is not what is on disk. The bare table
+    reads the working tree, where the question is what you are looking at.
+    """
     out, unread = {}, []
+    read = (lambda path, full: sh_show(root, ":" + path)) if staged else \
+        (lambda path, full: open(full, errors="ignore").read())
     listing = subprocess.run(["git", "ls-files", "-z"], cwd=root, capture_output=True, text=True)
     if listing.returncode:
         # Empty buckets are a clean --check, so a failed listing must raise rather than read as
@@ -231,11 +255,13 @@ def measure(root=ROOT):
         if not path:
             continue
         full = os.path.join(root, path)
-        if not os.path.isfile(full):
+        if not staged and not os.path.isfile(full):
             continue
         try:
-            src = open(full, errors="ignore").read()
+            src = read(path, full)
         except OSError:
+            continue
+        if src is None:          # staged as a deletion, or unreadable as text
             continue
         b = bucket(path, src)
         if b is None:
@@ -259,15 +285,15 @@ FLOOR = 20
 def delta(before, after):
     """What this change ADDED, or None where there is no ratio to take.
 
-    SIGNED, and a change that REMOVED code has none. Flooring each key at zero read a commit that
-    deleted a module and added a comment block as 100% prose, on a change that shrank the repo and
-    lowered the very ratio being complained about.
+    SIGNED, and tested on the NET: a bucket is every file at once, so refusing a negative code
+    delta bought silence for a whole commit in exchange for one removed import. What has no ratio
+    is a change that did not GROW the bucket.
     """
     before = before or {"code": 0, "comment": 0, "docstring": 0}
     d = {k: after[k] - before[k] for k in after}
-    if d["code"] < 0 or d["comment"] + d["docstring"] < FLOOR:
+    if d["comment"] + d["docstring"] < FLOOR or sum(d.values()) <= 0:
         return None
-    return {k: max(0, v) for k, v in d.items()}
+    return d
 
 
 def ratio(acc):
@@ -287,8 +313,8 @@ def main():
     ap.add_argument("--root", default=ROOT, help=argparse.SUPPRESS)
     a = ap.parse_args()
 
-    buckets, unread = measure(a.root)
-    # --check JUDGES THE CHANGE, NOT THE TOTAL. Both ceilinged buckets are well over today, so a
+    buckets, unread = measure(a.root, staged=a.check)
+    # --check JUDGES THE CHANGE, NOT THE TOTAL. Every bucket is well over today, so a
     # check against the total would be red on every commit — and unanswerable besides: nothing a
     # reader can do to the file in front of them clears a ratio the whole repo owns. The commit's
     # own ratio against the same ceiling is answerable, converges from wherever history sits, and
@@ -306,9 +332,10 @@ def main():
         flag = "  <-- over %.0f%%" % (CEILING * 100) if ratio(acc) > CEILING else ""
         if a.check:
             d = delta(was.get(name), acc)
+            # Capped: prose up while code comes down is a ratio over 1, which reads as a bug.
             if d and ratio(d) > CEILING:
                 flag += "%s this change is %.0f%% prose, over %.0f%%" % (
-                    ";" if flag else "  <--", ratio(d) * 100, CEILING * 100)
+                    ";" if flag else "  <--", min(1.0, ratio(d)) * 100, CEILING * 100)
                 over.append(name)
                 rows.append(dict(acc, bucket=name, change=d))
         say("  %-10s %7d %8d %8d %6.1f%%%s"
