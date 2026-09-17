@@ -8,33 +8,20 @@
 //
 //     scripts/ui-test.sh
 //
-// Every check here exists because something was WRONG. In order of how long each took to find:
-//   - selecting a dot called scrollIntoView, which scrolled the whole document and pushed the
-//     chart you just clicked off the screen ("document did NOT scroll on select")
-//   - a search DELETED the non-matching dots instead of dimming them, so "haydn" showed three
-//     dots in an empty box with no sense of where they sat ("search dims non-matching dots")
-//   - the y-axis title was rotated inside a 34px left margin on a phone and overlapped the tick
-//     labels, rendering "100" as "00" ("y-axis tick labels are not clipped")
-//   - six table columns overflowed 390px and pushed Quartets off the right edge
-//   - a pinch pushed dots out of the plot rectangle and left them lying in the margins
-//   - the x axis started at 1580 for a chart whose first PLOTTABLE composer is born 1709
-//   - the size legend's three numbers ran together into "1005k150k" on a phone
-//   - tapping a dot on a phone answered in a panel a full screen-height below the chart, and in
-//     full screen answered nowhere at all
+// Every check here exists because something was WRONG, and each says which thing where it stands.
+// Read that comment before deleting one.
 //
 // NB the runner uses a FRESH browser profile every time. sw.js serves the shell cache-first, so a
-// reused profile happily runs the previous edit's chart.js until V is bumped. That cost two
-// confusing test rounds during the build; it is the service worker working exactly as documented.
+// reused profile happily runs the previous edit's chart.js until V is bumped — the service worker
+// working exactly as documented.
 
 import { writeFileSync } from "node:fs";
 
 const [,, PORT, OUTDIR, ORIGIN] = process.argv;
-// BEFORE the fetch below, which is what actually dies first without them: a bare `node
-// scripts/ui.test.mjs` threw "Failed to parse URL from http://127.0.0.1:undefined/json/list" and
-// never reached the usage line printed for it. And NO DEFAULT ORIGIN — it used to fall back to
-// 127.0.0.1:8765, the runner's old fixed port; the runner derives that from the checkout's path
-// now (#49), so a default here could only be a guess at another run's port, and a wrong guess
-// does not fail, it loads a dead port or somebody else's page and blames this app for it.
+// BEFORE the fetch below, which is what dies first without them, with a URL parse error instead of
+// the usage line printed for it. And NO DEFAULT ORIGIN: the runner derives the ports from the
+// checkout's path (#49), so a default here could only guess at another run's, and a wrong guess
+// does not fail — it drives a dead port or somebody else's page and blames this app for it.
 if (!PORT || !OUTDIR || !ORIGIN) {
   console.error("usage: node scripts/ui.test.mjs <cdp-port> <outdir> <origin>\n"
     + "run scripts/ui-test.sh instead — it starts the server and the browser and knows both ports");
@@ -57,11 +44,9 @@ ws.addEventListener("message", e => {
 });
 // A CDP call that never answers used to end the whole run as node's "unsettled top-level await"
 // with ZERO lines of output — no check results, no page errors, no name for the call that died.
-// That is the worst failure shape this file has, and it is the one this file's own comments argue
-// against everywhere else. It is not hypothetical: `shot("print")` asked this Chromium for a
-// 2560x69872 image (~179 megapixels, the print stylesheet un-scrolls the table) and it dropped the
-// page target and closed the socket with 1006 (#50). The clip below fixes that particular ask; the
-// watchdog is what turns any future one into a sentence instead of silence.
+// Not hypothetical: `shot("print")` asked this Chromium for a ~179-megapixel image and it dropped
+// the page target (#50). The clip below fixes that particular ask; the watchdog is what turns any
+// future one into a sentence instead of silence.
 const CDP_TIMEOUT = 60000;
 let closed = null;
 const send = (method, params = {}) => new Promise((res, rej) => {
@@ -132,8 +117,8 @@ async function shot(name, params = {}) {
   // measured by what landed on disk. 9b reads these.
   shots.push({ name, w: png.readUInt32BE(16), h: png.readUInt32BE(20) });
 }
-// Print un-scrolls the table, so the page is 884 rows tall — ~35,000px, which at DSF is a
-// 179-megapixel ask that this Chromium answers by dropping the page target (#50).
+// Print un-scrolls the table, so the page is tens of thousands of pixels tall — an ask this
+// Chromium answers by dropping the page target (#50).
 // Clip the HEIGHT, and NOT the scale, which was the first answer and the wrong one. Whoever reads
 // these is reading a resized copy (see 9b): fewer megapixels buys nothing, because the long edge
 // is what the resize is driven by, and a taller capture therefore spends WIDTH. Full-page at half
@@ -148,19 +133,13 @@ const printClip = async (rows = 30) => ({ scale: 1, x: 0, y: 0,
     return r ? Math.ceil(r.getBoundingClientRect().bottom + scrollY)
              : document.documentElement.scrollHeight})()`) });
 async function goto(url) {
-  // A navigation that changes only the FRAGMENT is same-document: the app never re-runs, so
-  // goto(BASE + "#v=scatter") from BASE quietly left the previous section's view in place and the
-  // checks that followed tested the wrong chart.
-  //
-  // Forcing it with a follow-up Page.reload fixed that and introduced a RACE. The app rewrites its
-  // own URL on boot (writeHash -> replaceState) and drops anything it did not accept — an invalid
-  // "#g=chicken" becomes a bare path. When that rewrite landed between the navigate and the
-  // reload, the reload re-read the CLEANED url, the page came up in the DEFAULT Fame view, and
-  // a later section asking for #legend .ramp dereferenced null and killed the whole run: every
-  // check after it silently never ran. It failed intermittently, which is worse than always.
-  //
-  // about:blank first makes every goto a real cross-document load, so the fragment is on the URL
-  // the app boots from and there is nothing to race. Do not "simplify" this back to one navigate.
+  // A navigation that changes only the FRAGMENT is same-document: the app never re-runs, so a goto
+  // to "#v=scatter" leaves the previous section's view in place and every check after it tests the
+  // wrong chart. Forcing it with a follow-up Page.reload introduces a RACE instead — the app
+  // rewrites its own URL on boot and drops what it did not accept, so a reload landing after that
+  // re-reads the CLEANED url and the page comes up in the default view. about:blank first makes
+  // every goto a real cross-document load, so the fragment is on the URL the app boots from and
+  // there is nothing to race. Do not "simplify" this back to one navigate.
   await send("Page.navigate", { url: "about:blank" });
   await send("Page.navigate", { url });
   // Booted means DRAWN. The dots and the rows are the last synchronous thing start() produces, and
@@ -190,18 +169,15 @@ async function key(k) {
   }
 }
 // A DESKTOP call here means a fine pointer, and that is not something this file can arrange.
-// `Emulation.setEmulatedMedia` takes a `features` list and #50 prescribed hover/pointer
-// overrides through it — they are accepted with an empty result and change nothing, because
-// Blink's media-feature overrides cover prefers-color-scheme and its neighbours and not the
-// pointer ones. Nor does `mobile: true` below make a pointer coarse; only
-// `setTouchEmulationEnabled` does, which is why every phone section calls it.
+// `Emulation.setEmulatedMedia`'s `features` list accepts hover/pointer overrides, returns success
+// and ignores them — Blink's overrides cover prefers-color-scheme and its neighbours, not the
+// pointer ones. Nor does `mobile: true` make a pointer coarse; only `setTouchEmulationEnabled`
+// does, which is why every phone section calls it.
 //
-// So the pointer is a PLATFORM fact: macOS reports fine unconditionally, and a headless Linux
-// Chrome reports NONE, which fails `(hover:hover) and (pointer:fine)` and takes the lens, every
-// hover preview and the panel's reserved height with it — chart.js reads that query once into
-// `TOUCH`, and styles.css reserves the panel behind it. `ui-test.sh` answers it where it can be
-// answered, by running the browser on an Xvfb display, and section 2 asserts the answer arrived
-// rather than trusting it (#50).
+// So the pointer is a PLATFORM fact: macOS reports fine unconditionally and a headless Linux Chrome
+// reports NONE, which fails `(hover:hover) and (pointer:fine)` and takes the lens, every hover
+// preview and the panel's reserved height with it. `ui-test.sh` answers it where it can be, by
+// running the browser on an Xvfb display, and section 2 asserts the answer arrived (#50).
 const DSF = 2;
 async function viewport(w, h, mobile = false) {
   await send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: DSF, mobile });
@@ -230,13 +206,11 @@ async function view(m) {
   await settle(`Chart.getMode() === ${JSON.stringify(m)}`);
   await idle(); await relaid();
 }
-// Pins through the table row, as 4e does, and waits for the panel to be about THAT composer —
-// not merely for a caption, which whoever was pinned before already had. The pointer goes off the
-// chart first: on a real pointer a hover left over a dot previews over the pin, and the panel
-// would go on describing the composer under the mouse.
-// A name here is a canonical Wikipedia title and changes spelling when the pipeline runs
-// (invariant 4), so a miss is one red check that names the row — not a TypeError inside ev()
-// that ends the run with two hundred checks never reached.
+// Pins through the table row, as 4e does, and waits for the panel to be about THAT composer — not
+// merely for a caption, which whoever was pinned before already had. The pointer goes off the chart
+// first: on a real pointer a hover over a dot previews over the pin. A name here is a canonical
+// Wikipedia title and changes spelling when the pipeline runs (invariant 4), so a miss is one red
+// check naming the row rather than a TypeError that ends the run.
 async function pin(name) {
   await mouse("mouseMoved", 1, 1);
   const row = await ev(`(()=>{const r=[...document.querySelectorAll('tbody tr')]
@@ -245,16 +219,14 @@ async function pin(name) {
         "no row carries that title — renamed by the pipeline? every check pinning it fails from here");
   if (row) await settle(`document.querySelector('#detail h2')?.textContent === ${JSON.stringify(name)}`);
 }
-// One wheel event carrying the whole delta, not a loop of small ones with a pacer between them.
+// One wheel event carrying the whole delta, not a loop of small ones with a pacer between them:
 // d3-zoom scales by a power of two in deltaY about the pointer and recomputes the translate from
-// the gesture's FIRST anchor on every event, so six clicks of -120 and one click of -720 land on
-// the same transform; the loops were paying ~100ms an event for nothing the result could show.
-// Two things those loops were quietly absorbing are explicit here. The pointer is moved onto the
-// spot first, because a wheel at a position the pointer never visited is not a gesture a reader
-// can make. And the event is CHECKED for, not assumed: under emulation this Chromium drops a
-// synthetic wheel now and then — both of two, 80ms apart, in one run — and a loop of eight could
-// lose one and still pass, so an event that moves nothing is sent again, at most three times, and
-// the run prints how often it had to. That tally is the harness confessing, never the app.
+// the gesture's FIRST anchor, so many small clicks and one big one land on the same transform.
+// Two things the loops were quietly absorbing are explicit here. The pointer is moved onto the spot
+// first, because a wheel where the pointer never went is not a gesture a reader can make. And the
+// event is CHECKED for, not assumed: under emulation this Chromium drops a synthetic wheel now and
+// then, and a loop could lose one and still pass — so an event that moves nothing is sent again, at
+// most three times, and the run prints how often it had to. That tally is the harness confessing.
 let resentWheels = 0;
 async function wheel(x, y, dy) {
   await mouse("mouseMoved", x, y);
@@ -265,19 +237,17 @@ async function wheel(x, y, dy) {
     resentWheels++;
   }
 }
-// A boot is a CLAIM, not a reset (issue 48). Most of the 53 navigations this file used to make
-// were a way back to a known state — a full boot, the most expensive thing here, to clear a pill
-// or a pin, or to press one. Where the URL is what is under test (a bare URL opens on Fame, an
-// old #v=readers link still resolves, a #g=, #r= or #c= deep link arrives applied, an offline
-// reload paints) the boot stays. Where a section only needed a clean slate, rest() gets there
+// A boot is a CLAIM, not a reset (#48). Where the URL is what is under test — a bare URL opens on
+// Fame, an old #v=readers link resolves, a #g=, #r= or #c= deep link arrives applied, an offline
+// reload paints — the boot stays. Where a section only needs a clean slate, rest() gets there
 // through the app's own controls and then CHECKS it arrived, reading every piece of state a boot
-// would have cleared. If anything is still out of place it boots after all — and writes down
-// where, so a check at the end of the file can name every reset that did not land. A reset that
-// quietly reboots would hide the app failing to reset, which is the one thing this must not do.
+// would have cleared; if anything is out of place it boots after all and writes down WHERE, so a
+// check at the end of the file names every reset that did not land. A reset that quietly reboots
+// would hide the app failing to reset, which is the one thing this must not do.
 //
-// What an in-place reset cannot change is chart.js's TOUCH, read once at boot: so a section that
-// flips touch emulation still boots, and one that only needs another viewport asks for it and
-// waits for the re-layout (relaid()).
+// What an in-place reset cannot change is chart.js's TOUCH, read once at boot: a section that flips
+// touch emulation still boots, and one that only needs another viewport asks for it and waits for
+// the re-layout (relaid()).
 const AT_REST = `(()=>{const th=document.querySelector('thead th[aria-sort]');
   return JSON.stringify({mode:Chart.getMode(), lens:!!Chart.lensOn?.(), k:Chart.zoomK(),
     zoomed:!document.getElementById('reset').disabled,
@@ -342,12 +312,11 @@ const axName = async sel => {
 const BASE = ORIGIN + "/";
 const results = [];
 // `extra` prints either way, which is right for a MEASUREMENT — "34 dots grew >1.5x" reads
-// correctly under `ok` and `FAIL` alike, and that is what almost every call site passes. It is
-// wrong for a DIAGNOSIS, and there are exactly two of those: the checks with no measurement to
-// report, because the number IS the assertion. Both printed their own failure text on a GREEN run
-// before this slot existed (#52 review, twice — the second one after the first was hand-folded,
-// which is why this is a mechanism and not another ternary). `fail` is appended only when the
-// check actually failed, so the third diagnosis has somewhere to go.
+// correctly under `ok` and `FAIL` alike — and wrong for a DIAGNOSIS, where the number IS the
+// assertion and an `ok` line carrying failure text is the misreading the check exists to prevent
+// (#52). `fail` is appended only when the check actually failed, so a third diagnosis has somewhere
+// to go; it is a mechanism rather than a ternary per call site for the reason the first hand-fold
+// showed.
 const check = (name, cond, extra = "", fail = "") => {
   const note = cond ? extra : (fail || extra);
   results.push(`${cond ? "ok  " : "FAIL"} ${name}${note ? " — " + note : ""}`);
@@ -416,12 +385,10 @@ for (const m of ["scatter", "fame", "swarm"]) {
 check("the lens draws its boundary circle", await ev(`document.querySelectorAll('#plot svg circle.lens-edge').length === 1 &&
                  document.querySelector('#plot svg circle.lens-edge').style.display !== 'none'`));
 // THE CHECK THE FOURTH PILL COULD NOT PASS. The warp is applied to the laid-out picture in screen
-// space, so one fisheye serves three modes with no per-mode case — and this is what says so.
-// The BAR is the same in all three and deliberately low, because the count is a fact about how
-// crowded each picture is under one focus and not about the lens: the timeline piles ~67 dots
-// into that spot, the Fame cloud 22, and the swarm — which exists precisely so that nothing
-// overlaps, in a box half the height — 14. A bar tuned per view would be three numbers to
-// re-measure every time the roster grows.
+// space, so one fisheye serves three modes with no per-mode case — and this is what says so. The
+// BAR is the same in all three and deliberately low, because the count is a fact about how crowded
+// each picture is under one focus and not about the lens. A bar tuned per view would be three
+// numbers to re-measure every time the roster grows.
 check("the lens magnifies dots under the focus, in every view",
       ["scatter", "fame", "swarm"].every(m => magnified[m].grew >= 10),
       ["scatter", "fame", "swarm"].map(m => `${m} ${magnified[m].grew}`).join(", ") + " dots grew >1.5x");
@@ -438,14 +405,12 @@ check("the lens stays on across a view switch",
       await ev(`Chart.getMode() + ", lens " + !!Chart.lensOn?.()`));
 
 // AND IT IS CENTRED ON THE WORD, not on the word's line box. `align-items:center` centres boxes,
-// and "Lens" has no descender — so its ink stops at the baseline while the box holding it runs
-// further down to leave room for one, which hung the checkbox 1px low against the letters.
-// The oracle is the CAP BAND — cap line to baseline, the body of the word as a reader sees it —
-// probed from the page rather than stated: a zero-size inline-block finds the real baseline and
-// the canvas reports the font's own ascent for the string actually drawn. It has to be measured
-// and not written down, because the offset is a fact about the FACE: at 13px this browser hangs
-// the box 1.0px low in DejaVu and 0.5px HIGH in Liberation Sans, so any constant here would be
-// right on one machine and wrong on the next — which is #53's lesson, one component over.
+// and "Lens" has no descender — so its ink stops at the baseline while the box runs further down to
+// leave room for one, which hung the checkbox low against the letters. The oracle is the CAP BAND,
+// probed from the page rather than stated: a zero-size inline-block finds the real baseline and the
+// canvas reports the font's own ascent for the string actually drawn. It has to be MEASURED,
+// because how low it hangs is a fact about the FACE — across faces it runs from low to HIGH to
+// centred, so any constant here would be right on one machine and wrong on the next (#53).
 const lensOffset = await ev(`(()=>{
   const l=document.getElementById('lens-t'); if (!l) return null;
   const sp=l.querySelector('span'), i=l.querySelector('input');
@@ -464,15 +429,13 @@ check("the lens checkbox is centred on the word, not on its line box",
       lensOffset !== null && Math.abs(lensOffset) <= 0.75,
       lensOffset === null ? "" : `box centre ${lensOffset > 0 ? "+" : ""}${lensOffset}px from the cap band's`);
 // ...AND THE WHOLE ROW STILL SITS ON ONE BASELINE. The fix above is a trim, which moves the word
-// down onto the band it draws — so it is applied to every label in the row rather than to this
-// one, or "Lens" rides 1.23px under the pills beside it in exactly the faces the trim acts on.
-// That is the other half of the same edit and the half a screenshot would not show you.
-// The row is ENUMERATED here rather than listed: a check that names five selectors passes a sixth
-// control that was never trimmed, because it simply is not in the array — vacuous in the one way
-// that matters, since the whole point is to notice a control somebody adds later. It also asserts
-// the rule that makes the trim reachable: bare text in an inline-flex `.btn` lands in an anonymous
-// box no selector can reach, so every one of them keeps its label in a SPAN (#reset and
-// #reset-filters gained one for this), and a new one that does not is named rather than skipped.
+// down onto the band it draws — so it is applied to every label in the row rather than to this one,
+// or "Lens" rides under the pills beside it in exactly the faces the trim acts on.
+// The row is ENUMERATED rather than listed: a check naming five selectors passes a sixth control
+// that was never trimmed, which is vacuous in the one way that matters, since the point is to
+// notice a control somebody adds later. It also asserts the rule that makes the trim reachable:
+// bare text in an inline-flex `.btn` lands in an anonymous box no selector can reach, so every one
+// keeps its label in a SPAN, and a new one that does not is named rather than skipped.
 const rowBaselines = await ev(`(()=>{
   const at = el => { const p=document.createElement('span');
     p.style.cssText='display:inline-block;width:0;height:0';
@@ -491,15 +454,14 @@ check("...and every label in the row still shares one baseline",
       `${rowB.n} labels of ${rowB.ctrls} controls, ${rowB.spread}px apart` +
       `${rowB.bare.length ? `; label not in a span: ${rowB.bare.join(", ")}` : ""}`);
 
-// ON A POINTER THE LENS COMPOSES WITH THE ZOOM. It used to suspend it — the behaviour was simply
-// not bound while the box was checked — and that was one rule too blunt: the conflict is between
-// the AIM and the PAN, which are the same one-finger drag on a phone and two different inputs on a
-// mouse, so a wheel was being taken from a reader who was never in conflict with the glass and
-// nothing on the page said so. What replaced it is a zoom.filter keyed on the event (chart.js), so
-// the assertion here is the reader's: the wheel still zooms with the magnifier on, and it is still
-// on afterwards — the second half because a toggle that silently switched itself off would pass
-// the first. The TOGGLE moves no frame, checked against the k the wheel just reached rather than
-// against 1, so this cannot go green on a chart that has stopped zooming altogether.
+// ON A POINTER THE LENS COMPOSES WITH THE ZOOM. It used to suspend it, which was one rule too
+// blunt: the conflict is between the AIM and the PAN, the same one-finger drag on a phone and two
+// different inputs on a mouse, so a wheel was taken from a reader never in conflict with the glass.
+// A zoom.filter keyed on the event replaced it, so the assertion is the reader's: the wheel still
+// zooms with the magnifier on, and it is still on afterwards — the second half because a toggle
+// that silently switched itself off would pass the first. The TOGGLE moves no frame, checked
+// against the k the wheel just reached rather than against 1, so this cannot go green on a chart
+// that has stopped zooming altogether.
 await view("fame");
 const lensBox = await plotBox();
 const mid = { x: lensBox.x + lensBox.w * 0.5, y: lensBox.y + lensBox.h * 0.5 };
@@ -541,14 +503,13 @@ check("the arrows still step the selection with the lens checkbox focused",
       `focus on the box: ${focused}, ${beforeArrow} -> ${afterArrow}`);
 await rest();
 
-// AND AN AIMED LENS LEAVES THE RESTING VIEW'S NAMES ALONE — which is a decision, not an accident,
-// and the reverse was tried on this branch. The Fame view pins its label budget to the curated
-// seeds at rest so a bare URL says exactly what the view is about, and that is the picture the
-// share card draws. Unpinning it for an aimed lens named nothing extra (13 before, 13 after): a
-// ZOOM earns names by culling the frame so the ranking is over what is left, while the lens moves
-// pixels and culls nothing. What identifies the crowd it opens is the FLAG, which follows the
-// pointer — so this asserts the pin holds and that the dot under the glass is named, together,
-// because the first is only defensible while the second is true.
+// AND AN AIMED LENS LEAVES THE RESTING VIEW'S NAMES ALONE — a decision, not an accident, and the
+// reverse was tried. Fame pins its label budget to the curated seeds at rest so a bare URL says
+// exactly what the view is about, which is also the picture the share card draws; unpinning it for
+// an aimed lens named nothing extra, because a ZOOM earns names by culling the frame while the lens
+// moves pixels and culls nothing. What identifies the crowd it opens is the FLAG, so this asserts
+// the pin holds and the dot under the glass is named, together — the first being defensible only
+// while the second is true.
 const seedCount = await ev(`Chart.seedNames().length`);
 const namedDots = () => ev(`[...document.querySelectorAll('#plot svg text')]
   .filter(t=>new Set(ROWS.map(d=>Names.short(d.name))).has(t.textContent)).length`);
@@ -590,13 +551,12 @@ check("...because the dot under the glass is named by the flag instead",
       `aimed at ${dotUnder ? dotUnder.name : "no dot"}, flag reads ${JSON.stringify(flagUnderLens)}`);
 await rest();
 
-// A FIT IN FLIGHT SURVIVES THE TOGGLE. `zoom.transform` INTERRUPTS any transition on the node —
-// that is d3's own contract, not an accident — so a sync applied while a filter's 420ms fit is
-// still flying cancels it and leaves the chart frozen at whatever partial transform the tween had
-// reached, with Reset zoom lit over a frame nobody asked for. setMode() and resize() assign a new
-// transform before they sync, so theirs is a real move; the lens changes nothing about the frame,
-// which makes its sync a no-op whose only effect was the interrupt. Both presses go in ONE
-// evaluation so the toggle lands inside the tween rather than near it.
+// A FIT IN FLIGHT SURVIVES THE TOGGLE. `zoom.transform` INTERRUPTS any transition on the node — d3's
+// own contract — so a sync applied while a filter's fit is still flying cancels it and freezes the
+// chart at a partial transform, with Reset zoom lit over a frame nobody asked for. setMode() and
+// resize() assign a new transform before they sync, so theirs is a real move; the lens changes
+// nothing about the frame, which made its sync a no-op whose only effect was the interrupt. Both
+// presses go in ONE evaluation so the toggle lands inside the tween rather than near it.
 await rest();
 await ev(`document.querySelector('#gender button[data-g="female"]').click()`);
 await idle();
@@ -633,18 +593,15 @@ check("the keyboard focus ring survives an engine with no :has()",
       ring === null ? "" : `with every :has() rule dropped: ${ring}`);
 await goto(BASE);
 
-// THE ZOOM IS STILL ANCHORED TO THE BOX WITH THE LENS ON. This was written when the lens UNBOUND
-// the behaviour, and `zoom.extent()` sitting inside that branch meant a resize taken with the
-// magnifier on left d3 holding the box the chart used to be in — invisible in the picture, because
-// the dots are drawn, the axes are drawn, and only the frame is wrong. The branch is gone (the
-// lens now filters gestures rather than unbinding them), so what is left to assert is the weaker
-// half that outlived it: the toggle perturbs the anchoring no more than anything else does.
-// This reads the BOX d3 is holding rather than the frame it produced, because the frame differs
-// only where a fit is already hard against an edge — fourteen resize-and-filter pairs were probed
-// for a visible difference and not one of them reached it, so a check written on the symptom
-// would have been the green kind that proves nothing. Compared against the same steps with the
-// lens OFF rather than against a number, so the claim stays "the lens changes nothing about the
-// anchoring" and no box size is written down here to go stale.
+// THE ZOOM IS STILL ANCHORED TO THE BOX WITH THE LENS ON. Written when the lens UNBOUND the
+// behaviour and `zoom.extent()` sat inside that branch, so a resize under the magnifier left d3
+// holding the box the chart used to be in — invisible in the picture, since only the frame is
+// wrong. The branch is gone, so what is left is the weaker half: the toggle perturbs the anchoring
+// no more than anything else does. It reads the BOX d3 is holding rather than the frame it
+// produced, because the frame differs only where a fit is already hard against an edge — probed
+// over fourteen resize-and-filter pairs without reaching one, so a check on the symptom would have
+// been the green kind that proves nothing. Compared against the same steps with the lens OFF, so no
+// box size is written down here to go stale.
 const anchorAfterResize = async on => {
   await viewport(1280, 900, false);
   await goto(BASE);
@@ -684,14 +641,12 @@ check("an old #v=lens link opens the timeline with the lens on",
 // --- 2. hover flag on a real pointer -----------------------------------------
 await rest();
 // The premise of this section, of 7c2, 7d and 7e, and of the panel's reserved height — asserted
-// once, up front, rather than left to be inferred from a scatter of later checks failing at a
-// layout the app is right to be drawing. There is no CDP override for this (see viewport()): a headless Linux
-// Chrome reports no pointer at all, so `ui-test.sh` runs the browser on an Xvfb display to give
-// it a real one, and this is where that either arrived or did not. It is the mirror of "the phone
-// viewport really reports a touch pointer" in section 7.
-// A diagnosis, not a measurement, so it goes in `check`'s `fail` slot: an `ok` line reading "no
-// fine pointer" is the exact misreading this check exists to prevent, printed where a reader
-// looks for the answer.
+// once, up front, rather than inferred from a scatter of later checks failing at a layout the app
+// is right to be drawing. There is no CDP override for it (see viewport()), so `ui-test.sh` runs the
+// browser on an Xvfb display and this is where that either arrived or did not. Mirror of "the phone
+// viewport really reports a touch pointer" in section 7. A diagnosis, not a measurement, so it goes
+// in `check`'s `fail` slot: an `ok` line reading "no fine pointer" is the exact misreading this
+// exists to prevent.
 check("the desktop viewport really reports a fine pointer",
       await ev(`matchMedia('(hover:hover) and (pointer:fine)').matches`), "",
       "no fine pointer: chart.js's TOUCH is true, so nothing below hovers, and styles.css never "
@@ -821,13 +776,11 @@ await ev(`document.querySelector('#detail svg.spark').blur()`);
 await settle(summary);
 
 // --- 3d. the arithmetic edges, forced ------------------------------------------
-// Not reachable in today's readership.json — five series contain a zero month, none has a zero
-// median — but the roster is rebuilt from a scrape every month and the obscure tail is where a
-// zero median would first appear. Both of these rendered visible garbage before they were guarded.
-// The shape has to clear p95 > 0 as well as put the MEDIAN at zero, or the spike test
-// short-circuits on p95 and the Infinity is never reached: a majority of dead months, a tail of
-// live ones, and one big one. (A series with a single non-zero month has p95 == 0 and was always
-// safe — which is why the fixture is built deliberately rather than by intuition.)
+// Not reachable in today's readership.json, but the roster is rebuilt from a scrape every month and
+// the obscure tail is where a zero median would first appear. Both rendered visible garbage before
+// they were guarded. The shape has to clear p95 > 0 as well as put the MEDIAN at zero, or the spike
+// test short-circuits on p95 and the Infinity is never reached — which is why the fixture is built
+// deliberately rather than by intuition.
 const zeroMedianCap = await ev(`(()=>{
   const name = document.querySelector('#detail h2').textContent;
   window.__realSeries = HIST.series[name];
@@ -1214,14 +1167,12 @@ check("the table chip follows the view's encoding",
         return named && plain && named.querySelector('.chip').style.background
              !== plain.querySelector('.chip').style.background})()`));
 
-// Pinning a composer puts it FIRST in the label list so it cannot lose its label to a rival --
-// but in this view the list is only the 13 named, so a pin that is not one of them was hitting
-// indexOf === -1, and splice(-1, 1) deletes the LAST entry: Ravel lost his label every time you
-// clicked an unnamed dot.
-//
-// The pinned composer must therefore be one the view does NOT emphasise, or the check exercises
-// the wrong branch entirely. It used to name Tchaikovsky, who has since joined the repertoire --
-// so it is now picked from the table as the first row seedNames() does not contain.
+// Pinning a composer puts it FIRST in the label list so it cannot lose its label to a rival — but
+// the list here is only the named ones, so a pin outside them hit indexOf === -1 and splice(-1, 1)
+// deleted the LAST entry, costing an unrelated composer his label. The pinned composer must
+// therefore be one the view does NOT emphasise, or this exercises the wrong branch. Picked from the
+// table as the first row seedNames() does not contain, rather than named: a hardcoded one joined
+// the repertoire and quietly stopped testing the branch.
 const labelsBefore = await ev(`[...document.querySelectorAll('#plot svg text')]
   .filter(t => t.getAttribute('font-size') === '10.5').map(t => t.textContent)`);
 const pinned = await ev(`(()=>{const seeds=new Set(Chart.seedNames());
@@ -1280,19 +1231,15 @@ check("and the resting picture is still just the seed",
       "a derived name is showing at rest, where the view should say only what it is about");
 
 // --- 4e2. no two dots in one quartet stripe are drawn on top of each other ---------------------
-// Fame has no y jitter, so the x offset separates same-count composers alone. It was a per-name
-// hash, which separates ties on average and not in particular, and the pair it drew on top of each
-// other owned half the hit area of the dot covering it — see spreadJq in chart.js, and #45.
-//
-// WITHIN A STRIPE, and to a FLOOR rather than to "never touching", because neither is what spreadJq
-// guarantees: adjacent stripes overlap by construction, and inside a stripe the guarantee is about
-// dots adjacent in readership, so a long run of near-ties degrades it. Both residuals are in
-// #96. Tightening this bar to "never touching" would assert something the fix does not do.
+// Fame has no y jitter, so the x offset separates same-count composers alone — see spreadJq in
+// chart.js, and #45. WITHIN A STRIPE, and to a FLOOR rather than to "never touching", because
+// neither is what spreadJq guarantees: adjacent stripes overlap by construction, and inside one the
+// guarantee is about dots adjacent in readership, so a long run of near-ties degrades it (#96).
+// Tightening this bar would assert something the fix does not do.
 //
 // The floor is a constant but the margin is not: the closest pair and the base radius are printed
-// every run, so a change to dotRadius() or the aspect ratio shows up as a shrinking margin instead
-// of quietly making the bar meaningless. Both viewports, because the phone is the worse case — the
-// same jitter range is spent over a third of the width.
+// every run, so a change to dotRadius() or the aspect ratio shows up as a shrinking margin rather
+// than quietly making the bar meaningless. Both viewports, the phone being the worse case.
 for (const [label, vw, vh, mob] of [["1280x900", 1280, 900, false], ["390x844", 390, 844, true]]) {
   await viewport(vw, vh, mob);
   await relaid();
@@ -1698,13 +1645,13 @@ check("and it rings composers the curated set never held",
       womenRings.labels.every(n => !restRings.labels.includes(n)),
       "overlap: " + womenRings.labels.filter(n => restRings.labels.includes(n)).join(", "));
 // An outlier drawn on top of something already emphasised is not an outlier, it is clutter: the
-// ring used to land on Meredith Monk, whose disc came within 4px of Amy Beach's — two 6.75px dots
-// with a hairline between them. Prominence is distance from the CENTRE of the cloud, so a corner
-// full of composers all scores high and the tie was broken by nothing visual at all.
+// ring used to land a few pixels from a filled dot, two discs with a hairline between them.
+// Prominence is distance from the CENTRE of the cloud, so a corner full of composers all scores
+// high and the tie was broken by nothing visual at all.
 //
 // MEASURED, because the whole claim is about pixels. The bar is a whole dot's DIAMETER of clear
 // space between the closest ring and the closest fill — "not touching" is too weak to catch what
-// this fixes, since the old pick cleared touching by 4px and still read as one smudge.
+// this fixes, since the old pick cleared touching and still read as one smudge.
 // The measurement itself, reusable: the closest ring/fill pair, in the geometry on screen.
 const closestOf = `(()=>{const cs=getComputedStyle(document.documentElement);
   const paint=v=>{const el=document.createElement('i'); el.style.color=cs.getPropertyValue(v).trim();
@@ -1843,13 +1790,11 @@ check("every curated set is reachable by a pill",
       await ev(`JSON.stringify(Chart.repertoireKeys())`));
 
 // --- 4m. the lede says one static thing, and stays out of the layout's way ---------------------
-// It used to carry a clause BUILT from the chart — which set is picked out, its birth span, a
-// worked example — and three sections here checked it. That sentence is gone (issue 35): it could
-// empty or change length under a filter, which moved everything below it, so it dragged
-// reserveLede(), a ResizeObserver and a 20px page shift (issue 36) behind it. Nothing was lost by
-// cutting it that the page still needs: the legend and the axes each still state their own, and
-// the readership caveat was later cut from the footnote deliberately rather than moved, so nothing
-// here pretends it survived somewhere else.
+// It used to carry a clause BUILT from the chart, and three sections here checked it. That sentence
+// is gone (#35): it could empty or change length under a filter, moving everything below it, so it
+// dragged a ResizeObserver and a residual page shift (#36) behind it. Nothing the page still needs
+// was lost — the legend and the axes each state their own — and the readership caveat was later cut
+// deliberately rather than moved, so nothing here pretends it survived somewhere else.
 const ledeText = () => ev(`document.querySelector('.lede').textContent.replace(/\\s+/g,' ').trim()`);
 check("the lede is one static sentence", (await ledeText()) ===
       "Everyone on Wikipedia's List of String Quartet Composers, visualized.", await ledeText());
@@ -1882,26 +1827,18 @@ check("...and it reserves no height of its own to go stale",
 await rest();
 
 // --- 4m4. ...and neither does a view switch, because the switcher is no longer under the plot ---
-// The residue of 4m3 (issue 29). Reserving the lede settled the plot's TOP; its HEIGHT still
-// changes with the view, because measure() in chart.js picks an aspect ratio per mode — a
-// square-ish Fame cloud, a naturally wide timeline, a swarm as tall as its collisions demand. With
-// the controls under the plot, pressing Timeline on a phone lifted the pill you had just pressed
-// 52px (61px for the swarm, 150px at 1280), so a quick second press landed on the wrong control:
-// the same double-tap trap the full-screen strip's fixed height answers one component up.
+// measure() picks an aspect ratio per mode, so the plot's HEIGHT changes with the view. With the
+// controls under it, pressing a pill lifted that pill out from under a quick second press (#29).
+// The fix is the ORDER, not the ratios: the picture is honestly a different shape per view, and one
+// height for all three either squeezes the Fame cloud or leaves a blank band under the short ones.
+// Driven IN PLACE by the pills — a boot lays the page out once and could never show the jump.
 //
-// The fix is the ORDER, not the ratios — the picture is honestly a different shape per view, and
-// one height for all three either squeezes the Fame cloud or leaves a blank band under the short
-// ones. So the row moved above the plot and nothing a finger rests on is placed by a box the same
-// press resizes. Driven IN PLACE by the pills, like 4m3: a boot lays the page out once and could
-// never show the jump.
-//
-// THE LENS CHECKBOX IS IN THAT ROW and is asserted the same way, one press further. It is allowed
-// there because it is not a view: the plot's box is a function of the MODE alone, so the magnifier
-// resizes nothing — and a control that changed the height of the box it sits above would be the
-// same trap arriving through a checkbox instead of through a pill.
+// THE LENS CHECKBOX IS IN THAT ROW and is asserted the same way. It is allowed there because it is
+// not a view: the plot's box is a function of the MODE alone, so the magnifier resizes nothing, and
+// a control that did would be the same trap arriving through a checkbox instead of a pill.
 //
 // The plot's height is asserted to CHANGE in the same breath, or this passes on a chart that had
-// stopped resizing at all and the check would be measuring nothing.
+// stopped resizing at all.
 const segTop = () => ev(`document.querySelector('.controls .seg').getBoundingClientRect().top`);
 const plotHeight = () => ev(`document.getElementById('plot').getBoundingClientRect().height`);
 for (const [w, h, mobile] of [[390, 844, true], [1280, 900, false]]) {
@@ -1936,18 +1873,13 @@ for (const [w, h, mobile] of [[390, 844, true], [1280, 900, false]]) {
 await viewport(1100, 1500);
 
 // --- 4m5. ...and neither does a filter, because no control appears or disappears any more --------
-// The rule 4m4 settled, one row up. Issue 31 fixed the readership brush's own Clear button in
-// place — it appeared on the first frame of a drag, and it shared line one of `.filterbar` with the
-// "Readership" label, so showing it took that line from a 17.4px label to a 40px button and dropped
-// the brush, the pills and the plot 22.6px under the finger. Issue 35 removed the CATEGORY instead:
-// there is no per-filter Clear at all now, one permanent `Reset filters` button in .controls clears
-// all three, and a control that can never appear can never resize the row it is in.
-//
-// So this section no longer measures a step and hopes it is small. It asserts that going from no
-// filter to all three filters, by every route a reader has, moves NOTHING. Under touch emulation,
-// for the reason section 7 states: setDeviceMetricsOverride alone leaves (pointer:coarse) false, so
-// a 390px box is a narrow desktop, buttons measure 28px instead of 40px, and the numbers are not
-// the ones a phone gets.
+// The rule 4m4 settled, one row up. #31 fixed the brush's own Clear button in place; #35 removed
+// the CATEGORY instead, so one permanent `Reset filters` clears all three and a control that can
+// never appear can never resize the row it is in. So this no longer measures a step and hopes it is
+// small: it asserts that going from no filter to all three, by every route a reader has, moves
+// NOTHING. Under touch emulation, for the reason section 7 states — setDeviceMetricsOverride alone
+// leaves (pointer:coarse) false, so a 390px box is a narrow desktop and the numbers are not a
+// phone's.
 await viewport(390, 844, true);
 await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
 await goto(BASE);
@@ -1988,14 +1920,12 @@ check("brushing moves nothing, mid-drag or on release",
 check("...and the button lights up on the first frame of the drag",
       midState === `{"off":false,"lit":true}`, `mid-drag ${midState}`);
 
-// The grip is drawn OUTWARD from the selection edge (issue 40), so a selection pushed to either
-// end of the axis bleeds ~6.5px past the svg — histogram.js claims the card's padding absorbs it.
-// A phone is where that padding is tightest and the brush is widest, so measure it here instead of
-// taking the claim's word for it. Left in place afterwards: it moves no row top, which is what the
-// checks below are about.
-// max(1, …): the target is 30px left of the svg, which at 390px is x=1 — body padding 16 + border 1
-// + card padding 14. A negative coordinate may never reach the renderer, and the check would then
-// fail for a reason with nothing to do with the grip. Clamping keeps it past the axis end either way.
+// The grip is drawn OUTWARD from the selection edge (#40), so a selection pushed to either end of
+// the axis bleeds past the svg — histogram.js claims the card's padding absorbs it. A phone is where
+// that padding is tightest and the brush widest, so measure it rather than take the claim's word.
+// Left in place afterwards: it moves no row top, which is what the checks below are about.
+// max(1, …): a negative coordinate may never reach the renderer, and the check would then fail for a
+// reason with nothing to do with the grip. Clamping keeps it past the axis end either way.
 const past = Math.max(1, hb2.x - 30);
 await mouse("mousePressed", hb2.x + hb2.w * 0.4, hb2.y + hb2.h * 0.4);
 await mouse("mouseMoved",   past, hb2.y + hb2.h * 0.4);
@@ -2075,12 +2005,11 @@ check("sort by Died keeps living composers off the top",
 
 // --- 5b. the On IMSLP column --------------------------------------------------
 // The cell is a LINK whose text is a bare number, which is three ways to be wrong at once: it can
-// sort as a string, it can send a screen reader "18" with no destination, and its href is built
-// from a one-line rule that composers.json deliberately does not ship for most of the composers
-// who have one. All three are checked here, because none of them looks wrong on screen.
-// Every read below is guarded, for the reason the lens reads are (section 4m): ABLATION runs this
-// file against the tree WITHOUT the column, and a suite that throws there dies having proved
-// nothing instead of failing the checks that are supposed to notice.
+// sort as a string, it can send a screen reader a number with no destination, and its href is built
+// from a one-line rule composers.json deliberately does not ship for most composers who have one.
+// None of the three looks wrong on screen. Every read below is guarded, for the reason the lens
+// reads are: ABLATION runs this file against the tree WITHOUT the column, and a suite that throws
+// there dies having proved nothing instead of failing the checks meant to notice.
 await ev(`document.querySelector('th.c-imslp button')?.click()`);
 const imslpTop = await ev(`[...document.querySelectorAll('tbody tr')].slice(0, 12)
   .map(r => r.querySelector('td.c-imslp')?.textContent ?? '')`);
@@ -2153,18 +2082,14 @@ check("the phone viewport really reports a touch pointer",
       "setDeviceMetricsOverride alone does NOT: chart.js's TOUCH and the compact panel both key off this");
 
 // A ONE-FINGER DRAG AIMS THE GLASS RATHER THAN PANNING THE PICTURE, and this is the only section
-// that can prove it: zoom.filter (chart.js) answers per EVENT, so a mouse keeps its wheel and its
-// pan while a finger gives the pan up, and the two answers are reachable only from the two device
-// states. This is the side that COSTS something, which is why it is checked against the same drag
-// with the lens off rather than on its own: "the frame did not move" passes just as well on a
-// chart that cannot pan at all, and at k=1 no chart can — translateExtent is the plot box, so
-// there is nowhere to go until something has zoomed in. Hence the filter fit first.
+// that can prove it: zoom.filter answers per EVENT, so the two answers are reachable only from the
+// two device states. Checked against the same drag with the lens OFF rather than on its own,
+// because "the frame did not move" passes just as well on a chart that cannot pan at all — and at
+// k=1 none can, translateExtent being the plot box. Hence the filter fit first.
 //
 // Real touch events, not the mouse ones the rest of this section leans on: emulation makes the
-// MEDIA queries answer like a phone, but what the filter reads is `event.type`, and a check that
-// cannot tell a converted mouse event from a touch would be proving nothing about the line it is
-// aimed at. The premise is asserted for the same reason — the svg is asked whether a touchstart
-// ever reached it, rather than left to be assumed from the drag having been sent.
+// MEDIA queries answer like a phone, but the filter reads `event.type`. The premise is asserted the
+// same way — the svg is asked whether a touchstart reached it, rather than left to be assumed.
 const swipe = async (x0, y0, x1, y1) => {
   await send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: x0, y: y0 }] });
   for (let i = 1; i <= 6; i++)
@@ -2226,15 +2151,13 @@ await viewport(390, 844, true);
 await relaid();
 await ev(`(()=>{const b=document.getElementById('lens'); if (b?.checked) b.click(); show(null, false)})()`);
 await settle(`selected == null && !Chart.lensOn?.()`);
-// offsetParent is null while an element is `hidden`, so this scan only ever sees the controls that
-// are on screen RIGHT NOW. It ran at BASE with no range applied, and the readership brush's own
-// Clear button was the one control not on screen there — 28px for as long as this check existed,
-// 8px under the assertion, because an ID selector outranks `.btn` whatever the order (the same
-// specificity trap styles.css documents for `.seg.sm`). That button is gone (issue 35) and nothing
-// on the page hides itself any more, but the scan still runs in every state that could hide one:
-// filtered here, and at rest at BOTH phone widths in the loop below. It costs a pass each and it is
-// the only thing standing between a future state-dependent control and the same blind spot. A new
-// such state needs another pass.
+// offsetParent is null while an element is `hidden`, so this scan only ever sees the controls on
+// screen RIGHT NOW — and the one control that was not, the brush's own Clear button, sat under the
+// touch floor for as long as this check existed, because an ID selector outranks `.btn` whatever
+// the order. That button is gone (#35) and nothing on the page hides itself any more, but the scan
+// still runs in every state that could hide one: filtered here, and at rest at BOTH phone widths
+// below. It is the only thing standing between a future state-dependent control and the same blind
+// spot, so a new such state needs another pass.
 const tapTargets = async () => ev(`JSON.stringify([...document.querySelectorAll('.seg button,.btn')]
   .filter(b=>b.offsetParent && b.getBoundingClientRect().height < 36)
   .map(b=>(b.id||b.textContent.trim())+'='+b.getBoundingClientRect().height.toFixed(1)))`);
@@ -2257,19 +2180,14 @@ check("control tap targets >= 36px tall with a filter applied", smallFiltered ==
 await ev(`Histogram.clear()`);
 await settle(`document.getElementById('reset-filters').disabled`);
 // Both widths, and 360 is the one with teeth. The 390 assertion passed on macOS and failed on a
-// Linux runner (#53) for one reason: the fit had ~15px of slack in SF and none in DejaVu, which is
-// what system-ui resolves to there — so it was measuring the runner's font, not the layout. 360 is
-// the common Android width and the shipped table missed it in EVERY face, SF included (310 vs 296,
-// Views clipped mid-number). A phone check pinned to the one width where the narrowest font
-// happens to clear is a coin toss; two widths is what makes the padding and the abbreviated header
-// provable rather than merely un-failed.
-// EVERY phone check that has a width in it runs at both, not just the table's own box. 390 is an
-// iPhone; 360 is what most Android phones report, it is the width styles.css sizes the chart-tools
-// group for ("96px at 360 for an 86px group"), and until #53 nothing here had ever looked at it —
-// which is how a table that overflowed in every face at 360 sat behind a green suite. A width the
-// suite declares supported has to be a width the suite MEASURES: the page must not scroll
-// sideways, the table must fit its box, the columns must drop to four, the scroll affordance must
-// still be there, and nothing a finger lands on may shrink under the touch floor.
+// Linux runner (#53) because the fit had slack in SF and none in DejaVu — it was measuring the
+// runner's font, not the layout. 360 is the common Android width, and the shipped table missed it
+// in EVERY face, SF included. A phone check pinned to the one width where the narrowest font
+// happens to clear is a coin toss.
+// EVERY phone check that has a width in it runs at both, not just the table's own box: a width the
+// suite declares supported has to be a width the suite MEASURES — no sideways scroll, the table
+// inside its box, four columns, the scroll affordance present, and nothing a finger lands on under
+// the touch floor.
 for (const w of [390, 360]) {
   await viewport(w, 844, true);
   await relaid();
@@ -2288,12 +2206,11 @@ for (const w of [390, 360]) {
   check(`control tap targets >= 36px tall at ${w}px`, smallRest === "[]", `too small: ${smallRest}`);
 }
 // The abbreviation is a WIDTH fix and may not cost the column its name — in EITHER direction.
-// Hiding "Qts" from the accessibility tree and keeping only "Quartets" was the first shape here,
-// and it fails WCAG 2.5.3 (Label in Name): a reader who can see "Qts" says "click Qts", and voice
-// control matches against the accessible name, which did not contain it. So the name carries the
-// drawn label and the word it stands for, and this asserts the NAME the browser computes rather
-// than the two spans it comes from — an aria-label added later would override the markup while
-// leaving the DOM check green, which is the failure mode that made this worth a CDP call.
+// Hiding "Qts" from the accessibility tree and keeping only "Quartets" fails WCAG 2.5.3 (Label in
+// Name): a reader who can see "Qts" says "click Qts", and voice control matches the accessible
+// name. So the name carries the drawn label and the word it stands for, and this asserts the NAME
+// the browser computes rather than the two spans — an aria-label added later would override the
+// markup while leaving a DOM check green, which is what makes this worth a CDP call.
 const drawnLabel = await ev(`(()=>{const e=document.querySelector('th.c-quartets .th-short');
   return e && getComputedStyle(e).display !== 'none' ? e.textContent.trim() : ''})()`);
 const qtsName = await axName("th.c-quartets button");
@@ -2409,11 +2326,11 @@ await send("Emulation.setTouchEmulationEnabled", { enabled: false });
 // view. CLAUDE.md's placeChartTools() bullet has the why.
 //
 // It sets its own device state and its own URL. Everything up to the narrow-window check is about a
-// phone: without touch emulation a 390px box is a narrow desktop, the touch floor does not apply, and
-// the heights here are the wrong ones. The states at the END are deliberate — a narrow window with a
-// pointer, a laptop, a wide one, then the breakpoint itself — because each has a rule the phone cannot
-// reach. A BOOT rather than rest(), because after a full-screen round trip this Chromium forwards no
-// wheel to the page until a listener is registered afresh, and section 7 leaves the page there.
+// phone: without touch emulation a 390px box is a narrow desktop and the heights here are wrong. The
+// states at the END are deliberate — a narrow window with a pointer, a laptop, a wide one, then the
+// breakpoint itself — because each has a rule the phone cannot reach. A BOOT rather than rest(),
+// because after a full-screen round trip this Chromium forwards no wheel to the page until a
+// listener is registered afresh, and section 7 leaves the page there.
 await viewport(390, 844, true);
 await send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
 await goto(BASE);
@@ -2437,15 +2354,13 @@ check("...at the touch floor, and inside the plot",
             && r.top >= p.top - 0.5 && r.right <= p.right + 0.5})})()`),
       await ev(`[...document.querySelectorAll('#chart-tools .btn')].map(b=>{const r=b.getBoundingClientRect();
         return b.id+' '+r.width.toFixed(0)+'x'+r.height.toFixed(0)}).join(', ')`));
-// Exactly ONE glyph, or the 40px box holds two 18px icons side by side. `#chart-tools .btn .ico` is
-// (1,2,0) and out-specifies a bare `#fs .ico-out` (1,1,0), so the state rules have to carry the
-// group's id too — the same specificity trap that left #hist-clear under the touch floor in #31,
-// one selector along.
-// The glyph's SIZE, not just its presence. `#plot svg{width:100%}` means THE CHART, and moving
-// these buttons into #plot made it a descendant selector over their icons too: an 18px glyph
-// rendered at 38x38 — 95% of the button — with a 3.2px stroke, and `body.fs #plot svg{height:100%}`
-// did it again in full screen. Desktop could never show it, because there the buttons are still in
-// the controls row and the rule does not reach them. Measured against the BUTTON, so this stays
+// Exactly ONE glyph, or the 40px box holds two icons side by side: `#chart-tools .btn .ico`
+// out-specifies a bare `#fs .ico-out`, so the state rules have to carry the group's id too — the
+// same specificity trap that left #hist-clear under the touch floor in #31.
+// The glyph's SIZE, not just its presence. `#plot svg{width:100%}` means THE CHART, and moving these
+// buttons into #plot made it a descendant selector over their icons too, stretching an 18px glyph to
+// fill its button; `body.fs #plot svg{height:100%}` did it again in full screen. Desktop could never
+// show it, the buttons being words in the row there. Measured against the BUTTON, so this stays
 // meaningful if either size is retuned.
 check("the glyphs are icon-sized, not stretched to fill the button",
       await ev(`[...document.querySelectorAll('#chart-tools .ico')]
@@ -2484,12 +2399,10 @@ check("...drawn as a bare glyph, not a pill moved onto the chart",
         return 'border '+c.borderTopWidth+', bg '+c.backgroundColor})()`));
 // The copy confirmation, in the half that is visible here: the label the button used to swap is
 // `clip-path:inset(50%)` in this layout, so it acknowledged a copy nowhere a reader could see it.
-// WHICH BRANCH of share() gets there is a platform fact, and this comment used to assert one —
-// "navigator.share is absent in this browser and the clipboard write is refused without a
-// permission, so BOTH fallback branches land on copied()". The first CI run of this suite said
-// otherwise on Linux, so the branch is REPORTED rather than assumed, on a pass as well as a
-// failure: an environment named in a comment cannot go red, which is the rule this repo already
-// applies to every other mechanical claim.
+// WHICH BRANCH of share() gets there is a platform fact, and this comment used to assert one until
+// a CI run on Linux said otherwise. So the branch is REPORTED rather than assumed, on a pass as well
+// as a failure: an environment named in a comment cannot go red, which is the rule this repo applies
+// to every other mechanical claim.
 await ev(`(()=>{
   window.__share = { share: !!navigator.share, clipboard: !!navigator.clipboard,
                      secure: isSecureContext, focus: document.hasFocus(), write: "not called" };
@@ -2516,13 +2429,11 @@ check("...and goes back to the share glyph afterwards",
       await ev(`(()=>{const b=document.getElementById('share');
         return !b.classList.contains('copied')
           && b.querySelector('.btn-t').textContent.trim() === 'Share'})()`));
-// A CLIPBOARD WRITE THAT NEVER SETTLES still has to acknowledge, and it is not a hypothetical:
-// it is what the probe above found this suite's own Linux runner doing — `write: "pending"` four
-// seconds after the press, with `navigator.share` absent, so share() awaited a promise with no
-// rejection to catch and the button promised nothing. Stubbed rather than waited for, because the
-// platform that does it is not the platform this check has to run on: on macOS the real write
-// REJECTS, which the catch has always handled, and a check that only bites under Xvfb would leave
-// the fix unproven everywhere it is developed.
+// A CLIPBOARD WRITE THAT NEVER SETTLES still has to acknowledge, and it is not hypothetical: it is
+// what the probe above found this suite's own Linux runner doing, leaving share() awaiting a promise
+// with no rejection to catch and the button promising nothing. Stubbed rather than waited for,
+// because on macOS the real write REJECTS, which the catch has always handled — a check that only
+// bites under Xvfb would leave the fix unproven everywhere it is developed.
 await ev(`(()=>{ window.__clip = navigator.clipboard;
   Object.defineProperty(navigator, 'clipboard',
     { value: { writeText: () => new Promise(() => {}) }, configurable: true });
@@ -2573,14 +2484,12 @@ check("the overlay covers and shadows nothing, in any view or phone width",
       `worst view covers ${worstDots} dots${worstDots ? ` at ${worstWidth}px` : ""}; ` +
       `labels: ${coveredNames.join(", ") || "none"}`);
 
-// At rest is not the only state. The dot clip is inset OUTWARD by one maximum radius, so under a pinch
-// the sliver of a dot whose centre is just inside the top edge draws up into the band, under the
-// invisible target. The target cannot be shortened to miss it without going under the 40px floor, so
-// the guarantee is one step weaker and it is this: no dot's CENTRE is ever under the target, because
-// the frame test only draws a dot whose centre is inside the plot rect and that rect starts below it.
-// The GUARANTEE, not a sample of it: a state-by-state hunt for the bad case is a check that passes by
-// not finding one. What holds in every state instead is arithmetic, and this is the one measurement
-// the band exists to make true.
+// At rest is not the only state. The dot clip is inset OUTWARD by one maximum radius, so under a
+// pinch the sliver of a dot whose centre is just inside the top edge draws up under the invisible
+// target. Shortening the target to miss it would go under the 40px floor, so the guarantee is one
+// step weaker: no dot's CENTRE is ever under it, because the frame test only draws a dot whose centre
+// is inside the plot rect and that rect starts below. The GUARANTEE, not a sample of it — a
+// state-by-state hunt for the bad case is a check that passes by not finding one.
 check("...and its bottom stays above the plot area, so no dot's CENTRE can fall under it at any zoom",
       await ev(`(()=>{const t=document.getElementById('chart-tools').getBoundingClientRect();
         return document.querySelector('#plot svg rect.bg').getBoundingClientRect().top - t.bottom >= 0})()`),
@@ -2590,10 +2499,9 @@ check("...and its bottom stays above the plot area, so no dot's CENTRE can fall 
 // And it fits INSIDE the reservation rather than merely happening to miss the dots: the band is the
 // plot group's own translate, read off the DOM, so this goes red the moment Chart.setTopReserve is
 // dropped or the buttons grow — before anything is visibly covered. Zero coverage above is the
-// symptom; this is the cause, and the cause is what a reader needs when it breaks.
-// Read off the SVG transform MATRIX, not by parsing the attribute: a `\d` inside a template
-// literal is consumed before the browser ever sees it, which is a good way to write a regex that
-// silently matches nothing and a check that silently passes.
+// symptom; this is the cause. Read off the SVG transform MATRIX, not by parsing the attribute: a
+// `\d` inside a template literal is consumed before the browser sees it, which is a good way to
+// write a regex that matches nothing and a check that silently passes.
 const band = await ev(`(()=>{const tops=[...document.querySelectorAll('#plot svg > g')]
     .map(g=>{const c=g.transform.baseVal.consolidate(); return c ? c.matrix.f : 0});
   const tools=document.getElementById('chart-tools').getBoundingClientRect();
@@ -2656,13 +2564,12 @@ check("a narrow window with a mouse gets the same geometry, not a 36px button",
         return r.height.toFixed(1)+'px tall, glyph '
           + ((g.top+g.bottom)/2 - (t.top+t.bottom)/2).toFixed(1)+'px off the title'})()`));
 
-// THE LOOK FOLLOWS THE PARENT, NOT THE WIDTH. app.js places the group and styles.css scopes the
-// icon look to `#plot > #chart-tools`, so a group still in the row is a word button at any width.
-// While that look lived in a width query the two answers were independent, and every state where
-// placeChartTools() had not run yet drew the icon look in the controls row — a cold boot before
-// app.js, and permanently on start()'s error path, which bails before the move and would have left
-// two bare glyphs with clipped labels and no handlers in the row. Moving the node by hand is the
-// one way to enter that state deliberately, since the real one needs a failed fetch.
+// THE LOOK FOLLOWS THE PARENT, NOT THE WIDTH. app.js places the group and styles.css scopes the icon
+// look to `#plot > #chart-tools`, so a group still in the row is a word button at any width. While
+// that look lived in a width query the two answers were independent, and every state where
+// placeChartTools() had not run yet drew the icon look in the row — a cold boot, and permanently on
+// start()'s error path, which bails before the move. Moving the node by hand is the one way to enter
+// that state deliberately, since the real one needs a failed fetch.
 {
   await ev(`document.querySelector('.controls').appendChild(document.getElementById('chart-tools'))`);
   const inRow = await ev(`(()=>{const s=document.querySelector('#share .ico'), t=document.querySelector('#share .btn-t');
@@ -2719,14 +2626,12 @@ check("a wheel over the glyphs zooms the chart, like the band they sit in",
 
 // ...AND A WHEEL IT DECLINES MUST FALL THROUGH TO THE PAGE, by the same amount over the glyphs as
 // beside them. That is the rule in full — "the corner does what the band beside it does" — and the
-// zoom-in above is only half of it, the half the zoom always accepts. `scaleExtent` starts at 1 and
-// the resting view is already there, so every scroll DOWN at rest is declined; d3 does not cancel
-// what it declines, and a forward that cancelled anyway put an 86x40 hole in the page's scrolling
-// in the DEFAULT view at rest (0px under the glyphs against 120px beside them). WITH THE LENS ON
-// it must be the SAME property and not a stricter one: the magnifier leaves the wheel alone, so
-// the corner declines exactly the scrolls the bare chart declines and no others. It is asserted in
-// both states because the lens used to unbind the zoom entirely, where every wheel fell through —
-// which passed this and would pass it again.
+// zoom-in above is only the half the zoom always accepts. `scaleExtent` starts at 1 and the resting
+// view is already there, so every scroll DOWN at rest is declined; d3 does not cancel what it
+// declines, and a forward that cancelled anyway put a button-sized hole in the page's scrolling in
+// the DEFAULT view. WITH THE LENS ON it must be the SAME property and not a stricter one. Asserted
+// in both states because the lens used to unbind the zoom entirely, where every wheel fell through
+// — which passed this and would pass it again.
 const fell = {};
 for (const m of ["fame", "lens"]) {
   await view("fame");
@@ -2766,14 +2671,12 @@ check("on a desktop they are words in the controls row again",
           && document.querySelector('#share .btn-t').offsetParent !== null})()`),
       "parent = " + await ev(`document.getElementById('chart-tools').parentNode.className`));
 
-// 1140 is the FIRST width that draws the words, and the reason the breakpoint is not 1086, where
-// the row fits them AT REST: share() swaps the label to "Link copied", which is wider than "Share"
-// and pushes the edge out 36px, to 1122. (The low band pays the same 36: 772 at rest, 808 with the
-// swap.) A row that wraps on the PRESS drops the plot 44px under the cursor that
-// just pressed it — the rule the chart's controls already follow one row down (see index.html).
-// Measured at the boundary, because that is the only width where a few pixels of drift show up.
-// Both numbers moved when the lens became a checkbox in this row, which is the whole reason they
-// are checks and not arithmetic: the row is 28px wider than it was with a fourth pill.
+// 1140 is the FIRST width that draws the words, and the breakpoint is not the width the row fits
+// them AT REST: share() swaps the label to "Link copied", which is wider than "Share" and pushes
+// each edge out by the same amount. A row that wraps on the PRESS drops the plot under the cursor
+// that just pressed it — the rule the chart's controls already follow one row down. Measured at the
+// boundary, the only width where a few pixels of drift show up. Both numbers moved when the lens
+// became a checkbox in this row, which is the whole reason they are checks and not arithmetic.
 await viewport(1140, 900, false);
 await goto(BASE);
 await settle(`document.getElementById('chart-tools').parentNode.classList.contains('controls')`);
@@ -2886,13 +2789,11 @@ check("the reservation covers the LONGEST caption, not just the first one tested
       + (await ev(`document.querySelector('#viz .legend').getBoundingClientRect().top`)).toFixed(0));
 
 // The "where else this composer is" row is the one thing in the panel that says a DIFFERENT
-// SENTENCE per composer — two pills with a work count, two pills saying no quartets, or one pill
-// and a muted "no page found" — so it is the one that could quietly reintroduce the
-// variable-height paragraph #35 cut. THAT ROW's box is measured rather than the panel's, because
-// the panel's height moves with the sparkline caption and the name too and would hide a wrap in
-// here behind a shorter caption somewhere else.
-// The three composers are CHOSEN FROM THE DATA, not named: these are canonical Wikipedia titles
-// and they change spelling when the pipeline runs (invariant 7).
+// SENTENCE per composer, so it is the one that could quietly reintroduce the variable-height
+// paragraph #35 cut. THAT ROW's box is measured rather than the panel's, because the panel's height
+// moves with the caption and the name too and would hide a wrap in here behind a shorter caption.
+// The three composers are CHOSEN FROM THE DATA, not named: canonical Wikipedia titles change
+// spelling when the pipeline runs (invariant 7).
 const trio = await ev(`(()=>{const f=p=>(ROWS.find(p)||{}).name||'';
   return {works: f(d=>d.imslpUrl && d.imslp > 3), none: f(d=>d.imslpUrl && !d.imslp),
           absent: f(d=>!d.imslpUrl)}})()`);
@@ -2984,12 +2885,11 @@ await send("Emulation.setEmulatedMedia", { media: "" });
 
 // --- 9b. AND THE SCREENSHOTS' OWN RESOLUTION --------------------------------------------------
 // Nothing asserts on the PNGs and the directory is deleted unless KEEP=1, so what they are FOR is
-// the one look at the page a failure gets — read, increasingly, by a model rather than by eyes.
-// An image handed to one is resampled to fit a long-edge cap AND a visual-token budget, at the
-// largest size satisfying both, so height spends width: the full-page print shot this issue began
-// with is 1280x34,936 and arrives 94px wide, 368 tokens of a page nothing can read, at any capture
-// scale. That is why "make it fewer megapixels" was the wrong fix and clipping the height was the
-// right one, and this is the property the clip bought, pinned so it cannot drift back.
+// the one look at the page a failure gets — read, increasingly, by a model rather than by eyes. An
+// image handed to one is resampled to fit a long-edge cap AND a visual-token budget, so HEIGHT
+// SPENDS WIDTH: the full-page print shot arrives under 100px wide at any capture scale. That is why
+// "make it fewer megapixels" was the wrong fix and clipping the height the right one, and this is
+// the property the clip bought, pinned so it cannot drift back.
 // It does NOT catch #50's hang — that shot never returns to be measured. It catches the same
 // mistake where the capture SUCCEEDS and only the picture is lost, which is every other machine.
 {
