@@ -6,33 +6,30 @@
 
     python3 scripts/fetch_wikidata.py            # reads data/list.json, writes data/people.json
 
-Three jobs in one pass, because they need the same batched MediaWiki lookup:
+Three jobs in one pass, because they need the same batched MediaWiki lookup, and all three cache to
+data/people.json so the rest of the pipeline needs no network:
 
-1. CANONICAL TITLES. Page views are counted per title, and a redirect is its own title with its
-   own (tiny) count — asking for "Bela Bartok" returns 41 views instead of Béla Bartók's 14,330,
-   with a 200 and no complaint. Everything downstream must use the canonical title, so it is
-   resolved once here and cached.
+1. CANONICAL TITLES. Views are counted per title and a redirect is its own title with its own tiny
+   count — "Bela Bartok" returns 41 instead of Béla Bartók's 14,330, with a 200 and no complaint.
 
-2. BIRTH AND DEATH YEARS. The list page states dates in prose and is only as current as its last
-   editor; Wikidata has them as structured claims (P569 born, P570 died) that a bot keeps fresh.
-   This is what retires the old inferred "living in 2014" flag: a composer either has a death year
-   or does not, as of today, rather than as of a decade-old snapshot.
+2. BIRTH AND DEATH YEARS, from P569/P570 rather than the list page's prose, which is only as
+   current as its last editor. This is what retires the old inferred "living in 2014" flag: a
+   composer either has a death year or does not, as of today.
 
-3. SEX OR GENDER. P21, taken as Wikidata states it and labelled with Wikidata's own words. It is
-   not a claim this project makes about anyone, and it is not inferred: a composer with no P21
-   claim, or with no Wikidata item at all, gets null and stays null. Names and pronouns are NOT a
-   fallback — a guess here is a guess about a person, and the whole point of reading a structured
-   claim is that it is attributable to a source that can be corrected.
+3. SEX OR GENDER. P21 as Wikidata states it, in Wikidata's own words. Not a claim this project
+   makes about anyone and never inferred: no P21 claim, or no item at all, gets null and stays
+   null. Names and pronouns are NOT a fallback — a guess here is a guess about a person, and the
+   point of reading a structured claim is that it is attributable to a source that can be corrected.
 
-All three are cached in data/people.json, so re-running the rest of the pipeline needs no network.
+WHERE THE TWO SOURCES DISAGREE the Wikidata value wins and the disagreement is REPORTED: a silent
+divergence between the chart's dates and the page it links to is the kind of thing nobody notices
+for years. Expect a handful — the list page lags Wikidata on recent deaths.
 
-WHERE THE TWO SOURCES DISAGREE the Wikidata value wins and the disagreement is reported, because a
-silent divergence between the chart's dates and the page it links to is the kind of thing nobody
-notices for years. Expect a handful: the list page lags Wikidata on recent deaths.
+PRECISION IS KEPT. P569 can be precise to the day or only to the century, and a year derived from
+century precision is a guess, so anything coarser than year precision is dropped rather than
+rounded and the row falls back to the prose date.
 
-PRECISION IS KEPT. P569 can be precise to the day or only to the century; a "birth year" derived
-from century precision is a guess. Anything coarser than year precision is dropped rather than
-rounded, and the row falls back to the list page's prose date.
+
 """
 import json
 import os

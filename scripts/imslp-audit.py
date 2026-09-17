@@ -8,21 +8,21 @@
     python3 scripts/imslp-audit.py            # -> imslp-audit.html
 
 Every work page of the curated composers, with the RAW `Opus/Catalogue Number` field IMSLP serves
-printed beside the work ids this repo made of it, and a link to the page so a disagreement can be
-settled by looking. That is invariant 11's rule applied to a second parser: the measure of
-`build_imslp.py`'s counting is a human reading it against the page, not its agreement with the
-quartet count in composers.json, which answers a different question and is itself prose.
+beside the work ids this repo made of it, and a link so a disagreement is settled by looking. That
+is invariant 11's rule applied to a second parser: the measure of build_imslp.py's counting is a
+human reading it against the page, not its agreement with composers.json's quartet count, which
+answers a different question and is itself prose.
 
-WHY THESE. `CANON`, `OUTLIERS` and `WOMEN_CANON` in chart.js are the composers the Fame view
-draws filled and named, so they are the rows a reader looks at, the rows any error is seen in
-first, and — canonical composers, deliberate outliers, and women whose catalogues are the least
-well served by reference works — a fair spread of the ways this parse can go wrong. The lists are
-READ from chart.js rather than copied, because they change spelling when the pipeline runs
-(invariant 7) and a copy here would quietly stop matching.
+WHY THESE. `CANON`, `OUTLIERS` and `WOMEN_CANON` are the rows the Fame view draws filled and named,
+so they are where an error is seen first — and between canonical composers, deliberate outliers,
+and women whose catalogues are least well served by reference works, a fair spread of the ways this
+parse goes wrong. READ from chart.js rather than copied, because they change spelling when the
+pipeline runs (invariant 7).
 
-Rows are marked where the parse deserves a second look: a page with no catalogue number at all, an
-anthology dropped for having none, and any page whose expansion produced more works than its title
-implies.
+Rows are marked where the parse deserves a second look: no catalogue number at all, an anthology
+dropped for having none, and an expansion that produced more works than its title implies.
+
+
 """
 import argparse
 import datetime
