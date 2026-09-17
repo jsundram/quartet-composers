@@ -517,6 +517,13 @@ with tempfile.TemporaryDirectory() as tmp:
          and any("scripts/record-lint.py" in files for files, _c in _ab.COVERS), True,
          "SOURCE must match a file for plan() to route it to its COVERS suite")
 
+    # codehash.py, which is the sharpest of the three: both gates IMPORT it to decide whether a
+    # hunk is comments-only, so a change to it moves what they ask for — and it was in NEITHER
+    # table, so plan() never saw it and nothing ablated a change to it.
+    case("codehash is reachable by the gate that claims to cover it",
+         bool(_ab.SOURCE.match("scripts/codehash.py"))
+         and any("scripts/codehash.py" in files for files, _c in _ab.COVERS), True,
+         "SOURCE must match a file for plan() to route it to its COVERS suite")
     case("the volume budget is reachable by the gate that claims to cover it",
          bool(_ab.SOURCE.match("scripts/volume.py"))
          and any("scripts/volume.py" in files for files, _c in _ab.COVERS), True,
