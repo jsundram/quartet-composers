@@ -5,6 +5,8 @@ build step; the deployed files are the repo's files. README.md says what the app
 
 ## Where a thing goes
 
+Three destinations, and keeping them apart is what keeps this file short.
+
 **Here: rules.** What to do, and what breaks otherwise.
 
 **The commit and the issue: history.** What happened and why, attached to the diff that did it. A
