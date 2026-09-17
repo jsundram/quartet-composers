@@ -167,16 +167,17 @@ def canon(n):
 
 
 def prose_numbers(path, src):
-    """({value: count} for the file's PROSE, its spellings, why-not). Code is subtracted."""
+    """({value: count} for the file's PROSE, its spellings, the code text, why-not)."""
     src = META.sub("", src)
     if path.endswith(".md"):
         code = "\n".join(FENCE.findall(src))
     else:
         code, _, how = codehash.code_of(path, src)
         if code is None:
-            return None, None, how
+            return None, None, None, how
     (whole, forms), (in_code, _) = numbers(src), numbers(code)
-    return {k: c - in_code.get(k, 0) for k, c in whole.items() if c > in_code.get(k, 0)}, forms, None
+    return ({k: c - in_code.get(k, 0) for k, c in whole.items() if c > in_code.get(k, 0)},
+            forms, code, None)
 
 
 # A line that opens with one of these is prose beyond argument. It is only used to ORDER the
@@ -185,7 +186,7 @@ def prose_numbers(path, src):
 PROSE_LINE = re.compile(r"^\s*(#|//|/\*|\*|\"\"\"|\'\'\')")
 
 
-def lines_with(src, spellings):
+def lines_with(src, spellings, code=""):
     """The lines quoting ANY spelling of one number, prose-looking ones first, then in file order.
 
     The multiset above has deliberately forgotten which line a number came from — that is what
@@ -193,13 +194,20 @@ def lines_with(src, spellings):
     every spelling because the key is a value now: `0.20` and `0.2` are one finding, and the line
     worth pointing at is whichever of them a comment wrote.
     """
+    # THE CODE TEXT IS THE BETTER ORACLE, where there is one. PROSE_LINE only knows comment
+    # markers, so in markdown — where prose carries no marker and a fenced line carries none
+    # either — the tie fell to file order and a finding landed INSIDE the fence that
+    # prose_numbers() had just treated as code. A line that appears verbatim in the code is
+    # ranked last. For Python the code is an ast.dump and matches no source line, so nothing
+    # changes there and the marker rule still decides.
+    code_lines = {l.strip() for l in code.split("\n") if l.strip()}
     hits = []
     for num in dict.fromkeys(spellings):
         pat = (re.compile(r"\b" + re.escape(num) + r"\b", re.I) if num.isalpha()
                else re.compile(r"(?<![\w.#$%-])" + re.escape(num) + r"(?![\w%])"))
         hits += [(i, l.strip(), num) for i, l in enumerate(src.split("\n"), 1)
                  if pat.search(EXEMPT.sub(" ", l))]
-    return sorted(hits, key=lambda h: (not PROSE_LINE.match(h[1]), h[0]))
+    return sorted(hits, key=lambda h: (h[1] in code_lines, not PROSE_LINE.match(h[1]), h[0]))
 
 
 def head_src(path):
@@ -220,7 +228,7 @@ def staged_src(path):
 
 def check(path, old_src, new_src):
     """(findings, note) — the numbers this change ADDS to `path`'s prose."""
-    new, forms, why = prose_numbers(path, new_src)
+    new, forms, code, why = prose_numbers(path, new_src)
     if new is None:
         return [], f"{path}: cannot tell prose from code — {why}"
     old = prose_numbers(path, old_src)[0] if old_src else {}
@@ -231,7 +239,7 @@ def check(path, old_src, new_src):
             # A finding the locator cannot place is still a finding. Appending only inside the
             # loop over lines_with() dropped it instead, so any disagreement between the two
             # places that blank exempt forms deleted a real report rather than mis-pointing it.
-            where = lines_with(new_src, forms.get(n, [n])) or [(0, "", n)]
+            where = lines_with(new_src, forms.get(n, [n]), code) or [(0, "", n)]
             found.append((path, where[0][0], where[0][2], where[0][1]))
     return found, None
 

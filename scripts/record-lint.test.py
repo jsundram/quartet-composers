@@ -231,6 +231,21 @@ def canon_is_textual(_):
     assert [(l, n) for _p, l, n, _t in found] == [(3, "9")], found
 
 
+@case("a finding points at PROSE, not at the code line that shares its number")
+def located_in_prose(_):
+    # PROSE_LINE only knows comment markers. In markdown neither a prose line nor a fenced line
+    # carries one, so the tie fell to file order and the finding landed INSIDE the fence that
+    # prose_numbers() had itself treated as code. The code text is the better oracle where there
+    # is one: a line that appears verbatim in it is ranked last.
+    md = "Notes.\n\n```\nconst N = 1000;\n```\n\nThe roster holds 1,000 composers.\n"
+    found, _ = rl.check("D.md", "", md)
+    assert [(l, n) for _p, l, n, _t in found] == [(7, "1,000")], found
+    # ...and the same in a language where the marker rule COULD have answered, since ranking the
+    # code line last is what makes the two agree rather than the marker happening to be there.
+    found, _ = rl.check("a.js", "", "const N = 462;\n// the 462 placed composers\n")
+    assert [(l, n) for _p, l, n, _t in found] == [(2, "462")], found
+
+
 @case("a number the CODE spells differently is still the code's")
 def code_spelling_is_not_prose(_):
     # ast.dump prints a float's value, so the code's `0.20` arrives as `0.2`. Cancelling that
@@ -255,9 +270,13 @@ def main():
         try:
             fn(None)
             print("  ok   %s" % name)
-        except AssertionError as e:
+        except Exception as e:
+            # Not AssertionError alone: under ablation this suite runs against the BASE's module,
+            # where a helper it names may not exist at all. A crash there aborted every case after
+            # it, so the gate saw fewer FAILs than the branch actually earns — and a suite that
+            # dies partway reports as INCONCLUSIVE, which proves nothing.
             FAILED.append(name)
-            print("  FAIL %s\n       %s" % (name, e))
+            print("  FAIL %s\n       %s: %s" % (name, type(e).__name__, e))
     print("\n%d passed, %d failed" % (len(CASES) - len(FAILED), len(FAILED)))
     return 1 if FAILED else 0
 
