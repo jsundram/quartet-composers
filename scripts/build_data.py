@@ -239,7 +239,7 @@ def main():
     for r in rows:
         e = join.get(r[0])
         if e is None:
-            # NOT PLACED, which is not the same as having nothing (invariant 10 / TODO's three
+            # NOT PLACED, which is not the same as having nothing (invariants 10 and 16's three
             # answers). `0` is what the table prints either way, by decision — but a null category
             # is what says there is nowhere to link, and the count cannot carry that.
             r.extend([0, None])

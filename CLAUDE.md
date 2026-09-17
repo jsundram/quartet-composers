@@ -3,19 +3,31 @@
 A static d3 visualization + data table on [pwa-starter](https://github.com/jsundram/pwa-starter).
 No build step; the deployed files are the repo's files. README.md says what the app is.
 
-Three places to put a thing, and keeping them apart is what keeps this file short. **Here: rules** —
-what to do, and what breaks otherwise. **TODO.md: history** — open work, decisions already made, and
-the incident behind each. **A check: anything mechanical** — a count, a list, a threshold, a measured
-offset — because a check can go red and a sentence cannot. So where a rule below is enforced, it
-names the enforcement instead of repeating the arithmetic.
+## Where a thing goes
 
-**Which means a number in here is a RECORD or it is absent.** A record is a measurement that
-happened — a run, an audit, an experiment — and cannot go stale, so it is safe to type. Anything the
-repo recomputes is not: a roster total, a list size, a suite's case count, a constant, a live
-statistic. Those are read from the thing that holds them, and writing one here buys a reader nothing
-while costing an edit every time the thing moves. `chart.js` had this right about `CANON` from the
-start — "deliberately NOT a count… every place that printed the number went stale in the same
-commit" — and the docs spent a 300-line lint keeping such numbers honest instead of not writing them.
+Three destinations, and keeping them apart is what keeps this file short.
+
+**Here: rules.** What to do, and what breaks otherwise.
+
+**The commit and the issue: history.** What happened, when, and why — attached to the diff that
+did it. A commit message describes a moment, so it cannot go stale; a file describing the same
+thing can, and will. `git log -S`, `git blame` and `git log --grep` retrieve it precisely. Where a
+rule needs its incident to be understood, the incident stays in the commit and an issue number is
+the pointer.
+
+**A check: anything mechanical.** A count, a list, a threshold, a measured offset — because a
+check can go red and a sentence cannot. Where a rule here is enforced, name the enforcement
+instead of repeating the arithmetic.
+
+**Which means a number in this file is a RECORD or it is absent.** A record is a measurement that
+happened — a run, an audit, an experiment — and cannot go stale. Anything the repo recomputes can:
+a total, a list size, a suite's case count, a constant, a live statistic. Those are read off the
+thing that holds them.
+
+**And this file has a ceiling.** It is read in full before every session's first change, so its
+length is charged to all of them. Keep it readable in one sitting by someone who has never seen
+the repo. The prose inside the code answers to a ceiling of its own, and that one is a ratio:
+`scripts/volume.py --check` measures every commit's own diff against it.
 
 ## Invariants — break these and it fails silently
 
@@ -202,10 +214,9 @@ commit" — and the docs spent a 300-line lint keeping such numbers honest inste
    Of the articles in this roster that moved, only Fanny's moved inside the statistic window — the
    rest changed a sparkline and not one dot.
    **Do not sum redirects generally.** That is a different policy, measured and rejected:
-   `audit_redirects.py` priced every redirect into every article and the median correction was 1.02x,
-  invisible on
-   a five-decade log axis, in exchange for a count that depends on how many aliases an article
-   happened to accumulate. A move is not an alias; the article LIVED there.
+   `audit_redirects.py` priced every redirect into every article and the median correction was
+   1.02x, invisible on a log axis four decades tall, in exchange for a count that depends on how
+   many aliases an article happened to accumulate. A move is not an alias; the article LIVED there.
 
 16. **The IMSLP columns are TWO fields carrying THREE answers, and `imslp_cat` is the one that can
    tell them apart.** `imslp` is a work count and it is `0` both for a composer IMSLP holds with no
@@ -374,7 +385,7 @@ framework, and nothing to install:
   once into `TOUCH` and styles.css reserves the panel behind. macOS reports it unconditionally and
   a headless Linux Chrome reports no pointing device at all, so all of them failed on every runner
   that was not a Mac. `Emulation.setEmulatedMedia`'s `features` list is NOT
-  the fix TODO prescribed: it accepts `hover` and `pointer`, returns success, and ignores them.
+  the fix #50 prescribed: it accepts `hover` and `pointer`, returns success, and ignores them.
   `--blink-settings` is worse — it works until the first `setTouchEmulationEnabled`, whose restore
   then clobbers the pointer type for every page in the browser, so a suite that interleaves phone
   and desktop sections cannot use it. `ui-test.sh` runs Chrome on an **Xvfb** display where there
@@ -546,8 +557,8 @@ framework, and nothing to install:
   skips, and the report says so rather than passing quietly. A `No-test: <reason>` trailer skips BOTH, so an
   untested source change is a sentence somebody wrote on purpose and a reviewer can read, not a
   silence — and it is scoped PER FILE, to the ones its own commit touched. Read anywhere in the range
-  it was two holes at once: a docs-only "No-test: TODO.md only" disarmed both gates for every source
-  change on the branch, and one legitimately excused file excused every file beside it. A file edited
+  it was two holes at once: one true docs-only trailer disarmed both gates for every source change
+  on the branch, and one legitimately excused file excused every file beside it. A file edited
   again with no trailer is back in the gate, because the second edit is the unexplained one.
   `scripts/fix-lint.test.py` covers both, in cases that each build a throwaway repo with real
   branches.
@@ -577,7 +588,7 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
 - Vendored pwa-starter files carry `pwa-starter: <file> @ <sha>` near the top. Keep the stamp when
   editing them; it is how `check-downstream.py` upstream finds this repo.
 - Comments explain *why*, and especially what breaks otherwise. Don't narrate the next line, and
-  don't recount how a bug was found — that is TODO.md's job.
+  don't recount how a bug was found — that is the commit message's job.
 - **A comment may not assert a mechanical fact about the code beside it — that becomes a check, or
   it goes.** This is the built-or-cut rule applied one level down, and it is the rule the steady
   trickle of low-severity review findings has been about: `histogram.js`'s "Keyed by side" over a
@@ -992,7 +1003,7 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   arrows for as long as focus sat on it. It is `input:not([type="checkbox"])` now, which still
   covers the search box and anything that really does step with the arrows (a range, a radio
   group), and `ui.test.mjs` presses a key with the box focused rather than trusting the selector. Escape is handled before the guard, because it means "back out of this"
-  wherever focus is. The readership brush still owes a keyboard path (TODO); when it gets one it
+  wherever focus is. The readership brush still owes a keyboard path (#81); when it gets one it
   needs the attribute and no edit to the listener.
 - **A hover previews into the detail panel, so its box is reserved wherever a pointer exists.**
   `@media (hover:hover) and (pointer:fine)` gives `.compact` a `min-height` covering its TALLEST
@@ -1051,7 +1062,7 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
   set where that is what is meant. Derived rings are seeds in `pickLabels()` too, because a dot
   the view rings and then declines to name points at a composer it refuses to identify.
   The FILL is never derived: it is an editorial claim about which quartets are played, which no
-  ranking recomputes — Prokofiev is on it for two quartets and Debussy for one, and TODO records
+  ranking recomputes — Prokofiev is on it for two quartets and Debussy for one, and #7 records
   that no single scalar reproduces that set. So the women's group got a SECOND hand-written
   list (`WOMEN_CANON`), swapped in by `Chart.setRepertoire()`. The `--sel` fill and the sentence
   naming it are ONE claim, so `REPERTOIRES` carries both and `renderLegend()` prints
@@ -1098,8 +1109,3 @@ follows a change to `chart.js`: it is a record of a decision, not a second imple
 - **Anything the zoom moves must be clipped.** `chart.js` clips the dots, labels, selection ring and
   lens to `#plot-clip`; a new zoom-transformed group needs the same `clip-path`, or a pinch lays it
   out over the axes and past the card edge.
-## Where to pick up
-
-`TODO.md` holds the open work, one known defect (the readership brush has no keyboard path) and the
-things deliberately not being done, with why. Read it before starting something: it exists so a
-cold session doesn't re-derive a decision already made on evidence, or re-derive one badly.

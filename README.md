@@ -283,7 +283,6 @@ composers.json    the dataset (generated — edit data/ and rebuild)
 d3.v7.min.js      vendored, not a CDN
 data/             cached pipeline inputs + the 2014 archive (not shipped)
 scripts/          pipeline, review tools, lints, the data gate (never shipped)
-TODO.md           open work, with the reasoning — read before picking something up
 ```
 
 Built on [pwa-starter](https://github.com/jsundram/pwa-starter); vendored files carry a
