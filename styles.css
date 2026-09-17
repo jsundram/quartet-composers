@@ -102,6 +102,8 @@ h1{ font-size:clamp(21px, 4.6vw, 32px); letter-spacing:-.015em; font-weight:650 
 .filters .tablehead{ margin-bottom:0 }
 .filters .filterbar{ margin:0 }
 body.fs #filters{ margin:0 0 8px; padding:0; border:0; background:transparent }
+/* The search half goes in full screen, to keep the chart's height: #plot is flex:1 there, so every
+   row above it comes out of the dots' own box rather than out of the page. */
 body.fs #filters .tablehead{ display:none }
 
 /* --- controls ------------------------------------------------------------------------------- */

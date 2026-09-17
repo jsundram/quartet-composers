@@ -745,6 +745,9 @@ function anyFilter() {
 // Exactly ONE applyFilters() runs, which is what the branch is for: d3-brush emits "end" for a
 // programmatic move, so Histogram.clear() comes back through onChange on its own, and calling it here
 // too would rebuild every table row twice. With no range there is nothing to emit.
+// No focus() here, though #clear does exactly that: #clear sits in the search box's own row, while
+// this button is a card BELOW it, where focusing would scroll the viewport back up over a filter
+// bar the reader had already scrolled past.
 function resetFilters() {
   $("q").value = "";
   setGender("", false);

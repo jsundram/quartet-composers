@@ -301,34 +301,26 @@ one function it stays in the comment at the site, and this names the site rather
 - **A comment may not assert a mechanical fact about the code beside it — that becomes a check, or
   it goes.** A comment cannot go red, so a stated join key, count, list or threshold is correct when
   written and silently wrong later (#42). `Chart.missingNames()`, `Names.staleOverrides()`,
-  `unfilterableGenders()` and `unreachableRepertoires()` are the pattern: turn the claim into
-  something a suite asserts, or write it loosely enough to stay true. For the DOCS the answer is not
-  a lint (#67) — it is not writing the number. A comment about WHY is never in this category, which
-  is most of them, and none of this is an argument for fewer comments.
-- **A fix ships with the test that goes red without it — not with the next review.** Run the fix's
-  test against the tree WITHOUT the fix and watch it fail, before proposing it; `ablate.py` enforces
-  it on a branch, but the discipline is the point. PR #23 ran six rounds and four of them fixed a
-  defect in the previous round's fix, every one shipped on a green suite. When there is genuinely
-  nothing to assert, say so in a `No-test:` trailer rather than leaving it silent.
+  `unfilterableGenders()` and `unreachableRepertoires()` are the pattern. For the DOCS the answer is
+  not a lint (#67) — it is not writing the number. A comment about WHY is never in this category,
+  which is most of them, and none of this is an argument for fewer comments.
+- **A fix ships with the test that goes red without it — not with the next review.** Run that test
+  against the tree WITHOUT the fix and watch it fail, before proposing it; `ablate.py` enforces it
+  on a branch, but the discipline is the point. Where there is genuinely nothing to assert, say so
+  in a `No-test:` trailer rather than leaving it silent.
 - **Prose the app can FALSIFY is built or cut; only prose it cannot is typed — and CUT is the first
-  branch to try.** It catches claims with no number in them: a sentence naming the axes was true in
-  Fame only, and was cut rather than derived per mode, because the axes are already stated twice on
-  screen (#24). The built half fails the same test when a claim can change LENGTH — a generated lede
-  emptied under some filters, collapsing the paragraph and lifting the pill you had just pressed
-  (#27, #35). **The lesson is the ordering**: before building a mechanism to make prose behave, ask
-  whether the prose should exist. `#count`, the search placeholder and `setProv()` stay built
-  because each is the ONLY statement of what it says, and none of them can empty.
+  branch to try.** A sentence naming the axes was true in Fame only and went, rather than being
+  derived per mode (#24); a built lede emptied under some filters and collapsed the paragraph under
+  the pill you had just pressed (#27, #35). `#count`, the search placeholder and `setProv()` stay
+  built because each is the ONLY statement of what it says, and none of them can empty.
 - **The provenance line is built, not assigned.** `setProv()` linkifies every Wikidata property id
-  it prints, because an id is jargon a reader cannot check from the page. It links the TEXT rather
-  than storing anchors in `composers.json`, which is data and carries no markup. Setting
-  `$("prov").textContent` directly again would silently drop every link.
-- **A number printed beside the chart counts the PLOTTABLE rows.** Rows with no stated quartet count
-  are in the table only, and three of them are the roster's earliest births, so the empty panel once
-  said "born 1582–1989" beside an x axis starting at 1709. `Chart.plottedStats()` is the one place
-  that answers "what can the chart place". The same split governs the app's stated CLAIMS:
-  `manifest.json` and the link preview describe what the page DRAWS, while `#count`, the search
-  placeholder and the provenance line count the rows the table holds. The provenance line is where
-  the difference is named.
+  it prints, because an id is jargon a reader cannot check from the page; setting
+  `$("prov").textContent` directly would silently drop every link.
+- **A number printed beside the chart counts the PLOTTABLE rows**, and `Chart.plottedStats()` is the
+  one place that answers what the chart can place — rows with no stated quartet count are in the
+  table only, and three of them are the roster's earliest births. The same split governs the app's
+  stated CLAIMS: `manifest.json` and the link preview describe what the page DRAWS, while `#count`,
+  the search placeholder and the provenance line count the rows the table holds.
 - `index.html` owns structure, `styles.css` owns looks, `app.js` owns boot and the shared state
   (which composer is selected, which filters are active). `chart.js`, `table.js` and `histogram.js`
   never talk to each other — they share `names.js` and `Chart.colorOf`, which are read-only lookups,
@@ -337,119 +329,73 @@ one function it stays in the comment at the site, and this names the site rather
   its own (`genderMatches()` in `app.js`): three buttons and a string, nothing to render and no data
   to hold. A fourth filter that DOES draw something belongs in its own file, on the same contract.
 - **`names.js` loads before `chart.js` and `table.js`, and `Names.setData()` runs before either gets
-  data.** The short form of a name is a function of the WHOLE roster, so neither module can display
-  a name until the roster has been counted. It is a SHELL and a BOOT dep like every other
-  load-bearing script.
+  data**, because the short form of a name is a function of the WHOLE roster. It is a SHELL and a
+  BOOT dep like every other load-bearing script.
 - **The table and the chart show short names; the detail panel shows the full title.** `names.js` is
   the only place that takes a canonical name apart, and it is a heuristic. BOTH forms come from one
   shared-surname map, so the two can never disagree about who needs more than a surname: `filed()`
-  gives the table "Haydn, Joseph", `short()` gives the chart "M. Haydn", and a shared surname whose
-  initials also match falls through to the full name. The panel, the hover flag and the row's
-  `title` keep the canonical title, where recognising the person is the job. **One exception, in the
-  chart form only: a surname only one composer is READ for prints bare** — and the test has to stay
-  decisive, because readership is refetched monthly, so a floor without a MARGIN is drift rather
-  than hypothesis. Not in `filed()`, which sorts on what it prints. This is why `Names.setData()`
-  takes readership alongside the names, as a PARALLEL array for the reason `build_data.py` carries
-  canonical titles in one.
-- **A chart label prints the short name, not the canonical title.** Because `pickLabels()` is
-  first-come-first-served on space, halving every box is what lets the names behind it find room at
-  all. The label text and the width estimate must come from the same string.
+  gives the table "Haydn, Joseph", `short()` gives the chart "M. Haydn". The panel, the hover flag
+  and the row's `title` keep the canonical title, where recognising the person is the job. One
+  exception, in the chart form only: a surname only one composer is READ for prints bare — which is
+  why `Names.setData()` takes readership alongside the names.
+- **A chart label prints that short name, not the canonical title**, because `pickLabels()` is
+  first-come-first-served on space. The label text and the width estimate must be the same string.
 - **Labels are a function of zoom, not a list.** `pickLabels()` spends a budget that grows with the
   zoom on frame-culled candidates, so pinching in names what is in the frame. In Fame the curated
   names are the SEED and fill the budget first; beyond them the ranking is `prom`, recomputed in
-  `setFilter()`/`setData()` because a filter must rank its own group. The one special case is the
-  resting unfiltered Fame view, where the budget is pinned to the seed so the view says exactly what
-  it is about — also the state `make-og-svg.py` draws.
+  `setFilter()`/`setData()` because a filter must rank its own group. The resting unfiltered Fame
+  view pins the budget to the seed — also the state `make-og-svg.py` draws.
 - **The ring follows the filter by RANKING; the fill follows it by TASTE** (#7). `refreshEmphasis()`
-  fills a budget DERIVED from `OUTLIERS` with the curated outliers the filter kept and then by
-  `prom`, the same seed-then-rank shape the labels have. Every channel that follows emphasis reads
-  `named()`, which reads the DERIVED set, so adding a channel needs no further wiring; `namedSet`
-  stays the curated set where that is what is meant. Derived rings are seeds in `pickLabels()`,
-  because a dot the view rings and then declines to name points at a composer it refuses to
-  identify. The FILL is never derived — it is an editorial claim no ranking reproduces — so the
-  women's group got a SECOND hand-written list, and because that fill and the sentence naming it are
-  ONE claim, `REPERTOIRES` carries both and `renderLegend()` prints `Chart.repertoireLabel()`. Both
-  lists answer to the same neutral noun, which is the other way out of invariant 8's wrong-channel
-  trap. `chart.js` states the rest: the `MIN_FIELD` floor, and why `MIN_SEP` is measured in SCREEN
-  space and re-derived by `setMode()` and `resize()` as well as `setFilter()`.
+  fills a budget derived from `OUTLIERS` by taste then by `prom`, the seed-then-rank shape the
+  labels have, and every channel that follows emphasis reads `named()`, so adding one needs no
+  further wiring. The FILL is never derived — it is an editorial claim no ranking reproduces — so
+  the women's group got a SECOND hand-written list, and because that fill and the sentence naming it
+  are ONE claim, `REPERTOIRES` carries both and `renderLegend()` prints `Chart.repertoireLabel()`.
+  `chart.js` states the rest.
 - **A filter fits the frame, and the fit is the RESTING view.** `computeResting()` is the one answer
-  to "where should this chart be sitting right now": identity with no filter, the box containing the
-  kept dots with one. `setFilter()` transitions there when the gesture settles, never mid-drag;
-  `resetZoom()` returns there rather than to the full extent; `zoomed()` is measured against it, so
-  a filter that fits at 4x does not light the reset button. It is measured from a `layout()` at
-  `zoomIdentity` rather than from the scales, so a fourth encoding cannot forget to update it, and
-  it must stay a pure function of the filter, the mode and the box or the memo is meaningless and
-  "reset" has nothing to return to. This works because a filter here is a HIGHLIGHT: the rest of the
-  cloud is still drawn faintly, so closing in shows the group against the ghost of its field.
+  to "where should this chart be sitting right now", and `setFilter()`, `resetZoom()` and `zoomed()`
+  all measure against it, so it must stay a pure function of the filter, the mode and the box — or
+  the memo is meaningless and "reset" has nothing to return to. It works because a filter here is a
+  HIGHLIGHT: the rest of the cloud is still drawn faintly, so closing in shows the group against the
+  ghost of its field.
 - **Anything the zoom moves must be clipped.** `chart.js` clips the dots, labels, selection ring and
   lens to `#plot-clip`; a new zoom-transformed group needs the same `clip-path`, or a pinch lays it
   out over the axes and past the card edge.
 - **One filter row, above everything it scopes.** `#filters` is a sibling of `.grid`, not a child of
   either card — all three filters scope both views, and a filter drawn inside one card says
-  otherwise. `placeFilters()` moves it into `#viz` in full screen and CSS drops its search half
-  there to keep the chart's height.
+  otherwise. `placeFilters()` moves it into `#viz` in full screen.
 - **The chart's controls sit ABOVE the plot, because the plot's height is a function of the VIEW.**
   `measure()` gives each mode its own aspect ratio, so a row underneath moves when you press it,
   lifting the pill out from under a second tap at the same spot. **Nothing a finger rests on may be
-  placed by a box the same press resizes.** Full screen is the exception and stays underneath:
-  `#plot` is `flex:1` there, sized by the viewport rather than the view. Above the plot costs a
-  phone's first screen (#29), and `placeDetail()`'s phone anchor moved with the row — it inserts
-  before `.legend`, or the panel lands above the chart.
+  placed by a box the same press resizes.** Full screen is the exception and stays underneath, where
+  `#plot` is sized by the viewport rather than by the view. Above the plot costs a phone's first
+  screen (#29).
 - **No filter control appears or disappears at all**, which is the rule above satisfied by
-  construction: #31 fixed the brush's own Clear button in place twice, #35 deleted the category
-  instead. One permanent `Reset filters` clears all three filters and is `disabled` at rest and
-  accent-filled when live — a state change that moves no box, which is why `applyFilters()` may
+  construction (#31, #35). One permanent `Reset filters` clears all three and is `disabled` at rest
+  and accent-filled when live — a state change that moves no box, which is why `applyFilters()` may
   light it on the drag's first frame, above the `settled` guard. Being the page's one answer to "is
   anything filtered?" is why `anyFilter()` reads the query TRIMMED, the way `Table.matches()` does.
-  It does not focus the search box, though `#clear` does: this one is a card below the row, where
-  `focus()` scrolls the viewport back up over a box the reader had left. For the next layout fix
-  here, note that an ID selector out-specifies `.btn` — that is how this button sat under the touch
-  floor unseen.
-- **The lens is an OVERLAY, not a view — a checkbox in the controls row, over all three modes.** As
-  a fourth pill it differed from Timeline in a fisheye and no zoom, neither of which is a way of
-  reading the DATA, so the switcher claimed four pictures where there are three. `warp()` applies
-  the fisheye LAST, in screen space, which is what lets one lens serve three modes with no per-mode
-  case: what it moves is pixels, so what you click is still what you see. `#v=lens` still resolves,
-  to the timeline with `l=1`. It is a CHECKBOX because it is a thing you leave on, not a picture you
-  switch to, and it re-lays out nothing, which is what makes it safe in a row above the plot. Four
-  of its rules reach past `chart.js`, which states the rest. **It takes away one gesture, on a touch
-  screen only** — the AIM and the PAN are the same one-finger drag on a phone and two different
-  inputs on a mouse, so it lives in a `zoom.filter` on `event.type` rather than in unbinding the
-  zoom, which silently stopped a reader's framing from working. **The frame is LEFT where it was and
-  the AIM is dropped**, so `zoomed()`, `resetZoom()` and `setLens()` ask nothing about the lens
-  while `baseLayout()` and `resize()` un-aim it. **d3 still has to be told the box** even where no
-  gesture reads it, because it re-reads `extent` when it SCHEDULES A TRANSITION — and the `__zoom`
-  sync beside those setters must run only when it would change something, since `zoom.transform`
-  interrupts and a no-op sync cancels a transition mid-fit. **It does not earn labels**, which was
-  tried: a ZOOM earns names by culling the frame, and the lens culls nothing.
+- **The lens is an OVERLAY, not a view — a checkbox in the controls row, over all three modes.**
+  `warp()` applies the fisheye LAST, in screen space, which is what lets one lens serve three modes
+  with no per-mode case: what it moves is pixels, so what you click is still what you see. It
+  re-lays out nothing, which is what makes it safe in a row above the plot, and `#v=lens` still
+  resolves, to the timeline with `l=1`. Everything else about it — the one gesture it takes away on
+  touch, what it leaves the frame doing, the `__zoom` sync, and why it does not earn labels — is
+  stated in `chart.js` beside the code it constrains.
 - **Share and Full screen are icons ON the chart wherever the controls row will not hold them on one
   line**, which is what PAYS for the third button in the row. `placeChartTools()` reparents
   `#chart-tools` into `#plot`, on the same one-element-moved contract as `placeFilters()` and
-  `placeDetail()` — never a second copy, because `#fs` holds the pressed state and `share()` a
-  timeout on its own label. **The condition is a MEASUREMENT of that row rather than a device, and
-  it is TWO intervals**, because what decides it is the CARD and the two are not monotonic in each
-  other. `app.js` holds the only copy of the breakpoint and the measurement behind it, `styles.css`
-  scopes the icon look to `#plot > #chart-tools` so the look follows the DOM rather than re-deciding
-  the width, and `ui.test.mjs` defends the two edges by pressing Share at the first width in each
-  band — which is what caught them moving when the lens became a checkbox 28px wider than the pill.
-  Five things a change here must keep. The words stay in the DOM, visually hidden rather than
-  `display:none`, because they are still the buttons' accessible NAMES. The label goes into the
-  `.btn-t` span and never onto the button, which would delete the icon beside it — and under the
-  breakpoint that span is the name and not the face, so `share()` also acknowledges in the glyph,
-  raced against `STALL` because a clipboard write that never SETTLES is not a rejection the catch
-  can see. Both buttons carry a `title`, because a clipped label is a name a screen reader can read
-  and a pointer cannot. The print rule names `#chart-tools` separately from `.controls`, since on a
-  phone it is no longer inside it. **A wheel over the glyphs is a wheel over the CHART**: d3-zoom
-  binds to the `svg` and `#chart-tools` is a SIBLING of it, so `Chart.wheelInto()` re-dispatches
-  into the CURRENT svg — `build()` makes a new one on every `setData`/`setMode` — while the DRAG is
-  deliberately not forwarded, because a control swallowing a drag is the platform convention and
-  swallowing a wheel is not. And they sit in the AXIS-TITLE BAND, over no dot in any view, on a
-  touch target that is felt and not seen, so a dot it overlapped would silently stop being TAPPABLE.
-  **Top right is the trap** — it reads as empty in Fame and is exactly where the SWARM piles up,
-  which is what judging a shared overlay from one view gets you.
-- **A specificity trap runs through this stylesheet**, and it has shipped three times: a
-  `pointer-events="none"` ATTRIBUTE on the brush grips that any later `#hist .grips path` rule would
-  outrank, `#hist-clear` sitting under the touch floor because an ID out-specifies `.btn` (#31), and
+  `placeDetail()` — never a second copy. **The condition is a MEASUREMENT of that row rather than a
+  device, and it is TWO intervals**: `iconsOnPlot` in `app.js` holds the only copy of it,
+  `styles.css` scopes the icon look to `#plot > #chart-tools` so the look follows the DOM rather
+  than re-deciding the width, and `ui.test.mjs` presses Share at the first width in each band. They
+  sit in the AXIS-TITLE BAND, over no dot in any view, on a touch target that is felt and not seen,
+  so a dot they overlapped would silently stop being TAPPABLE — and top right is the trap, reading
+  as empty in Fame and piled with dots in the swarm, which is what judging a shared overlay from one
+  view gets you. A wheel over the glyphs is a wheel over the CHART (`Chart.wheelInto`); a drag over
+  them is not.
+- **A specificity trap runs through this stylesheet**, and it has shipped three times: the brush
+  grips, `#hist-clear` sitting under the touch floor because an ID out-specifies `.btn` (#31), and
   the chart-tools glyphs, where a bare `#fs .ico-out` loses to the group's full `#plot >
   #chart-tools` prefix and drew both glyphs at once. Carrying the full prefix is not tidiness.
   `#plot > svg` is the same shape: it means THE CHART, and as a descendant selector it stretched an
@@ -458,8 +404,7 @@ one function it stays in the comment at the site, and this names the site rather
   area** (#40). d3-brush sets `fill:none` and `pointer-events:all` on the brush `<g>` and both
   inherit, so painting `.handle` drew the hit area wearing the costume of the control;
   `histogram.js` draws the visible tab instead. The load-bearing line is `pointer-events="none"` on
-  the grips group, which sits on top of the brush and outside it, so a hittable grip swallows the
-  press and the drag does nothing.
+  the grips group, or a hittable grip swallows the press and the drag does nothing.
 - **The `hidden` ATTRIBUTE is only `display:none` in the UA sheet**, so ANY author `display` on the
   same element beats it — silently, since the element stays hidden to a screen reader and to
   `.hidden` in JS while being drawn. `styles.css` answers it once with `[hidden]{ display:none
@@ -467,59 +412,50 @@ one function it stays in the comment at the site, and this names the site rather
 - **There is ONE detail panel, and `app.js`'s `placeDetail()` moves it.** Beside the chart above
   900px; inside `#viz` (`.compact`) on a phone and in full screen at any width. Never render a
   second compact copy — the selection, the nav buttons and the `.on` state all assume one element.
-  The two in-card positions differ on purpose: BELOW the plot on a phone (free to grow; nothing
-  above it moves), ABOVE the plot in full screen as a fixed-height strip drawn even when empty.
-  **Its height must stay constant** there: `#plot` is `flex:1` in full screen, so a box that grew on
-  select would trip the ResizeObserver and re-lay out the chart under the finger that just tapped
-  it. `tight()` trims the content to fit.
+  The two in-card positions differ on purpose: BELOW the plot on a phone, free to grow because
+  nothing above it moves; ABOVE it in full screen as a fixed-height strip drawn even when empty,
+  where a box that grew on select would trip the ResizeObserver and re-lay out the chart under the
+  finger that just tapped it. `tight()` trims the content to fit.
 - **A hover previews into the detail panel, so its box is reserved wherever a pointer exists.**
   `@media (hover:hover) and (pointer:fine)` gives `.compact` a `min-height` covering its TALLEST
   state; without it, moving the mouse across the chart pumps the legend up and down. Touch screens
-  get neither rule — no hover to churn, and the space is the chart's. The reservation is MEASURED:
-  the suite prints the pinned panel's real height and fails when `min-height` falls short, pinning
-  the composer with the LONGEST caption, because the dot an earlier check happens to hover is not
-  the worst case.
+  get neither rule — no hover to churn, and the space is the chart's. The reservation is MEASURED
+  against the composer with the LONGEST caption, because the dot an earlier check happens to hover
+  is not the worst case.
 - **Anything that handles its own arrow keys marks itself `[data-keys]`.** `app.js`'s document
-  keydown listener steps the SELECTION on left/right, and its guard has failed both ways: as
-  `matches("input, textarea")` it stole the sparkline's arrows, and `input` alone matches a CHECKBOX
-  that answers to Space, so the lens toggle ate them. It is `input:not([type="checkbox"])` now, and
-  the suite presses a key with the box focused rather than trusting the selector. Escape is handled
-  before the guard, because it means "back out of this" wherever focus is. The readership brush
-  still owes a keyboard path (#81); when it gets one it needs the attribute and no edit to the
-  listener.
+  keydown listener steps the SELECTION on left/right, and its guard has failed both ways — it is
+  `input:not([type="checkbox"]), textarea, [data-keys]` now, and the suite presses a key with the
+  box focused rather than trusting the selector. Escape is handled before the guard, because it
+  means "back out of this" wherever focus is. The readership brush still owes a keyboard path (#81);
+  when it gets one it needs the attribute and no edit to the listener.
 - **The phone table has to fit in a font you do not choose.** `system-ui` is SF on a Mac, Segoe on
-  Windows and DejaVu on most Linux, and DejaVu overflowed the four phone columns at 390px outright
-  (#53) — which is how the suite came to fail on a Linux runner and nowhere else. **An abbreviation
-  is not free to a reader who can SEE it**: the accessible name has to contain the drawn label, per
-  WCAG 2.5.3, or a voice-control user says "click Qts" against a name that reads "Quartets" and the
-  column cannot be sorted at all. So both spans stay in the name, the drawn one first, and the word
-  is moved off screen rather than `display:none`d. `ui.test.mjs` asserts the name the browser
-  COMPUTES, because an `aria-label` added later overrides the markup while a check written against
-  the two spans stays green — and it asserts 360px as well as 390px, since the old table cleared
-  390px in the narrowest font while overflowing 360px in every face. A new column, or a longer
-  header, has to be measured the same way rather than eyeballed on a Mac.
+  Windows and DejaVu on most Linux, and DejaVu overflowed the four phone columns outright (#53).
+  **An abbreviation is not free to a reader who can SEE it**: the accessible name has to contain the
+  drawn label, per WCAG 2.5.3, or a voice-control user says "click Qts" against a name that reads
+  "Quartets" and the column cannot be sorted at all. So both spans stay in the name, the drawn one
+  first, and the word is moved off screen rather than `display:none`d. A new column, or a longer
+  header, has to be MEASURED — at 360px as well as 390px, and in a font that is not a Mac's.
 - **`.seg` is a look, not a behaviour.** Two pill groups wear it — the chart view switcher and the
   gender filter — so anything binding `.seg button` must scope itself (`.controls .seg button`).
   Unscoped, the switcher's handler landed on the filter's buttons and a pill press called
   `setMode(undefined)`: the chart left every named mode at once and the URL grew `#v=undefined`.
 - **The sparkline's caption names the spike if there is one and the trend otherwise.** A fixed "peak
-  N× typical" cried spike about noise on half the roster, because a composer read thirty times a
-  month hits ninety by chance, and buried the real story for the steady ones. `SPIKE` tests the peak
-  against the 95th PERCENTILE of that composer's own months, which is scale-free and judges a small
-  noisy article against its own noise. The peak hairline is drawn ONLY in the spike branch — an
-  annotation pointing at a month nothing mentions has no referent.
+  N× typical" cried spike about noise on half the roster and buried the real story for the steady
+  ones, so `SPIKE` tests the peak against the 95th PERCENTILE of that composer's own months, which
+  judges a small noisy article against its own noise. The peak hairline is drawn ONLY in the spike
+  branch — an annotation pointing at a month nothing mentions has no referent.
 - **The sparkline is the app's one optional part, in both halves.** Its data is precached but not a
-  BOOT dep and is fetched after the paint; `sparkline()` returns null when it has not arrived, when
-  a composer has fewer than two months of data, and in the full-screen strip, whose height must not
-  change. Its colours are the one drawn thing here NOT baked into the SVG by JS: it is plain inline
-  SVG, so `var(--accent)` reaches it and `Theme.subscribe` has nothing to re-bake (invariant 3 does
-  not apply, and a check keeps the `stroke` attribute absent so nobody "fixes" that). Linear y and
-  zero-based, unlike the chart's log readership axis: log is there because the ROSTER spans orders
-  of magnitude, but within one composer the question is proportion, and a log baseline flattens
-  exactly the spike the line exists to show.
+  BOOT dep and is fetched after the paint, and `sparkline()` returns null when it has not arrived,
+  when a composer has fewer than two months of data, and in the full-screen strip, whose height must
+  not change. Its colours are the one drawn thing here NOT baked into the SVG by JS: it is plain
+  inline SVG, so `var(--accent)` reaches it, invariant 3 does not apply, and a check keeps the
+  `stroke` attribute absent so nobody "fixes" that. Linear y and zero-based, unlike the chart's log
+  readership axis: log is there because the ROSTER spans orders of magnitude, but within one
+  composer the question is proportion, and a log baseline flattens exactly the spike the line exists
+  to show.
 - **Every sparkline shares one month axis, so the blank left of a young article has to be named.** A
-  shared axis is what makes two composers comparable, and it means articles created after 2015 draw
-  over the right-hand end and leave the rest empty — which under a line chart reads as "nobody read
-  this" rather than "not written yet". The label row prints `from Jul 2025` instead of the axis span
-  in that case. A null month is a BREAK in the path for the same reason (invariant 10); joining
-  across it would draw a line down to zero and back.
+  shared axis is what makes two composers comparable, and it means an article created after 2015
+  draws over the right-hand end and leaves the rest empty — which under a line chart reads as
+  "nobody read this" rather than "not written yet". The label row prints `from Jul 2025` instead of
+  the axis span in that case. A null month is a BREAK in the path for the same reason (invariant
+  10); joining across it would draw a line down to zero and back.
