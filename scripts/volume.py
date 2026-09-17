@@ -131,7 +131,11 @@ def py_split(src):
             body = getattr(node, "body", None)
             if body and isinstance(body[0], ast.Expr) \
                     and isinstance(getattr(body[0].value, "value", None), str):
-                doc.update(range(body[0].lineno, (body[0].end_lineno or body[0].lineno) + 1))
+                first = body[0].lineno
+                # `def f(): """doc"""` puts both on one line, and that line is CODE carrying a
+                # docstring rather than a line of prose.
+                doc.update(range(first + (first == getattr(node, "lineno", 0)),
+                                 (body[0].end_lineno or first) + 1))
     com = set()
     try:
         for tok in tokenize.generate_tokens(io.StringIO(src).readline):
@@ -157,6 +161,11 @@ def nonblank(text):
 
 def text_split(src, marks, block=("/*", "*/")):
     """(code, comment, 0) for a language codehash does not read at all — shell, yaml, html."""
+    # ONLY THE LAST OPENER CAN STILL BE OPEN. Asking whether the line contains a closer at all
+    # read `<!-- a -->x<!-- b` as closed and counted the second comment's body as code.
+    def open_at_end(s):
+        return block[0] in s and block[1] not in s.rsplit(block[0], 1)[1]
+
     code = com = 0
     inside = False
     for line in src.split("\n"):
@@ -165,18 +174,17 @@ def text_split(src, marks, block=("/*", "*/")):
             continue
         if inside:
             com += 1
-            inside = block[1] not in s
+            inside = not (block[1] in s and not open_at_end(s.split(block[1], 1)[1]))
         elif s.startswith(block[0]):
             com += 1
-            inside = block[1] not in s
+            inside = open_at_end(s)
         elif any(s.startswith(m) for m in marks):
             com += 1
         else:
-            code += 1
             # `<div> <!-- why` opens a block the next lines belong to. Live for HTML only now
             # that JS and CSS are counted off codehash's strip.
-            if block[0] in s and block[1] not in s.split(block[0], 1)[1]:
-                inside = True
+            code += 1
+            inside = open_at_end(s)
     return code, com, 0
 
 
@@ -213,15 +221,6 @@ def split(path, src):
     return None
 
 
-def by_bucket(unread):
-    """{bucket: {path}} — compared per FILE, because two files swapping readability inside one
-    bucket cancel out over bucket names and the delta is then taken over mismatched sets."""
-    out = {}
-    for b, path in unread:
-        out.setdefault(b, set()).add(path)
-    return out
-
-
 def in_merge(root=ROOT):
     """Is a merge in progress? Its HEAD is the first parent, so a delta against it is the branch."""
     got = subprocess.run(["git", "rev-parse", "--git-dir"], cwd=root, capture_output=True, text=True)
@@ -234,6 +233,25 @@ def sh_show(root, spec):
     got = subprocess.run(["git", "show", spec], cwd=root, capture_output=True,
                          text=True, errors="ignore")
     return None if got.returncode else got.stdout
+
+
+def totals(per_file, skip=()):
+    """{bucket: {code, comment, docstring}} from a per-file tally, minus `skip`.
+
+    SUMMED WHERE THE SKIP LIST IS KNOWN, which is why both readers answer per file. Muting a whole
+    BUCKET when one file changed readability meant a commit that fixed a non-parsing module could
+    carry any amount of prose into it in silence — the delta is over the files both sides could
+    read, not over the buckets that held one they could not.
+    """
+    out = {}
+    for path, (b, code, com, doc) in per_file.items():
+        if path in skip:
+            continue
+        acc = out.setdefault(b, {"code": 0, "comment": 0, "docstring": 0})
+        acc["code"] += code
+        acc["comment"] += com
+        acc["docstring"] += doc
+    return out
 
 
 def at(ref, root=ROOT):
@@ -262,15 +280,12 @@ def at(ref, root=ROOT):
         if got is None:
             unread.append((b, path))
             continue
-        acc = out.setdefault(b, {"code": 0, "comment": 0, "docstring": 0})
-        acc["code"] += got[0]
-        acc["comment"] += got[1]
-        acc["docstring"] += got[2]
+        out[path] = (b,) + tuple(got)
     return out, unread
 
 
 def measure(root=ROOT, staged=False):
-    """({bucket: {code, comment, docstring}}, [paths it could not read]).
+    """({path: (bucket, code, comment, docstring)}, [(bucket, path) it could not read]).
 
     `staged` reads the INDEX rather than disk, which is what --check wants: the hook judges what
     is about to be committed, and under `git add -p` that is not what is on disk. The bare table
@@ -305,10 +320,7 @@ def measure(root=ROOT, staged=False):
         if got is None:
             unread.append((b, path))
             continue
-        acc = out.setdefault(b, {"code": 0, "comment": 0, "docstring": 0})
-        acc["code"] += got[0]
-        acc["comment"] += got[1]
-        acc["docstring"] += got[2]
+        out[path] = (b,) + tuple(got)
     return out, unread
 
 
@@ -348,7 +360,7 @@ def main():
     ap.add_argument("--root", default=ROOT, help=argparse.SUPPRESS)
     a = ap.parse_args()
 
-    buckets, unread = measure(a.root, staged=a.check)
+    now_files, unread = measure(a.root, staged=a.check)
     # --check JUDGES THE CHANGE, NOT THE TOTAL. Every bucket is well over today, so a
     # check against the total would be red on every commit — and unanswerable besides: nothing a
     # reader can do to the file in front of them clears a ratio the whole repo owns. The commit's
@@ -359,14 +371,15 @@ def main():
     # A FILE THAT CHANGED READABILITY HAS NO DELTA. at() used to drop what it could not classify
     # while measure() reported it, so the two sides held different file sets — and a one-character
     # syntax fix to a JS file that did not parse at HEAD arrived as its whole length of new prose.
-    was, was_unread = (at("HEAD", a.root) or ({}, [])) if a.check else ({}, [])
+    was_files, was_unread = (at("HEAD", a.root) or ({}, [])) if a.check else ({}, [])
+    # A FILE that changed readability has no delta — that file, not the bucket holding it.
+    moot = {p for _b, p in unread} ^ {p for _b, p in was_unread}
+    buckets = totals(now_files)
+    was, now = totals(was_files, moot), totals(now_files, moot)
     if in_merge(a.root):
         # HEAD during a merge is the FIRST PARENT, so the whole incoming branch is charged to the
         # merge commit. sw-lint.py --fix declines in this state for the same reason.
-        was, moot = {}, set(buckets)
-    else:
-        moot = {b for b in set(buckets) | set(was)
-                if by_bucket(unread).get(b) != by_bucket(was_unread).get(b)}
+        was = now = {}
     over, rows, lines = [], [], []
     say = lines.append if a.json else print
     say("  %-10s %7s %8s %8s %8s" % ("", "code", "comment", "docstr", "prose"))
@@ -375,8 +388,8 @@ def main():
         # The total's flag is CONTEXT, not a verdict: it is where the bucket stands, which is
         # history and not this commit's doing. Only the change's flag drives the exit code.
         flag = "  <-- over %.0f%%" % (CEILING * 100) if ratio(acc) > CEILING else ""
-        if a.check and name not in moot:
-            d = delta(was.get(name), acc)
+        if a.check and name in now:
+            d = delta(was.get(name), now[name])
             # Capped: prose up while code comes down is a ratio over 1, which reads as a bug.
             if d and ratio(d) > CEILING:
                 flag += "%s this change is %.0f%% prose, over %.0f%%" % (

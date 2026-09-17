@@ -147,7 +147,8 @@ def unreadable_is_reported(_):
     assert vol.split("a.js", "function ( {\n") is None
     assert vol.split("a.py", "def f(:\n") is None
     d = tree({"broken.js": "function ( {\n", "ok.py": "x = 1\n"})
-    buckets, unread = vol.measure(d)
+    files, unread = vol.measure(d)
+    buckets = vol.totals(files)
     assert unread == [("source", "broken.js")], unread
     assert buckets["source"]["code"] == 1, buckets
 
@@ -165,10 +166,10 @@ def ratio_math(_):
 def check_exit(_):
     lean = "x = 1\n" * 90 + "# c\n" * 10
     d = tree({"scripts/a.py": lean})
-    buckets, _ = vol.measure(d)
+    buckets = vol.totals(vol.measure(d)[0])
     assert vol.ratio(buckets["source"]) <= vol.CEILING, vol.ratio(buckets["source"])
     fat = tree({"scripts/a.py": "x = 1\n" * 10 + "# c\n" * 90})
-    b2, _ = vol.measure(fat)
+    b2 = vol.totals(vol.measure(fat)[0])
     assert vol.ratio(b2["source"]) > vol.CEILING
 
 
@@ -177,15 +178,15 @@ def check_is_marginal(_):
     # A check against the TOTAL is red on every commit while the repo sits over its ceiling, and
     # unanswerable: nothing a reader can do here clears a ratio the whole repo owns.
     d = tree({"scripts/a.py": "x = 1\n" * 10 + "# c\n" * 90}, commit=True)
-    was, _ = vol.at("HEAD", d)
+    was = vol.totals(vol.at("HEAD", d)[0])
     assert vol.ratio(was["source"]) > vol.CEILING, "the history is fat on purpose"
     write(d, {"scripts/b.py": "y = 1\n" * 100 + "# c\n" * 25})
-    now, _ = vol.measure(d)
+    now = vol.totals(vol.measure(d)[0])
     assert vol.ratio(now["source"]) > vol.CEILING, "and still is"
     lean = vol.delta(was["source"], now["source"])
     assert lean and vol.ratio(lean) <= vol.CEILING, vol.ratio(lean)
     write(d, {"scripts/b.py": "y = 1\n" * 5 + "# c\n" * 100})
-    now, _ = vol.measure(d)
+    now = vol.totals(vol.measure(d)[0])
     fat = vol.delta(was["source"], now["source"])
     assert fat and vol.ratio(fat) > vol.CEILING, vol.ratio(fat)
 
@@ -310,7 +311,7 @@ def at_filters_before_reading(_):
 
     vol.subprocess.run = spy
     try:
-        got, _ = vol.at("HEAD", d)
+        got = vol.totals(vol.at("HEAD", d)[0])
     finally:
         vol.subprocess.run = real
     assert read == ["HEAD:scripts/a.py"], read
@@ -326,16 +327,16 @@ def vendored_is_grandfathered(_):
     # fires however much prose it carries, and a diff to one obeys what every other diff does.
     fat = "// pwa-starter: app.js @ 1a2b3c4\n" + "// prose\n" * 90 + "let x;\n"
     d = tree({"app.js": fat}, commit=True)
-    was, _ = vol.at("HEAD", d)
+    was = vol.totals(vol.at("HEAD", d)[0])
     # Asserted before it is indexed: without the stamp rule that file lands in `source`, and a
     # KeyError here would report as a crash rather than as the classification being wrong —
     # ablate.py calls that INCONCLUSIVE, which proves nothing either way.
     assert "vendored" in was, "a stamped file was not classified vendored: %s" % list(was)
     assert vol.ratio(was["vendored"]) > 0.9, "and it is far over the ceiling standing still"
-    buckets, _ = vol.measure(d)
+    buckets = vol.totals(vol.measure(d)[0])
     assert vol.delta(was["vendored"], buckets["vendored"]) is None, "untouched, so it says nothing"
     write(d, {"app.js": fat + "// prose\n" * vol.FLOOR})
-    now, _ = vol.measure(d)
+    now = vol.totals(vol.measure(d)[0])
     edited = vol.delta(was["vendored"], now["vendored"])
     assert edited and vol.ratio(edited) > vol.CEILING, edited
 
@@ -430,6 +431,34 @@ def moot_is_per_file(_):
     out = subprocess.run([sys.executable, os.path.join(HERE, "volume.py"), "--check",
                           "--root", d], capture_output=True, text=True)
     assert out.returncode == 0, out.stdout
+
+
+@case("one unreadable FILE does not mute the bucket holding it")
+def moot_is_the_file_not_the_bucket(_):
+    # Muting the bucket meant a commit that fixed a non-parsing module could carry any amount of
+    # prose into it in silence — which is the one direction this check exists to stop.
+    d = tree({"a.js": "function ( {\n", "big.js": "let x;\n"}, commit=True)
+    write(d, {"a.js": "let a;\n", "big.js": "let x;\n" + "// prose\n" * (vol.FLOOR * 3)})
+    out = subprocess.run([sys.executable, os.path.join(HERE, "volume.py"), "--check",
+                          "--root", d], capture_output=True, text=True)
+    assert out.returncode == 1, out.stdout
+
+
+@case("a line that CLOSES one block and opens another is still inside one")
+def html_close_then_open(_):
+    # Asking whether the line contains a closer at all read `<!-- a -->x<!-- b` as closed, and the
+    # second comment's body was counted as code. Only the LAST opener can still be open.
+    src = "<div>\n<!-- a -->x<!-- b\nmore\n-->\n<p>\n"
+    assert vol.split("a.html", src) == (2, 3, 0), vol.split("a.html", src)
+    shut = "<!-- a --> <!-- b -->\n<p>\n"
+    assert vol.split("a.html", shut) == (1, 1, 0), vol.split("a.html", shut)
+
+
+@case("a def that carries its own docstring is a line of CODE")
+def one_line_docstring(_):
+    # `def f(): """doc"""` puts both on one line, and the AST's docstring range starts there.
+    assert vol.split("a.py", 'def f(): """doc"""\nx = 1\n') == (2, 0, 0)
+    assert vol.split("a.py", 'def f():\n    """doc"""\n    return 1\n') == (2, 0, 1), "normal"
 
 
 @case("a MERGE is not a commit that wrote the branch it merges")
