@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # pwa-starter: pre-commit @ d2fad01  (+ sw-lint --fix)
 # Warn-only pre-commit guard. Enable once per clone:
-#   git config core.hooksPath .githooks
+#   scripts/setup.sh
 # Never blocks a commit — it nags. CI (.github/workflows/checks.yml) runs the lint + tests with
 # real exit codes; the staged-diff checks (V bump, OG card size) only bite here.
 #

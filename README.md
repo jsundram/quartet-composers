@@ -22,10 +22,10 @@ scripts/setup.sh    # point core.hooksPath at .githooks, so the pre-commit lints
 ```
 
 git will not let a repo enable its own hooks on clone, deliberately, so this is the one setup step
-there is. Skip it and the commit-time half of the checks below never runs — the `V` bump, and the
-warn-only lints, of which `record-lint` and `volume` also report into CI while `og-lint`'s card-size
-check and `codehash` run nowhere else. Claude Code sessions get it from
-`.claude/hooks/session-start.sh` without asking.
+there is. What only the hook can do is the `V` bump and og-lint's card-size check, both of which
+read the staged diff a CI checkout does not have; `record-lint`, `volume` and `codehash` all report
+on a branch in CI as well, and og-lint's other checks fail the build there. Claude Code sessions get
+the setup step from `.claude/hooks/session-start.sh` without asking.
 
 ## What changed
 

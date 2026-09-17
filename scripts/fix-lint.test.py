@@ -498,6 +498,13 @@ with tempfile.TemporaryDirectory() as tmp:
     case("...and COVERS maps it to that suite",
          [c for pats, c in _abl.COVERS if "scripts/setup.sh" in pats],
          [["python3 scripts/setup.test.py"]])
+    # The file that INVOKES it. Left out, a PR that mistypes the path passes fix-lint with no test,
+    # is mapped to no suite, and every later session starts with the hook disabled — the silence
+    # setup.sh exists to prevent, arriving through the file that was supposed to prevent it.
+    case("the session hook counts as source too, and maps to the same suite",
+         (bool(_abl.SOURCE.match(".claude/hooks/session-start.sh")),
+          [c for pats, c in _abl.COVERS if ".claude/hooks/session-start.sh" in pats]),
+         (True, [["python3 scripts/setup.test.py"]]))
 
     # --- ablate: a COVERS entry is INERT unless SOURCE matches the same file ---------------
     # plan() builds its file list with SOURCE.match, so a name in COVERS that SOURCE does not

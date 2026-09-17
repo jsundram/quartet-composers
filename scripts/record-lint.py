@@ -284,10 +284,16 @@ def check(path, old_src, new_src):
     return found, None
 
 
-def report(found, notes):
+def report(found, notes, examined=None):
     for note in notes:
         print(f"  record-lint: {note}")
     if not found:
+        # SAY SO WHEN THERE IS NOTHING, under --base only. In the hook, silence is the right answer
+        # and a line per commit is noise. In CI the output IS the report, and an empty fenced block
+        # reads as a step that produced nothing — indistinguishable from a crash, or from selects()
+        # having matched none of the branch's files, which is the silence this lint exists to break.
+        if examined is not None:
+            print(f"  record-lint: examined {examined} changed file(s), nothing reached prose")
         return 0
     print("  record-lint: a number reached prose. Three branches, and CUT IS THE FIRST TO TRY:")
     print("    1. delete it — take the number out and read what is left. A clause that now says")
@@ -322,6 +328,7 @@ def main():
             found += f
             if note:
                 notes.append(note)
+        return report(found, notes, examined=len(files))
     elif a.tree:
         r = subprocess.run(["git", "ls-files"], cwd=a.root, capture_output=True, text=True)
         for p in [x for x in r.stdout.split() if selects(x)]:

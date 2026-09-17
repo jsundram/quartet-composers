@@ -109,6 +109,19 @@ def check_is_read_only(tmp):
     assert code == 0, out
 
 
+@case("an argument it does not know writes nothing, rather than falling through to the write")
+def unknown_arg(tmp):
+    # Testing `$1` for equality with --check makes every OTHER argument a plain run, so `-check`,
+    # a typo, or a future --dry-run took the write path — the one invocation whose whole promise
+    # is "change nothing" changing the clone, silently and with exit 0.
+    for arg in ("--dry-run", "-check", "--checkk", "check"):
+        repo = new_repo(tmp)
+        code, out = run(repo, arg)
+        assert hooks_path(repo) == "", f"{arg} enabled the hook: " + hooks_path(repo)
+        assert code == 2, f"{arg} -> exit {code}: {out}"
+        assert arg in out, out
+
+
 @case("outside a git checkout it fails rather than reporting success")
 def not_a_repo(tmp):
     # `git config --local` outside a repo errors and `|| true` swallows it, so without the rev-parse

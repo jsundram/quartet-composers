@@ -313,6 +313,15 @@ def base_asks_the_branch(_):
     bad = run("--base", "no-such-ref")
     assert bad.returncode == 2, bad.stdout + bad.stderr
     assert "no merge base" in bad.stdout, bad.stdout
+    # AND A CLEAN RUN SAYS SO. CI fences this output, and printing nothing leaves an empty block
+    # that reads as a step which produced nothing — the same shape as a crash, or as selects()
+    # matching none of the branch's files. The hook stays silent; only --base reports.
+    git("checkout", "-q", "-b", "quiet", "main")
+    open(os.path.join(d, "c.js"), "w").write("// no numbers here\nconst z = 1;\n")
+    git("add", "-A"); git("commit", "-qm", "clean")
+    clean = run("--base", "main")
+    assert clean.returncode == 0, clean.stdout
+    assert "nothing reached prose" in clean.stdout, repr(clean.stdout)
 
 
 @case("a file whose code cannot be told from its prose is REPORTED, not passed")

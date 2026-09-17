@@ -32,10 +32,11 @@ repo. The prose inside the code answers to a ratio instead — `scripts/volume.p
    nobody's installed copy. `app.js`'s `VER_PREFIX` must keep matching `V`'s stem, which is why only
    the numeric TAIL is ever incremented. `sw-lint.py --fix` does the bump in the pre-commit hook and
    `--base REF` covers the branch in CI, because two PRs off one base can bump identically and merge
-   to a net delta of zero (#32); `sw-lint.py` states all six of its checks.
+   to a net delta of zero (#32); `sw-lint.py` states its checks.
    **The hook only exists in a clone that ran `scripts/setup.sh`**, git having no way to enable it
-   on clone, so the branch check is what has to hold — and every warn-only lint below is silent
-   until somebody runs that one command. `.claude/hooks/session-start.sh` runs it per session.
+   on clone, so the branch check is what has to hold. What that clone alone gets is the BUMP and
+   og-lint's staged card-size check; the rest of the lints report in CI either way.
+   `.claude/hooks/session-start.sh` runs the setup step per session.
 
 2. **`sw.js`'s `BOOT` must list every script the page dies without.** Every pixel is drawn by JS, so
    a cached `index.html` without `d3.v7.min.js` or `composers.json` is a headline over an empty box;

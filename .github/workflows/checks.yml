@@ -100,6 +100,11 @@ jobs:
       # whether a stamped file counts as vendored is not.
       - name: the volume budget's tests (scripts/volume.test.py)
         run: python3 scripts/volume.test.py
+      # The setup step's own suite. Offline, ~1s, and the only thing that can see the session hook
+      # or the README quietly stop naming scripts/setup.sh — ablate reaches it only on a branch
+      # that changes setup.sh or the hook itself, and neither is what a rename touches.
+      - name: the setup step (scripts/setup.test.py)
+        run: python3 scripts/setup.test.py
       - name: code vs comments on this branch (scripts/codehash.py --base)
         if: github.event_name == 'pull_request'
         env:

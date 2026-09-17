@@ -3,6 +3,7 @@
 #
 #     scripts/setup.sh           # enable it
 #     scripts/setup.sh --check   # is it enabled? exit 1 if not, and change nothing
+#                                # anything else: exit 2, having done nothing
 #
 # WHY A SCRIPT AND NOT A LINE IN THE README. git will not let a repo point at its own hooks on
 # clone — deliberately, since cloning must never run code the repo controls — so SOMETHING has to
@@ -29,8 +30,16 @@ fi
 # --local, not the effective value: a global core.hooksPath would read as enabled here and then not
 # be, because it points somewhere else entirely.
 cur="$(git config --local --get core.hooksPath || true)"
+
+# MATCHED, not tested for equality. `[ "$1" = --check ] && check=1` reads every other argument as a
+# plain run, so `-check`, a typo, or a future `--dry-run` took the write path — the one invocation
+# whose entire promise is "change nothing" changing the clone, silently and with exit 0.
 check=0
-[ "${1:-}" = "--check" ] && check=1
+case "${1:-}" in
+  "")       ;;
+  --check)  check=1 ;;
+  *) echo "setup: unknown argument \"$1\" — nothing done (try --check)" >&2; exit 2 ;;
+esac
 
 if [ "$cur" = "$WANT" ]; then
   echo "setup: pre-commit hook enabled ($WANT)"
