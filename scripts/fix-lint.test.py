@@ -300,6 +300,43 @@ with tempfile.TemporaryDirectory() as tmp:
     case("...and says the file is new rather than claiming it was proven",
          "is NEW" in out and "(added)" in out, True)
 
+    # --- ablate: A NEW FILE ALONGSIDE AN EDITED ONE ----------------------------------------------
+    # The MIXED branch, and the one the message above does not cover: a new module plus a one-line
+    # edit somewhere covered. The edit is ablated, a suite reddens, the verdict is "proven" — and
+    # the new module, which is usually the whole point of the branch, was never looked at. This is
+    # the shape of the branch that added volume.py: `src` was the ablate.py line registering it.
+    repo = new_repo(tmp)
+    write(repo, "suite.py", SUITE)
+    commit(repo, "a suite")
+    git(repo, "checkout", "-q", "-b", "b10b")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
+    write(repo, "chart.js", "const c = 1;  // brand new module\n")
+    write(repo, "scripts/thing.test.py", "x\n")
+    commit(repo, "a new module, and a fix to an old one")
+    code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
+                    "--cmd", f"{sys.executable} suite.py")
+    case("a mixed branch is still proven by the file it CAN ablate", code, 0)
+    case("...and a GREEN verdict still names the file it could not", "chart.js" in out, True,
+         out.strip().splitlines()[0][:70] if out else "")
+    # Every exit that reports a verdict says it, including the one where no CI-runnable suite
+    # covers the branch at all — a UI branch that also adds a module took that path silently.
+    code, out = run(repo, os.path.join(repo, "scripts/ablate.py"))
+    case("...and so does the exit where no runnable suite covers the branch",
+         "not ablated" in out.lower() and "chart.js" in out, True, out.strip()[:70])
+    # ...and the exit where a trailer excused every file that COULD be ablated. That one reads
+    # "every source change on this branch is excused", which is true and was the whole message.
+    repo = new_repo(tmp)
+    write(repo, "suite.py", SUITE)
+    commit(repo, "a suite")
+    git(repo, "checkout", "-q", "-b", "b10c")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
+    write(repo, "chart.js", "const c = 1;  // brand new module\n")
+    commit(repo, "a new module\n\nNo-test: app.js is a one-line rename")
+    code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
+                    "--cmd", f"{sys.executable} suite.py")
+    case("...and so does the exit where a trailer excused everything ablatable",
+         "not ablated" in out.lower() and "chart.js" in out, True, out.strip()[:70])
+
     # --- ablate: A BRANCH THAT DELETES A SOURCE FILE (the High finding on #43) --------------------
     # Restoring was one `git checkout HEAD -- <every file>`, and git validates the whole pathspec
     # list before touching anything: the deleted file is absent at HEAD, so the command aborted and
@@ -428,7 +465,7 @@ with tempfile.TemporaryDirectory() as tmp:
     # rename from an unrelated delete plus add. So the branch is NOT waved through; what it must
     # not do is claim the tests prove nothing without saying the new file was never ablated.
     case("a wholly-rewritten rename does not get a confidently wrong verdict",
-         "NOT ablated" in out, True, out.splitlines()[-1][:58] if out else "")
+         "not ablated" in out.lower(), True, out.splitlines()[-1][:58] if out else "")
     case("...and it names the file it could not ablate", "chart.js" in out, True)
 
     # --- ablate: UNCOVERED IS AN ASSERTION, NOT DECORATION ----------------------------------------
@@ -478,6 +515,11 @@ with tempfile.TemporaryDirectory() as tmp:
     case("the record rule is reachable by the gate that claims to cover it",
          bool(_ab.SOURCE.match("scripts/record-lint.py"))
          and any("scripts/record-lint.py" in files for files, _c in _ab.COVERS), True,
+         "SOURCE must match a file for plan() to route it to its COVERS suite")
+
+    case("the volume budget is reachable by the gate that claims to cover it",
+         bool(_ab.SOURCE.match("scripts/volume.py"))
+         and any("scripts/volume.py" in files for files, _c in _ab.COVERS), True,
          "SOURCE must match a file for plan() to route it to its COVERS suite")
 
     case("every file COVERS maps is one plan() can actually see", _inert, [],
