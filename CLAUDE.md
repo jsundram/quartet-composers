@@ -216,8 +216,8 @@ No test framework, and nothing to install. Each of these states its own rules in
 | `python3 scripts/fix-lint.py --base REF` | a branch changed source and touched no test. |
 | `python3 scripts/ablate.py --base REF` | the branch's tests over the base's code — do they still pass? |
 | `python3 scripts/setup.test.py` | `setup.sh` enables the hook, survives a second run, and never takes over a `core.hooksPath` somebody set. |
-| `python3 scripts/record-lint.py` | did a number reach a comment or a docstring? Hook-only, warn-only. |
-| `python3 scripts/volume.py` | how much of this repo is prose, and is this change adding more? Hook-only, warn-only. |
+| `python3 scripts/record-lint.py` | did a number reach a comment or a docstring? `--base REF` for the branch. |
+| `python3 scripts/volume.py` | how much of this repo is prose, and is this change adding more? `--base REF` for the branch. |
 | `scripts/audit_counts.py`, `audit_redirects.py` | not automated: evidence printed for a human to grade. |
 
 Everything that needs neither a browser nor a network runs in CI, and since #56 so does the browser
@@ -229,7 +229,9 @@ after touching `chart.js`, `table.js` or `styles.css`: a UI change is one you wa
 **The two branch gates read TWO commits**, so `fix-lint.py`, `ablate.py` and `sw-lint.py --base` run
 on pull requests only, and a `No-test: <reason>` trailer skips both — scoped PER FILE to the ones
 its own commit touched, so an untested source change is a sentence a reviewer can read rather than a
-silence.
+silence. `record-lint.py --base` and `volume.py --base` are the same shape and deliberately NOT
+gates: each asks a judgement, and a lint that pinned one was reverted (#67, #74), so CI prints them
+to the run summary and never fails on them.
 
 **Four rules hold inside the browser suite**, each stated in `ui.test.mjs` beside the code that
 keeps it, and a new check answers to all four: every wait is a POLL and not a budget (#48); a

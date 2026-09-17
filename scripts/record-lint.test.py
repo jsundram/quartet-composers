@@ -26,6 +26,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 spec = importlib.util.spec_from_file_location("record_lint", os.path.join(HERE, "record-lint.py"))
+LINT = os.path.join(HERE, "record-lint.py")
 rl = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(rl)
 
@@ -276,6 +277,37 @@ def code_spelling_is_not_prose(_):
     # landed on `CEILING = 0.20` — a line of code — while the comment went unreported.
     found, _ = rl.check("a.py", "", "# Set to 0.2 because of the cap\nCEILING = 0.20\n")
     assert [(l, n) for _p, l, n, _t in found] == [(1, "0.2")], found
+
+
+@case("--base asks the question of a BRANCH, which is the only mode CI can use")
+def base_asks_the_branch(_):
+    # The default mode reads the INDEX, and a CI checkout stages nothing, so there it examines no
+    # files and reports nothing — indistinguishable from a clean run. The merge base and not the
+    # ref's tip, or a number somebody else landed on main is charged to this branch.
+    import subprocess, tempfile
+    d = tempfile.mkdtemp()
+    git = lambda *a: subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t", *a],
+                                    cwd=d, capture_output=True, text=True)
+    git("init", "-q")
+    open(os.path.join(d, "a.js"), "w").write("// nothing yet\nconst x = 1;\n")
+    git("add", "-A"); git("commit", "-qm", "base"); git("branch", "-M", "main")
+    git("checkout", "-q", "-b", "work")
+    open(os.path.join(d, "a.js"), "w").write("// it holds for 406 of them\nconst x = 1;\n")
+    git("add", "-A"); git("commit", "-qm", "a number")
+    # --root, or the real entry point reads THIS repo whatever cwd says: ROOT comes from the
+    # script's own path. Written without it first, this case passed on a number in its own source.
+    run = lambda *a: subprocess.run([sys.executable, LINT, "--root", d, *a],
+                                    capture_output=True, text=True)
+    assert run().returncode == 0, "the premise: nothing staged, so the default mode is silent"
+    r = run("--base", "main")
+    assert r.returncode == 1, "the branch added 406 to a comment and it passed: " + r.stdout
+    assert "406" in r.stdout, r.stdout
+    # A number that arrived on main afterwards belongs to main, not to this branch.
+    git("checkout", "-q", "main")
+    open(os.path.join(d, "b.js"), "w").write("// theirs: 462 of them\nconst y = 1;\n")
+    git("add", "-A"); git("commit", "-qm", "theirs")
+    git("checkout", "-q", "work")
+    assert "462" not in run("--base", "main").stdout, "it charged this branch with main's number"
 
 
 @case("a file whose code cannot be told from its prose is REPORTED, not passed")

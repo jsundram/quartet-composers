@@ -224,20 +224,39 @@ def lines_with(src, spellings, code=""):
     return [h[:3] for h in hits]
 
 
-def head_src(path):
-    r = subprocess.run(["git", "show", f"HEAD:{path}"], cwd=ROOT, capture_output=True, text=True)
+# EVERY GIT READER TAKES ITS ROOT, for the reason volume.py's --root exists one file over: with
+# ROOT hardcoded from this script's own path, a suite driving the real entry point over a throwaway
+# tree silently reads THIS repo instead. Not hypothetical — record-lint.test.py's --base case was
+# written that way first and passed on a number it found in its own source.
+def at(ref, path, root=ROOT):
+    """`path` as `ref` holds it, or "" where it is absent. `ref=""` reads the INDEX.
+
+    One reader for every side, because a file the other side lacks is not an error here — it has no
+    prose to subtract — and two copies of that rule is two places to forget it."""
+    r = subprocess.run(["git", "show", f"{ref}:{path}"], cwd=root, capture_output=True, text=True)
     return r.stdout if r.returncode == 0 else ""
 
 
-def staged():
+def staged(root=ROOT):
     r = subprocess.run(["git", "diff", "--cached", "--name-only", "--diff-filter=ACM"],
-                       cwd=ROOT, capture_output=True, text=True)
+                       cwd=root, capture_output=True, text=True)
     return [p for p in r.stdout.split() if selects(p)]
 
 
-def staged_src(path):
-    r = subprocess.run(["git", "show", f":{path}"], cwd=ROOT, capture_output=True, text=True)
-    return r.stdout if r.returncode == 0 else ""
+def branch(base, root=ROOT):
+    """(merge-base, files the branch changed) for a --base run, or (None, why not).
+
+    THE MERGE BASE, not the ref's tip — the diff a rebase, a squash and a stacked branch all leave
+    alone, which is what sw-lint.py --base and ablate.py read from. Against the tip, every commit
+    somebody else landed on main since this branch started is charged to it."""
+    mb = subprocess.run(["git", "merge-base", base, "HEAD"], cwd=root,
+                        capture_output=True, text=True)
+    if mb.returncode != 0 or not mb.stdout.strip():
+        return None, f'no merge base between HEAD and "{base}"'
+    mb = mb.stdout.strip()
+    r = subprocess.run(["git", "diff", "--name-only", "--diff-filter=ACM", mb, "HEAD"],
+                       cwd=root, capture_output=True, text=True)
+    return mb, [p for p in r.stdout.split() if selects(p)]
 
 
 def check(path, old_src, new_src):
@@ -278,20 +297,36 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("files", nargs="*", help="files to check against HEAD (default: the index)")
     ap.add_argument("--tree", action="store_true", help="every tracked source file, from nothing")
+    # A BRANCH's numbers, for CI, where the index is empty and the default mode therefore examines
+    # nothing — which reads exactly like a clean run. Still exits 1 on a finding; whether to ACT on
+    # that is the workflow's call, and checks.yml makes it a report rather than a gate (#67, #74).
+    ap.add_argument("--base", metavar="REF", help="what this BRANCH adds, against REF's merge base")
+    ap.add_argument("--root", default=ROOT, help=argparse.SUPPRESS)
     a = ap.parse_args()
 
     found, notes = [], []
-    if a.tree:
-        r = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True)
+    if a.base:
+        mb, files = branch(a.base, a.root)
+        if mb is None:
+            print(f"  record-lint: {files}")
+            return 2
+        for p in files:
+            f, note = check(p, at(mb, p, a.root), at("HEAD", p, a.root))
+            found += f
+            if note:
+                notes.append(note)
+    elif a.tree:
+        r = subprocess.run(["git", "ls-files"], cwd=a.root, capture_output=True, text=True)
         for p in [x for x in r.stdout.split() if selects(x)]:
-            f, note = check(p, "", open(os.path.join(ROOT, p), errors="ignore").read())
+            f, note = check(p, "", open(os.path.join(a.root, p), errors="ignore").read())
             found += f
             if note:
                 notes.append(note)
     else:
-        for p in a.files or staged():
-            new = open(os.path.join(ROOT, p), errors="ignore").read() if a.files else staged_src(p)
-            f, note = check(p, head_src(p), new)
+        for p in a.files or staged(a.root):
+            new = open(os.path.join(a.root, p), errors="ignore").read() if a.files \
+                else at("", p, a.root)
+            f, note = check(p, at("HEAD", p, a.root), new)
             found += f
             if note:
                 notes.append(note)

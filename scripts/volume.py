@@ -357,6 +357,10 @@ def ratio(acc):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--check", action="store_true", help="exit 1 if this change is over a ceiling")
+    # The same judgement over a BRANCH rather than the index, for CI, where nothing is staged and
+    # --check therefore says nothing about the change. Against the MERGE BASE, like sw-lint.py
+    # --base and ablate.py. Exit code unchanged; checks.yml declines to act on it.
+    ap.add_argument("--base", metavar="REF", help="judge this BRANCH, against REF's merge base")
     ap.add_argument("--json", action="store_true", help="the numbers, for a script")
     # Not for the hook, which always means this repo. It is what lets the suite drive the REAL
     # entry point over a throwaway tree: measure() and at() both took a root already, and main()
@@ -365,6 +369,15 @@ def main():
     ap.add_argument("--root", default=ROOT, help=argparse.SUPPRESS)
     a = ap.parse_args()
 
+    judging = a.check or bool(a.base)
+    base_ref = "HEAD"
+    if a.base:
+        mb = subprocess.run(["git", "merge-base", a.base, "HEAD"], cwd=a.root,
+                            capture_output=True, text=True)
+        if mb.returncode != 0 or not mb.stdout.strip():
+            print('  volume: no merge base between HEAD and "%s"' % a.base)
+            return 2
+        base_ref = mb.stdout.strip()
     now_files, unread = measure(a.root, staged=a.check)
     # --check JUDGES THE CHANGE, NOT THE TOTAL. Every bucket is well over today, so a
     # check against the total would be red on every commit — and unanswerable besides: nothing a
@@ -376,7 +389,7 @@ def main():
     # A FILE THAT CHANGED READABILITY HAS NO DELTA. at() used to drop what it could not classify
     # while measure() reported it, so the two sides held different file sets — and a one-character
     # syntax fix to a JS file that did not parse at HEAD arrived as its whole length of new prose.
-    was_files, was_unread = (at("HEAD", a.root) or ({}, [])) if a.check else ({}, [])
+    was_files, was_unread = (at(base_ref, a.root) or ({}, [])) if judging else ({}, [])
     # A FILE that changed readability has no delta — that file, not the bucket holding it.
     moot = {p for _b, p in unread} ^ {p for _b, p in was_unread}
     buckets = totals(now_files)
@@ -393,7 +406,7 @@ def main():
         # The total's flag is CONTEXT, not a verdict: it is where the bucket stands, which is
         # history and not this commit's doing. Only the change's flag drives the exit code.
         flag = "  <-- over %.0f%%" % (CEILING * 100) if ratio(acc) > CEILING else ""
-        if a.check and name in now:
+        if judging and name in now:
             d = delta(was.get(name), now[name])
             # Capped: prose up while code comes down is a ratio over 1, which reads as a bug.
             if d and ratio(d) > CEILING:
