@@ -739,15 +739,15 @@ function anyFilter() {
   return !!$("q").value.trim() || !!Histogram.getRange() || !!gender;
 }
 
-// All three, search included: the name is plural and a typed query is a filter. It does not focus the
-// search box, for the reason CLAUDE.md gives.
+// All three, search included: the name is plural and a typed query is a filter.
 //
 // Exactly ONE applyFilters() runs, which is what the branch is for: d3-brush emits "end" for a
 // programmatic move, so Histogram.clear() comes back through onChange on its own, and calling it here
 // too would rebuild every table row twice. With no range there is nothing to emit.
-// No focus() here, though #clear does exactly that: #clear sits in the search box's own row, while
-// this button is a card BELOW it, where focusing would scroll the viewport back up over a filter
-// bar the reader had already scrolled past.
+//
+// And no focus(), though #clear does exactly that: #clear sits in the search box's own row, while
+// this button is a card BELOW it, where focusing would scroll the viewport back up over a filter bar
+// the reader had already scrolled past.
 function resetFilters() {
   $("q").value = "";
   setGender("", false);
@@ -806,7 +806,8 @@ function applyFilters(settled) {
 // ---- provenance ------------------------------------------------------------
 // Every property id in the line becomes a link to its own Wikidata definition, because "P569" is
 // jargon a reader cannot check from the page. The LINE is linkified rather than composers.json
-// carrying anchors, so a new property is linked the moment it is printed (CLAUDE.md has the rule).
+// carrying anchors, so a new property is linked the moment it is printed — and so that this stays
+// BUILT: assigning $("prov").textContent again would silently drop every link on the line.
 const WD_PROP = /\bP[1-9]\d{0,6}\b/g;
 
 // A part is either a STRING, scanned for property ids, or an explicit {text, href, title} anchor —
