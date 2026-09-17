@@ -150,6 +150,26 @@ def wired_up(_):
     assert "scripts/setup.sh" in readme, "the README does not tell a human to run it"
 
 
+@case("setup.sh is the ONLY file that tells anybody to run the config command")
+def one_enable_path(_):
+    # wired_up covers the two entry points that must NAME setup.sh. It cannot see a THIRD place
+    # still naming the command setup.sh replaced, which is how .githooks/pre-commit kept telling a
+    # reader to run `git config ...` through the whole PR that removed that instruction everywhere
+    # else — the drift setup.sh's own argument is about, in the file that argues it.
+    #
+    # The INVOCATION, not the setting's name: `core.hooksPath` appears in a dozen comments that
+    # explain the mechanism, and those are prose doing its job. What may exist in exactly one place
+    # is a line that runs the command, because that is what a reader copies.
+    #
+    # Assembled rather than written out, or this case matches its own source and can never pass.
+    pat = "git" + r"[[:space:]]+config.*core\.hooksPath"
+    r = subprocess.run(("git", "grep", "-lE", pat), cwd=os.path.dirname(HERE),
+                       capture_output=True, text=True)
+    assert r.returncode in (0, 1), r.stderr
+    named = sorted(r.stdout.split())
+    assert named == ["scripts/setup.sh"], "a second file names the enable command: %s" % named
+
+
 def main():
     with tempfile.TemporaryDirectory() as tmp:
         for name, fn in CASES:
