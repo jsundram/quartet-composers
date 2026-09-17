@@ -10,16 +10,15 @@ NO NETWORK, NO REPO: every case is a pair of strings through check(), so this ru
 
 WHY THIS FILE EXISTS. The lint is one regex away from being prose-lint.py again, and prose-lint was
 deleted for a failure a reader cannot see by eye: it could not tell a REFLOWED paragraph from a
-stale fact, so wrapping a line at 100 columns demanded an edit to a claim nobody had touched. The
-property that makes this one different is not in its output — a quiet run looks the same either
-way — it is that the comparison is a multiset over the whole file. reflow_is_silent is therefore
-the case this suite exists for; the rest keep the noise floor honest enough that the nag gets read.
+stale fact, so wrapping a line at 100 columns demanded an edit to a claim nobody had touched. What
+makes this one different is not in its output — a quiet run looks the same either way — but that
+the comparison is a multiset over the whole file. `reflow_is_silent` is the case this suite exists
+for; the rest keep the noise floor honest enough that the nag gets read.
 
-The other half is the one every check here owes: a lint that flags nothing is not a lint. Each
-`flags` case names a number the repo recomputes and would have shipped wrong, and four of them are
-real lines this pass found — Beethoven's 23 pages, the 406 derived categories, "37 requests" (38),
-and a docstring, which is where 44% of this repo's Python prose lives and where a `#`-only reader
-would have seen none of it.
+The other half is what every check here owes: a lint that flags nothing is not a lint. Each `flags`
+case names a number the repo recomputes and would have shipped wrong, and four of them are real
+lines this pass found.
+
 """
 import importlib.util
 import os

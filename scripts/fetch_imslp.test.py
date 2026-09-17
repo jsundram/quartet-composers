@@ -6,28 +6,26 @@
 
     python3 scripts/fetch_imslp.test.py
 
-NO NETWORK: `get` is stubbed against a dict-shaped wiki and the cache is a temp file, so this runs
-anywhere and in CI.
+NO NETWORK: `get` is stubbed against a dict-shaped wiki and the cache is a temp file.
 
 WHY THIS FILE EXISTS. Every pass in fetch_imslp.py is a cache keyed by page title, and all but one
-of them top up correctly — markers, work info, composer pages, Wikipedia resolution. The one that
-does not top up is the one that DISCOVERS: the category crawl is the only place a work page or a
-composer can enter this pipeline at all, and it used to return early on a warm cache. So a second
-run printed `cached: orig (4215)`, asked the site nothing, and exited 0. A monthly run would have
-found nothing new forever while reporting success (#62) — the same shape as a null no request
-justified in data/pageviews.json, a "nothing to do" indistinguishable from "nothing exists".
+top up correctly. The one that does not is the one that DISCOVERS: the category crawl is the only
+place a work page or a composer can enter this pipeline at all, and it used to return early on a
+warm cache. So a second run printed `cached: orig (4215)`, asked the site nothing, and exited 0 — a
+monthly run finding nothing new forever while reporting success (#62), the same shape as a null no
+request justified in data/pageviews.json.
 
-That failure is invisible from inside a run. There is no baseline saying how many quartet pages
+That failure is invisible from inside a run: there is no baseline saying how many quartet pages
 IMSLP should hold, every number in the cache stays plausible, and the only symptom is a file that
-stops growing. So the property has to be asserted about the REQUESTS a run makes, which is what
-these cases do: what a warm run asks for, what it declines to ask for, and that a page which
-appeared between two runs reaches the passes downstream of the crawl.
+stops growing. So the property is asserted about the REQUESTS a run makes — what a warm run asks
+for, what it declines to ask for, and that a page which appeared between two runs reaches the
+passes downstream of the crawl.
 
 The budget is the other half and is not decoration. This is a volunteer-funded server, the cold
-crawl is ~238 requests, and the reason the fix is "always re-crawl" rather than "--refresh
-monthly" is that re-asking everything would re-download megabytes of wikitext that has not
-changed. A
-case that only proved re-asking would be satisfied by --refresh.
+crawl is ~238 requests, and the reason the fix is "always re-crawl" rather than "--refresh monthly"
+is that re-asking everything re-downloads megabytes of unchanged wikitext. A case that only proved
+re-asking would be satisfied by --refresh.
+
 """
 import gzip
 import importlib.util

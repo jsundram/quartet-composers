@@ -4,19 +4,20 @@
 # ///
 """Proves codehash.py isolates CODE — and, where it cannot, says so instead of guessing.
 
-Two halves, and the second is the one that makes the first safe to act on. A comment stripper that
-is merely usually right would be worse than nothing here, because `ablate.py` skips a test on its
-word: every case below that feeds it something awkward (`//` inside a string, a regex full of
-slashes, division that looks like a regex) is asking whether the answer is CORRECT, and the cases at
-the end are asking whether a strip it got wrong is reported as unverifiable rather than as a pass.
+Two halves, and the second is what makes the first safe to act on: a comment stripper that is
+merely usually right would be worse than nothing, because `ablate.py` skips a test on its word.
+Every case that feeds it something awkward (`//` inside a string, a regex full of slashes, division
+that looks like a regex) asks whether the answer is CORRECT; the cases at the end ask whether a
+strip it got wrong is reported as unverifiable rather than as a pass.
 
-The case that matters most is `deleting a function is not a comment change`. That is the defect this
-file exists for: a comment-compression pass through chart.js removed `function hash()` and
-`const MIN_SEP` from inside the blocks it was rewriting, and the audit that missed it was a human
-reading a long diff for an absence.
+The case that matters most is `deleting a function is not a comment change` — the defect this file
+exists for. A comment-compression pass through chart.js removed `function hash()` and `const
+MIN_SEP` from inside the blocks it was rewriting, and the audit that missed it was a human reading
+a long diff for an absence.
 
 Offline, no fixtures on disk, ~1s:
     python3 scripts/codehash.test.py
+
 """
 import importlib.util, os, sys
 

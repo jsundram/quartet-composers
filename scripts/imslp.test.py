@@ -8,19 +8,18 @@
     python3 scripts/imslp.test.py
 
 NO NETWORK. Everything under test reads strings — the wikitext readers, the catalogue parse, the
-work counting and the date confirmation — so the whole file runs in CI beside the other suites.
-One case reads data/people.json for a QID, which is a cached file and not a request.
+work counting, the date confirmation — so the whole file runs in CI. One case reads
+data/people.json for a QID, which is a cached file and not a request.
 
-WHY IT EXISTS. Every defect this join has had was a WRONG PARSE that looked like a missing row,
-and a missing row on a 884-composer page looks like nothing at all. The first reader used a
-line-anchored regex, so every date on IMSLP came back None — the person template packs three
-fields onto one line. The second read the article title out of `[[wikipedia:{{#iflang:…}}]]` as
-the literal string "{{", which took out Beethoven, Mozart, Haydn, Bach, Brahms and Dvorak: the
-six biggest catalogues on the site, silently, while 1,100 lesser composers joined fine and the
-totals looked healthy. Nothing crashed either time. The only symptom was a number being smaller
-than it should have been, and there is no baseline that says what it should have been — which is
-why each shape below is a case, and why the case is written against the wikitext IMSLP actually
-serves rather than a tidied version of it.
+WHY IT EXISTS. Every defect this join has had was a WRONG PARSE that looked like a missing row, and
+a missing row on an 884-composer page looks like nothing at all. The first reader used a
+line-anchored regex, so every date on IMSLP came back None — the person template packs three fields
+onto one line. The second read the article title out of `[[wikipedia:{{#iflang:…}}]]` as the
+literal string "{{", which took out the six biggest catalogues on the site, silently, while 1,100
+lesser composers joined fine and the totals looked healthy. Nothing crashed either time, and there
+is no baseline saying what the number should have been — which is why each shape below is a case,
+written against the wikitext IMSLP actually serves rather than a tidied version of it.
+
 """
 import json
 import os

@@ -5,15 +5,16 @@
 """Proves sw-lint.py's --base check catches the incident it was written for, and that --fix
 bumps V exactly when check 1 would have nagged about it.
 
-The other five checks read one commit and can be judged by eye. This one reads TWO, and the whole
-reason it exists is that the failure it catches looks correct from either side alone: #28 and #30
-both bumped quartets-v32 -> v33 from the same base, byte-identically, so each PR was right about
-its own parent and the second still merged with a net V delta of zero (#32). A test that builds
-only one branch could never show that, so every case here builds a real throwaway repo with real
-branches and runs the real script over it.
+The other five checks read one commit and can be judged by eye. This one reads TWO, and it exists
+because the failure it catches looks correct from either side alone: #28 and #30 both bumped
+quartets-v32 -> v33 from the same base, byte-identically, so each PR was right about its own parent
+and the second still merged with a net V delta of zero (#32). A test that builds only one branch
+could never show that, so every case here builds a real throwaway repo with real branches and runs
+the real script over it.
 
 Offline, no fixtures on disk, ~1s:
     python3 scripts/sw-lint.test.py
+
 """
 import importlib.util, os, subprocess, sys, tempfile
 

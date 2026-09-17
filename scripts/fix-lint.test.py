@@ -4,20 +4,20 @@
 # ///
 """Proves the two branch gates — fix-lint.py and ablate.py — do what they claim.
 
-Both read TWO commits, so neither can be judged from a single staged diff, and both are the kind
-of check whose failure is a SILENCE: a branch that should have been stopped merges green. That is
-the same shape sw-lint.test.py exists for, so this borrows its harness — every case builds a real
-throwaway repo with real branches and runs the real script over it.
+Both read TWO commits, so neither can be judged from a single staged diff, and both are the kind of
+check whose failure is a SILENCE: a branch that should have been stopped merges green. Same shape
+sw-lint.test.py exists for, so this borrows its harness — every case builds a real throwaway repo
+with real branches and runs the real script over it.
 
 The ablation cases matter most, because the interesting half of that script is what it does NOT
-count as proof. A suite that goes red because the ablated tree could not run at all exits nonzero
-while proving nothing, and a gate that accepted it would go green on a suite that never executed.
-So there is a case for each of the three verdicts — reddens, still passes, could not run — and
-one for a suite that was already red before ablating, which would otherwise let a pre-existing
-failure masquerade as proof.
+count as proof: a suite that goes red because the ablated tree could not run at all exits nonzero
+while proving nothing. So there is a case for each of the three verdicts — reddens, still passes,
+could not run — and one for a suite that was already red before ablating, which would otherwise let
+a pre-existing failure masquerade as proof.
 
 Offline, no browser, ~3s:
     python3 scripts/fix-lint.test.py
+
 """
 import os, re, subprocess, sys, tempfile
 

@@ -16,6 +16,7 @@ against ours, test against source, what is excluded outright, comment against do
 The fifth has the teeth. A file whose code cannot be told from its prose must be REPORTED, never
 skipped, because a bucket that omits what it could not read is a ratio that gets better by failing
 — and it gets better precisely on the files something is wrong with.
+
 """
 import importlib.util
 import json
