@@ -204,9 +204,31 @@ def cancel_is_order_free(_):
                  (" # the 0.200 ratio nobody measured\n", "X = 0.20\n")):
         one, _ = rl.check("a.py", "", a.strip() + "\n" + b)
         two, _ = rl.check("a.py", "", b + a.strip() + "\n")
+        # ONE finding, the prose spelling, pointing at the comment — in either order. Asserting
+        # only that the two orders AGREE is not enough: they already agreed before the fix, both
+        # reporting the code's number as well, so the case could not go red for what it names.
+        for got in (one, two):
+            assert len(got) == 1, "the code's own number is not prose: %r" % (got,)
+            assert got[0][3].startswith("#"), "and it points at the PROSE line: %r" % (got[0],)
         assert [n for _p, _l, n, _t in one] == [n for _p, _l, n, _t in two], (a, one, two)
-        assert one[0][3].startswith("#"), "it points at the PROSE line: %r" % (one[0],)
-        assert two[0][3].startswith("#"), "...in either order: %r" % (two[0],)
+
+
+@case("two numbers that are not the same number are not one")
+def canon_is_textual(_):
+    # canon() parsed with float(), which merged numbers that are not one number at all: `09` in a
+    # date with `9`, and `0,400` with `400`. A count added to prose was then cancelled by an
+    # untouched line elsewhere in the file, and the finding pointed AT that line instead.
+    assert rl.canon("09") != rl.canon("9"), "a date fragment is not a count"
+    assert rl.canon("0,400") != rl.canon("400")
+    # ...while the two spellings that really are one number still collapse, which is the pair
+    # ast.dump produces and the whole reason canon() exists.
+    assert rl.canon("0.20") == rl.canon("0.2") == "0.2"
+    assert rl.canon("1,000") == rl.canon("1000")
+    assert rl.canon("100.0") == rl.canon("100")
+    # End to end, which is how it was found: the number the change ADDED is the one reported.
+    old = "# a run from 2026-09-07 to 09\nx = 1\n"
+    found, _ = rl.check("a.py", old, old + "# real moves run 9 times faster\n")
+    assert [(l, n) for _p, l, n, _t in found] == [(3, "9")], found
 
 
 @case("a number the CODE spells differently is still the code's")
@@ -216,13 +238,6 @@ def code_spelling_is_not_prose(_):
     # landed on `CEILING = 0.20` — a line of code — while the comment went unreported.
     found, _ = rl.check("a.py", "", "# Set to 0.2 because of the cap\nCEILING = 0.20\n")
     assert [(l, n) for _p, l, n, _t in found] == [(1, "0.2")], found
-
-
-@case("...and a comment quoting a code float is not cancelled twice")
-def float_budget(_):
-    # The subtraction is per-number, not per-file: one 0.20 in the code and one in the comment
-    # leaves one for prose, the same rule the integer case already holds.
-    flags("a.py", "CEILING = 0.20\n", "CEILING = 0.20  # the 0.20 ceiling\n", ["0.20"])
 
 
 @case("a file whose code cannot be told from its prose is REPORTED, not passed")

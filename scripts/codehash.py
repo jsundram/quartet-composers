@@ -99,7 +99,9 @@ def strip_js(src, regex=True, line_comments=True):
             # And the NEWLINES inside it are the code's, not the comment's. Replacing the whole span
             # with one space merged the lines either side into one, which is the collapse this file
             # says it refuses: it hides a reflow of code, and in JS a line terminator inside a
-            # comment is one for ASI too, so `return /* x */\n value` means what it looks like.
+            # comment is one for ASI too: `return /* x\n */ value` returns undefined, and eating
+            # that newline made it read as `return value`. A terminator OUTSIDE the comment was
+            # never at risk — the old one space kept it — so it is not the case that motivates this.
             out.append(" " + "\n" * src.count("\n", i, j))
             i = j
             continue

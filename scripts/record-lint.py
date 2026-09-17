@@ -151,11 +151,19 @@ META = re.compile(r"^# /// script$.*?^# ///$", re.M | re.S)
 
 
 def canon(n):
-    """A number's identity for CANCELLING is its value: `0.20` and `0.2` are the same number."""
+    """A number's identity for CANCELLING is its value: `0.20` and `0.2` are the same number.
+
+    TEXTUAL, not `float()`. Parsing merged numbers that are not the same one at all: `09` in a
+    date became `9`, and `0,400` became `400` — so a new count in prose could be cancelled by an
+    untouched line elsewhere in the file, and the finding pointed there instead. Only the two
+    spellings that really are one number are collapsed: comma grouping, and the trailing zeros of
+    a decimal, which is the pair ast.dump produces.
+    """
     if not n[0].isdigit():
         return n                                   # a spelled count, which has no other form
-    v = float(n.replace(",", ""))
-    return str(int(v)) if v == int(v) else repr(v)
+    whole, _, frac = n.replace(",", "").partition(".")
+    frac = frac.rstrip("0")
+    return whole + ("." + frac if frac else "")
 
 
 def prose_numbers(path, src):
