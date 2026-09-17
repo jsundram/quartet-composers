@@ -10,41 +10,37 @@
 data/imslp-scrape.json (the crawl) + the caches build_data.py reads  ->  data/imslp-join.json
 
 THE ROSTER COMES FROM build_data.build_rows(), NOT FROM composers.json. This stage runs BEFORE
-build_data.py now — composers.json carries an IMSLP column, so reading it here would be a cycle —
-and calling the function that decides the roster is what keeps the two from disagreeing about who
-is on this list. Reducing the caches a second time here would be a second opinion, and a join
-against a roster the app does not ship is a count filed under a name nothing looks up.
+build_data.py — composers.json carries an IMSLP column, so reading it here would be a cycle — and
+calling the function that decides the roster is what keeps the two from disagreeing about who is on
+this list. A second reduction of the same caches would be a second opinion, and a join against a
+roster the app does not ship is a count filed under a name nothing looks up.
 
-THE JOIN IS BY QID AND IT IS CONFIRMED, NOT ASSUMED. Where an IMSLP composer category page
-states its own Wikidata item, matching it against the one every roster composer already has
-(data/people.json) is the whole join, and it matches no strings a human chose. Most pages state
-no QID, so the Wikipedia article link they do give ({{wp|…}}) carries most of the join: its QID
-where en.wikipedia has one, and otherwise the article title, accepted only when it is a title
-this roster already resolved to canonically — a title IMSLP names that we have never seen is a
-composer we do not have, not a near-miss to guess at.
+THE JOIN IS BY QID AND IT IS CONFIRMED, NOT ASSUMED. Where an IMSLP composer category page states
+its own Wikidata item, matching it against the one every roster composer already has is the whole
+join, and it matches no strings a human chose. Most pages state no QID, so the {{wp|…}} article
+link carries most of it: its QID where en.wikipedia has one, otherwise the article title, accepted
+only when this roster already resolved to it canonically — a title IMSLP names that we have never
+seen is a composer we do not have, not a near-miss to guess at.
 
 EVERY ACCEPTED JOIN IS CHECKED AGAINST THE DATES, and a disagreement is REPORTED rather than
-resolved. IMSLP and Wikidata are independent about birth and death years, so agreement is
-evidence the identifier is pointing at the person we think it is, and a two-source agreement is
-the only thing standing between this file and the invariant-5 failure one level up: handing a
-composer somebody else's catalogue produces entirely plausible numbers and nothing goes red.
-The dates are not overwritten here — composers.json's dates come from Wikidata (invariant 4)
-and this file is not a second opinion about when anyone was born.
+resolved. IMSLP and Wikidata are independent about birth and death years, so agreement is evidence
+the identifier points at the person we think it does — and it is the only thing standing between
+this file and the invariant-5 failure one level up, where handing a composer somebody else's
+catalogue produces entirely plausible numbers and nothing goes red. The dates are not overwritten
+here: composers.json's dates come from Wikidata (invariant 4) and this is not a second opinion
+about when anyone was born.
 
 A PAGE IS NOT A QUARTET, and the difference is not a rounding error. IMSLP's unit is a publication
-entry: "Sämtliche Streichquartette (Beethoven, Ludwig van)" is one page holding a whole cycle of
-quartets, and the single-work pages for the same music sit beside it. So `pages` is reported beside
-`works_n`, which reads the catalogue number off each page, expands a set by the designation its
-members share and merges by id. `works_n` is the number that ships (composers.json's `imslp`) and
-it is STILL not that file's `quartets`, which counts what the composer WROTE, from Wikipedia prose:
-IMSLP's instrumentation category legitimately holds fugues, fragments and single movements no
-numbered list counts. The two are different units and must not be subtracted from one another.
+entry — one page can hold a whole cycle, with single-work pages for the same music beside it — so
+`pages` is reported beside `works_n`, which reads the catalogue number off each page, expands a set
+by the designation its members share, and merges by id. `works_n` is what ships (composers.json's
+`imslp`) and it is STILL not that file's `quartets`, which counts what the composer WROTE, from
+Wikipedia prose: IMSLP's instrumentation category legitimately holds fugues, fragments and single
+movements no numbered list counts. Different units; never subtract one from the other.
 
-NULL AND ZERO ARE DIFFERENT ANSWERS (invariant 10). A composer with 0 works means IMSLP holds them
-and none of their quartets; ABSENT from this file means we could not establish who they are on
-IMSLP at all, and that is unknown, not empty. A composer with no P839 on Wikidata and no quartet
-page on IMSLP is indistinguishable from one IMSLP has never heard of, and this file says so rather
-than guessing — build_data.py carries the distinction downstream as a null `imslp_cat`, because
+NULL AND ZERO ARE DIFFERENT ANSWERS (invariant 10). 0 works means IMSLP holds them and none of
+their quartets; ABSENT means we could not establish who they are on IMSLP at all, which is unknown
+rather than empty. build_data.py carries the distinction downstream as a null `imslp_cat`, because
 the count cannot (invariant 16).
 """
 import argparse

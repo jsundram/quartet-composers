@@ -4,43 +4,36 @@
 # ///
 """Prove that a branch's TESTS actually catch what its SOURCE changed.
 
-A green suite is not evidence that a fix is right; it is only evidence that nothing already
-covered went red. Every long review on this repo has been the same shape — a fix shipped on a
-green suite, review found it wrong, the NEXT commit added the test that would have caught it.
-PR #23 ran six rounds that way, and four of them fixed a defect in the previous round's fix:
-"the fourth mutation-green fix on this PR", in that branch's own words. The test that proves a
-fix always arrived one round late.
+A green suite is not evidence that a fix is right; it is only evidence that nothing already covered
+went red. Every long review on this repo has been the same shape — a fix shipped on a green suite,
+review found it wrong, the NEXT commit added the test that would have caught it (PR #23, six rounds,
+four of them fixing the previous round's fix). So this asks the question the reviewer asks by hand
+(#42): revert the branch's SOURCE hunks to the base, keep its TEST hunks, and run the suite. If the
+branch's tests still pass without the branch's code, they do not prove it.
 
-So this asks the question the reviewer asks by hand — most recently by deleting
-`pointer-events="none"` from histogram.js's grips group and watching the grip-drag check go red
-(#42). Revert the branch's SOURCE hunks to the base, keep its TEST hunks, and run the suite. If
-the branch's tests still pass without the branch's code, they do not prove it.
-
-Three things about the shape, each of which is the difference between a gate and a nuisance:
+Three things about the shape, each the difference between a gate and a nuisance:
 
   A NEW NAMED `FAIL`, not a nonzero exit. An ablated tree is a chimera — this branch's tests over
-  the base's code — and it can fail to run at ALL: a test that calls a function the branch
-  introduced dies on import, exits nonzero, and proves nothing whatsoever about the fix. Every
-  suite here prints `ok  ` / `FAIL <name>` lines, so requiring a failure that NAMES a check the
-  clean run passed separates "the test proves the fix" from "the ablated tree exploded". The
-  explosion is reported as INCONCLUSIVE and fails too, because a gate that cannot tell those
-  apart is worse than none: it would go green on a suite that never ran.
+  the base's code — and it can fail to run at ALL: a test calling a function the branch introduced
+  dies on import, exits nonzero, and proves nothing. Every suite here prints `ok  ` / `FAIL <name>`
+  lines, so requiring a failure that NAMES a check the clean run passed separates "the test proves
+  the fix" from "the ablated tree exploded". The explosion is INCONCLUSIVE and fails too, because a
+  gate that cannot tell those apart would go green on a suite that never ran.
 
   ONLY THE SUITES THAT COVER WHAT CHANGED. A branch touching chart.js will never redden
   validate.test.py, and demanding it would train everyone to reach for the escape hatch. COVERS
-  below maps source to suite; a source file no suite covers is reported and does not fail, which
-  is honest rather than silent — see the note there.
+  below maps source to suite; a source file no suite covers is reported and does not fail, which is
+  honest rather than silent — see the note there.
 
   ONE ESCAPE HATCH, SHARED WITH fix-lint.py. A `No-test:` trailer skips both gates and prints the
-  stated reason, for the FILES its own commit touched. A pure refactor and a comment fix are real,
-  and the point is not to forbid them — it is to make an untested source change a sentence somebody
-  wrote on purpose and a reviewer can read, rather than a silence. It excuses nothing on a commit
-  that changed no source, and nothing beside the files it names: see excused().
+  stated reason, for the FILES its own commit touched. A pure refactor and a comment fix are real;
+  the point is to make an untested source change a sentence a reviewer can read rather than a
+  silence. It excuses nothing on a commit that changed no source, and nothing beside the files it
+  names: see excused().
 
-The working tree is rewritten in place and restored in a `finally`, so it REFUSES to run on a
-dirty tree: restoring means `git checkout HEAD -- <file>`, which would take uncommitted work with
-it. A file the branch ADDED is not ablated at all — see plan(), where the reason is that the
-question is empty rather than unanswered.
+The working tree is rewritten in place and restored in a `finally`, so it REFUSES a dirty tree:
+restoring means `git checkout HEAD -- <file>`, which would take uncommitted work with it. A file the
+branch ADDED is not ablated at all — see plan(), where the question is empty rather than unanswered.
 
     python3 scripts/ablate.py --base origin/main
     python3 scripts/ablate.py --base origin/main --list      # what it would run, tree untouched
