@@ -20,11 +20,11 @@ python3 scripts/codehash.py || true
 
 # Did a number reach a comment or a docstring? CLAUDE.md's rule is that prose states a RECORD or
 # no number at all, and that rule was in force while forty-nine claims went stale under it —
-# nothing asked. Hook-only and warn-only on purpose: whether a number is a record is a judgement,
+# nothing asked. Warn-only on purpose, here and in CI: whether a number is a record is a judgement,
 # so this prompts a human and must never block a pull request. See the header there.
 python3 scripts/record-lint.py || true
 
-# How much of this repo is prose? Warn-only and hook-only for the same reason record-lint is: a
+# How much of this repo is prose? Warn-only for the same reason record-lint is: a
 # ratio crosses its line on the commit that adds a function as readily as on the one that adds a
 # paragraph, and CI blocking a large feature for being large would be the wrong trade.
 python3 scripts/volume.py --check || true

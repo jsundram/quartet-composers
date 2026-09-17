@@ -111,6 +111,8 @@ jobs:
       # did they ran nowhere at all. --base rather than the default mode because a CI checkout
       # stages nothing, and both would then report a clean run having examined no change. The
       # scripts keep their real exit codes; `|| true` is this workflow declining to act on them.
+      # 2>&1 because the fenced block below is the whole report: a traceback on stderr would
+      # otherwise leave an empty one, which reads as "nothing to report".
       - name: did a number reach prose on this branch? (report, never a gate)
         if: github.event_name == 'pull_request'
         env:
@@ -118,7 +120,7 @@ jobs:
         run: |
           { echo '### record-lint — a number the repo can recompute does not belong in prose'
             echo '```'
-            python3 scripts/record-lint.py --base "$BASE_SHA" || true
+            python3 scripts/record-lint.py --base "$BASE_SHA" 2>&1 || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: how much of this branch is prose? (report, never a gate)
@@ -128,7 +130,7 @@ jobs:
         run: |
           { echo '### volume — this branch against the ceiling, and where the repo stands'
             echo '```'
-            python3 scripts/volume.py --base "$BASE_SHA" || true
+            python3 scripts/volume.py --base "$BASE_SHA" 2>&1 || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: share-card + link-preview lint (scripts/og-lint.py)

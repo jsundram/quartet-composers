@@ -8,9 +8,10 @@
     python3 scripts/volume.py --check    # nonzero if this CHANGE is over — what the hook runs
     python3 scripts/volume.py --json     # the same numbers, for a script
 
-WARN-ONLY IN THE HOOK. The classifying is exact but the judgement is not — a run of commented-out
-debugging reads the same as an essay — so going over is a prompt to cut something, never a refusal.
-CI does not run it, for the reason record-lint.py is not there either.
+WARN-ONLY WHEREVER IT RUNS. The classifying is exact but the judgement is not — a run of
+commented-out debugging reads the same as an essay — so going over is a prompt to cut something,
+never a refusal. CI runs `--base` as a REPORT to the run summary, never as a gate, for the reason
+record-lint.py is not a gate either.
 
 WHY IT EXISTS. The rule is that a number the repo recomputes is read off the thing that holds it,
 and until this file there was nothing holding these, so every measurement was written fresh and they
@@ -378,7 +379,11 @@ def main():
             print('  volume: no merge base between HEAD and "%s"' % a.base)
             return 2
         base_ref = mb.stdout.strip()
-    now_files, unread = measure(a.root, staged=a.check)
+    # HEAD under --base, the index under --check, the working tree otherwise. --base is a question
+    # about a BRANCH, so what it judges is what the branch COMMITTED: reading disk there charges
+    # uncommitted edits to it, and disagrees with record-lint.py --base beside it in CI.
+    now_files, unread = (at("HEAD", a.root) or ({}, [])) if a.base \
+        else measure(a.root, staged=a.check)
     # --check JUDGES THE CHANGE, NOT THE TOTAL. Every bucket is well over today, so a
     # check against the total would be red on every commit — and unanswerable besides: nothing a
     # reader can do to the file in front of them clears a ratio the whole repo owns. The commit's

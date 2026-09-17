@@ -24,8 +24,6 @@ the pipeline runs, and a hardcoded count in a share preview is one nobody thinks
 
 The pre-commit hook runs it warn-only; run it in CI with a real exit code:
     python3 scripts/og-lint.py
-
-
 """
 import importlib.util, json, os, pathlib, re, subprocess, sys
 

@@ -308,6 +308,11 @@ def base_asks_the_branch(_):
     git("add", "-A"); git("commit", "-qm", "theirs")
     git("checkout", "-q", "work")
     assert "462" not in run("--base", "main").stdout, "it charged this branch with main's number"
+    # A base it cannot resolve is REPORTED, never a clean run: every git read in this mode returns
+    # an empty list on failure, and an empty list is exactly what "nothing to report" looks like.
+    bad = run("--base", "no-such-ref")
+    assert bad.returncode == 2, bad.stdout + bad.stderr
+    assert "no merge base" in bad.stdout, bad.stdout
 
 
 @case("a file whose code cannot be told from its prose is REPORTED, not passed")

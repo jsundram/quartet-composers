@@ -46,8 +46,6 @@ and the sixth on pull requests with the base sha. By hand:
     python3 scripts/sw-lint.py
     python3 scripts/sw-lint.py --base origin/main
     python3 scripts/sw-lint.py --bump          # increment the tail, print the new V
-
-
 """
 import os, re, subprocess, sys
 

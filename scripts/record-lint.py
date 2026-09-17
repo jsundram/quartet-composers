@@ -5,13 +5,16 @@
 """Did this commit write a number into a comment or a docstring?
 
     python3 scripts/record-lint.py            # the staged diff (what the hook runs)
+    python3 scripts/record-lint.py --base REF # what this BRANCH adds (what CI reports)
     python3 scripts/record-lint.py --tree     # every tracked source file, for an audit
     python3 scripts/record-lint.py FILE...    # named files, against HEAD
 
-HOOK-ONLY AND WARN-ONLY, AND IT MUST STAY THAT WAY. The question it asks — "is that number a
-RECORD?" — is not one a program can answer, so a nonzero exit here is a prompt to a human and never
-a verdict. Wiring it into CI would block a pull request on a judgement call, which is the trade
-.githooks/pre-commit already refuses for everything it runs.
+WARN-ONLY WHEREVER IT RUNS, AND IT MUST STAY THAT WAY. The question it asks — "is that number a
+RECORD?" — is not one a program can answer, so a nonzero exit is a prompt to a human and never a
+verdict. It runs in two places for two audiences and gates in neither: the pre-commit hook, where
+it is cheapest to act on, and CI under --base, which writes it to the run summary with `|| true`.
+Giving it teeth in CI would block a pull request on a judgement call, and a lint that did exactly
+that was built and reverted (#67, #74).
 
 WHY IT EXISTS. CLAUDE.md's rule is that a number in prose is a RECORD or it is absent: a measurement
 that happened cannot go stale, and anything the repo recomputes can. That rule was written down and
@@ -254,8 +257,12 @@ def branch(base, root=ROOT):
     if mb.returncode != 0 or not mb.stdout.strip():
         return None, f'no merge base between HEAD and "{base}"'
     mb = mb.stdout.strip()
+    # ASKED, not assumed: a diff that fails prints nothing, and an empty file list here is a clean
+    # run — the silence this whole lint exists to break, arriving from inside it.
     r = subprocess.run(["git", "diff", "--name-only", "--diff-filter=ACM", mb, "HEAD"],
                        cwd=root, capture_output=True, text=True)
+    if r.returncode != 0:
+        return None, f'git diff {mb[:8]}..HEAD failed: {r.stderr.strip()}'
     return mb, [p for p in r.stdout.split() if selects(p)]
 
 

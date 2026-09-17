@@ -11,9 +11,11 @@
 # CI covers the half with a real exit code and cannot cover the nags.
 #
 # IT NEVER OVERWRITES A DIFFERENT ANSWER. A core.hooksPath already set is somebody's arrangement,
-# and taking it over is a worse outcome than not being enabled — so it says so and exits nonzero,
-# because nothing reads stderr. A plain run exits 0 either way, since the session hook must not
-# fail a session over this; --check is what gives a verdict.
+# and taking it over is a worse outcome than not being enabled — so it says so and exits NONZERO,
+# because a clone whose lints will not run must not report success and nothing reads stderr. That
+# is the one case where a plain run fails; enabling it, and finding it already enabled, both exit
+# 0. .claude/hooks/session-start.sh swallows the code deliberately, since a session must not die
+# over this — the message still reaches its log.
 set -euo pipefail
 
 WANT=".githooks"
