@@ -8,16 +8,14 @@
     python3 scripts/codehash.py --base origin/main   # this branch vs its merge base
     python3 scripts/codehash.py chart.js app.js      # just print the code hashes
 
-WHY THIS EXISTS. A comment-compression pass through chart.js deleted `function hash()` and
-`const MIN_SEP`, both of which sat INSIDE the blocks being rewritten. The repair was immediate; what
-was not immediate was noticing it had been undone — a restore from the index pulled the broken copy
-back, it got committed, and the branch shipped un-bootable. The audit that should have caught it was
-"diff the file and read every line that is not a comment", which is a human reading hundreds of
-changed lines for an absence, at the end of a long session. A hash does not get tired.
+WHY THIS EXISTS. A comment-compression pass through chart.js deleted two declarations that sat
+INSIDE the blocks being rewritten, and the branch shipped un-bootable. The audit that should have
+caught it was "diff the file and read every line that is not a comment" — a human reading hundreds
+of changed lines for an ABSENCE, at the end of a long session. A hash does not get tired.
 
 It exits 0 when every changed file is comments-only, 1 when any code changed, and 2 when it cannot
-TELL — which is a distinct answer and never folded into either, because "I could not verify this"
-read as "verified" is the failure mode the whole repo is arranged against.
+TELL — a distinct answer, never folded into either, because "I could not verify this" read as
+"verified" is the failure mode the whole repo is arranged against.
 
 HOW THE CODE IS ISOLATED, per language, and how strongly:
 
@@ -25,17 +23,16 @@ HOW THE CODE IS ISOLATED, per language, and how strongly:
                 Comments and formatting are absent from an AST by construction, so there is nothing
                 to strip and nothing to get wrong. This is the strong one.
   .js .mjs      a scanner, because node exposes no parser. It tracks strings, template literals,
-                regex literals and both comment forms, so `"http://x"` and `/a\\/\\/b/` are code and
+                regex literals and both comment forms, so `"http://x"` and `/a\/\/b/` are code and
                 not comments. VERIFIED by running `node --check` over BOTH the source and the
                 stripped text: a scanner that swallowed real code produces something that does not
                 parse, so a misclassification degrades to "cannot tell" rather than to a false pass,
                 and a file that does not parse to begin with is refused outright. That property is
                 what makes the scanner's imperfection affordable.
-                A template literal is copied WHOLE, so a comment inside `${…}` counts as code and
-                editing one reads as a change. Deliberate: recursing would mean running the scanner
-                inside a string, and a mistake there would DELETE code rather than keep it. The cost
-                is a false alarm on `ui.test.mjs`, whose page snippets carry comments; the benefit is
-                that the only direction this tool can be wrong in is the safe one.
+                A template literal is copied WHOLE, so a comment inside `${…}` counts as code.
+                Deliberate: recursing would mean running the scanner inside a string, where a
+                mistake DELETES code. The cost is a false alarm on a file whose page snippets carry
+                comments; the benefit is that the only direction this can be wrong in is the safe one.
   .css          the same scanner with only `/* */` and strings — no regex literals, no line
                 comments, so the ambiguity that makes JS hard is absent. Verified by brace balance.
   .html         `<!-- -->` only, and NOT verified — there is no cheap parser here, so it reports the
@@ -43,11 +40,11 @@ HOW THE CODE IS ISOLATED, per language, and how strongly:
 
 NEWLINES SURVIVE THE STRIP, deliberately. Collapsing them would make a reflow of CODE invisible too,
 and in JavaScript it would change meaning: `return` and its value on two lines is not `return value`.
-Horizontal runs collapse and blank lines go, so reindenting is free and re-wrapping a whole-line
-comment is free, while moving a token to another line reads as a code change. Those two meet in one
-case and the second wins: re-wrapping an INLINE block comment that has code after it on the same
-line does move that code to another line, so it is not free. Conservative in the safe direction —
-it asks for a test nobody owes rather than letting a moved token past.
+Horizontal runs collapse and blank lines go, so reindenting and re-wrapping a whole-line comment are
+free, while moving a token to another line reads as a code change. Those two meet in one case and
+the second wins: re-wrapping an INLINE block comment with code after it on the same line does move
+that code. Conservative in the safe direction — it asks for a test nobody owes rather than letting a
+moved token past.
 
 WHAT IT IS NOT. Not a formatter, not a minifier, and not a substitute for a test: it says the code is
 byte-identical, which is a much narrower claim than "this change is safe". `ablate.py` and
