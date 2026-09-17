@@ -358,36 +358,23 @@ function renderDetail(i, preview) {
   navRow(el, preview, false);
 }
 
-// WHERE ELSE THIS COMPOSER IS, as one row of matching pills. They were two unrelated-looking
-// things a paragraph apart — a 13px accent "Wikipedia →" under the ranks and an 11px bordered
-// IMSLP chip up beside the readership — which said they answered different kinds of question. They
-// do not: both are "go and read the rest of this somewhere else", they both open a new tab, and
-// the one thing the reader wants to compare across them is which of the two has anything to offer.
+// WHERE ELSE THIS COMPOSER IS, as one row of matching pills. They were two unrelated-looking things
+// a paragraph apart, which said they answered different kinds of question. They do not: both are
+// "go and read the rest of this somewhere else", both open a new tab, and the one thing the reader
+// wants to compare across them is which of the two has anything to offer.
 //
 // ONE ROW OF ONE HEIGHT, in all three states, because the panel's height is not free here. It is a
 // fixed-height strip in full screen (which returns before this is reached) and has a measured
-// min-height wherever a pointer exists, so a clause that appears for some composers and not others
-// would pump the legend under it every time the cursor crossed a dot. That is the mistake #35 cut
-// the generated lede for. The height is stated in styles.css rather than left to the content,
-// since the third state swaps a bordered pill for bare text.
+// min-height wherever a pointer exists, so a clause that appeared for some composers and not others
+// would pump the legend under it every time the cursor crossed a dot — the mistake #35 cut the
+// generated lede for. The height is stated in styles.css rather than left to the content, since the
+// third state swaps a bordered pill for bare text.
 //
-// THE THREE STATES ARE THE THREE ANSWERS, and the table's digit can only carry two of them: `0`
-// there means both "IMSLP holds this composer and none of their quartets" and "we could not place
-// them at all", which is a decision, not an oversight. This is where the difference is in words.
-// The absent case says "no IMSLP page found" and never "not on IMSLP": what we know is that no
-// P839 claim, no IMSLP page linking their article and no Surname, Forename guess reached them —
-// good evidence, and not the same as having asked.
-//
-// THE NOUN IS "quartets" AND IT IS A LOOSE ONE, knowingly. What is counted is distinct works in
-// IMSLP's own quartet-instrumentation category, which legitimately holds fugues, fragments and
-// single movements no numbered list counts — Beethoven's 18 are his 16 plus the Grosse Fuge and
-// the Hess 30 fugue. "quartets" is what the reader came for and what IMSLP files them under; the
-// honest reading of the pill is "quartet pages IMSLP has for this composer", which is what the
-// link goes to. What it is NOT is the `Quartets` row three lines above it, which is how many the
-// composer WROTE, from Wikipedia prose — Haydn reads 76 here against a stated 68. Different
-// sources answering different questions: they may sit near each other and must never be
-// subtracted. The zero state says "no quartets FOUND" for the same reason the absent state says
-// "no IMSLP page found" — both are statements about what a search turned up, not about the world.
+// THIS IS WHERE INVARIANT 16'S THREE ANSWERS ARE PUT IN WORDS, because the table's digit can only
+// carry two of them. Every string below is load-bearing there: "no quartets FOUND" and "no IMSLP
+// page found" rather than "not on IMSLP", because both are statements about what a search turned
+// up; and the noun stays the loose "quartets" IMSLP files them under, which is never the `Quartets`
+// row three lines above it and must never be subtracted from it.
 function elsewhereRow(d) {
   const p = document.createElement("p");
   p.className = "links";
@@ -561,10 +548,10 @@ function placeFilters() {
 //      900-1121  554- 775   two lines
 //      1122+     776+       ONE line
 //
-// One card width decides both bands: 776px. Both edges here sit clear of it on the ICON side, because
-// the mistakes are not equal — words that do not fit is that 44px shift, icons where words would have
-// fitted costs 26px of data height and nothing else. Full screen skips SQUEEZED: `body.fs .grid` is
-// display:block, so the card is the window and the 194px is never taken.
+// One card width decides both bands: 776px. Both edges sit clear of it on the ICON side, because the
+// mistakes are not equal — words that do not fit is that 44px shift under the cursor, icons where
+// words would have fitted costs some data height and nothing else. Full screen skips SQUEEZED:
+// `body.fs .grid` is display:block, so the card is the window and the 194px is never taken.
 //
 // These are one machine's font metrics, so ui.test.mjs presses Share at the first width in each band
 // (820 and 1140) and fails if the row grows. It HAS: the lens stopped being a pill and became a
