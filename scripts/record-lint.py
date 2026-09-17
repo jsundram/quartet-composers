@@ -138,6 +138,14 @@ def numbers(text):
 META = re.compile(r"^# /// script$.*?^# ///$", re.M | re.S)
 
 
+def canon(n):
+    """A number's identity for CANCELLING is its value: `0.20` and `0.2` are the same number."""
+    if not n[0].isdigit():
+        return n                                   # a spelled count, which has no other form
+    v = float(n.replace(",", ""))
+    return str(int(v)) if v == int(v) else repr(v)
+
+
 def prose_numbers(path, src):
     """({number: count} for the file's PROSE, why-not). Code numbers are subtracted, not matched."""
     src = META.sub("", src)
@@ -148,7 +156,21 @@ def prose_numbers(path, src):
         if code is None:
             return None, how
     whole, in_code = numbers(src), numbers(code)
-    return {n: c - in_code.get(n, 0) for n, c in whole.items() if c > in_code.get(n, 0)}, None
+    # CANCELLED BY VALUE, REPORTED BY SPELLING. codehash's Python answer is an ast.dump, which
+    # prints a float's value rather than its source text, so `CEILING = 0.20` came back `0.2` and
+    # the two never cancelled — the constant was reported as prose on the commit that added it.
+    # `1,000` against a literal `1000` is the same miss. The prose side stays keyed by what was
+    # WRITTEN, because that is the string lines_with() has to find again and the reader has to see.
+    budget = {}
+    for n, c in in_code.items():
+        budget[canon(n)] = budget.get(canon(n), 0) + c
+    out = {}
+    for n, c in whole.items():
+        take = min(c, budget.get(canon(n), 0))
+        budget[canon(n)] = budget.get(canon(n), 0) - take
+        if c - take:
+            out[n] = c - take
+    return out, None
 
 
 # A line that opens with one of these is prose beyond argument. It is only used to ORDER the

@@ -94,7 +94,11 @@ def strip_js(src, regex=True, line_comments=True):
             j = n if j < 0 else j + 2
             removed += j - i
             # A block comment between two tokens is whitespace, not nothing: `a/**/b` is two tokens.
-            out.append(" ")
+            # And the NEWLINES inside it are the code's, not the comment's. Replacing the whole span
+            # with one space merged the lines either side into one, which is the collapse this file
+            # says it refuses: it hides a reflow of code, and in JS a line terminator inside a
+            # comment is one for ASI too, so `return /* x */\n value` means what it looks like.
+            out.append(" " + "\n" * src.count("\n", i, j))
             i = j
             continue
         if c in "\"'":

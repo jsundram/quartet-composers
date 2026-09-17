@@ -181,6 +181,25 @@ def quoted_literal(_):
     flags("a.js", "const N = 462;\n", "const N = 462;   // the 462 placed composers\n", ["462"])
 
 
+@case("a float written with a trailing zero is still the CODE's number")
+def trailing_zero_float(_):
+    # codehash's python answer is an ast.dump, which prints a float's VALUE and not its source
+    # text: `0.20` comes back `0.2`, the two never cancelled, and the lint reported the constant
+    # on the commit that added it. Cancelling by value fixes `1,000` against `1000` too.
+    flags("a.py", "", "CEILING = {'source': 0.20, 'test': 0.20}\n", [])
+    flags("a.py", "", "N = 1000\n", [])
+    # ...and it is still REPORTED by the spelling that was written, which is what a reader has to
+    # find in the file.
+    flags("a.py", "x = 1\n", "x = 1\n# a 0.20 ratio nobody measured\n", ["0.20"])
+
+
+@case("...and a comment quoting a code float is not cancelled twice")
+def float_budget(_):
+    # The subtraction is per-number, not per-file: one 0.20 in the code and one in the comment
+    # leaves one for prose, the same rule the integer case already holds.
+    flags("a.py", "CEILING = 0.20\n", "CEILING = 0.20  # the 0.20 ceiling\n", ["0.20"])
+
+
 @case("a file whose code cannot be told from its prose is REPORTED, not passed")
 def unreadable(_):
     # codehash's contract one level up: cannot-tell is a third answer. A python file that does not
