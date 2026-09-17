@@ -181,6 +181,104 @@ def quoted_literal(_):
     flags("a.js", "const N = 462;\n", "const N = 462;   // the 462 placed composers\n", ["462"])
 
 
+@case("a float written with a trailing zero is still the CODE's number")
+def trailing_zero_float(_):
+    # codehash's python answer is an ast.dump, which prints a float's VALUE and not its source
+    # text: `0.20` comes back `0.2`, the two never cancelled, and the lint reported the constant
+    # on the commit that added it. Cancelling by value fixes `1,000` against `1000` too.
+    flags("a.py", "", "CEILING = {'source': 0.20, 'test': 0.20}\n", [])
+    flags("a.py", "", "N = 1000\n", [])
+    # ...and it is still REPORTED by the spelling that was written, which is what a reader has to
+    # find in the file.
+    flags("a.py", "x = 1\n", "x = 1\n# a 0.20 ratio nobody measured\n", ["0.20"])
+
+
+@case("...and which spelling cancels does not depend on which comes FIRST")
+def cancel_is_order_free(_):
+    # Keyed by spelling, the subtraction had to guess which prose occurrence a code literal
+    # cancelled, and the guess was FILE ORDER: the same file reported a different number, on a
+    # different line, depending on which of two lines came first — and in one order it pointed at
+    # the CODE line with the real finding dropped. Both pairs are here because the integer pair is
+    # settled before a value comparison is ever reached, so on its own it proves nothing.
+    for a, b in ((" # the roster holds 1,000 composers\n", "N = 1000\n"),
+                 (" # the 0.200 ratio nobody measured\n", "X = 0.20\n")):
+        one, _ = rl.check("a.py", "", a.strip() + "\n" + b)
+        two, _ = rl.check("a.py", "", b + a.strip() + "\n")
+        # ONE finding, the prose spelling, pointing at the comment — in either order. Asserting
+        # only that the two orders AGREE is not enough: they already agreed before the fix, both
+        # reporting the code's number as well, so the case could not go red for what it names.
+        for got in (one, two):
+            assert len(got) == 1, "the code's own number is not prose: %r" % (got,)
+            assert got[0][3].startswith("#"), "and it points at the PROSE line: %r" % (got[0],)
+        assert [n for _p, _l, n, _t in one] == [n for _p, _l, n, _t in two], (a, one, two)
+
+
+@case("two numbers that are not the same number are not one")
+def canon_is_textual(_):
+    # canon() parsed with float(), which merged numbers that are not one number at all: `09` in a
+    # date with `9`, and `0,400` with `400`. A count added to prose was then cancelled by an
+    # untouched line elsewhere in the file, and the finding pointed AT that line instead.
+    assert rl.canon("09") != rl.canon("9"), "a date fragment is not a count"
+    assert rl.canon("0,400") != rl.canon("400")
+    # ...while the two spellings that really are one number still collapse, which is the pair
+    # ast.dump produces and the whole reason canon() exists.
+    assert rl.canon("0.20") == rl.canon("0.2") == "0.2"
+    assert rl.canon("1,000") == rl.canon("1000")
+    assert rl.canon("100.0") == rl.canon("100")
+    # End to end, which is how it was found: the number the change ADDED is the one reported.
+    old = "# a run from 2026-09-07 to 09\nx = 1\n"
+    found, _ = rl.check("a.py", old, old + "# real moves run 9 times faster\n")
+    assert [(l, n) for _p, l, n, _t in found] == [(3, "9")], found
+
+
+@case("a finding points at PROSE, not at the code line that shares its number")
+def located_in_prose(_):
+    # PROSE_LINE only knows comment markers. In markdown neither a prose line nor a fenced line
+    # carries one, so the tie fell to file order and the finding landed INSIDE the fence that
+    # prose_numbers() had itself treated as code. The code text is the better oracle where there
+    # is one: a line that appears verbatim in it is ranked last.
+    md = "Notes.\n\n```\nconst N = 1000;\n```\n\nThe roster holds 1,000 composers.\n"
+    found, _ = rl.check("D.md", "", md)
+    assert [(l, n) for _p, l, n, _t in found] == [(7, "1,000")], found
+    # ...and the same in a language where the marker rule COULD have answered, since ranking the
+    # code line last is what makes the two agree rather than the marker happening to be there.
+    found, _ = rl.check("a.js", "", "const N = 462;\n// the 462 placed composers\n")
+    assert [(l, n) for _p, l, n, _t in found] == [(2, "462")], found
+    # A line that OPENS with a marker and carries code is not prose, and comparing it verbatim
+    # against the code cannot say so — the strip took the comment off it.
+    found, _ = rl.check("a.js", "", "/* why */ const N = 462;\n// the 462 placed composers\n")
+    assert [(l, n) for _p, l, n, _t in found] == [(2, "462")], found
+    # Nor can a verbatim comparison survive the strip reflowing a line's alignment.
+    md = "Notes.\n\n```\nconst  N =   1000;\n```\n\nThe roster holds 1,000 composers.\n"
+    found, _ = rl.check("D.md", "", md)
+    assert [(l, n) for _p, l, n, _t in found] == [(7, "1,000")], found
+    # The strip also REFLOWS: this repo's source is column-aligned and codehash collapses runs of
+    # spaces, so a verbatim comparison misses the code line it was looking at. Nothing else
+    # rescues this one — the comment's continuation line carries no marker either.
+    found, _ = rl.check("a.js", "", "const T = { a:   462 };\n/* the placed\n   composers: 462 of them */\n")
+    assert [(l, n) for _p, l, n, _t in found] == [(3, "462")], found
+    # Deleting code lines is DESTRUCTIVE, so their order decides. A bare `}` earlier in the file
+    # ate the brace the whole rule below needed to match, and the rule survived as prose — which
+    # is what styles.css did to the real run: the finding landed on a CSS rule, not on the comment
+    # explaining it. Longest first cannot be defeated that way.
+    found, _ = rl.check("a.js", "", "function f() {\n}\nconst T = { a: 462 };\n"
+                                    "/* the placed\n   composers: 462 of them */\n")
+    assert [(l, n) for _p, l, n, _t in found] == [(5, "462")], found
+    # And the other direction: a SHORT code line quoted inside a comment must not demote it,
+    # which is why the test is whether the NUMBER survived rather than whether the line matched.
+    found, _ = rl.check("a.js", "", "function f() {\n}\n// closing 462 of them }\n")
+    assert [(l, n) for _p, l, n, _t in found] == [(3, "462")], found
+
+
+@case("a number the CODE spells differently is still the code's")
+def code_spelling_is_not_prose(_):
+    # ast.dump prints a float's value, so the code's `0.20` arrives as `0.2`. Cancelling that
+    # against the PROSE `0.2` left the code literal's own spelling unbudgeted, and the finding
+    # landed on `CEILING = 0.20` — a line of code — while the comment went unreported.
+    found, _ = rl.check("a.py", "", "# Set to 0.2 because of the cap\nCEILING = 0.20\n")
+    assert [(l, n) for _p, l, n, _t in found] == [(1, "0.2")], found
+
+
 @case("a file whose code cannot be told from its prose is REPORTED, not passed")
 def unreadable(_):
     # codehash's contract one level up: cannot-tell is a third answer. A python file that does not
@@ -196,9 +294,13 @@ def main():
         try:
             fn(None)
             print("  ok   %s" % name)
-        except AssertionError as e:
+        except Exception as e:
+            # Not AssertionError alone: under ablation this suite runs against the BASE's module,
+            # where a helper it names may not exist at all. A crash there aborted every case after
+            # it, so the gate saw fewer FAILs than the branch actually earns — and a suite that
+            # dies partway reports as INCONCLUSIVE, which proves nothing.
             FAILED.append(name)
-            print("  FAIL %s\n       %s" % (name, e))
+            print("  FAIL %s\n       %s: %s" % (name, type(e).__name__, e))
     print("\n%d passed, %d failed" % (len(CASES) - len(FAILED), len(FAILED)))
     return 1 if FAILED else 0
 

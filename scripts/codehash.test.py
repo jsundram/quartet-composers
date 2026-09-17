@@ -73,6 +73,34 @@ case("...which is the actual before/after of the bug, in one call",
 
 # ---- a comment is only a comment where it is really a comment ---------------------------------
 URL = 'const BASE = "http://127.0.0.1:8765/";\n'
+# A multi-line block comment was replaced by ONE space, so the lines either side of it merged.
+# This file's header states the opposite as deliberate — newlines survive because collapsing them
+# hides a reflow of code and, in JS, CHANGES MEANING. The second half is the sharp one: a line
+# terminator inside a comment is one for ASI, so these two functions return different things.
+ASI_UNDEF = "function f(){ return /* why\n  not */ value; }\n"     # ASI fires: returns undefined
+ASI_VALUE = "function f(){ return value; }\n"                      # returns value
+case("two functions that RETURN different things do not hash alike",
+     same("a.js", ASI_UNDEF, ASI_VALUE), False)
+case("a block comment's newlines are kept, so its line count survives",
+     ch.strip_js("let a = 1; /* why\nmore\n*/ let b = 2;\n")[0].count("\n"), 3)
+# The other direction, which the old behaviour got wrong the opposite way: moving a comment off
+# the end of a line changes no code, and merging the lines made it look as though it had.
+case("...and moving that comment onto its own line is still comments-only",
+     same("a.js", "let a = 1; /* why\nmore\n*/ let b = 2;\n",
+          "let a = 1;\n/* why\nmore */\nlet b = 2;\n"), True)
+# Where the header's two rules meet. Re-wrapping a comment is free UNTIL it carries a code token
+# onto another line, and then the token rule wins — asking for a test nobody owes, rather than
+# letting a moved token past. A claim the header makes is a claim that can go red.
+case("re-wrapping a WHOLE-LINE comment is free",
+     same("a.js", "/* a b */\nlet x = 1;\n", "/* a\n   b */\nlet x = 1;\n"), True)
+case("...but re-wrapping one with code after it moves that code, and is not",
+     same("a.js", "let x = 1; /* a */ let y = 2;\n", "let x = 1; /* a\n*/ let y = 2;\n"), False)
+
+# A regression pin on the SPACE rather than proof of the newlines beside it — it reads the same
+# either way under the old strip, and it is the only thing holding `a/**/b` to two tokens.
+case("a block comment between two tokens is still whitespace",
+     ch.strip_js("let a = 1;/**/let b = 2;\n")[0], "let a = 1; let b = 2;\n")
+
 case("a // inside a double-quoted string is code",
      hash_of("t.js", URL) == hash_of("t.js", 'const BASE = "http://127.0.0.1:8766/";\n'), False,
      "changing the port must change the hash")

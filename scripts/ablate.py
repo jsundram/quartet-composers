@@ -79,6 +79,11 @@ COVERS = [
     (("scripts/sw-lint.py",),         ["python3 scripts/sw-lint.test.py"]),
     (("scripts/record-lint.py",),     ["python3 scripts/record-lint.test.py"]),
     (("scripts/volume.py",),          ["python3 scripts/volume.test.py"]),
+    # codehash is what BOTH gates import to decide whether a hunk is comments-only, so a change
+    # to it moves what they ask for — and it was in neither table, so plan() never saw it and a
+    # change to it was ablated by nothing. Same shape as ui-test.sh filed under TESTS: the file
+    # the gate leans on hardest was the one it could not see.
+    (("scripts/codehash.py",),        ["python3 scripts/codehash.test.py"]),
     (("sw.js",),                      ["node scripts/sw.test.mjs"]),
     # names.js is the one app module with an OFFLINE suite, because it is pure: a roster in, two
     # display strings out. It is listed ahead of the browser tuple (first match wins) and keeps the
@@ -130,7 +135,7 @@ SOURCE = re.compile(
     r"^(app|chart|table|histogram|names|theme|sw|ping)\.js$"
     r"|^(styles\.css|index\.html|manifest\.json)$"
     r"|^scripts/(validate|pagemoves|fetch_views|fetch_wikidata|build_data|scrape_list"
-    r"|make-og-svg|og-lint|sw-lint|record-lint|volume|refresh|ablate|fix-lint"
+    r"|make-og-svg|og-lint|sw-lint|record-lint|volume|codehash|refresh|ablate|fix-lint"
     # The IMSLP join. A name added to COVERS is INERT until it is also matched here — plan()
     # builds its file list from SOURCE — so the entry added for these two sat as a comment
     # asserting a gate that could never fire, which is the exact failure this file exists to stop.

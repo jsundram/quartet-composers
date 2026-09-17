@@ -43,9 +43,11 @@ HOW THE CODE IS ISOLATED, per language, and how strongly:
 
 NEWLINES SURVIVE THE STRIP, deliberately. Collapsing them would make a reflow of CODE invisible too,
 and in JavaScript it would change meaning: `return` and its value on two lines is not `return value`.
-Horizontal runs collapse and blank lines go, so reindenting is free and re-wrapping a comment is
-free, while moving a token to another line reads as a code change. Conservative in the safe
-direction.
+Horizontal runs collapse and blank lines go, so reindenting is free and re-wrapping a whole-line
+comment is free, while moving a token to another line reads as a code change. Those two meet in one
+case and the second wins: re-wrapping an INLINE block comment that has code after it on the same
+line does move that code to another line, so it is not free. Conservative in the safe direction —
+it asks for a test nobody owes rather than letting a moved token past.
 
 WHAT IT IS NOT. Not a formatter, not a minifier, and not a substitute for a test: it says the code is
 byte-identical, which is a much narrower claim than "this change is safe". `ablate.py` and
@@ -94,7 +96,13 @@ def strip_js(src, regex=True, line_comments=True):
             j = n if j < 0 else j + 2
             removed += j - i
             # A block comment between two tokens is whitespace, not nothing: `a/**/b` is two tokens.
-            out.append(" ")
+            # And the NEWLINES inside it are the code's, not the comment's. Replacing the whole span
+            # with one space merged the lines either side into one, which is the collapse this file
+            # says it refuses: it hides a reflow of code, and in JS a line terminator inside a
+            # comment is one for ASI too: `return /* x\n */ value` returns undefined, and eating
+            # that newline made it read as `return value`. A terminator OUTSIDE the comment was
+            # never at risk — the old one space kept it — so it is not the case that motivates this.
+            out.append(" " + "\n" * src.count("\n", i, j))
             i = j
             continue
         if c in "\"'":
