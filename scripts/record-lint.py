@@ -119,16 +119,28 @@ def selects(path):
 
 
 def numbers(text):
-    """The multiset of bare counts in text, exempt forms removed first."""
-    out = {}
+    """({value: count}, {value: [spellings as written]}) for the bare counts in text.
+
+    KEYED BY VALUE, because the two sides being subtracted do not share a spelling: codehash's
+    Python answer is an ast.dump, which prints `0.20` as `0.2`. Keyed by spelling the subtraction
+    had to GUESS which prose occurrence a code literal cancelled, and the guess was file order —
+    so the same file reported a different number, on a different line, depending on which of two
+    lines came first. By value there is nothing to guess. The spellings ride along because a
+    finding has to point at what was WRITTEN.
+    """
+    out, seen = {}, {}
     clean = EXEMPT.sub(" ", text)
     for n in NUMBER.findall(clean):
-        if n not in VALUES:
-            out[n] = out.get(n, 0) + 1
+        if n in VALUES:
+            continue
+        k = canon(n)
+        out[k] = out.get(k, 0) + 1
+        seen.setdefault(k, []).append(n)
     for w in WORDS.findall(clean):
         k = w.lower()
         out[k] = out.get(k, 0) + 1
-    return out
+        seen.setdefault(k, []).append(w)
+    return out, seen
 
 
 # PEP 723's inline metadata is a comment block to Python and a manifest to everything else, and
@@ -147,39 +159,16 @@ def canon(n):
 
 
 def prose_numbers(path, src):
-    """({number: count} for the file's PROSE, why-not). Code numbers are subtracted, not matched."""
+    """({value: count} for the file's PROSE, its spellings, why-not). Code is subtracted."""
     src = META.sub("", src)
     if path.endswith(".md"):
         code = "\n".join(FENCE.findall(src))
     else:
         code, _, how = codehash.code_of(path, src)
         if code is None:
-            return None, how
-    whole, in_code = numbers(src), numbers(code)
-    # CANCELLED BY VALUE, REPORTED BY SPELLING. codehash's Python answer is an ast.dump, which
-    # prints a float's value rather than its source text, so `CEILING = 0.20` came back `0.2` and
-    # the two never cancelled — the constant was reported as prose on the commit that added it.
-    # `1,000` against a literal `1000` is the same miss. The prose side stays keyed by what was
-    # WRITTEN, because that is the string lines_with() has to find again and the reader has to see.
-    # EXACT SPELLING FIRST, VALUE ONLY AS A FALLBACK. By value alone the cancellation is
-    # ORDER-DEPENDENT — whichever spelling appears first in the file eats the budget — so a
-    # `1,000` in a comment ABOVE `N = 1000` cancelled against the literal and what got reported
-    # was the CODE line, with the real prose finding dropped. Worse than silence: it sends a
-    # reader to a line that is not prose. Two passes make the answer the same either way round.
-    by_spelling, by_value, left, out = dict(in_code), {}, {}, {}
-    for n, c in in_code.items():
-        by_value[canon(n)] = by_value.get(canon(n), 0) + c
-    for n, c in whole.items():
-        take = min(c, by_spelling.get(n, 0))
-        by_spelling[n] = by_spelling.get(n, 0) - take
-        by_value[canon(n)] = by_value.get(canon(n), 0) - take
-        left[n] = c - take
-    for n, c in left.items():
-        take = min(c, by_value.get(canon(n), 0))
-        by_value[canon(n)] = by_value.get(canon(n), 0) - take
-        if c - take:
-            out[n] = c - take
-    return out, None
+            return None, None, how
+    (whole, forms), (in_code, _) = numbers(src), numbers(code)
+    return {k: c - in_code.get(k, 0) for k, c in whole.items() if c > in_code.get(k, 0)}, forms, None
 
 
 # A line that opens with one of these is prose beyond argument. It is only used to ORDER the
@@ -188,17 +177,21 @@ def prose_numbers(path, src):
 PROSE_LINE = re.compile(r"^\s*(#|//|/\*|\*|\"\"\"|\'\'\')")
 
 
-def lines_with(src, num):
-    """The lines quoting `num` once its exempt forms are blanked, prose-looking ones first.
+def lines_with(src, spellings):
+    """The lines quoting ANY spelling of one number, prose-looking ones first, then in file order.
 
     The multiset above has deliberately forgotten which line a number came from — that is what
-    makes a reflow silent — so this finds it again, and is best-effort by construction.
+    makes a reflow silent — so this finds it again, and is best-effort by construction. It takes
+    every spelling because the key is a value now: `0.20` and `0.2` are one finding, and the line
+    worth pointing at is whichever of them a comment wrote.
     """
-    pat = (re.compile(r"\b" + re.escape(num) + r"\b", re.I) if num.isalpha()
-           else re.compile(r"(?<![\w.#$%-])" + re.escape(num) + r"(?![\w%])"))
-    hits = [(i, l.strip()) for i, l in enumerate(src.split("\n"), 1)
-            if pat.search(EXEMPT.sub(" ", l))]
-    return sorted(hits, key=lambda h: not PROSE_LINE.match(h[1]))
+    hits = []
+    for num in dict.fromkeys(spellings):
+        pat = (re.compile(r"\b" + re.escape(num) + r"\b", re.I) if num.isalpha()
+               else re.compile(r"(?<![\w.#$%-])" + re.escape(num) + r"(?![\w%])"))
+        hits += [(i, l.strip(), num) for i, l in enumerate(src.split("\n"), 1)
+                 if pat.search(EXEMPT.sub(" ", l))]
+    return sorted(hits, key=lambda h: (not PROSE_LINE.match(h[1]), h[0]))
 
 
 def head_src(path):
@@ -219,10 +212,10 @@ def staged_src(path):
 
 def check(path, old_src, new_src):
     """(findings, note) — the numbers this change ADDS to `path`'s prose."""
-    new, why = prose_numbers(path, new_src)
+    new, forms, why = prose_numbers(path, new_src)
     if new is None:
         return [], f"{path}: cannot tell prose from code — {why}"
-    old, _ = prose_numbers(path, old_src) if old_src else ({}, None)
+    old = prose_numbers(path, old_src)[0] if old_src else {}
     old = old or {}
     found = []
     for n, c in sorted(new.items(), key=lambda kv: -len(kv[0])):
@@ -230,8 +223,8 @@ def check(path, old_src, new_src):
             # A finding the locator cannot place is still a finding. Appending only inside the
             # loop over lines_with() dropped it instead, so any disagreement between the two
             # places that blank exempt forms deleted a real report rather than mis-pointing it.
-            where = lines_with(new_src, n) or [(0, "")]
-            found.append((path,) + where[0][:1] + (n, where[0][1]))
+            where = lines_with(new_src, forms.get(n, [n])) or [(0, "", n)]
+            found.append((path, where[0][0], where[0][2], where[0][1]))
     return found, None
 
 

@@ -193,16 +193,29 @@ def trailing_zero_float(_):
     flags("a.py", "x = 1\n", "x = 1\n# a 0.20 ratio nobody measured\n", ["0.20"])
 
 
-@case("...and which spelling is cancelled does not depend on which comes FIRST")
+@case("...and which spelling cancels does not depend on which comes FIRST")
 def cancel_is_order_free(_):
-    # By value alone, whichever spelling appeared first ate the budget — so a `1,000` in a comment
-    # above `N = 1000` cancelled against the literal and the lint reported the CODE line, the real
-    # finding dropped. Exact spelling is cancelled first and value is only the fallback.
-    for src in ("# the roster holds 1,000 composers\nN = 1000\n",
-                "N = 1000\n# the roster holds 1,000 composers\n"):
-        found, _ = rl.check("a.py", "", src)
-        assert [n for _p, _l, n, _t in found] == ["1,000"], (src, found)
-        assert "1,000" in found[0][3], "and it points at the PROSE line: %r" % (found[0],)
+    # Keyed by spelling, the subtraction had to guess which prose occurrence a code literal
+    # cancelled, and the guess was FILE ORDER: the same file reported a different number, on a
+    # different line, depending on which of two lines came first — and in one order it pointed at
+    # the CODE line with the real finding dropped. Both pairs are here because the integer pair is
+    # settled before a value comparison is ever reached, so on its own it proves nothing.
+    for a, b in ((" # the roster holds 1,000 composers\n", "N = 1000\n"),
+                 (" # the 0.200 ratio nobody measured\n", "X = 0.20\n")):
+        one, _ = rl.check("a.py", "", a.strip() + "\n" + b)
+        two, _ = rl.check("a.py", "", b + a.strip() + "\n")
+        assert [n for _p, _l, n, _t in one] == [n for _p, _l, n, _t in two], (a, one, two)
+        assert one[0][3].startswith("#"), "it points at the PROSE line: %r" % (one[0],)
+        assert two[0][3].startswith("#"), "...in either order: %r" % (two[0],)
+
+
+@case("a number the CODE spells differently is still the code's")
+def code_spelling_is_not_prose(_):
+    # ast.dump prints a float's value, so the code's `0.20` arrives as `0.2`. Cancelling that
+    # against the PROSE `0.2` left the code literal's own spelling unbudgeted, and the finding
+    # landed on `CEILING = 0.20` — a line of code — while the comment went unreported.
+    found, _ = rl.check("a.py", "", "# Set to 0.2 because of the cap\nCEILING = 0.20\n")
+    assert [(l, n) for _p, l, n, _t in found] == [(1, "0.2")], found
 
 
 @case("...and a comment quoting a code float is not cancelled twice")
