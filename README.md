@@ -12,6 +12,20 @@ used a *cartesian* fisheye: both axes warped continuously under
 the cursor. It magnified beautifully and read terribly — with the axes always moving there was no
 stable picture, hovering was the only way to learn anything, and a screenshot of it was nonsense.
 
+## Working on it
+
+There is nothing to install — no build step, no package manager, no test framework. One command,
+once per clone:
+
+```sh
+scripts/setup.sh    # point core.hooksPath at .githooks, so the pre-commit lints run
+```
+
+git will not let a repo enable its own hooks on clone, deliberately, so this is the one setup step
+there is. Skip it and the commit-time half of the checks below never runs: the `V` bump, and the
+four warn-only lints that only ever run here. Claude Code sessions get it from
+`.claude/hooks/session-start.sh` without asking.
+
 ## What changed
 
 | 2014 | now |
@@ -59,8 +73,8 @@ cannot disagree about who is on this list.
 Then run the data gate. **`V` in `sw.js` has to move** — all three are precached, so without a bump
 the new numbers reach the repo and nobody's phone — and nothing about that needs a human:
 `refresh.py` bumps it after the gate passes, and for a hand-edit the pre-commit hook does
-(`sw-lint.py --fix` knows which files are precached and which of them you staged). Enable it once
-per clone with `git config core.hooksPath .githooks`.
+(`sw-lint.py --fix` knows which files are precached and which of them you staged) — provided you
+ran `scripts/setup.sh`.
 
 ### Keeping it current
 
@@ -233,6 +247,8 @@ python3 scripts/ui-test.test.py # the runner's per-checkout ports, so two runs o
                              #   kill each other, and it stops rather than driving a stranger's
                              #   server or browser — no browser needed
 python3 scripts/fix-lint.test.py # the two branch gates below, on throwaway repos
+python3 scripts/setup.test.py # setup.sh enables the hook, survives a second run, and never takes
+                             #   over a core.hooksPath somebody set deliberately
 
 # The branch gates. They compare a branch against what it will merge into, so they need a base ref
 # and run on pull requests in CI; by hand, point them at main.

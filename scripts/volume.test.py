@@ -128,6 +128,18 @@ def stamp_must_open_a_comment(_):
     assert vol.bucket("sw.js", deep) == "vendored"
 
 
+@case("the directories that WIRE a checkout up are config, not source")
+def config_dirs(_):
+    # Each would otherwise land in `source`, where a ratio meant for the app and the pipeline gets
+    # answered by a workflow file and a session hook. `.claude/hooks/` is the newest, and is the
+    # HOOKS dir rather than `.claude/` so that settings.json does not land in `unread` every run.
+    for p in (".github/workflows/checks.yml", ".githooks/pre-commit",
+              ".claude/hooks/session-start.sh"):
+        assert vol.selects(p), p + " is not even measured"
+        assert vol.bucket(p, "#!/bin/sh\ntrue\n") == "config", p + " -> " + str(
+            vol.bucket(p, "#!/bin/sh\ntrue\n"))
+
+
 @case("a hook says what it is on its FIRST LINE, having no extension to say it with")
 def shebang(_):
     # .githooks/pre-commit has no extension and this tool is wired into it, so the extension

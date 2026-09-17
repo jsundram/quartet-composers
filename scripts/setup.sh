@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Enable this clone's pre-commit hook. Run once after cloning; safe to re-run.
+#
+#     scripts/setup.sh           # enable it
+#     scripts/setup.sh --check   # is it enabled? exit 1 if not, and change nothing
+#
+# WHY A SCRIPT AND NOT A LINE IN THE README. git will not let a repo point at its own hooks on
+# clone — deliberately, since cloning must never run code the repo controls — so SOMETHING has to
+# run once per checkout, and a README line is the something that gets read once and then not: every
+# session in a fresh container has committed with the V bump and the four warn-only lints disabled.
+# CI covers the half with a real exit code and cannot cover the nags.
+#
+# IT NEVER OVERWRITES A DIFFERENT ANSWER. A core.hooksPath already set is somebody's arrangement,
+# and taking it over is a worse outcome than not being enabled — so it says so and exits nonzero,
+# because nothing reads stderr. A plain run exits 0 either way, since the session hook must not
+# fail a session over this; --check is what gives a verdict.
+set -euo pipefail
+
+WANT=".githooks"
+cd "$(dirname "$0")/.."
+
+if ! git rev-parse --git-dir >/dev/null 2>&1; then
+  echo "setup: not a git checkout — nothing to enable" >&2
+  exit 1
+fi
+
+# --local, not the effective value: a global core.hooksPath would read as enabled here and then not
+# be, because it points somewhere else entirely.
+cur="$(git config --local --get core.hooksPath || true)"
+check=0
+[ "${1:-}" = "--check" ] && check=1
+
+if [ "$cur" = "$WANT" ]; then
+  echo "setup: pre-commit hook enabled ($WANT)"
+  exit 0
+fi
+
+if [ -n "$cur" ]; then
+  echo "setup: core.hooksPath is \"$cur\", not $WANT — leaving it as it is." >&2
+  echo "       this clone's pre-commit lints will not run. See .githooks/pre-commit." >&2
+  exit 1
+fi
+
+if [ "$check" = 1 ]; then
+  echo "setup: pre-commit hook NOT enabled — run scripts/setup.sh" >&2
+  exit 1
+fi
+
+git config --local core.hooksPath "$WANT"
+echo "setup: pre-commit hook enabled ($WANT) — sw-lint --fix, og-lint, codehash, record-lint, volume"

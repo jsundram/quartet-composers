@@ -89,6 +89,10 @@ COVERS = [
     # ablated against the suite written for it, which is the failure the whole PR is about.
     (("scripts/ablate.py", "scripts/fix-lint.py"),
                                       ["python3 scripts/fix-lint.test.py"]),
+    # setup.sh is the one setup step this repo has, and what it prevents is a SILENCE — a clone
+    # whose pre-commit lints never run. CI cannot testify to it either way, because CI never runs
+    # the hook, so the suite is the only thing that can.
+    (("scripts/setup.sh",),           ["python3 scripts/setup.test.py"]),
     # The IMSLP join's PURE half: the wikitext readers, the catalogue parse, the work counting.
     (("scripts/build_imslp.py",),     ["python3 scripts/imslp.test.py"]),
     # The crawl, and ONLY its own suite. imslp.test.py used to be listed here as well, on the
@@ -138,7 +142,7 @@ SOURCE = re.compile(
     # and refuses to run against a port it did not take (#49), which is logic, and logic filed as
     # a test is logic nothing ablates — the branch that wrote it was ablated on one unrelated file.
     # scripts/ui-test.test.py is what covers it, and COVERS maps the two.
-    r"|^scripts/ui-test\.sh$")
+    r"|^scripts/(ui-test|setup)\.sh$")
 TESTS = re.compile(r"^scripts/.*\.test\.(py|mjs)$")
 # Both halves of the line matter: `FAIL` at the head, and the name with any trailing detail cut.
 # The detail carries measured numbers that differ between two runs of the same suite, so a set

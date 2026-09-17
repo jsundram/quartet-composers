@@ -488,6 +488,16 @@ with tempfile.TemporaryDirectory() as tmp:
     case("...and COVERS points it at both halves: the offline suite and the browser one",
          [c for pats, c in _abl.COVERS if "scripts/ui-test.sh" in pats],
          [["python3 scripts/ui-test.test.py", "BROWSER:scripts/ui-test.sh"]])
+    # The other .sh that is logic. setup.sh decides three ways on an existing core.hooksPath, and
+    # what it prevents is a clone whose pre-commit lints never run -- which CI cannot testify to
+    # either way, since CI never runs the hook. Left out of SOURCE it would be a setup step no gate
+    # can see, in a repo whose gates are the reason the step exists.
+    case("the setup step counts as source too, with its own suite",
+         (bool(_abl.SOURCE.match("scripts/setup.sh")), bool(_abl.TESTS.match("scripts/setup.sh")),
+          bool(_abl.TESTS.match("scripts/setup.test.py"))), (True, False, True))
+    case("...and COVERS maps it to that suite",
+         [c for pats, c in _abl.COVERS if "scripts/setup.sh" in pats],
+         [["python3 scripts/setup.test.py"]])
 
     # --- ablate: a COVERS entry is INERT unless SOURCE matches the same file ---------------
     # plan() builds its file list with SOURCE.match, so a name in COVERS that SOURCE does not

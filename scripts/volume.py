@@ -87,8 +87,13 @@ SKIP = ("data/", "mocks/", "assets/")
 SKIP_SUFFIX = (".min.js", ".min.css")
 CODE = (".py", ".js", ".mjs", ".css", ".html", ".sh", ".yml", ".yaml")
 # A git hook is a shell script with no extension, so the extension test alone dropped every one of
-# them — including .githooks/pre-commit, which this very tool is wired into.
-CONFIG = (".github/", ".githooks/")
+# them — including .githooks/pre-commit, which this very tool is wired into. `.claude/hooks/` is the
+# same kind of thing one directory over: a session hook wires a checkout up, and filed as `source`
+# its prose would answer to a ceiling meant for the thing it configures. The HOOKS dir and not
+# `.claude/`, because settings.json beside it is json — which split() cannot read, and which would
+# land in `unread` and be reported as an unclassifiable file on every run. No other .json here is
+# measured either.
+CONFIG = (".github/", ".githooks/", ".claude/hooks/")
 
 
 def selects(path):

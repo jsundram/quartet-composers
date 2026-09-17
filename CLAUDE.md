@@ -33,6 +33,9 @@ repo. The prose inside the code answers to a ratio instead — `scripts/volume.p
    the numeric TAIL is ever incremented. `sw-lint.py --fix` does the bump in the pre-commit hook and
    `--base REF` covers the branch in CI, because two PRs off one base can bump identically and merge
    to a net delta of zero (#32); `sw-lint.py` states all six of its checks.
+   **The hook only exists in a clone that ran `scripts/setup.sh`**, git having no way to enable it
+   on clone, so the branch check is what has to hold — and every warn-only lint below is silent
+   until somebody runs that one command. `.claude/hooks/session-start.sh` runs it per session.
 
 2. **`sw.js`'s `BOOT` must list every script the page dies without.** Every pixel is drawn by JS, so
    a cached `index.html` without `d3.v7.min.js` or `composers.json` is a headline over an empty box;
@@ -212,6 +215,7 @@ No test framework, and nothing to install. Each of these states its own rules in
 | `python3 scripts/codehash.py` | is a change comments-only, or did code go with them? |
 | `python3 scripts/fix-lint.py --base REF` | a branch changed source and touched no test. |
 | `python3 scripts/ablate.py --base REF` | the branch's tests over the base's code — do they still pass? |
+| `python3 scripts/setup.test.py` | `setup.sh` enables the hook, survives a second run, and never takes over a `core.hooksPath` somebody set. |
 | `python3 scripts/record-lint.py` | did a number reach a comment or a docstring? Hook-only, warn-only. |
 | `python3 scripts/volume.py` | how much of this repo is prose, and is this change adding more? Hook-only, warn-only. |
 | `scripts/audit_counts.py`, `audit_redirects.py` | not automated: evidence printed for a human to grade. |
