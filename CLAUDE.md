@@ -50,31 +50,21 @@ repo. The prose inside the code answers to a ratio instead — `scripts/volume.p
 4. **`composers.json`, `readership.json` and `imslp-works.json` are generated; never hand-edit
    them.** `scrape_list.py` -> `fetch_wikidata.py` -> `fetch_views.py` -> `fetch_imslp.py` ->
    `build_imslp.py` -> `build_data.py`, each caching into `data/`. Only the fetches touch the
-   network, so a rebuild is offline and reproducible.
+   network, so a rebuild is offline and reproducible. The last stage writes ALL THREE shipped files
+   from one set of caches and they must stay in lockstep — files each internally consistent but
+   built from different fetches are a drift nothing in the app can see. `validate.py` holds them
+   together, recomputing every shipped statistic from the cache it came from.
    **`build_rows()` in `build_data.py` is the one place the roster is decided**, and
-   `build_imslp.py` CALLS it rather than reading `composers.json` — a second reduction of the same
-   caches would be a second opinion about who is on this list, and the join would file counts under
-   names nothing looks up. `data/pageviews.json` stores each series as a FLAT ARRAY aligned to its
-   `months` axis. Alignment is load-bearing: an array one element short shifts every month by one
-   and the numbers stay plausible, so `build_data.py` and `validate.py` both refuse a ragged one.
-   Three distinct states: `null` is "asked, nothing there" (or, at a move, invariant 15); a MISSING
-   month is "never asked"; a title that did not ANSWER is DROPPED rather than written, since writing
-   it would null-pad the months it never answered for and read as complete forever. One failure
-   never aborts a run.
-   **Every title is fetched over the whole AXIS, never over `--months`**, because a flat array holds
-   exactly one asked window — `--months 24` on a new composer would bury nine years permanently.
-   `--months` narrows what counts as STALE, never what gets asked for. And a month IN PROGRESS is
-   not a month, so `months_back()` ends at the last COMPLETE month and `--end` is refused past it.
-   The last stage writes ALL THREE shipped files from one set of caches and they must stay in
-   lockstep — files each internally consistent but built from different fetches are a drift nothing
-   in the app can see. `validate.py` is what holds them together, recomputing each row's statistics
-   from that composer's own sparkline and each IMSLP total against the pages it came from.
-   `build_data.py` carries the canonical title in a list PARALLEL to the rows rather than a {name:
-   canonical} map: `QUALIFIER` strips the disambiguator, so "John Adams (composer)" and a bare "John
-   Adams" collapse to one key and the second silently wins. It also refuses to write when two rows
-   print the same name, which `readership.json` is keyed by. Composer NAMES are canonical Wikipedia
-   titles and change spelling when the pipeline runs, so anything hardcoding one (`make-og-svg.py`'s
-   `LABELS`, a test assertion) must use that form.
+   `build_imslp.py` CALLS it rather than reading `composers.json`: a second reduction of the same
+   caches would be a second opinion about who is on this list.
+   `data/pageviews.json` stores each series as a FLAT ARRAY aligned to its `months` axis, and the
+   alignment is load-bearing — an array one element short shifts every month by one and the numbers
+   stay plausible, so `build_data.py` and `validate.py` both refuse a ragged one. It has three
+   distinct states, which `fetch_views.py` states in full: `null` is "asked, nothing there" (or, at
+   a move, invariant 15), a MISSING month is "never asked", and a title that did not ANSWER is
+   DROPPED rather than written. Every title is fetched over the whole AXIS, never over `--months`.
+   Composer NAMES are canonical Wikipedia titles and change spelling when the pipeline runs, so
+   anything hardcoding one (`make-og-svg.py`'s `LABELS`, a test assertion) must use that form.
 
 5. **Never ask the pageviews API for an unresolved title.** Views are counted per title, a redirect
    is its own title with its own tiny count, and the request succeeds either way — Bartók returned
@@ -88,14 +78,12 @@ repo. The prose inside the code answers to a ratio instead — `scripts/volume.p
 7. **The Fame view is the default, and the only place the app hardcodes composer NAMES.** `CANON`
    (the repertoire a quartet actually plays, in birth order), `OUTLIERS` and `WOMEN_CANON` (shown
    only under the Women filter) in `chart.js` hold canonical Wikipedia titles, which change spelling
-   when the pipeline runs. `Chart.missingNames()` reports any that stop resolving and the UI suite
-   asserts it empty, checking EVERY list — a rename inside `WOMEN_CANON` would otherwise sit
-   unreported until somebody pressed the pill. `names.js`'s `SURNAME` map carries the same contract
-   through `Names.staleOverrides()`. The gender pills are a third such vocabulary: `index.html`
-   names the values the UI can filter, `app.js` reads its URL whitelist off the pills, and a stated
-   P21 label no pill reaches fails both `validate.py` and `unfilterableGenders()`. `REPERTOIRES` is
-   keyed by those same pill values, so `unreachableRepertoires()` fails on a curated list keyed to a
-   pill that does not exist.
+   when the pipeline runs. Every such vocabulary answers to a check that goes red when it stops
+   resolving, and a new one needs its own: `Chart.missingNames()` covers all three lists — a rename
+   inside `WOMEN_CANON` would otherwise sit unreported until somebody pressed the pill — `names.js`
+   has `Names.staleOverrides()` for `SURNAME`, the gender pills have `unfilterableGenders()` and
+   `validate.py` for a P21 label no pill reaches, and `REPERTOIRES`, keyed by those same pill
+   values, has `unreachableRepertoires()`.
 
 8. **Each view encodes different things, so each needs its own key.** In Fame, size is the y AXIS
    and hue is emphasis, so the lifespan ramp and the size key would label channels carrying nothing:
@@ -108,10 +96,9 @@ repo. The prose inside the code answers to a ratio instead — `scripts/volume.p
    of `STAT_MONTHS` monthly page-view counts, and at most that: nulls are dropped. Not however many
    months `data/pageviews.json` happens to cache. Widening that window would resize every dot and
    bake a 2016 readership into a 2026 picture — and it rebuilds CLEANLY, so `validate.py`'s
-   `STAT_WINDOW` pins it in all three places that state it: the `views_months` axis,
-   `readership.json`'s `stat_months`, and the `views_stat` prose. Typed there rather than imported
-   from `build_data.py`, or the check could only agree with the code it is checking. Any one month
-   runs well off typical, so the detail panel states two significant figures floored plus a "+"
+   `STAT_WINDOW` pins it in all three places that state it, TYPED there rather than imported from
+   `build_data.py`, or the check could only agree with the code it is checking. Any one month runs
+   well off typical, so the detail panel states two significant figures floored plus a "+"
    (`twoSig`/`atLeast` in `app.js`), formatted through `Histogram.fmt` so the brush readout and the
    panel agree. A new place that prints a view count almost certainly wants `atLeast()`. Two
    deliberate exceptions: the table keeps the exact number because it sorts on that column, and the
@@ -153,29 +140,20 @@ repo. The prose inside the code answers to a ratio instead — `scripts/volume.p
     held then and asking the current one returns the redirect traffic nobody followed. Fanny
     Hensel's article sat at "Fanny Mendelssohn" until March 2026 and shipped a median of **500**
     against a real **5,217** — and the app NARRATED the artefact, firing `SPIKE` and captioning a
-    rename as an obituary. Those two figures live here and nowhere else; `pagemoves.py` points at
-    them rather than restating them, because two files stating one measurement is how they drifted
-    apart once already. `scripts/pagemoves.py` is the one place this rule lives, in three
-    deliberately separate parts. `step()`/`suspects()` are offline and only generate suspects,
-    because the shape has no clean threshold. `find_moves()` reads the MediaWiki move log, which
-    STATES the old title and the date. `confirm()` throws out the hops the numbers do not support,
-    because **the log records events, not tenures**: a move reverted twenty minutes later leaves the
-    same two entries a permanent one does. The test is that traffic CHANGES HANDS across the move.
-    **The month of the move itself is null.** A move happens on a day, so either title alone is a
-    partial month and the sum quietly adds the redirect share every other month excludes — enough to
-    invent a peak, which invariant 9 makes visible because the sparkline prints exact counts on
-    hover. `null` already means "no answer to give", already breaks the path, and is already dropped
-    from the median.
+    rename as an obituary. Those two figures live here and nowhere else; `scripts/pagemoves.py`
+    points at them rather than restating them, because two files stating one measurement is how they
+    drifted apart once already.
+    `pagemoves.py` is the one place the rule lives, in three deliberately separate parts it names
+    itself: a shape detector that only ever GENERATES suspects, the MediaWiki move log as the
+    arbiter of whether a move happened, and a traffic test for whether it STUCK. **The month of the
+    move itself is null**, since either title alone is a partial month and the sum adds the redirect
+    share every other month excludes.
     **The repair is not a migration that happens once.** A refetch overwrites the stitched series
     with the API's per-title answer, so `fetch_views.py` re-applies every recorded move on every run
     that touches the title, and `data/pageviews.json`'s `moves` block records what it did — an EMPTY
-    list meaning "the log was asked and said none", which stops a no-op run re-investigating the
-    same noisy articles and is how `validate.py` tells genuine growth from an unchecked rename. **A
-    chain on record is trusted, never re-derived**, and nothing records an answer it does not have:
-    a log that could not be READ and a source that did not ANSWER both leave the series and the
-    record exactly as they were, and the gate then fails on a recorded move whose stitch is missing.
-    Re-confirming gave a good record a way back out, so a chain only ever goes from non-empty to
-    empty by a human editing the file.
+    list meaning "the log was asked and said none", which is how `validate.py` tells genuine growth
+    from an unchecked rename. **A chain on record is trusted, never re-derived**, and nothing
+    records an answer it does not have.
     **Do not sum redirects generally.** A different policy, measured and rejected: the median
     correction was 1.02x, invisible on a log axis four decades tall, in exchange for a count that
     depends on how many aliases an article happened to accumulate. A move is not an alias; the
@@ -187,51 +165,43 @@ repo. The prose inside the code answers to a ratio instead — `scripts/volume.p
     next move is the same either way. `imslp_cat` is `null` for the second (nowhere to link), `""`
     for a composer whose category reduces to `Surname, Forename`, and the category VERBATIM
     otherwise (`Shostakovich, Dmitry`). Shipping only the exceptions is safe **because the build
-    verifies it, not because the rule is trustworthy**: `build_data.py` emits `""` only where its
-    own reduction reproduces the scraped category, `validate.py` re-derives every one against
-    `data/imslp-join.json` with an independent copy of the line, and `app.js` restates it a third
-    time in JS with `ui.test.mjs` reading the `href` the browser ends up with. What is COUNTED is
-    distinct **works, not pages** — one page can hold a whole cycle — and invariant 11's rule
-    applies to that parse (`scripts/imslp-audit.py`). What the UI CALLS them is "quartets", looser
-    and deliberately so: it is IMSLP's own category and what the reader came for. **The thing that
-    must never happen is subtracting it from `quartets`**, which is how many the composer WROTE,
-    from Wikipedia prose; the two columns sit one apart, routinely disagree, and answer different
-    questions from different sources. Copy about absences is the other half: "no quartets **found**"
-    and "no IMSLP page found", never "not on IMSLP" — no P839 claim, no page linking their article
-    and no name guess reaching them is evidence, not the same as having asked.
+    verifies it, not because the rule is trustworthy** — the reduction is written three times, in
+    `build_data.py`, in `validate.py` and in `app.js`, and each copy is checked against a different
+    artifact. What is COUNTED is distinct **works, not pages** — one page can hold a whole cycle —
+    and invariant 11's rule applies to that parse (`scripts/imslp-audit.py`). **The thing that must
+    never happen is
+    subtracting it from `quartets`**, which is how many the composer WROTE, from Wikipedia prose;
+    the two columns sit one apart, routinely disagree, and answer different questions from different
+    sources. Copy about absences is the other half: "no quartets **found**" and "no IMSLP page
+    found", never "not on IMSLP" — no P839 claim, no page linking their article and no name guess
+    reaching them is evidence, not the same as having asked.
 
 ## Testing
 
 **The ethos, measured.** A mutation run in Sep 2026 — 39 plausible one-line bugs injected, suites
 run, tree restored — caught 25. The data gate caught 6 of 7, the browser suite 13 of 22,
 `sw.test.mjs` 1 of 5. Every miss was a pure function or an untested entry point, and not one was a
-layout or interaction bug. Four rules come out of that:
+layout or interaction bug. The rules that come out of it:
 
-**Budget checks by how silent the failure is, not by how much code there is.** A chart bug is
-visible the moment you open the page; a precache bug is visible only on somebody else's installed
-client a month later. Coverage should run the other way round from file size, and today it does not.
+- **Budget checks by how SILENT the failure is, not by how much code there is.** A chart bug is
+  visible the moment you open the page; a precache bug is visible only on somebody else's installed
+  client a month later. Coverage runs the other way round from that today.
+- **A check may not read its expectation out of the code under test** — that is unfalsifiable for
+  exactly that value. Cross-check two independent artifacts instead. `sw.test.mjs` reads `BOOT` out
+  of `sw.js` this way and is left alone on purpose: it is vendored pwa-starter, so the fix is
+  upstream.
+- **Prefer a POSITIVE assertion.** `!panel.includes(exact)` passes when the formatting differs, not
+  only when the rounding is right.
+- **A number the repo can compute does not belong in prose at all.** Pinning one with a lint is the
+  wrong branch of the built-or-cut rule, and it was taken and reverted (#67, #74): a check cannot
+  tell a reflowed paragraph from a stale fact. When a claim is about behaviour, test the behaviour;
+  when it is a count, read it off the thing that holds it.
+- **A check earns its place by failing without the code it covers, and keeps it by being the only
+  one that does.** `ablate.py` enforces the first half. The second is why deletions are welcome:
+  re-run the suite without a check, and if nothing else noticed, it was never holding that property
+  up.
 
-**A check may not read its expectation out of the code under test.** A check that derives its
-expectation from the function it is checking is unfalsifiable for exactly that value —
-`fetch_views.test.py` did, and runs against a FROZEN clock now. `sw.test.mjs` reads `BOOT` out of
-`sw.js` the same way and is left alone on purpose: it is vendored pwa-starter, so the fix belongs
-upstream. Where anti-drift pushes you there, cross-check two independent artifacts instead.
-
-**Prefer a positive assertion.** `!panel.includes(exact)` passes when the formatting differs, not
-only when the rounding is right.
-
-**A number the repo can compute does not belong in prose at all.** Pinning one with a lint is the
-wrong branch of the built-or-cut rule, and it was taken and reverted (#67, #74): a check cannot tell
-a reflowed paragraph from a stale fact. When a claim is about behaviour, test the behaviour; when it
-is a count, read it off the thing that holds it.
-
-And the growth rule: **a check earns its place by failing without the code it covers, and keeps it
-by being the only one that does.** `ablate.py` enforces the first half. The second half is why
-deletions are welcome — re-run the suite without a check, and if nothing else noticed, it was never
-holding that property up.
-
-No test framework, and nothing to install. Each of these states its own rules in its header; what
-follows is the directory and the few rules that reach outside the file.
+No test framework, and nothing to install. Each of these states its own rules in its header.
 
 | run | asks |
 |---|---|
@@ -254,32 +224,27 @@ follows is the directory and the few rules that reach outside the file.
 | `scripts/audit_counts.py`, `audit_redirects.py` | not automated: evidence printed for a human to grade. |
 
 Everything that needs neither a browser nor a network runs in CI, and since #56 so does the browser
-suite — `checks.yml` has a `ui` job with `xvfb-run` and node 22 (the CDP client is the global
-`WebSocket`). `ui-test.sh` skips cleanly where no Chromium is installed, which is right for a laptop
-and wrong for a runner, so `REQUIRE_BROWSER=1` turns that skip and both pointer warnings into a
-failure. Still run it by hand after touching `chart.js`, `table.js` or `styles.css`: it is faster
-than a push, and a UI change is one you want to LOOK at. The bigger prize of a browser on the runner
-is that `ablate.py --with-ui` runs there too.
+suite — the bigger prize there being that `ablate.py --with-ui` runs on the runner too. `ui-test.sh`
+skips cleanly where no Chromium is installed, which is right for a laptop and wrong for a runner, so
+`REQUIRE_BROWSER=1` turns that skip and both pointer warnings into a failure. Still run the suite by
+hand after touching `chart.js`, `table.js` or `styles.css`: it is faster than a push, and a UI
+change is one you want to LOOK at.
 
 **The two branch gates read TWO commits**, so `fix-lint.py`, `ablate.py` and `sw-lint.py --base` run
 on pull requests only. A `No-test: <reason>` trailer skips both gates, scoped PER FILE to the ones
 its own commit touched — so an untested source change is a sentence somebody wrote on purpose and a
 reviewer can read, not a silence. A file edited again with no trailer is back in the gate.
 
-**Four rules hold inside the browser suite**, and a new check answers to all four. **Every wait is a
-poll, not a budget** (#48): the one fixed wait left is `TWEEN`, used only before a "nothing moved"
-assertion, which has no signal to poll for. **A POINTER is a platform fact and cannot be emulated**
-(#50) — CDP accepts `hover`/`pointer` and ignores them — so the suite needs a real Xvfb display and
-section 2 asserts which pointer it got. **No check reads a PIXEL**: `system-ui` resolves to a
-different face per platform (#53) and the monthly top-up moves every dot, so the DOM is the oracle
-and the PNGs are evidence for whoever reads a failure. **A boot is a claim, not a reset** (#48):
-`rest()` returns through the app's own controls and reboots only when some state is out of place,
-recording where, so a reset that quietly reboots cannot hide the app failing to reset.
+**Four rules hold inside the browser suite**, each stated in `ui.test.mjs` beside the code that
+keeps it, and a new check answers to all four: every wait is a POLL and not a budget (#48); a
+POINTER is a platform fact that cannot be emulated (#50), so the suite needs a real Xvfb display and
+section 2 asserts which one it got; no check reads a PIXEL, so the DOM is the oracle and the PNGs
+are evidence for whoever reads a failure; and a boot is a CLAIM, not a reset (#48).
 
 `scripts/refresh.py` is not a test but the same discipline: it decides whether a top-up is DUE, runs
 the three pipeline stages, refuses to bump `V` if `validate.py` fails, and is a pure no-op
-otherwise. `.github/workflows/refresh.yml` runs it monthly and opens a PR — with the built-in
-`GITHUB_TOKEN`, which does not trigger `checks.yml`, which is why refresh.py runs the gate itself.
+otherwise. `.github/workflows/refresh.yml` runs it monthly and opens a PR with the built-in
+`GITHUB_TOKEN`, which does not trigger `checks.yml` — which is why refresh.py runs the gate itself.
 The gate must not be skippable because a robot opened the PR.
 
 ## Design artifacts
