@@ -8,8 +8,12 @@
 # WHY A SCRIPT AND NOT A LINE IN THE README. git will not let a repo point at its own hooks on
 # clone — deliberately, since cloning must never run code the repo controls — so SOMETHING has to
 # run once per checkout, and a README line is the something that gets read once and then not: every
-# session in a fresh container has committed with the V bump and the four warn-only lints disabled.
-# CI covers the half with a real exit code and cannot cover the nags.
+# session in a fresh container has committed with the hook disabled.
+#
+# WHAT THAT COSTS IS NOT LISTED HERE. .githooks/pre-commit runs them and says what each one is for,
+# so it is the copy that moves when the set does; enumerating them again is the drift this script
+# exists to argue against, and this header carried two of it — a count that was wrong, and a claim
+# that CI could not report these, written before the run that reports two of them.
 #
 # IT NEVER OVERWRITES A DIFFERENT ANSWER. A core.hooksPath already set is somebody's arrangement,
 # and taking it over is a worse outcome than not being enabled — so it says so and exits NONZERO,
@@ -58,4 +62,6 @@ if [ "$check" = 1 ]; then
 fi
 
 git config --local core.hooksPath "$WANT"
-echo "setup: pre-commit hook enabled ($WANT) — sw-lint --fix, og-lint, codehash, record-lint, volume"
+# Names the DIRECTORY, not its contents: a list here is a second copy of .githooks/pre-commit's,
+# and the reader's next step is to read that file anyway.
+echo "setup: pre-commit hook enabled ($WANT) — see .githooks/pre-commit for what it runs"
