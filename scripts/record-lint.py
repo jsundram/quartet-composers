@@ -194,20 +194,35 @@ def lines_with(src, spellings, code=""):
     every spelling because the key is a value now: `0.20` and `0.2` are one finding, and the line
     worth pointing at is whichever of them a comment wrote.
     """
-    # THE CODE TEXT IS THE BETTER ORACLE, where there is one. PROSE_LINE only knows comment
-    # markers, so in markdown — where prose carries no marker and a fenced line carries none
-    # either — the tie fell to file order and a finding landed INSIDE the fence that
-    # prose_numbers() had just treated as code. A line that appears verbatim in the code is
-    # ranked last. For Python the code is an ast.dump and matches no source line, so nothing
-    # changes there and the marker rule still decides.
-    code_lines = {l.strip() for l in code.split("\n") if l.strip()}
+    # THE CODE TEXT IS THE BETTER ORACLE, where there is one. PROSE_LINE only knows markers, so
+    # in markdown — where prose carries none and a fenced line carries none either — the tie fell
+    # to file order and a finding landed INSIDE the fence prose_numbers() had just treated as
+    # code. A marker is not much better than file order anyway: `/* why */ const N = 462;` opens
+    # with one and is a line of code.
+    # So the test is not whether the line LOOKS like prose, nor whether it appears verbatim in the
+    # code — both miss, the second on any line the strip reflowed or only partly removed. Delete
+    # every code line from it and ask whether this number SURVIVED. A line whose copy is inside
+    # code loses it; a comment keeps it; and a short code line quoted inside a comment cannot
+    # demote it, because removing `}` does not remove the number. For Python the code is an
+    # ast.dump matching no source line, so nothing there changes and the marker rule still
+    # decides.
+    flat = lambda l: re.sub(r"[ \t]+", " ", l).strip()
+    code_lines = [flat(l) for l in code.split("\n") if l.strip()]
+
+    def in_code(line, pat):
+        bare = flat(line)
+        for cl in code_lines:
+            bare = bare.replace(cl, " ")
+        return not pat.search(bare)
+
     hits = []
     for num in dict.fromkeys(spellings):
         pat = (re.compile(r"\b" + re.escape(num) + r"\b", re.I) if num.isalpha()
                else re.compile(r"(?<![\w.#$%-])" + re.escape(num) + r"(?![\w%])"))
-        hits += [(i, l.strip(), num) for i, l in enumerate(src.split("\n"), 1)
+        hits += [(i, l.strip(), num, in_code(l, pat)) for i, l in enumerate(src.split("\n"), 1)
                  if pat.search(EXEMPT.sub(" ", l))]
-    return sorted(hits, key=lambda h: (h[1] in code_lines, not PROSE_LINE.match(h[1]), h[0]))
+    hits = sorted(hits, key=lambda h: (h[3], not PROSE_LINE.match(h[1]), h[0]))
+    return [h[:3] for h in hits]
 
 
 def head_src(path):

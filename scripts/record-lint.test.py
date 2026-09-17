@@ -244,6 +244,23 @@ def located_in_prose(_):
     # code line last is what makes the two agree rather than the marker happening to be there.
     found, _ = rl.check("a.js", "", "const N = 462;\n// the 462 placed composers\n")
     assert [(l, n) for _p, l, n, _t in found] == [(2, "462")], found
+    # A line that OPENS with a marker and carries code is not prose, and comparing it verbatim
+    # against the code cannot say so — the strip took the comment off it.
+    found, _ = rl.check("a.js", "", "/* why */ const N = 462;\n// the 462 placed composers\n")
+    assert [(l, n) for _p, l, n, _t in found] == [(2, "462")], found
+    # Nor can a verbatim comparison survive the strip reflowing a line's alignment.
+    md = "Notes.\n\n```\nconst  N =   1000;\n```\n\nThe roster holds 1,000 composers.\n"
+    found, _ = rl.check("D.md", "", md)
+    assert [(l, n) for _p, l, n, _t in found] == [(7, "1,000")], found
+    # The strip also REFLOWS: this repo's source is column-aligned and codehash collapses runs of
+    # spaces, so a verbatim comparison misses the code line it was looking at. Nothing else
+    # rescues this one — the comment's continuation line carries no marker either.
+    found, _ = rl.check("a.js", "", "const T = { a:   462 };\n/* the placed\n   composers: 462 of them */\n")
+    assert [(l, n) for _p, l, n, _t in found] == [(3, "462")], found
+    # And the other direction: a SHORT code line quoted inside a comment must not demote it,
+    # which is why the test is whether the NUMBER survived rather than whether the line matched.
+    found, _ = rl.check("a.js", "", "function f() {\n}\n// closing 462 of them }\n")
+    assert [(l, n) for _p, l, n, _t in found] == [(3, "462")], found
 
 
 @case("a number the CODE spells differently is still the code's")
