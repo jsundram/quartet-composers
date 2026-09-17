@@ -253,7 +253,7 @@ function sparkline(name) {
   svg.addEventListener("pointerdown", fromX);
   svg.addEventListener("pointerleave", e => { if ((e.pointerType || "mouse") === "mouse") clear_(); });
   // A READ-ONLY value stepper, which is why arrow keys are right here and wrong for the readership
-  // brush (TODO): there is no form control this reinvents.
+  // brush (#81): there is no form control this reinvents.
   svg.addEventListener("focus", () => show_(peakAt));
   svg.addEventListener("blur", clear_);
   svg.addEventListener("keydown", e => {

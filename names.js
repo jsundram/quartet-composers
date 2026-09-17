@@ -9,7 +9,7 @@
 //
 // It is a HEURISTIC -- "the last word", with SURNAME holding the names that rule is wrong about,
 // which is a judgment call and not a fact. The rules and their exceptions are pinned in
-// scripts/names.test.mjs; the audit behind the exception list is history, so it is in TODO.md.
+// scripts/names.test.mjs; the audit behind the exception list is history, so it is in #95.
 // French and Dutch particles are left filing under the last word ("Fernand de La Tombelle" ->
 // Tombelle) where a French index would keep them: still recognisable, and the point is to be narrow.
 window.Names = (function () {

@@ -18,13 +18,13 @@ under that string and not under "Tōru Takemitsu", where the article lives. Ever
 has accumulated therefore holds a slice of its readership, and summing them is defensible.
 
 THE ANSWER, measured: don't. 436 of 884 composers read higher with their redirects added in, and
-the median correction is 1.024x — invisible on an axis spanning five orders of magnitude. Only 49
+the median correction is 1.024x — invisible on an axis spanning four orders of magnitude. Only 49
 exceed 10%, and nothing in the curated sets moves at all: Mozart goes 186,772 -> 191,780, Beethoven
 122,811 -> 123,318, and every one of the ten in CANON rounds to 1.0x. What the sum would buy is
 noise, and what it would cost is a stated measure — "monthly English Wikipedia page views for this
 article" — traded for one that depends on how many aliases the article happened to accumulate,
 which is an artefact of Wikipedia's edit history rather than of readership. That is the same trade
-TODO.md refuses under "Deliberately not doing" for per-language views, for the same reason.
+refused for per-language views, for the same reason (#107).
 
 WHAT THIS AUDIT DID TURN UP is the defect that is now fixed elsewhere: one composer corrected by
 more than 2x, and she was not a split at all. Fanny Hensel's article was MOVED — it sat at "Fanny

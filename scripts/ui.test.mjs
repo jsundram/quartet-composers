@@ -190,7 +190,7 @@ async function key(k) {
   }
 }
 // A DESKTOP call here means a fine pointer, and that is not something this file can arrange.
-// `Emulation.setEmulatedMedia` takes a `features` list and TODO.md prescribed hover/pointer
+// `Emulation.setEmulatedMedia` takes a `features` list and #50 prescribed hover/pointer
 // overrides through it — they are accepted with an empty result and change nothing, because
 // Blink's media-feature overrides cover prefers-color-scheme and its neighbours and not the
 // pointer ones. Nor does `mobile: true` below make a pointer coarse; only
@@ -802,7 +802,7 @@ check("leaving the sparkline puts the summary back",
       (await capOf()).startsWith("peak"), await capOf());
 
 // The keyboard gets the same readout, not a second mechanism. This is a READ-ONLY value stepper,
-// which is why arrow keys are right here and wrong for the readership brush (see TODO).
+// which is why arrow keys are right here and wrong for the readership brush (see #81).
 await ev(`document.querySelector('#detail svg.spark').focus()`);
 await settle(readout);
 check("focusing the sparkline starts the readout at the peak",
@@ -1287,7 +1287,7 @@ check("and the resting picture is still just the seed",
 // WITHIN A STRIPE, and to a FLOOR rather than to "never touching", because neither is what spreadJq
 // guarantees: adjacent stripes overlap by construction, and inside a stripe the guarantee is about
 // dots adjacent in readership, so a long run of near-ties degrades it. Both residuals are in
-// TODO.md. Tightening this bar to "never touching" would assert something the fix does not do.
+// #96. Tightening this bar to "never touching" would assert something the fix does not do.
 //
 // The floor is a constant but the margin is not: the closest pair and the base radius are printed
 // every run, so a change to dotRadius() or the aspect ratio shows up as a shrinking margin instead

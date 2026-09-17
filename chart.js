@@ -108,7 +108,7 @@ window.Chart = (function () {
   // per name, separates ties on AVERAGE and not in particular: Debussy and Gershwin drew 0.47px apart,
   // close enough that the Delaunay bisector ran through the visible disc and its right half selected
   // the composer you could not see. Ranking inside the stripe and walking frac(k·φ) pushes the dots
-  // ADJACENT IN Y — the only ones that can collide — maximally apart in x instead; TODO.md has the
+  // ADJACENT IN Y — the only ones that can collide — maximally apart in x instead; #96 has the
   // three-distance argument, and make-og-svg.py duplicates this (invariant 14). By readership then
   // NAME, never row order: build_data.py is free to reorder its rows.
   const PHI = (Math.sqrt(5) - 1) / 2;
