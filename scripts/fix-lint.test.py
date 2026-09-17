@@ -524,6 +524,7 @@ with tempfile.TemporaryDirectory() as tmp:
          bool(_ab.SOURCE.match("scripts/codehash.py"))
          and any("scripts/codehash.py" in files for files, _c in _ab.COVERS), True,
          "SOURCE must match a file for plan() to route it to its COVERS suite")
+
     case("the volume budget is reachable by the gate that claims to cover it",
          bool(_ab.SOURCE.match("scripts/volume.py"))
          and any("scripts/volume.py" in files for files, _c in _ab.COVERS), True,

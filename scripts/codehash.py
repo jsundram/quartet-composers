@@ -43,9 +43,11 @@ HOW THE CODE IS ISOLATED, per language, and how strongly:
 
 NEWLINES SURVIVE THE STRIP, deliberately. Collapsing them would make a reflow of CODE invisible too,
 and in JavaScript it would change meaning: `return` and its value on two lines is not `return value`.
-Horizontal runs collapse and blank lines go, so reindenting is free and re-wrapping a comment is
-free, while moving a token to another line reads as a code change. Conservative in the safe
-direction.
+Horizontal runs collapse and blank lines go, so reindenting is free and re-wrapping a whole-line
+comment is free, while moving a token to another line reads as a code change. Those two meet in one
+case and the second wins: re-wrapping an INLINE block comment that has code after it on the same
+line does move that code to another line, so it is not free. Conservative in the safe direction —
+it asks for a test nobody owes rather than letting a moved token past.
 
 WHAT IT IS NOT. Not a formatter, not a minifier, and not a substitute for a test: it says the code is
 byte-identical, which is a much narrower claim than "this change is safe". `ablate.py` and

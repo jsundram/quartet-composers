@@ -88,6 +88,14 @@ case("a block comment's newlines are kept, so its line count survives",
 case("...and moving that comment onto its own line is still comments-only",
      same("a.js", "let a = 1; /* why\nmore\n*/ let b = 2;\n",
           "let a = 1;\n/* why\nmore */\nlet b = 2;\n"), True)
+# Where the header's two rules meet. Re-wrapping a comment is free UNTIL it carries a code token
+# onto another line, and then the token rule wins — asking for a test nobody owes, rather than
+# letting a moved token past. A claim the header makes is a claim that can go red.
+case("re-wrapping a WHOLE-LINE comment is free",
+     same("a.js", "/* a b */\nlet x = 1;\n", "/* a\n   b */\nlet x = 1;\n"), True)
+case("...but re-wrapping one with code after it moves that code, and is not",
+     same("a.js", "let x = 1; /* a */ let y = 2;\n", "let x = 1; /* a\n*/ let y = 2;\n"), False)
+
 case("a block comment between two tokens is still whitespace",
      ch.strip_js("let a = 1;/**/let b = 2;\n")[0], "let a = 1; let b = 2;\n")
 

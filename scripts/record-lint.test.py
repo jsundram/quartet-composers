@@ -193,6 +193,18 @@ def trailing_zero_float(_):
     flags("a.py", "x = 1\n", "x = 1\n# a 0.20 ratio nobody measured\n", ["0.20"])
 
 
+@case("...and which spelling is cancelled does not depend on which comes FIRST")
+def cancel_is_order_free(_):
+    # By value alone, whichever spelling appeared first ate the budget — so a `1,000` in a comment
+    # above `N = 1000` cancelled against the literal and the lint reported the CODE line, the real
+    # finding dropped. Exact spelling is cancelled first and value is only the fallback.
+    for src in ("# the roster holds 1,000 composers\nN = 1000\n",
+                "N = 1000\n# the roster holds 1,000 composers\n"):
+        found, _ = rl.check("a.py", "", src)
+        assert [n for _p, _l, n, _t in found] == ["1,000"], (src, found)
+        assert "1,000" in found[0][3], "and it points at the PROSE line: %r" % (found[0],)
+
+
 @case("...and a comment quoting a code float is not cancelled twice")
 def float_budget(_):
     # The subtraction is per-number, not per-file: one 0.20 in the code and one in the comment

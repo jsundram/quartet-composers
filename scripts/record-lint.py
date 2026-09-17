@@ -161,13 +161,22 @@ def prose_numbers(path, src):
     # the two never cancelled — the constant was reported as prose on the commit that added it.
     # `1,000` against a literal `1000` is the same miss. The prose side stays keyed by what was
     # WRITTEN, because that is the string lines_with() has to find again and the reader has to see.
-    budget = {}
+    # EXACT SPELLING FIRST, VALUE ONLY AS A FALLBACK. By value alone the cancellation is
+    # ORDER-DEPENDENT — whichever spelling appears first in the file eats the budget — so a
+    # `1,000` in a comment ABOVE `N = 1000` cancelled against the literal and what got reported
+    # was the CODE line, with the real prose finding dropped. Worse than silence: it sends a
+    # reader to a line that is not prose. Two passes make the answer the same either way round.
+    by_spelling, by_value, left, out = dict(in_code), {}, {}, {}
     for n, c in in_code.items():
-        budget[canon(n)] = budget.get(canon(n), 0) + c
-    out = {}
+        by_value[canon(n)] = by_value.get(canon(n), 0) + c
     for n, c in whole.items():
-        take = min(c, budget.get(canon(n), 0))
-        budget[canon(n)] = budget.get(canon(n), 0) - take
+        take = min(c, by_spelling.get(n, 0))
+        by_spelling[n] = by_spelling.get(n, 0) - take
+        by_value[canon(n)] = by_value.get(canon(n), 0) - take
+        left[n] = c - take
+    for n, c in left.items():
+        take = min(c, by_value.get(canon(n), 0))
+        by_value[canon(n)] = by_value.get(canon(n), 0) - take
         if c - take:
             out[n] = c - take
     return out, None
