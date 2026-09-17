@@ -206,8 +206,11 @@ def lines_with(src, spellings, code=""):
     # demote it, because removing `}` does not remove the number. For Python the code is an
     # ast.dump matching no source line, so nothing there changes and the marker rule still
     # decides.
+    # LONGEST FIRST, because deleting them is destructive: a bare `}` earlier in the file ate the
+    # brace a whole CSS rule needed to match, and the rule then survived as prose. Length order
+    # cannot be defeated that way — nothing shorter is removed until everything containing it is.
     flat = lambda l: re.sub(r"[ \t]+", " ", l).strip()
-    code_lines = [flat(l) for l in code.split("\n") if l.strip()]
+    code_lines = sorted({flat(l) for l in code.split("\n") if l.strip()}, key=len, reverse=True)
 
     def in_code(line, pat):
         bare = flat(line)

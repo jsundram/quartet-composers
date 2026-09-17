@@ -257,6 +257,13 @@ def located_in_prose(_):
     # rescues this one — the comment's continuation line carries no marker either.
     found, _ = rl.check("a.js", "", "const T = { a:   462 };\n/* the placed\n   composers: 462 of them */\n")
     assert [(l, n) for _p, l, n, _t in found] == [(3, "462")], found
+    # Deleting code lines is DESTRUCTIVE, so their order decides. A bare `}` earlier in the file
+    # ate the brace the whole rule below needed to match, and the rule survived as prose — which
+    # is what styles.css did to the real run: the finding landed on a CSS rule, not on the comment
+    # explaining it. Longest first cannot be defeated that way.
+    found, _ = rl.check("a.js", "", "function f() {\n}\nconst T = { a: 462 };\n"
+                                    "/* the placed\n   composers: 462 of them */\n")
+    assert [(l, n) for _p, l, n, _t in found] == [(5, "462")], found
     # And the other direction: a SHORT code line quoted inside a comment must not demote it,
     # which is why the test is whether the NUMBER survived rather than whether the line matched.
     found, _ = rl.check("a.js", "", "function f() {\n}\n// closing 462 of them }\n")

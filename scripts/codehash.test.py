@@ -96,6 +96,8 @@ case("re-wrapping a WHOLE-LINE comment is free",
 case("...but re-wrapping one with code after it moves that code, and is not",
      same("a.js", "let x = 1; /* a */ let y = 2;\n", "let x = 1; /* a\n*/ let y = 2;\n"), False)
 
+# A regression pin on the SPACE rather than proof of the newlines beside it — it reads the same
+# either way under the old strip, and it is the only thing holding `a/**/b` to two tokens.
 case("a block comment between two tokens is still whitespace",
      ch.strip_js("let a = 1;/**/let b = 2;\n")[0], "let a = 1; let b = 2;\n")
 
