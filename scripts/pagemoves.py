@@ -5,59 +5,43 @@
 # ///
 """A page MOVE is a hole in a page-view series, and this is the one rule for finding it.
 
-Views are counted per TITLE, not per article: the API answers for the string that was requested,
-and it has no idea two strings were the same page. Invariant 5 covers half of that — never ask for
-a redirect, because a redirect is its own title with its own tiny count (Bartók returned 41 instead
-of 14,330). This file is the other half, and it is the mirror image: asking for the RIGHT title
-still undercounts every month the article was not sitting there yet.
-
-Fanny Hensel is the case that made it visible. Her article was at "Fanny Mendelssohn" until March
-2026, so ten years of her history was filed under a title that was, at the time, a redirect nobody
-followed — a redirect's trickle against a readership two orders of magnitude larger. Invariant 15
-records both figures, and they are not restated here: two files stating one measurement is how this
-line came to say 5,400 while CLAUDE.md said 5,217. The canonical title was correct on every run.
-The shipped median of 500 was not a readership at all: it was the midpoint of a series that is half
-pre-move noise and half post-move reality, and the app then NARRATED the artefact, because 5,198
-against a 95th percentile of 149 fires `SPIKE` in app.js at 34.9x and captions a rename as an
-obituary. That is the plausible-looking wrong number this pipeline is arranged against, with a
-confident sentence on top of it.
+Views are counted per TITLE, not per article: the API answers for the string requested and has no
+idea two strings were the same page. Invariant 5 covers half of that — never ask for a redirect.
+This file is the mirror image: asking for the RIGHT title still undercounts every month the article
+was not sitting there yet. Invariant 15 records the case that made it visible and the two figures
+that went with it; they are not restated here, because two files stating one measurement is how they
+drifted apart once already.
 
 THE RULE: count the title the article actually occupied that month. Not the current title (that is
-the bug), and not the sum of every title that reaches the article (that is a different policy, and
-scripts/audit_redirects.py measures it: the median correction from summing redirects is 1.024x,
-which is invisible on a five-decade log axis, and the price is that a composer's readership starts
-depending on how many aliases their article happened to accumulate — an artefact of edit history
-rather than of readership). A move is not an alias. The article LIVED at the old title, so its
-views there are the same measurement under a different string, and they belong to the composer.
+the bug), and not the sum of every title that reaches the article — that is a different policy, and
+scripts/audit_redirects.py measured and rejected it: the correction is invisible on a five-decade
+log axis, and the price is a readership that depends on how many aliases an article happened to
+accumulate, which is an artefact of edit history. A move is not an alias. The article LIVED at the
+old title, so its views there are the same measurement under a different string.
 
 THREE PARTS, DELIBERATELY SPLIT.
 
 `step()` and `suspects()` are OFFLINE and read only the cache, so validate.py can run them at the
-gate with no network. They find the SHAPE of a move — a sustained level shift, not a spike — and
-they are a suspect generator, nothing more: the shape has no clean threshold (a real move here runs
-9x to 1163x; genuine growth reaches 8x, because the Chevalier de Saint-Georges got a film), and
-tuning one would be choosing which real moves to miss.
+gate with no network. They find the SHAPE of a move — a sustained level shift, not a spike — and are
+a suspect generator, nothing more: the shape has no clean threshold, since the range real moves span
+overlaps what genuine growth reaches, and tuning one would be choosing which real moves to miss.
 
-`find_moves()` is ONLINE and is the arbiter of whether a move HAPPENED. It reads the MediaWiki
-move log, which states the source title and the timestamp as structured fields rather than leaving
-them to be inferred from the numbers — the same reason fetch_wikidata.py reads a P569 claim instead
-of parsing prose. A suspect the log does not name is genuine growth and is left alone.
+`find_moves()` is ONLINE and is the arbiter of whether a move HAPPENED. It reads the MediaWiki move
+log, which states the source title and the timestamp as structured fields rather than leaving them
+to be inferred from the numbers — the same reason fetch_wikidata.py reads a P569 claim instead of
+parsing prose. A suspect the log does not name is genuine growth and is left alone.
 
-`confirm()` is offline again, and it is the arbiter of whether the move STUCK. The log records
-events, not tenures: a move reverted twenty minutes later leaves the same two entries a permanent
-one does, and a chain walked from the log alone put Roberto Gerhard at a title he never occupied.
-Only a hop where the traffic actually changed hands is stitched.
+`confirm()` is offline again, and is the arbiter of whether the move STUCK. The log records events,
+not tenures: a move reverted twenty minutes later leaves the same two entries a permanent one does,
+and a chain walked from the log alone put one composer at a title he never occupied. Only a hop
+where the traffic actually changed hands is stitched.
 
-WHY THE SEARCH IS OVER REDIRECTS AND NOT OVER THE PAGE'S OWN LOG. `list=logevents` is indexed by
-the title a move came FROM, and what we have is the title it went TO, so the log of the canonical
-title lists the moves AWAY from it and not the one we are looking for. The old title is however
-still reachable: a move leaves a redirect behind, so the titles an article used to live at are
-almost all in its own redirect list today. The exception is a move that DISAMBIGUATES — "Franz
-Schmidt" -> "Franz Schmidt (composer)" leaves a disambiguation PAGE behind, not a redirect, and
-that composer's series is the second-worst in this dataset, a trickle before the move against a
-level three orders up after it — so the qualifier-stripped form is always tried as well. The canonical title itself is in
-the candidate set too, because an article that was moved away and back (Takemitsu, three times)
-has the middle leg of that journey logged under its own name.
+WHY THE SEARCH IS OVER REDIRECTS AND NOT OVER THE PAGE'S OWN LOG. `list=logevents` is indexed by the
+title a move came FROM, and what we have is the title it went TO, so the canonical title's log lists
+the moves AWAY from it. The old title is still reachable, because a move leaves a redirect behind.
+The exception is a move that DISAMBIGUATES, which leaves a disambiguation PAGE and not a redirect,
+so the qualifier-stripped form is always tried as well. The canonical title is in the candidate set
+too, because an article moved away and back has the middle leg logged under its own name.
 """
 import json
 import re

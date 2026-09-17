@@ -13,35 +13,31 @@ RECORD?" — is not one a program can answer, so a nonzero exit here is a prompt
 a verdict. Wiring it into CI would block a pull request on a judgement call, which is the trade
 .githooks/pre-commit already refuses for everything it runs.
 
-WHY IT EXISTS. CLAUDE.md's rule is that a number in prose is a RECORD or it is absent: a
-measurement that happened cannot go stale, and anything the repo recomputes can. That rule was
-written down, and forty-nine comments and doc lines went stale under it anyway — thirty of them in
-one feature. Nothing asked. Both branch gates import codehash.unchanged() and stop asking a
-comments-only hunk for a test, correctly, because a comment cannot be tested; the side effect is
-that prose is the one surface here with no check on it at all.
+WHY IT EXISTS. CLAUDE.md's rule is that a number in prose is a RECORD or it is absent: a measurement
+that happened cannot go stale, and anything the repo recomputes can. That rule was written down and
+comments and doc lines went stale under it anyway, because nothing asked — both branch gates import
+codehash.unchanged() and stop asking a comments-only hunk for a test, correctly, since a comment
+cannot be tested, and the side effect is that prose is the one surface here with no check on it.
 
-WHAT IT ASKS, AND THE ORDER. Not "record or not" — that is a binary, and it sends a reader
-straight to a vaguer rewrite. The repo's own rule puts deletion first ("CUT is the first branch to
-try"), and the pass that produced this file under-applied it: "there are 884 links on this page
-whose text is a number" became "this column is hundreds of them", which keeps a clause that was
-only ever hosting the count. One such link is exactly as wrong as hundreds. So the report names
-three branches in order, and the first is to take the number out and read what is left.
+WHAT IT ASKS, AND THE ORDER. Not "record or not" — that is a binary, and it sends a reader straight
+to a vaguer rewrite, which keeps the clause that was only ever hosting the count. The repo's own
+rule puts deletion first, so the report names three branches in order and the first is to take the
+number out and read what is left.
 
 IT IS NOT prose-lint.py, WHICH WAS DELETED, and the difference is the whole design. That one stored
 the VALUE of each claim and re-checked it, so it could not tell a reflowed paragraph from a stale
-fact and twice forced an edit over a line wrap. This stores nothing and re-checks nothing. It asks
-only whether a number is NEW to the file's prose, by comparing the staged text against HEAD's, so
-re-wrapping a paragraph — which moves every number and changes none — says nothing at all.
+fact. This stores nothing and re-checks nothing: it asks only whether a number is NEW to the file's
+prose, by comparing the staged text against HEAD's, so re-wrapping a paragraph — which moves every
+number and changes none — says nothing at all.
 
 THE COMMENTS COME FROM codehash, NOT FROM A SECOND SCANNER. A file's prose is its source minus its
-code, so code_of() answers this too: for Python the AST with docstrings dropped, for JS and CSS the
-scanner that is verified by re-parsing. A second scanner here would be a second opinion about what
-a comment is, and the one place that question is already settled is the file that has to be right
-about it. It also inherits codehash's failure mode: a file it cannot classify is reported as such
-rather than passed, because "no numbers found" and "could not look" are different answers.
+code, so code_of() answers this too. A second scanner would be a second opinion about what a comment
+is, and the one place that question is settled is the file that has to be right about it. It also
+inherits codehash's failure mode: a file it cannot classify is reported rather than passed, because
+"no numbers found" and "could not look" are different answers.
 
-DOCSTRINGS ARE THE POINT, not an extension of it. They are 44% of this repo's Python prose and hold
-the module headers that explain the pipeline, so a check that read `#` lines only would have missed
+DOCSTRINGS ARE THE POINT, not an extension of it. They are most of this repo's Python prose and hold
+the module headers that explain the pipeline, so a check reading `#` lines only would have missed
 the invariant-4 header, validate.py's per-check docstrings and build_data.py's imslp_cat — all of
 which shipped wrong numbers. py_code() drops them, so they are covered by construction.
 """

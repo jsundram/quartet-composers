@@ -10,72 +10,53 @@
     python3 scripts/fetch_views.py --force        # refetch even months already cached
     python3 scripts/fetch_views.py --dry-run      # fetch and report, write nothing
 
-WHY A SERIES AND NOT A NUMBER. Dot size is the most visually dominant channel on the chart and
-page views are the noisiest input to it. Measured against a 12-month window, a single month is off
-the median by 12% typically and 29% at worst, and August is a seasonal trough that every sampled
-composer fell below. Philip Glass has a month at 2.13x his median. Sizing dots from one month
-means a chunk of the picture is weather.
+WHY A SERIES AND NOT A NUMBER. Dot size is the most visually dominant channel on the chart and page
+views are the noisiest input to it: a single month runs well off the median, August is a seasonal
+trough every sampled composer fell below, and one composer has a month at 2.13x his own median.
+Sizing dots from one month means a chunk of the picture is weather. The fix costs nothing —
+`monthly` granularity returns EVERY month in the requested range from ONE request — and
+build_data.py takes the MEDIAN, which ignores a death-or-anniversary spike instead of baking it in.
 
-The fix costs nothing: `monthly` granularity returns EVERY month in the requested range from ONE
-request, so twelve months of data is the same ~880 calls that one month was. build_data.py takes
-the MEDIAN, which ignores a death-or-anniversary spike instead of baking it in permanently.
+WHY THE WHOLE HISTORY AND NOT TWELVE MONTHS, for the same one-request reason: the range is free, so
+the only cost is the file on disk. What it buys is the readership SPARKLINE, which is the one thing
+twelve months cannot show — a composer flat for eight years and then spiking the month she died
+reads as a flat line, and a decade-long slide reads as noise. It does NOT move the headline number:
+build_data.py still takes the median of the last STAT_MONTHS, because "how much read is this
+composer" is a question about now, and the rest of the series answers a different one. Storing the
+raw series rather than the statistic means the statistic can change without touching the network.
 
-WHY THE WHOLE HISTORY AND NOT TWELVE MONTHS. The window defaults to everything the API has —
-2015-07 to the last complete month, 134 months as of this writing — for the same one-request
-reason: the range is free, so the only cost is the file on disk. What it buys is the readership
-SPARKLINE in the app's detail panel, which is the one thing twelve months cannot show. Saariaho
-runs at ~2,000 a month for eight years and hits 42,195 in June 2023, the month she died; Haydn
-has slid from 32,000 to 20,000 across the decade. A twelve-month window sees the first as a flat
-line and the second as noise.
+ON DISK: `months` is the axis and each series is a FLAT ARRAY aligned to it, null where the API had
+no datum. A {month: count} object per composer repeats the month key once per composer per month
+and cost roughly four times the bytes for the same numbers, rewritten whole on every top-up. The
+dict form is still READ, once, so an older cache migrates itself the first time this runs.
 
-It does NOT move the headline number: build_data.py still takes the median of the last TWELVE
-cached months, because "how much read is this composer" is a question about now. The rest of the
-series is history, and history is a different question.
+A null is "asked, and the API had nothing" — or, at the month an article was MOVED, "asked, and the
+answer belongs to neither of its titles" (see below). It is not a MISSING month, which is "never
+asked", and recording the difference is what keeps a top-up cheap: without it an article created in
+2019 is forever missing its 2015 months, looks incomplete, and is refetched in full on every run.
+Same distinction the app makes everywhere else; invariant 10.
 
-Storing the raw series rather than the computed statistic means the statistic can be changed
-without touching the network and a refresh only fetches months it does not already have.
-
-ON DISK: `months` is the axis and each series is a FLAT ARRAY aligned to it, null where the API
-had no datum. The obvious alternative — a {month: count} object per composer — repeats the month
-key 884 times per month and cost 1.9 MB against 0.5 MB for the same numbers, which then has to be
-rewritten whole on every monthly top-up. The dict form is still READ, once, so an older cache
-migrates itself the first time this runs.
-
-A null is "asked, and the API had nothing" — an article that did not exist yet — or, at the month
-an article was MOVED, "asked, and the answer belongs to neither of its titles" (see the page-move
-section below). It is not the same
-as a MISSING month, which is "never asked", and recording it is what keeps a top-up cheap: without
-it an article created in 2019 is forever missing its 2015 months, so it looks incomplete and is
-refetched in full on every single run, which is dozens of titles. Same distinction the app makes
-everywhere else; see invariant 10 in CLAUDE.md.
-
-WHICH MEANS EVERY TITLE IS FETCHED OVER THE WHOLE AXIS, not over `--months`. A flat array cannot
-say "never asked" — there is no third value between a count and a null — so the only way the two
-states stay distinct on disk is for the file to hold exactly one asked window, the axis itself.
-Fetching a title over a narrower window and writing it onto the wider axis would record its
-un-asked months as nulls, and it would then read as complete FOREVER: `--months 24` on a composer
-added since the last run buried nine years of their history permanently. The range is free (one
-request either way), so `--months` narrows what counts as STALE and never what gets asked for.
+WHICH MEANS EVERY TITLE IS FETCHED OVER THE WHOLE AXIS, not over `--months`. A flat array has no
+third value between a count and a null, so the only way the two states stay distinct on disk is for
+the file to hold exactly one asked window — the axis itself. Fetching over a narrower window and
+writing onto the wider axis records un-asked months as nulls, and it then reads as complete FOREVER:
+`--months 24` on a composer added since the last run buries nine years of history permanently. The
+range is free either way, so `--months` narrows what counts as STALE and never what gets asked for.
 
 TITLES MUST BE CANONICAL. Views are counted per title and a redirect is its own title with its own
-tiny count: asking for "Bela Bartok" returns 41 instead of Béla Bartók's 14,330, with a 200 and no
-error. Canonical titles come from data/people.json (scripts/fetch_wikidata.py). Run that first.
+tiny count, with a 200 and no error (invariant 5). Canonical titles come from data/people.json
+(scripts/fetch_wikidata.py). Run that first.
 
-AND THE CANONICAL TITLE IS ONLY CANONICAL TODAY. An article that was MOVED inside the window was
-counted under its old name for every month before the move, so asking the right title still
-undercounts — Fanny Hensel's article sat at "Fanny Mendelssohn" until March 2026 and her shipped
-median of 500 was an order of magnitude too small. scripts/pagemoves.py holds that rule and the
-reasoning;
-this file applies it, after the fetch, to the series it just wrote. Two passes, for two different
-failure modes: a move already recorded in `moves` is re-applied UNCONDITIONALLY to any title this
-run refetched (the refetch has just overwritten the stitched series with the raw per-title counts,
-so the repair has to happen again every time), and a title whose series still shows the SHAPE of a
-move is put to the move log to find new ones. Re-deriving rather than trusting is what keeps the
-two in step; the detector is a suspect generator and the log is the arbiter.
-
-`moves` records the answer either way, including "looked, found nothing" as an empty list. That
-empty list is load-bearing twice: it is what stops a no-op run from asking the same eight noisy
-articles again, and it is how validate.py tells genuine growth from a move nobody has checked.
+AND THE CANONICAL TITLE IS ONLY CANONICAL TODAY. An article MOVED inside the window was counted
+under its old name for every month before the move, so asking the right title still undercounts —
+scripts/pagemoves.py holds that rule and the reasoning (invariant 15 holds the figures). This file
+applies it, after the fetch, in two passes for two different failure modes: a move already in
+`moves` is re-applied UNCONDITIONALLY to any title this run refetched, because the refetch has just
+overwritten the stitched series with raw per-title counts; and a title whose series still shows the
+SHAPE of a move is put to the move log to find new ones. The detector is a suspect generator and the
+log is the arbiter. `moves` records the answer either way, including "looked, found nothing" as an
+empty list — which is load-bearing twice: it stops a no-op run re-asking the same noisy articles,
+and it is how validate.py tells genuine growth from a move nobody has checked.
 
 WHAT THIS DOES NOT DO: re-scrape the composer list (scripts/scrape_list.py) or re-read birth and
 death dates (scripts/fetch_wikidata.py).

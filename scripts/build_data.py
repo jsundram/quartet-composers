@@ -15,45 +15,41 @@
     python3 scripts/build_data.py
 
 WHERE THE ROSTER IS DECIDED, AND WHY IT IS DECIDED HERE. build_rows() below is the one place that
-turns the caches into rows — which entries are dropped, which two collapse into one, what order
-they ship in. build_imslp.py calls it as well rather than reading composers.json, because it now
-runs BEFORE this file and reading its output would be a cycle. That is not merely how the cycle is
-broken: a second reduction of the same caches would be a second opinion about who is on this list,
-and the join would be matching composers that the roster does not contain.
+turns the caches into rows — which entries are dropped, which two collapse into one, what order they
+ship in. build_imslp.py calls it rather than reading composers.json, which would be a cycle now that
+it runs first. That is not merely how the cycle is broken: a second reduction of the same caches
+would be a second opinion about who is on this list, and the join would be matching composers the
+roster does not contain.
 
 NOTHING HERE TOUCHES THE NETWORK. Every input is a committed cache, so the statistic below can be
 changed and the dataset rebuilt offline, and the exact bytes that produced a deploy stay in git.
 
 THE VIEW NUMBER IS A MEDIAN, NOT A MONTH. Dot size is the loudest channel on the chart and page
 views are its noisiest input: a typical month sits a tenth off the year's median, August is a
-seasonal trough, and a spiky article can run several times its own median in one month. The
-median ignores an anniversary or obituary spike rather than baking it in. min and max ship too, so
-the detail panel can show the spread instead of implying a precision that isn't there.
+seasonal trough, and a spiky article can run several times its own median. The median ignores an
+anniversary or obituary spike rather than baking it in. min and max ship too, so the detail panel
+can show the spread instead of implying a precision that isn't there.
 
-AND IT IS TWELVE MONTHS, NOT THE WHOLE CACHE. fetch_views.py now caches everything back to
-2015-07, but the chart's question is "how much read is this composer NOW", so the statistic is
-still the median of the LAST TWELVE cached months (STAT_MONTHS). Widening it would quietly change
-every dot on the chart and bake a 2016 readership into a 2026 picture — Kaija Saariaho's
-all-history median is not the readership she has now, and her obituary month dwarfs both.
+AND IT IS STAT_MONTHS, NOT THE WHOLE CACHE. fetch_views.py caches everything the API has, but the
+chart's question is "how much read is this composer NOW". Widening the window would quietly change
+every dot and bake a 2016 readership into a 2026 picture — an all-history median is not the
+readership a composer has now, and one obituary month dwarfs both.
 
 WHY THE HISTORY IS A SECOND FILE. composers.json is a BOOT dependency: sw.js serves it before the
-page can paint anything at all, and a decade of monthly counts per composer is many times the size
-of the roster itself. The sparkline is the one thing in this app that nothing else needs, so it is
-the one thing that loads on its own — precached like everything else, fetched after the first
-paint, and simply absent if it never arrives. Keyed by DISPLAY name (what composers.json rows carry),
-because that is what the app has in hand when it draws the panel.
+page can paint anything, and a decade of monthly counts per composer is many times the size of the
+roster. The sparkline is the one thing in this app nothing else needs, so it is the one thing that
+loads on its own — precached, fetched after the first paint, and simply absent if it never arrives.
+Keyed by DISPLAY name, because that is what the app has in hand when it draws the panel.
 
-WHAT "LIVING" MEANS NOW. It is `death is None` as of the last fetch_wikidata.py run — a fact about
-today, from a structured claim. The old dataset inferred it by testing `birth + lifespan == 2014`
-against a field that stored age-in-2014 for the living, which meant refreshing anything risked
-silently reclassifying everyone it recorded as alive. That whole mechanism is gone.
+WHAT "LIVING" MEANS. `death is None` as of the last fetch_wikidata.py run — a fact about today, from
+a structured claim. The old dataset inferred it from a field storing age-in-2014, so refreshing
+anything risked silently reclassifying everyone it recorded as alive.
 
-UNKNOWNS STAY NULL. A composer whose count the page's prose doesn't state gets quartets: null and
-is listed in the table but not plotted; an article with no page-view data gets views: null; a
-composer with no P21 claim gets gender: null. The alternative — carrying a 2014 number forward —
-silently mixes a pre-2015 measurement system into a 2026 dataset, and renders as a confident dot
-either way. For gender the alternative would be worse still: the only way to fill that null is to
-guess from a name, which is a guess about a person and is what invariant 10 exists to forbid.
+UNKNOWNS STAY NULL. No stated count is quartets: null (in the table, not plotted); no page-view data
+is views: null; no P21 claim is gender: null. Carrying a 2014 number forward instead would mix a
+pre-2015 measurement system into a 2026 dataset and render as a confident dot either way. For gender
+the alternative is worse: the only way to fill that null is to guess from a name, which is a guess
+about a person and is what invariant 10 forbids.
 """
 import collections
 import datetime as dt

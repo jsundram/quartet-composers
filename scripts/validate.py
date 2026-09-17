@@ -10,27 +10,19 @@
     python3 scripts/validate.py --root DIR --baseline FILE    # validate a copy (used by the tests)
 
 WHY THIS EXISTS, SPECIFICALLY. Every serious bug this dataset has had was a DATA bug, and not one
-was caught by a test — they were caught by a human noticing a number looked wrong, twice only after
-it was already live:
+was caught by a test — a human noticed a number looked wrong, twice only after it was already live.
+A redirect answering the pageviews API with its own tiny count (invariant 5); a bare "John Adams"
+resolving to the second President of the United States and outranking Beethoven on a chart about
+string quartets; a deprecated Wikidata claim reporting a living composer as dead (invariant 6); a
+"living" flag derived from the page-view month, which a refresh into a new year would have turned
+into a mass reclassification; an article that had MOVED, so a decade of history was counted under a
+title that was by then a redirect (invariant 15).
 
-  - "Bela Bartok" is a redirect, and the pageviews API answers per title, so it returned 41 views
-    instead of Béla Bartók's 14,330. Status 200, no error, and the chart drew a famous composer as
-    a dot nobody reads.
-  - A bare "John Adams" resolves correctly and unambiguously to the second President of the United
-    States. His 144,948 monthly views put him above Beethoven on a chart about string quartets.
-  - Wikidata marks known-wrong values `deprecated` rather than deleting them; reading claims
-    without checking rank reported Tania León — alive, Pulitzer 2021 — as dead since 1996.
-  - The "living" flag was derived from the page-view month, so refreshing views to a new year would
-    have silently reclassified every living composer as dead.
-  - Fanny Hensel's article was at "Fanny Mendelssohn" until March 2026, so ten years of her history
-    was counted under a title that was, at the time, a redirect. Her shipped median of 500 was not
-    a readership at all — it was the midpoint of a series half of which measured the wrong string —
-    and the app then captioned the rename as an obituary spike, because that is what it looks like.
-
-Every one produced PLAUSIBLE-LOOKING output. That is the whole problem: unit tests do not help,
+Every one produced PLAUSIBLE-LOOKING output. That is the whole problem: unit tests do not help and
 code review does not help, and the only thing that reliably catches them is comparing the numbers
 against something. So this compares them against three things — the schema, the other cached files,
 and the previous commit — and fails the build rather than waiting for someone to notice.
+validate.test.py holds one case per incident above and goes red if a check here is weakened.
 
 Wired into .githooks/pre-commit (warn-only, so it nags) and CI (real exit code).
 """

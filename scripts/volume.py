@@ -13,33 +13,33 @@ debugging reads the same as an essay — so going over is a prompt to cut someth
 CI does not run it, for the reason record-lint.py is not there either.
 
 WHY IT EXISTS. The rule is that a number the repo recomputes is read off the thing that holds it,
-and until this file there was nothing holding these. So every measurement was written fresh and
-they disagreed: one pass reported `scripts/` at 83% prose because it took codehash's Python answer
-as line-oriented, and `py_code()` returns a single-line AST dump. The real figure was 35%. Nothing
-caught it except the number looking absurd.
+and until this file there was nothing holding these, so every measurement was written fresh and they
+disagreed — one pass reported `scripts/` at 83% prose against a real 35%, because it read codehash's
+Python answer as line-oriented when py_code() returns a single-line AST dump. Nothing caught it
+except the number looking absurd.
 
-The disagreement is never in the counting. It is in four judgements an ad-hoc script re-decides
-every time: vendored against ours, test against source, docstring against comment, and whether data
-and design records count at all. They are answered once here and pinned by volume.test.py.
+The disagreement is never in the counting. It is in four judgements an ad-hoc script re-decides every
+time: vendored against ours, test against source, docstring against comment, and whether data and
+design records count at all. They are answered once here and pinned by volume.test.py.
 
 WHAT YOU INHERIT IS REPORTED; WHAT YOU WRITE IS CHECKED. Every bucket's standing ratio is printed
 without a verdict, because it is history rather than this commit's doing, and every bucket's DIFF
 answers to the one ceiling. That is also why no bucket is exempt: grandfathering is free once the
 check is marginal, so a file nobody has touched never fires however much prose it carries.
 
-WHAT IT BOUNDS. A ratio only means something where the numerator and the denominator move
-together, so this bounds prose against the code it explains and says nothing about the length of
-CLAUDE.md: measured over this repo's history the two are uncorrelated, the app source holding flat
-while CLAUDE.md grew by a third. A doc-to-code ratio would license the briefing to grow on any
-commit that adds code. CLAUDE.md's ceiling is attention, and it is stated there.
+WHAT IT BOUNDS. A ratio only means something where the numerator and the denominator move together,
+so this bounds prose against the code it explains and says nothing about the length of CLAUDE.md:
+measured over this repo's history the two are uncorrelated, the app source holding flat while
+CLAUDE.md grew by a third. A doc-to-code ratio would license the briefing to grow on any commit that
+adds code. CLAUDE.md's ceiling is attention, and it is stated there.
 
 The deltas are per BUCKET, so a rename across one reports as that file's own ratio — known, and
 cheaper than per-file identity across a commit.
 
-THE PROSE COMES FROM codehash, NOT A SECOND SCANNER, for the reason record-lint.py does it: a
-file's prose is its source minus its code, and the one place that question is settled is the file
-verified by re-parsing. A file codehash cannot classify is REPORTED rather than counted, because a
-bucket that quietly omits what it could not read is a ratio that improves by failing.
+THE PROSE COMES FROM codehash, NOT A SECOND SCANNER, for the reason record-lint.py does it: a file's
+prose is its source minus its code, and the one place that question is settled is the file verified
+by re-parsing. A file codehash cannot classify is REPORTED rather than counted, because a bucket that
+quietly omits what it could not read is a ratio that improves by failing.
 """
 import argparse
 import ast

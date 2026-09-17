@@ -7,55 +7,48 @@
     python3 scripts/fetch_imslp.py            # writes data/imslp-scrape.json
     python3 scripts/fetch_imslp.py --refresh  # ignore the cache and re-ask for everything
 
-Four passes over two APIs, all cached in data/imslp-scrape.json so a rebuild is offline. A WARM run
-costs a small fraction of a cold one and re-asks exactly two kinds of thing: the instrumentation
-categories, because they are the only place a new work page can appear, and every ABSENCE — a
-composer page yielding no key, a P839 claim Wikidata does not state, a guessed category with no
-page behind it, an article IMSLP names that does not exist. Those are the answers a volunteer or a
-Wikidata editor changes, and a cache that never re-asks them cannot tell "nothing to do" from
-"nothing exists". An absence NOTHING can change is not one of them and is written down as an answer
-instead — see the interwiki handling in fetch_wp, which is nearly every article IMSLP names that
-en.wikipedia will not hold. Everything else tops up by page title and --refresh is the only way to make it re-ask, which is what keeps megabytes of
-unchanged wikitext off a volunteer-funded server. That is what makes a monthly run possible — the
-earlier rule, "nothing is refetched once it is in the cache", meant a second run discovered nothing,
-forever, while exiting 0 (#62).
+Four passes over two APIs, all cached in data/imslp-scrape.json so a rebuild is offline.
+
+WHAT A WARM RUN RE-ASKS, and why it must ask for anything at all: the instrumentation categories,
+because they are the only place a new work page can appear, and every ABSENCE — a composer page
+yielding no key, a P839 claim Wikidata does not state, a guessed category with no page behind it,
+an article IMSLP names that does not exist. Those are the answers a volunteer or a Wikidata editor
+changes, and a cache that never re-asks them cannot tell "nothing to do" from "nothing exists":
+under the earlier "nothing is refetched once cached" rule a second run discovered nothing, forever,
+while exiting 0 (#62). An absence NOTHING can change is written down as an answer instead — see
+fetch_wp's interwiki handling. Everything else tops up by page title, and --refresh is the only way
+to make it re-ask, which keeps megabytes of unchanged wikitext off a volunteer-funded server.
 
 WHAT IS DELIBERATELY NOT RE-ASKED, because the list above reads as complete and is not: the
-per-work MARKERS and the WORK INFO. Both are mutable — a page gains Category:Recordings when
-somebody uploads one, and a catalogue number gets corrected — so a stale `recordings: false` is a
-wrong answer no run can notice, which is the same shape as everything above. They are left alone on
-COST: between them they are most of a cold crawl's requests and most of the cache's bytes, against
-a warm run that otherwise asks for very little. The absences above are re-asked because each is
-cheap AND decides whether a composer can be placed at all; a marker only decorates a composer
-already placed. Worth reconsidering if the app ever draws one.
+per-work MARKERS and the WORK INFO. Both are mutable, so a stale `recordings: false` is a wrong
+answer no run can notice — the same shape as everything above. They are left alone on COST: between
+them they are most of a cold crawl's requests and most of the cache's bytes, against a warm run
+that otherwise asks for very little. The absences above are re-asked because each is cheap AND
+decides whether a composer can be placed at all; a marker only decorates one already placed. Worth
+reconsidering if the app ever draws one.
 
-WHAT COUNTS AS A QUARTET IS IMSLP'S OWN ANSWER, not a title match. IMSLP categorises every work
-by scoring, and "Category:For 2 violins, viola, cello" IS the string quartet. Reading titles
-instead would take "3 'Oxford' String Quartets" and miss the Grosse Fuge, which is a string
-quartet that does not say so. The arrangement category is a SEPARATE category upstream — a
-quartet transcription of an orchestral work is somebody else's music arranged for four players,
-so it is fetched and kept apart rather than summed in.
+WHAT COUNTS AS A QUARTET IS IMSLP'S OWN ANSWER, not a title match. IMSLP categorises every work by
+scoring, and "Category:For 2 violins, viola, cello" IS the string quartet. Reading titles instead
+would take "3 'Oxford' String Quartets" and miss the Grosse Fuge, which is a string quartet that
+does not say so. The arrangement category is a SEPARATE category upstream — somebody else's music
+arranged for four players — so it is fetched and kept apart rather than summed in.
 
-THE JOIN IS STRUCTURED FROM BOTH SIDES AND MATCHES NO NAMES. An IMSLP work page is titled
+THE JOIN IS STRUCTURED FROM BOTH SIDES AND MATCHES NO NAMES. A work page is titled
 "<work> (<Surname, Forename>)", where the parenthetical is verbatim the composer's own IMSLP
-category; that category page carries {{Wikidata|Q…}} and {{wp|<article>}} in its wikitext, and
-Wikidata carries the reverse pointer as P839. So a composer is joined by QID, an identifier both
-sides agree on, and never by spelling. That matters more here than usual: IMSLP files people
-under period spellings and diacritics of its own ("Hänsel, Peter"), our roster carries canonical
+category; that category page carries {{Wikidata|Q…}} and {{wp|<article>}}, and Wikidata carries the
+reverse pointer as P839. So a composer is joined by QID and never by spelling. That matters more
+here than usual: IMSLP files people under period spellings of its own, our roster carries canonical
 Wikipedia titles that change when the pipeline runs (invariant 4), and a surname match would hand
-one composer another's catalogue silently — the same failure invariant 4 keeps the canonical
-titles in a parallel list to avoid.
+one composer another's catalogue silently.
 
-A PAGE IS A PUBLICATION ENTRY, NOT A QUARTET. "Sämtliche Streichquartette (Beethoven, Ludwig van)"
-is one page holding sixteen, and his quartets are spread over more pages than he wrote quartets. So
-the per-work markers (has scores, has recordings, is a collection) are fetched too, and what this
-file reports is pages — the count of quartets on IMSLP is not a number IMSLP states and must not be
-invented.
+A PAGE IS A PUBLICATION ENTRY, NOT A QUARTET. One page can hold sixteen of them, so the per-work
+markers are fetched too, and what this file reports is PAGES — the count of quartets on IMSLP is
+not a number IMSLP states and must not be invented.
 
 POLITENESS IS THE POINT: one request per second, one retry ladder, a User-Agent that says who to
 complain to, and a cache that means a second run costs nothing. The heavy question (what categories
-does each work page carry) is asked with clcategories, which returns only the four markers we asked
-about instead of the fifty a work page really has.
+each work page carries) is asked with clcategories, which returns only the markers we asked about
+instead of every category a work page really has.
 """
 import argparse
 import gzip
@@ -88,17 +81,16 @@ ARR = "Category:For 2 violins, viola, cello (arr)"
 # Asked per work page, through clcategories — see the politeness paragraph above.
 MARKERS = ["Category:Scores", "Category:Recordings", "Category:Collections",
            "Category:Pages with arrangements"]
-# They are stored as ONE INT per page rather than as four named booleans, which would spend several
-# times the bytes on key names to say the same thing. The bit VALUES are build_imslp.py's, imported
-# rather than restated — it is the reader and it ships the legend, and a legend that disagrees with
-# the writer is a number that quietly means something else. They are zipped against the list above,
-# so the order of these four lines IS the encoding.
+# Stored as ONE INT per page rather than four named booleans, which would spend several times the
+# bytes on key names. The bit VALUES are build_imslp.py's, imported rather than restated — it is the
+# reader and it ships the legend, and a legend that disagrees with the writer is a number that
+# quietly means something else. They are zipped against the list above, so the ORDER of these four
+# lines is the encoding.
 
-# The general-information fields on a work page. Stored as the RAW lines rather than as a parse,
+# The general-information fields on a work page, stored as the RAW lines rather than as a parse,
 # for the reason the composer pages are: the first reader of this data will be wrong about
-# something, and re-reading must not cost another crawl. Only these lines are kept — a work page is
-# mostly file blocks (scanner, uploader, plate number, one per edition), which are most of its bytes
-# and answer nothing asked here.
+# something, and re-reading must not cost another crawl. Only these are kept — a work page is mostly
+# file blocks, which are most of its bytes and answer nothing asked here.
 INFO_FIELDS = ("Work Title", "Alternative Title", "Opus/Catalogue Number", "Key",
                "Number of Movements/Sections", "Year/Date of Composition",
                "Year of First Publication", "Piece Style", "Page Type", "Instrumentation", "Tags")
@@ -111,14 +103,12 @@ TRIES = 5
 BACKOFF = [2, 5, 15, 40]
 
 TITLE = re.compile(r"^(.*) \(([^()]*)\)$")
-# How much of a cached listing a re-crawl has to bring back before it is allowed to replace it.
-# It is TIGHT because the failure it catches is not usually a big loss. A walk that stops
-# following the continuation returns one batch, and one batch is `cmlimit` pages whatever the
-# category holds. Against the big category one batch would trip anything, but against the smaller
-# one it is most of the listing and sailed straight through the 0.5 this started at, retiring the
-# rest in silence. So the question it asks is "did this come back whole", not "did this survive",
-# and a curated category twenty years in the making does not lose a tenth of itself in a month.
-# --refresh is the way through if IMSLP ever does gut one.
+# How much of a cached listing a re-crawl must bring back before it may replace it. TIGHT on
+# purpose: a walk that stops following the continuation returns one batch, and one batch can be most
+# of a smaller category — which sails through a loose floor, retiring the rest in silence. So the
+# question is "did this come back whole", not "did this survive", and a curated category twenty
+# years in the making does not lose a tenth of itself in a month. --refresh is the way through if
+# IMSLP ever does gut one.
 MIN_KEEP = 0.9
 
 
@@ -128,13 +118,11 @@ def get(api, params):
     url = api + "?" + urllib.parse.urlencode(params)
     for attempt in range(TRIES):
         try:
-            # GZIP, because urllib does not ask for it and one pass here is enormous without
-            # it. Measured on wikidata: `wbgetentities&props=claims` has no per-property filter,
-            # so asking 50 items for their P839 returns their COMPLETE claim sets — ~49 KB per
-            # composer, and that pass alone measured 24.6 MB against 4.0 MB compressed. It is cheap
-            # in requests and by far the dearest in bytes, and the same header takes ~1 MB of
-            # composer wikitext off IMSLP, which is the server the politeness paragraph above is
-            # actually about. Decoded only when the server SAYS it
+            # GZIP, because urllib does not ask for it and one pass here is enormous without it:
+            # `wbgetentities&props=claims` has no per-property filter, so asking 50 items for their
+            # P839 returns their COMPLETE claim sets — 24.6 MB against 4.0 MB compressed, measured.
+            # The same header takes ~1 MB of composer wikitext off IMSLP, which is the server the
+            # politeness paragraph is actually about. Decoded only when the server SAYS it
             # compressed, so a host that ignores the header changes nothing.
             req = urllib.request.Request(url, headers={"User-Agent": UA,
                                                        "Accept-Encoding": "gzip"})
@@ -144,24 +132,19 @@ def get(api, params):
                     body = gzip.decompress(body)
             data = json.loads(body.decode("utf-8"))
             # A MediaWiki error is a 200 carrying valid JSON, and a reply with no payload block
-            # answered nothing. Both have to look like failures here or the retry ladder never
-            # fires and the caller reads "no such page" out of a hiccup. WHICH block is named by
-            # the action: wbgetentities answers with `entities` and carries no `query` at all, so
-            # demanding `query` of every reply turned the P839 pass into five retries and a
-            # traceback.
+            # answered nothing. Both have to look like failures here or the retry ladder never fires
+            # and the caller reads "no such page" out of a hiccup. WHICH block is named by the
+            # action: wbgetentities answers with `entities` and carries no `query` at all.
             block = "entities" if params.get("action") == "wbgetentities" else "query"
             if "error" in data or block not in data:
                 raise ValueError("no %s block: %s" % (block, json.dumps(data)[:200]))
             return data
-        # Broad on purpose. A truncated chunked response arrives as http.client.IncompleteRead,
-        # which is neither a URLError nor a ValueError, so a narrow tuple let one dropped reply
-        # end the whole crawl with a traceback and no cache file written.
-        # EOFError and zlib.error are in the tuple for the gzip above, and neither is an OSError:
-        # a TRUNCATED compressed body raises EOFError, and corruption inside the stream raises
-        # zlib.error, which subclasses Exception directly. Most corruption does surface as
-        # gzip.BadGzipFile, which IS an OSError — which is exactly how a rare one gets missed.
-        # Either would end the crawl with a traceback instead of a retry, the same failure
-        # IncompleteRead was added for.
+        # Broad on purpose: anything narrower ends the whole crawl on one dropped reply, with a
+        # traceback and no cache file written. A truncated chunked response is
+        # http.client.IncompleteRead, neither a URLError nor a ValueError; for the gzip above, a
+        # truncated body raises EOFError and corruption inside the stream raises zlib.error, which
+        # subclasses Exception directly — most corruption surfaces as gzip.BadGzipFile, which IS an
+        # OSError, which is how a rare one would otherwise be missed.
         except (OSError, http.client.HTTPException, ValueError, EOFError, zlib.error) as e:
             if attempt == TRIES - 1:
                 raise
@@ -174,12 +157,11 @@ def get(api, params):
 def members(cat):
     """Every page in a category, following the continuation in EITHER shape.
 
-    IMSLP answers like MediaWiki 1.18 today, which pages with `query-continue`; every version
-    since 1.26 sends `continue` instead unless asked for the old one. Reading only the old shape
-    means the walk ends normally after the first batch — no error, no exception, just a listing
-    that is a fraction of the category. fetch_works() REPLACES what it gets, so a silent short
-    walk is the one failure here that writes a wrong answer rather than none, which is why this
-    reads both and why there is a floor over there as well.
+    IMSLP answers like MediaWiki 1.18 today, which pages with `query-continue`; every version since
+    1.26 sends `continue` instead unless asked for the old one. Reading only one shape ends the walk
+    normally after the first batch — no error, just a listing that is a fraction of the category.
+    fetch_works() REPLACES what it gets, so a silent short walk is the one failure here that writes a
+    wrong answer rather than none, which is why this reads both and why MIN_KEEP exists.
     """
     out, cont = [], None
     while True:
@@ -242,11 +224,10 @@ def has_key(text, resolved):
     from build_imslp import parse_person
     f = parse_person(text) or {}
     r = resolved.get(f.get("wp") or "") or {}
-    # A resolved TITLE counts, not only a QID: build_imslp joins on it as the fallback rung for
-    # an article with no Wikidata item. Requiring the QID here made this disagree with the one
-    # predicate it has to match — fetch_wp holds any resolution and stops re-asking, so such a
-    # composer page would have been re-downloaded every month forever with no call left that
-    # could ever settle it.
+    # A resolved TITLE counts, not only a QID: build_imslp joins on it as the fallback rung for an
+    # article with no Wikidata item. This must agree with fetch_wp, which holds any resolution and
+    # stops re-asking — demanding a QID here re-downloads such a composer page every month forever,
+    # with no call left that could ever settle it.
     return bool(f.get("qid") or r.get("qid") or r.get("title"))
 
 
@@ -278,18 +259,18 @@ def fetch_works(cache):
     pass below topping up against the remains. MIN_KEEP is the floor for that; --refresh is the
     way through if IMSLP ever does gut a category for real.
     """
-    # [pageid, title, composer] triples, not objects: three key names repeated once per work page
-    # cost a slab of the cache to say nothing a reader of two adjacent rows cannot see. Unpacked by
-    # name everywhere they are read, here and in build_imslp.py, so the order is never indexed.
+    # [pageid, title, composer] triples, not objects: three key names per work page cost a slab of
+    # the cache to say nothing a reader of two adjacent rows cannot see. Unpacked by name wherever
+    # they are read, so the order is never indexed.
     for key, cat in (("orig", ORIG), ("arr", ARR)):
         was = {w[0] for w in cache["works"].get(key) or []}
         rows = []
         for m in members(cat):
             hit = TITLE.match(m["title"])
             if not hit:
-                # Every work page on IMSLP is "<work> (<composer>)"; one that is not is a
-                # maintenance page that wandered in, and guessing a composer for it would be
-                # inventing an attribution. Recorded, not dropped silently.
+                # Every work page is "<work> (<composer>)"; one that is not is a maintenance page
+                # that wandered in, and guessing a composer would be inventing an attribution.
+                # Recorded, not dropped silently.
                 rows.append([m["pageid"], m["title"], None])
                 continue
             rows.append([m["pageid"], hit.group(1), hit.group(2)])
@@ -304,9 +285,8 @@ def fetch_works(cache):
                 "writes what it finds. --refresh would do it too, at the price of re-asking "
                 "everything else as well." % (cat, len(now), len(was), OUT))
         cache["works"][key] = rows
-        # What the run DISCOVERED, which is the whole reason this pass re-runs. A warm run that
-        # prints (0 new, 0 gone) has asked and been told nothing changed; the line it replaced
-        # said "cached" and meant nobody asked.
+        # What the run DISCOVERED, which is the whole reason this pass re-runs: (0 new, 0 gone)
+        # means asked and told nothing changed, which "cached" could not distinguish from unasked.
         print(f"  {key}: {len(rows)} pages ({len(now - was)} new, {len(was - now)} gone)",
               file=sys.stderr)
         save(cache)
@@ -381,18 +361,17 @@ def fetch_composers(cache):
     for batch in chunks(todo, BATCH):
         d = get(IMSLP_API, {"action": "query", "prop": "revisions", "rvprop": "content",
                             "titles": "|".join("Category:" + c for c in batch)})
-        # reported(), not got.get(c), now that this pass RE-asks: a title the reply never
-        # accounted for used to be written as None, and overwriting a page we already hold with
-        # "this page does not exist" loses the identity claim it was making. Unasked has to stay
-        # unasked — the rule reported() states, and the one invariant 4 states for page views.
+        # reported(), not got.get(c), because this pass RE-asks: writing None for a title the reply
+        # never accounted for overwrites a page we hold with "this does not exist" and loses the
+        # identity claim it was making. Unasked has to stay unasked — invariant 4's rule for page
+        # views, one stage over.
         got, seen = reported(d, prefix="Category:")
         for c in batch:
             if c in seen:
                 cache["wikitext"][c] = got.get(c)   # None: the category page does not exist
         save(cache)
-        # Against `todo`, not against the cache: on a warm run the cache already holds every
-        # composer before the first batch returns, so counting it printed the full total
-        # throughout and a stalled crawl looked exactly like a finished one.
+        # Against `todo`, not the cache: on a warm run the cache already holds every composer
+        # before the first batch returns, so a stalled crawl would look exactly like a finished one.
         done += len(batch)
         print(f"\r  composers: {done}/{len(todo)} asked", end="", file=sys.stderr)
         time.sleep(PAUSE)
@@ -411,8 +390,8 @@ def fetch_wp(cache):
     the title, because the API will happily answer for the redirect.
     """
     from build_imslp import parse_person        # the parser lives with the offline stage
-    # BOTH caches. Reading only the composers who have a quartet left the pages reached by name
-    # guess with their Wikipedia links unresolved, so the join judged them on dates alone when the
+    # BOTH caches: reading only the composers who have a quartet leaves the pages reached by name
+    # guess with their Wikipedia links unresolved, so the join judges them on dates alone while the
     # page was naming its own article all along.
     seen = list(cache["wikitext"].values()) + list(cache["candidates"].values())
     titles = sorted({(parse_person(t) or {}).get("wp") for t in seen if t} - {None})

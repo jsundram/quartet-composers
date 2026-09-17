@@ -15,37 +15,33 @@
 # (scripts/sw.test.mjs) is the one that must always run. On Linux it also wants `xvfb-run`; see
 # the pointer note below for what fails without it.
 #
-# THAT SKIP IS RIGHT FOR A LAPTOP AND WRONG FOR A RUNNER, so `REQUIRE_BROWSER=1` turns it — and
-# the two pointer warnings below — into failures. A CI job that quietly loses its Chrome would
-# otherwise go GREEN having tested nothing, which is the one failure mode a green suite cannot
-# tell you about. `.github/workflows/checks.yml` sets it in both jobs that reach here, including
-# the ablate one, which arrives through ablate.py and can pass nothing but the environment.
+# THAT SKIP IS RIGHT FOR A LAPTOP AND WRONG FOR A RUNNER, so `REQUIRE_BROWSER=1` turns it — and the
+# two pointer warnings below — into failures: a CI job that quietly loses its Chrome would go GREEN
+# having tested nothing. `checks.yml` sets it in both jobs that reach here, including the ablate one,
+# which arrives through ablate.py and can pass nothing but the environment.
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-# TWO RUNS ON ONE MACHINE MUST NOT TAKE EACH OTHER DOWN. These were fixed at 8765/9333, and the
-# clear below matches processes by PATTERN across the whole machine, so a second checkout starting
-# up killed the first one's browser and server mid-run — the victim being the run that had done
-# nothing wrong (#49). Both patterns embed the port, so distinct ports already did not cross-kill;
-# what was missing was a distinct DEFAULT. Deriving it from the checkout's own path gives every
-# worktree its own pair while keeping it the SAME on every run here, which is what lets the clear
-# still reap a browser left over from an interrupted run in this one — the failure it exists for.
-# `pwd -P`, so the same checkout reached through a symlink hashes to the same pair.
-#
-# 200 slots, so two worktrees CAN still land on one. That is why the pair is printed, why the
-# clear says what it is clearing instead of doing it silently, and why both stay overridable.
+# TWO RUNS ON ONE MACHINE MUST NOT TAKE EACH OTHER DOWN. The clear below matches processes by
+# PATTERN across the whole machine, so with fixed ports a second checkout killed the first one's
+# browser mid-run — the victim being the run that had done nothing wrong (#49). Both patterns embed
+# the port, so what was missing was a distinct DEFAULT. Deriving it from the checkout's own path
+# gives every worktree its own pair while keeping it the SAME on every run here, which is what lets
+# the clear still reap a browser left from an interrupted run — the failure it exists for. `pwd -P`,
+# so the same checkout reached through a symlink hashes to the same pair. The slots are finite and
+# two worktrees CAN still collide, which is why the pair is printed, why the clear says what it is
+# clearing, and why both stay overridable.
 SLOT=$(( $(pwd -P | cksum | awk '{print $1}') % 200 ))
 PORT=${PORT:-$((8765 + SLOT))}
 CDP=${CDP:-$((9333 + SLOT))}
 # The two bands cannot overlap (8765-8964 against 9333-9532), so one run's server is never
 # another's debug port — which would be the same cross-kill wearing a different number.
 
-# Answered out of the path, before anything is started: how a human reads the pair off in order to
-# decide what to pin, and how scripts/ui-test.test.py asks without a browser. An argument this
-# script does NOT know is a question too — `--port`, `--help`, something a wrapper passed — and
-# taking it for a bare run means somebody asking what this does gets a browser instead of an
-# answer. (An echo rather than die(): $OUT does not exist yet, and a usage error has no evidence
-# to leave. Exit 2, the same code ui.test.mjs uses for the same mistake.)
+# Answered out of the path, before anything is started: how a human reads the pair off, and how
+# ui-test.test.py asks without a browser. An argument this script does NOT know is a question too,
+# and taking it for a bare run means somebody asking what this does gets a browser instead of an
+# answer. (An echo rather than die(): $OUT does not exist yet, so a usage error has no evidence to
+# leave. Exit 2, the code ui.test.mjs uses for the same mistake.)
 case "${1:-}" in
   "")      ;;
   --ports) echo "PORT=$PORT CDP=$CDP"; exit 0 ;;
@@ -53,16 +49,15 @@ case "${1:-}" in
 esac
 echo "ui-test: server :$PORT, devtools :$CDP"
 
-# EVERY PROBE BELOW IS BOUNDED, because a bare `curl` at one of these ports is not. What can be
-# sitting on a derived port is anything at all, and a process that ACCEPTS the connection and then
-# never replies hangs the request for as long as it likes — so the runner would stop before it
-# started, printing nothing, which is the shape of failure this whole file argues against. Two
-# seconds is far past a loopback answer and far short of a wait anybody would sit through.
+# EVERY PROBE BELOW IS BOUNDED, because a bare `curl` at one of these ports is not: a process that
+# ACCEPTS the connection and never replies hangs the request for as long as it likes, so the runner
+# would stop before it started, printing nothing. Two seconds is far past a loopback answer and far
+# short of a wait anybody would sit through.
 answers() { curl -sf --connect-timeout 1 -m 2 "http://127.0.0.1:$1" >/dev/null 2>&1; }
 # And HELD is a different question from ANSWERS: a squatter owes this script no particular reply.
-# chromedriver — whose own default port 9515 is inside the derived band — 404s on /json/version,
-# which `curl -sf` reports exactly as it reports an empty port, so a guard written on `answers`
-# waves the one process it names through. A TCP connect is the question both clears actually ask.
+# chromedriver, whose own default port falls inside the derived band, 404s on /json/version, which
+# `curl -sf` reports exactly as it reports an empty port — so a guard written on `answers` waves the
+# one process it names through. A TCP connect is the question both clears actually ask.
 listening() { python3 -c 'import socket,sys
 s = socket.socket(); s.settimeout(1)
 sys.exit(0 if s.connect_ex(("127.0.0.1", int(sys.argv[1]))) == 0 else 1)' "$1" 2>/dev/null; }
@@ -75,10 +70,10 @@ sys.exit(0 if s.connect_ex(("127.0.0.1", int(sys.argv[1]))) == 0 else 1)' "$1" 2
 if [ -n "${OUT:-}" ]; then OWN=""; mkdir -p "$OUT"
 else                       OUT=$(mktemp -d); OWN=1; fi
 
-# THE TRAP IS INSTALLED HERE, NOT BESIDE THE BROWSER, because the exits in between are the ones
-# with something to say: a mktemp'd $OUT was leaked by every one of them and its path printed by
-# none, so the server log naming the port conflict sat in a directory nobody could find. The kills
-# are guarded rather than ordered, since at this point there is nothing yet to kill.
+# THE TRAP IS INSTALLED HERE, NOT BESIDE THE BROWSER, because the exits in between are the ones with
+# something to say: a mktemp'd $OUT was leaked by every one of them and its path printed by none, so
+# the server log naming the port conflict sat in a directory nobody could find. The kills are guarded
+# rather than ordered, since at this point there is nothing yet to kill.
 rc=0
 SERVER=""; BROWSER=""; XVFB=""
 cleanup() {
@@ -106,11 +101,10 @@ trap cleanup EXIT
 # (`if-no-files-found: error`). A run that stops before it opens a browser has no other evidence.
 die() { printf '%s\n' "$@" | tee "$OUT/ui-test.log"; rc=1; exit 1; }
 
-# The three ways this platform can be unable to answer the question the suite is asking: no
-# browser at all, the old headless shell (no pointer even under a display), and no X server (no
-# pointer either). Each is a warning on a laptop and a failure under REQUIRE_BROWSER — see the
-# header. Every call site precedes both the server and the EXIT trap, deliberately — see the note
-# at the server launch — so exiting here has nothing to tear down.
+# The three ways this platform can be unable to answer the question the suite is asking: no browser
+# at all, the old headless shell, and no X server — the last two leaving no pointer. Each is a
+# warning on a laptop and a failure under REQUIRE_BROWSER. Every call site precedes both the server
+# and the EXIT trap, deliberately, so exiting here has nothing to tear down.
 required_or_warn() {
   [ -n "${REQUIRE_BROWSER:-}" ] || return 0
   die "ui-test: REQUIRE_BROWSER is set, so a platform this suite cannot run correctly on is a" \
@@ -150,30 +144,29 @@ else
     exit 0
   }
 fi
-# WHICH BINARY RAN IS EVIDENCE, and it was missing from the one run that needed it: two CI runs of
-# the same job behaved differently and the passing one had not said what it was using, so the
-# difference could only be inferred. It is one line; print it always.
+# WHICH BINARY RAN IS EVIDENCE: two CI runs of the same job behaved differently and the passing one
+# had not said what it was using, so the difference could only be inferred. One line; print it
+# always.
 echo "ui-test: using $CHROME"
 
 # A FRESH profile every run. sw.js serves the shell cache-first, so a reused profile keeps running
-# the PREVIOUS edit's JS until V is bumped — you would be testing code you already changed.
-# CLEARED rather than merely placed, because an inherited $OUT is not deleted at the end and is
-# therefore RE-ENTERED by the next run that names it: `OUT=/tmp/ui` twice around an edit to
-# chart.js would serve the first run's shell out of the second run's profile and pass. The freshness
-# has to be a property of this line rather than of who owns the directory.
+# the PREVIOUS edit's JS until V is bumped — you would be testing code you already changed. CLEARED
+# rather than merely placed, because an inherited $OUT is not deleted at the end and is therefore
+# RE-ENTERED by the next run that names it, which would serve the first run's shell out of the
+# second run's profile and pass. The freshness has to be a property of this line rather than of who
+# owns the directory.
 PROFILE="$OUT/profile"
 rm -rf "$PROFILE"
 
-# A browser left over from an interrupted run still holds $CDP. The new one then fails to bind and
-# node connects to the OLD one -- which has the PREVIOUS build in its service-worker cache, so the
-# suite silently tests code you already changed. That is the same trap the fresh profile exists to
-# avoid, arriving by a different door; take the port before starting.
-# ANYTHING ALREADY ON EITHER PORT IS ABOUT TO BE KILLED, and from here that leftover looks exactly
-# like a process which has nothing to do with this suite: a live run in a worktree that derived the
-# same slot, or a stranger — the bands are 200 wide and cover ports people use (8888 is Jupyter's
-# default, 9515 is chromedriver's). Both are rare and neither may be silent. The kill frees the
-# first and takes an innocent bystander down with the second, and either way the run that follows
-# would be driving somebody else's server or browser.
+# A browser left over from an interrupted run still holds $CDP, so the new one fails to bind and node
+# connects to the OLD one — which has the PREVIOUS build in its service-worker cache, so the suite
+# silently tests code you already changed. Same trap the fresh profile exists to avoid, by a
+# different door; take the port before starting.
+# ANYTHING ALREADY ON EITHER PORT IS ABOUT TO BE KILLED, and from here our leftover looks exactly
+# like a process that has nothing to do with this suite: a live run in a worktree that derived the
+# same slot, or a stranger, since the bands cover ports people use. Both are rare and neither may be
+# silent — the kill frees the first and takes an innocent bystander down with the second, and either
+# way the run that follows would be driving somebody else's server or browser.
 for p in "$CDP" "$PORT"; do
   listening "$p" || continue
   echo "ui-test: something already holds $p — clearing it. If that is not this checkout's own"
@@ -181,13 +174,12 @@ for p in "$CDP" "$PORT"; do
 done
 pkill -f "remote-debugging-port=$CDP" 2>/dev/null
 pkill -f "http.server $PORT" 2>/dev/null
-# WAIT FOR THE PROCESS, NOT FOR THE PORT, which is the difference between a signal and a budget
-# (issue 48's rule, applied to the one loop that still got it wrong). What is being waited for here
-# is OUR leftover dying, and `pgrep` answers that about the same pattern the kill just used:
-# usually there was nothing to kill and it costs one call, and a browser slow to die is waited for
-# instead of raced. Asking the PORT instead cannot tell our dying browser from a stranger's live
-# one, so it waited out the whole budget to say something the first pgrep already knew — 4s per
-# run that meets a squatter, and 8 of the 11 seconds its own suite spent proving it.
+# WAIT FOR THE PROCESS, NOT FOR THE PORT — the difference between a signal and a budget (#48's rule,
+# applied to the one loop that still got it wrong). What is waited for is OUR leftover dying, and
+# `pgrep` answers that about the same pattern the kill just used: usually there is nothing to kill
+# and it costs one call, and a browser slow to die is waited for instead of raced. Asking the PORT
+# cannot tell our dying browser from a stranger's live one, so it spent the whole budget to say
+# something the first pgrep already knew.
 reaped() {
   for _ in $(seq 40); do
     pgrep -f "$1" >/dev/null 2>&1 || return 0
@@ -214,24 +206,23 @@ if listening "$CDP"; then
 fi
 
 # WHETHER A POINTER EXISTS IS A PLATFORM FACT, and it decides the lens, the hover previews and the
-# detail panel's reserved height — eight of the nine checks that failed on #43's CI run. macOS
-# reports `(hover:hover) and (pointer:fine)` unconditionally, so a Mac has never seen this; a
-# HEADLESS Linux Chrome reports no pointing device at all, chart.js's `TOUCH` comes out true, and
-# those checks fail at a layout the app is right to be drawing (#50). CDP cannot fix it from
-# inside — `Emulation.setEmulatedMedia`'s feature list accepts `hover` and `pointer`, returns
-# success, and ignores them — and `--blink-settings` is worse than useless: it holds until the
-# first `setTouchEmulationEnabled`, whose restore then clobbers the pointer type for every page in
-# the browser, so one phone section would poison every desktop section after it. A virtual X
-# display gives Chrome a REAL pointer, which survives a touch toggle because it is what the touch
-# emulator restores TO. So: Xvfb where there is one, plain headless where there is not, and the
-# suite asserts which it got rather than assuming.
+# detail panel's reserved height. macOS reports `(hover:hover) and (pointer:fine)` unconditionally,
+# so a Mac has never seen this; a HEADLESS Linux Chrome reports no pointing device at all, chart.js's
+# `TOUCH` comes out true, and those checks fail at a layout the app is right to be drawing (#50). CDP
+# cannot fix it from inside — `Emulation.setEmulatedMedia`'s feature list accepts `hover` and
+# `pointer`, returns success, and ignores them — and `--blink-settings` is worse: it holds until the
+# first `setTouchEmulationEnabled`, whose restore clobbers the pointer type for every page in the
+# browser, so one phone section would poison every desktop section after it. A virtual X display
+# gives Chrome a REAL pointer, which survives a touch toggle because it is what the emulator restores
+# TO. So: Xvfb where there is one, plain headless where there is not, and the suite asserts which it
+# got rather than assuming.
 LAUNCH=("$CHROME" --headless)   # XVFB is initialised at the trap above, which reads it
-# A DISPLAY IS NO USE TO A BINARY THAT CANNOT OPEN ONE. `chrome-headless-shell` is the old
-# headless build and never makes an X connection, so it reports no pointer under Xvfb exactly as
-# it does without — and `find_chrome` PREFERS it, because Playwright's cache is the first glob.
-# Running it under the wrapper anyway is the worst of the three outcomes because it is the silent
-# one: the warning below is suppressed (xvfb-run is installed), the fix looks to be in effect, and
-# section 2 then fails saying the browser is headless while it is running under a display.
+# A DISPLAY IS NO USE TO A BINARY THAT CANNOT OPEN ONE. `chrome-headless-shell` is the old headless
+# build and never makes an X connection, so it reports no pointer under Xvfb exactly as it does
+# without — and `find_chrome` PREFERS it, Playwright's cache being the first glob. Running it under
+# the wrapper anyway is the worst outcome because it is the silent one: the warning below is
+# suppressed, the fix looks to be in effect, and section 2 then fails saying the browser is headless
+# while it is running under a display.
 case "$CHROME" in
   *chrome-headless-shell|*headless_shell) HEADFUL="" ;;
   *)                                      HEADFUL=1  ;;
