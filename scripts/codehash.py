@@ -2,7 +2,7 @@
 # /// script
 # requires-python = ">=3.9"
 # ///
-"""Prove a change touched COMMENTS ONLY, mechanically, instead of promising it in a message.
+r"""Prove a change touched COMMENTS ONLY, mechanically, instead of promising it in a message.
 
     python3 scripts/codehash.py                      # staged vs HEAD
     python3 scripts/codehash.py --base origin/main   # this branch vs its merge base

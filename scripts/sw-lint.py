@@ -10,44 +10,39 @@ sw.js precaches the app SHELL. Five mistakes are cheap to catch here and expensi
 1. A staged SHELL file with an unchanged V. An edit to a precached file only reaches installed
    clients when V changes — forget the bump and the fix ships to the repo but never to anyone's
    home-screen copy. The single most common PWA deploy bug.
-2. A SHELL entry that doesn't exist on disk. It can never be fetched, so it permanently wedges
-   the old-generation collect: both cache generations pile up on every device, with the stale one
-   still answering via the whole-store fallback. (#7)
+2. A SHELL entry that doesn't exist on disk. It can never be fetched, so it permanently wedges the
+   old-generation collect: both generations pile up on every device, the stale one still answering
+   via the whole-store fallback. (#7)
 3. A cross-origin SHELL entry. The fetch handler passes other origins straight through, so the
    entry would be cached but never served — vendor the file locally instead.
 4. A V without a numeric tail. The tail orders generations for sw.js's collect and app.js's
-   checkVer() ranking; a non-numeric V makes collection silently stop, no error, no symptom,
+   checkVer() ranking; a non-numeric V makes collection silently stop, no error and no symptom,
    until caches pile up. Rename the stem freely — keep the digits.
-5. app.js's VER_PREFIX not matching V's stem. checkVer() ranks installed caches by that prefix,
-   so a renamed stem on one side only makes the version tag go blank (no cache matches) or read
-   a sibling app's caches — silently, since nothing throws. The stems must agree. (#7)
+5. app.js's VER_PREFIX not matching V's stem. checkVer() ranks installed caches by that prefix, so
+   a renamed stem on one side only makes the version tag go blank or read a sibling app's caches —
+   silently, since nothing throws. (#7)
 
-Check 1 reads the INDEX, so it only ever bites in the pre-commit hook, and it is blind to what a
-branch does as a whole. Two PRs off one base can each bump v32 -> v33 byte-identically; a
-three-way merge resolves that silently, and the second one lands its shell changes with a net V
-delta of zero (#32). Hence the sixth check, which needs a second commit to compare against and so
-takes it as an argument:
+Check 1 reads the INDEX, so it is blind to what a BRANCH does: two PRs off one base can each bump
+v32 -> v33 byte-identically and the second lands its shell changes at a net V delta of zero (#32).
+Hence a sixth, which needs a second commit and so takes one as an argument:
 
-6. `--base REF`: a branch that changes shell files without carrying V past the one REF is
-   already on. What the branch CHANGED is read from the merge base (the diff a rebase, a squash
-   and a stacked branch all leave alone); which V it must CLEAR is read from REF's tip, which is
-   what it is about to merge into — against the merge base instead, the motivating case passes,
-   since both PRs did differ from their own v32 base. It replaces the other five rather than
-   joining them, being a different question asked with different information, and it is where CI
-   earns its keep: CI has both sides of the merge and the hook has neither.
+6. `--base REF`: a branch that changes shell files without carrying V past the one REF is already
+   on. What the branch CHANGED is read from the merge base — the diff a rebase, a squash and a
+   stacked branch all leave alone — and which V it must CLEAR from REF's tip, which is what it is
+   about to merge into; against the merge base instead, the motivating case passes, since both PRs
+   did differ from their own v32 base. It replaces the other five rather than joining them, and it
+   is where CI earns its keep: CI has both sides of the merge and the hook has neither.
 
-CHECK 1 IS DERIVABLE, SO --fix DERIVES IT. Everything it needs to know — which files are SHELL,
-which of them this commit stages, and what V was — is already here, so asking a human to read the
-nag and then type a number is asking them to do a computer's job. With `--fix` the hook bumps the
-tail and re-stages sw.js, and the bump lands in the same commit as the change that earned it. It
-declines, and falls back to the nag, in the three cases where writing would be wrong: a merge in
-progress (the resolution is the human's, and check 6 covers the #32 case in CI), an sw.js with
-unstaged edits (re-staging it would sweep work into this commit that the author did not stage), and
-a V with no numeric tail (check 4 owns that). `--bump` is the same increment with no git in it,
-which is what refresh.py calls so that only one piece of code knows how to move V.
+CHECK 1 IS DERIVABLE, SO --fix DERIVES IT: everything it needs is already here, so making a human
+read the nag and type a number is asking them to do a computer's job. It bumps the tail, re-stages
+sw.js, and lands the bump in the commit that earned it. It declines, falling back to the nag, where
+writing would be wrong — a merge in progress (the resolution is the human's; check 6 covers #32 in
+CI), an sw.js with unstaged edits (re-staging sweeps unstaged work into the commit), and a V with
+no numeric tail (check 4 owns that). `--bump` is the same increment with no git in it, which is
+what refresh.py calls so only one piece of code knows how to move V.
 
-The pre-commit hook runs the first five warn-only with `--fix`; run them in CI with a real exit
-code, and the sixth on pull requests with the base sha. By hand:
+The pre-commit hook runs the first five warn-only with `--fix`; CI runs them with a real exit code,
+and the sixth on pull requests with the base sha. By hand:
     python3 scripts/sw-lint.py
     python3 scripts/sw-lint.py --base origin/main
     python3 scripts/sw-lint.py --bump          # increment the tail, print the new V

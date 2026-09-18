@@ -1,14 +1,13 @@
 // The readership filter: a log-scale histogram of page views with a drag-to-select brush.
 //
 // WHY IT EARNS ITS SPACE. Readership spans four orders of magnitude and half the roster sits at or
-// under the median, so most of the ink on the chart is composers essentially nobody reads. A plain
-// "minimum views" slider would cut them out, but it would also hide WHERE the cut falls in the
-// distribution, which is the thing you need in order to choose it: this is the control and the
-// context in one strip, and a second filter alongside the search box on the usual contract.
+// under the median. A plain "minimum views" slider would cut those out, but it would also hide
+// WHERE the cut falls in the distribution, which is what you need in order to choose it: this is
+// the control and the context in one strip, on the usual filter contract.
 //
-// Log x, because on a linear axis most of the roster lands in the first few pixels at any width this
-// draws at. Bin edges are geometric, so each bar covers the same MULTIPLICATIVE range and the shape
-// is the distribution's rather than the binning's.
+// Log x, because on a linear axis most of the roster lands in the first few pixels at any width
+// this draws at. Bin edges are geometric, so each bar covers the same MULTIPLICATIVE range and the
+// shape is the distribution's rather than the binning's.
 
 window.Histogram = (function () {
   const BINS = 36;
@@ -50,18 +49,15 @@ window.Histogram = (function () {
   // THE HANDLES ARE CROSSFILTER'S GRIPS (square.github.io/crossfilter, #40), not d3's rect — see
   // CLAUDE.md for why the hit area is not the thing that gets painted.
   //
-  // Crossfilter's path is written for a 100px chart, where the third of the height it takes is a 33px
-  // tab: two 6-radius corners and 21px of straight edge between them. What carries over is the TAB,
-  // not the third — a third of this bar area is 14px, which the corners swallow whole, and a grip is
-  // an affordance for a FINGER, so its absolute size is what has to survive the move. At 26 it is
-  // shorter than crossfilter's own and still half straight; the corner geometry is theirs exactly and
-  // the grip lines keep their quarter-of-the-tab inset.
+  // Crossfilter sizes its tab as a third of a 100px chart. What carries over is the TAB, not the
+  // third: a third of this bar area is 14px, which the two 6-radius corners swallow whole, and a
+  // grip is an affordance for a FINGER, so its absolute size is what has to survive the move. The
+  // corner geometry is theirs exactly and the grip lines keep their quarter-of-the-tab inset.
   // Drawn OUTWARD from the edge, as there — the flat side IS the selection's boundary, which is
-  // what makes it read as a thing to pull. At an extreme that bleeds 6.5px past the svg, into the
-  // padding of whatever box the row is in — measured, not assumed, and measured at the TIGHTEST of
-  // them: 8.5px to spare in the filters card on a 390px phone, but only ~3.5px in full screen at
-  // that width, where `body.fs #filters` has no padding of its own and #viz pads 10px. ui.test.mjs
-  // takes both, so a change to either padding fails here rather than clipping a grip.
+  // what makes it read as a thing to pull. At an extreme that bleeds past the svg into the padding
+  // of whatever box the row is in, and the TIGHTEST of those is full screen, where `body.fs
+  // #filters` has no padding of its own. ui.test.mjs measures both, so a change to either padding
+  // fails here rather than clipping a grip.
   const TAB = 26;
   function grip(side) {                       // -1 west, +1 east, drawn from x=0 at the edge
     const e = side > 0 ? 1 : 0;               // the sweep flag mirrors the corners with the tab

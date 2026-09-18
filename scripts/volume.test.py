@@ -16,6 +16,7 @@ against ours, test against source, what is excluded outright, comment against do
 The fifth has the teeth. A file whose code cannot be told from its prose must be REPORTED, never
 skipped, because a bucket that omits what it could not read is a ratio that gets better by failing
 — and it gets better precisely on the files something is wrong with.
+
 """
 import importlib.util
 import json
@@ -127,6 +128,18 @@ def stamp_must_open_a_comment(_):
     assert vol.bucket("sw.js", deep) == "vendored"
 
 
+@case("the directories that WIRE a checkout up are config, not source")
+def config_dirs(_):
+    # Each would otherwise land in `source`, where a ratio meant for the app and the pipeline gets
+    # answered by a workflow file and a session hook. `.claude/hooks/` is the newest, and is the
+    # HOOKS dir rather than `.claude/` so that settings.json does not land in `unread` every run.
+    for p in (".github/workflows/checks.yml", ".githooks/pre-commit",
+              ".claude/hooks/session-start.sh"):
+        assert vol.selects(p), p + " is not even measured"
+        assert vol.bucket(p, "#!/bin/sh\ntrue\n") == "config", p + " -> " + str(
+            vol.bucket(p, "#!/bin/sh\ntrue\n"))
+
+
 @case("a hook says what it is on its FIRST LINE, having no extension to say it with")
 def shebang(_):
     # .githooks/pre-commit has no extension and this tool is wired into it, so the extension
@@ -189,6 +202,33 @@ def check_is_marginal(_):
     now = vol.totals(vol.measure(d)[0])
     fat = vol.delta(was["source"], now["source"])
     assert fat and vol.ratio(fat) > vol.CEILING, vol.ratio(fat)
+
+
+@case("--base judges a BRANCH, where --check would see an empty index and report nothing")
+def base_judges_a_branch(_):
+    # CI stages nothing, so --check there reports the standing table and says nothing at all about
+    # the change — which reads exactly like a clean run. Against the MERGE BASE and not the ref's
+    # tip, or every commit somebody else landed on main meanwhile is charged to this branch.
+    d = tree({"scripts/a.py": "x = 1\n" * 40}, commit=True)
+    git = lambda *a: subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t", *a],
+                                    cwd=d, capture_output=True, text=True)
+    git("branch", "-M", "main")
+    git("checkout", "-q", "-b", "work")
+    write(d, {"scripts/b.py": "y = 1\n" * 2 + "# prose\n" * 60})
+    git("commit", "-qm", "fat")
+    run = lambda *a: subprocess.run([sys.executable, os.path.join(HERE, "volume.py"),
+                                     "--root", d, *a], capture_output=True, text=True)
+    assert run("--check").returncode == 0, "the premise: nothing is staged, so --check is silent"
+    r = run("--base", "main")
+    assert r.returncode == 1, "a branch that is 96% prose passed: " + r.stdout
+    assert "this change is" in r.stdout, r.stdout
+    # And the base is the MERGE BASE: a commit landing on main afterwards is not this branch's.
+    git("checkout", "-q", "main")
+    write(d, {"scripts/c.py": "z = 1\n" * 2 + "# theirs\n" * 60})
+    git("commit", "-qm", "somebody else")
+    git("checkout", "-q", "work")
+    r2 = run("--base", "main")
+    assert r2.stdout == r.stdout, "somebody else's prose moved this branch's verdict"
 
 
 @case("a change that REMOVED code is not a change that added prose")

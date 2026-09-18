@@ -4,20 +4,20 @@
 # ///
 """Proves the two branch gates — fix-lint.py and ablate.py — do what they claim.
 
-Both read TWO commits, so neither can be judged from a single staged diff, and both are the kind
-of check whose failure is a SILENCE: a branch that should have been stopped merges green. That is
-the same shape sw-lint.test.py exists for, so this borrows its harness — every case builds a real
-throwaway repo with real branches and runs the real script over it.
+Both read TWO commits, so neither can be judged from a single staged diff, and both are the kind of
+check whose failure is a SILENCE: a branch that should have been stopped merges green. Same shape
+sw-lint.test.py exists for, so this borrows its harness — every case builds a real throwaway repo
+with real branches and runs the real script over it.
 
 The ablation cases matter most, because the interesting half of that script is what it does NOT
-count as proof. A suite that goes red because the ablated tree could not run at all exits nonzero
-while proving nothing, and a gate that accepted it would go green on a suite that never executed.
-So there is a case for each of the three verdicts — reddens, still passes, could not run — and
-one for a suite that was already red before ablating, which would otherwise let a pre-existing
-failure masquerade as proof.
+count as proof: a suite that goes red because the ablated tree could not run at all exits nonzero
+while proving nothing. So there is a case for each of the three verdicts — reddens, still passes,
+could not run — and one for a suite that was already red before ablating, which would otherwise let
+a pre-existing failure masquerade as proof.
 
 Offline, no browser, ~3s:
     python3 scripts/fix-lint.test.py
+
 """
 import os, re, subprocess, sys, tempfile
 
@@ -488,6 +488,23 @@ with tempfile.TemporaryDirectory() as tmp:
     case("...and COVERS points it at both halves: the offline suite and the browser one",
          [c for pats, c in _abl.COVERS if "scripts/ui-test.sh" in pats],
          [["python3 scripts/ui-test.test.py", "BROWSER:scripts/ui-test.sh"]])
+    # The other .sh that is logic. setup.sh decides three ways on an existing core.hooksPath, and
+    # what it prevents is a clone whose pre-commit lints never run -- which CI cannot testify to
+    # either way, since CI never runs the hook. Left out of SOURCE it would be a setup step no gate
+    # can see, in a repo whose gates are the reason the step exists.
+    case("the setup step counts as source too, with its own suite",
+         (bool(_abl.SOURCE.match("scripts/setup.sh")), bool(_abl.TESTS.match("scripts/setup.sh")),
+          bool(_abl.TESTS.match("scripts/setup.test.py"))), (True, False, True))
+    case("...and COVERS maps it to that suite",
+         [c for pats, c in _abl.COVERS if "scripts/setup.sh" in pats],
+         [["python3 scripts/setup.test.py"]])
+    # The file that INVOKES it. Left out, a PR that mistypes the path passes fix-lint with no test,
+    # is mapped to no suite, and every later session starts with the hook disabled — the silence
+    # setup.sh exists to prevent, arriving through the file that was supposed to prevent it.
+    case("the session hook counts as source too, and maps to the same suite",
+         (bool(_abl.SOURCE.match(".claude/hooks/session-start.sh")),
+          [c for pats, c in _abl.COVERS if ".claude/hooks/session-start.sh" in pats]),
+         (True, [["python3 scripts/setup.test.py"]]))
 
     # --- ablate: a COVERS entry is INERT unless SOURCE matches the same file ---------------
     # plan() builds its file list with SOURCE.match, so a name in COVERS that SOURCE does not

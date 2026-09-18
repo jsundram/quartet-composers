@@ -6,24 +6,25 @@
 
     python3 scripts/fetch_views.test.py
 
-NO NETWORK: `fetch` is stubbed and the cache is a temp file, so this runs anywhere and in CI.
+NO NETWORK: `fetch` is stubbed and the cache is a temp file.
 
 WHY THIS FILE EXISTS. The cache stores each series as a flat array aligned to one `months` axis,
-which has exactly two values available — a count, and `null` for "asked, and there was nothing".
-There is no third value for "never asked", so the file can only stay honest if every series really
-was asked over the whole axis. Two bugs in a row came from writing a null that no request had ever
-justified, and both were invisible afterwards: the array is the right length, every number in it is
-plausible, and the only symptom is that `todo` silently stops asking.
+with exactly two values available — a count, and `null` for "asked, and there was nothing". There
+is no third value for "never asked", so the file stays honest only if every series really was asked
+over the whole axis. Two bugs in a row wrote a null no request had justified, and both were
+invisible afterwards: the array is the right length, every number is plausible, and the only
+symptom is that `todo` silently stops asking.
 
   1. The writer flattened onto the union axis, so a title fetched over a NARROWER window had its
      un-asked months written as nulls. `--months 24` on a composer added since the last run buried
      nine years of their history permanently.
   2. A title that did not ANSWER — a 404, or five exhausted retries — skipped the store but got
-     flattened anyway, so it was null-padded for the new month, looked complete forever, and the
-     "rerun to pick them up" advice was false. It also silenced the 404 report, which exists to
-     name a bad canonical title in people.json on every run until someone fixes it.
+     flattened anyway, so it was null-padded for the new month and looked complete forever. It also
+     silenced the 404 report, which exists to name a bad canonical title on every run until someone
+     fixes it.
 
 Each case below is one of those, stated as the property it violates.
+
 """
 import datetime as dt
 import io

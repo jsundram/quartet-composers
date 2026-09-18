@@ -8,18 +8,19 @@
     python3 scripts/imslp-report.py                    # -> imslp-coverage.html
     python3 scripts/imslp-report.py --out /tmp/x.html
 
-Reads composers.json, data/imslp-join.json and data/imslp-audit.json. Offline and no dependencies.
-Almost every figure on the page is COMPUTED from those three files at render time, and the handful
-of worked examples in the prose — a named composer's pages against their works — are not; those
-are typed, they ship to a reader, and nothing pins them. That is the point of it being a script rather than a document — the roster grows, the
-monthly top-up moves every readership figure, and IMSLP gains scores, so a coverage report typed
-once is a coverage report wrong by the next run. It is this repo's built-or-cut rule applied to
-a page that is nothing BUT falsifiable prose.
+Reads composers.json, data/imslp-join.json and data/imslp-audit.json. Offline, no dependencies.
 
-The page leads with coverage by birth half-century because that is the finding: availability runs
-around four in five for composers born between 1700 and 1850 and collapses to single digits after
-1900. That is a copyright boundary, not a gap in IMSLP's collecting, and the report says so where a
-reader would otherwise conclude the library is patchy.
+Almost every figure is COMPUTED from those three at render time, which is the point of a script
+rather than a document: the roster grows, the monthly top-up moves every readership figure, and
+IMSLP gains scores, so a coverage report typed once is wrong by the next run. This repo's
+built-or-cut rule, applied to a page that is nothing BUT falsifiable prose. The exceptions are the
+worked examples in the prose, which are typed, ship to a reader, and are pinned by nothing.
+
+It leads with coverage by birth half-century because that is the finding, and names the boundary as
+copyright rather than a gap in IMSLP's collecting — a reader who is not told concludes the library
+is patchy.
+
+
 """
 import argparse
 import collections

@@ -1,12 +1,12 @@
 // The chart: three ways to read one roster of dots — fame, scatter, swarm; README says what each is
 // for — sharing one layout + hit-test core, plus a magnifier that switches on over any of them.
 //
-// THE LENS IS NOT A FOURTH VIEW. It was one, and what separated it from the timeline came to two
-// things: a CIRCULAR fisheye over the base picture, and no zoom. But a magnifier is not a way of
-// reading the data, it is a way of reading a CROWD, and every one of these pictures has one. So it
-// applies over whatever mode is drawn: `layout()` lays the picture out and the warp goes on LAST, in
-// screen space, which is what lets one fisheye serve three modes with no per-mode case. What it costs
-// is ONE GESTURE, and only on a touch screen — see zoom.filter in build().
+// THE LENS IS NOT A FOURTH VIEW. It was one, and what separated it from the timeline came to a
+// fisheye and no zoom — but a magnifier is not a way of reading the DATA, it is a way of reading a
+// CROWD, and every one of these pictures has one. So it applies over whatever mode is drawn:
+// `layout()` lays the picture out and the warp goes on LAST, in screen space, which is what lets one
+// fisheye serve three modes with no per-mode case. What it costs is ONE GESTURE, and only on a touch
+// screen — see zoom.filter in build().
 //
 // Two things shared by every view, and most of the value: hit-testing via a Delaunay over the CURRENT
 // screen positions, so a dot's tap target is its whole Voronoi cell rather than its radius — on a
@@ -103,14 +103,14 @@ window.Chart = (function () {
     return ((a >>> 0) / 4294967295) * 2 - 1;     // -1..1
   }
 
-  // RANKED, not hashed (#45). Fame has NO y jitter, so this offset is the only thing holding apart two
-  // composers with the same count who are read about equally — and a hash, being an independent draw
-  // per name, separates ties on AVERAGE and not in particular: Debussy and Gershwin drew 0.47px apart,
-  // close enough that the Delaunay bisector ran through the visible disc and its right half selected
-  // the composer you could not see. Ranking inside the stripe and walking frac(k·φ) pushes the dots
-  // ADJACENT IN Y — the only ones that can collide — maximally apart in x instead; #96 has the
-  // three-distance argument, and make-og-svg.py duplicates this (invariant 14). By readership then
-  // NAME, never row order: build_data.py is free to reorder its rows.
+  // RANKED, not hashed (#45). Fame has NO y jitter, so this offset is the only thing holding apart
+  // two composers with the same count who are read about equally — and a hash, being an independent
+  // draw per name, separates ties on AVERAGE and not in particular: one pair drew close enough that
+  // the Delaunay bisector ran through the visible disc and its right half selected the composer you
+  // could not see. Ranking inside the stripe and walking frac(k·φ) pushes the dots ADJACENT IN Y —
+  // the only ones that can collide — maximally apart in x instead; #96 has the three-distance
+  // argument, and make-og-svg.py duplicates this (invariant 14). By readership then NAME, never row
+  // order: build_data.py is free to reorder its rows.
   const PHI = (Math.sqrt(5) - 1) / 2;
   function spreadJq() {
     const stripes = new Map();
@@ -501,17 +501,14 @@ window.Chart = (function () {
     // mostly gone — "Women" used to emphasise a fifth of the roster and name none of it, answering
     // "where are they" while refusing to say "who".
     const seeds = emphOrder.map(i => rows[i]).filter(isVisible);
-    // THE LENS DOES NOT UNPIN THIS, AND IT WAS TRIED. The reading that says it should is real — a
-    // magnifier opening a hole in the 600-dot corner has asked for detail the way a pinch has, and
-    // a view that separates dots and then declines to name them is the complaint the rings answer.
-    // But unpinning changed nothing: 13 names before and 13 after. A ZOOM earns names because it
-    // culls the frame, so the ranking is over what is left; the lens moves pixels and culls
-    // nothing, so `prom` still ranks the whole roster and the budget goes to the same far-flung
-    // dots that were already losing their place to a collision. Ranking by nearness to the focus
-    // instead would name the crowd — and would churn every label on every pointer move, against a
-    // flag and a detail panel that already name the dot under the glass, continuously, which is
-    // what identifies this crowd. So the resting view stays what a bare URL and the share card
-    // draw, and `ui.test.mjs` asserts both halves rather than this paragraph.
+    // THE LENS DOES NOT UNPIN THIS, AND IT WAS TRIED: 13 names before and 13 after. A ZOOM earns
+    // names because it CULLS the frame, so the ranking is over what is left; the lens moves pixels
+    // and culls nothing, so `prom` still ranks the whole roster and the budget goes to the same
+    // far-flung dots that were already losing their place to a collision. Ranking by nearness to
+    // the focus instead would name the crowd, and would churn every label on every pointer move —
+    // against a flag and a detail panel that already name the dot under the glass, continuously,
+    // which is what identifies this crowd. So the resting view stays what a bare URL and the share
+    // card draw, and `ui.test.mjs` asserts both halves rather than this paragraph.
     const first = mode === "fame" && !visible && transform.k === 1;
     if (first) cap = seeds.length;
     const cands = mode === "fame"
@@ -679,16 +676,14 @@ window.Chart = (function () {
     gAxX = gPlot.append("g");
     gLabels = gPlot.append("g").attr("pointer-events", "none").attr("clip-path", "url(#plot-clip)");
 
-    // THE LENS TAKES ONE GESTURE AWAY, AND ONLY ON A TOUCH SCREEN. A magnifier and a zoom are
-    // not rivals — the glass answers "who is in this crowd" and the frame answers "which crowd" —
-    // so a wheel goes on zooming the picture underneath while the lens is on, and the reader ends
-    // up with both. A FINGER is the case that cannot have both: it has one pointer, the lens is
-    // aimed by dragging it, and a pan is the same one-finger drag, so d3 would win it every time
-    // and the glass could never be moved. Hence a filter on the EVENT rather than on `TOUCH`: a
-    // machine with both gets both answers, its mouse zooming while its finger aims. The rest of
-    // the expression is d3's own default (`(!ctrlKey || wheel) && !button`), restated because
-    // passing a filter REPLACES it rather than adding to it — drop those two terms and a
-    // right-click starts a pan.
+    // THE LENS TAKES ONE GESTURE AWAY, AND ONLY ON A TOUCH SCREEN. A magnifier and a zoom are not
+    // rivals, so a wheel goes on zooming the picture underneath while the lens is on. A FINGER is
+    // the case that cannot have both: it has one pointer, the lens is AIMED by dragging it, and a
+    // pan is the same one-finger drag, so d3 would win it every time and the glass could never be
+    // moved. Hence a filter on the EVENT rather than on `TOUCH` — a machine with both gets both
+    // answers, its mouse zooming while its finger aims. The rest of the expression is d3's own
+    // default, restated because passing a filter REPLACES it rather than adding to it: drop those
+    // two terms and a right-click starts a pan.
     zoom = d3.zoom().scaleExtent([1, 24])
       .filter(ev => (!ev.ctrlKey || ev.type === "wheel") && !ev.button
                     && !(lensOn && ev.type.startsWith("touch")))
@@ -726,10 +721,9 @@ window.Chart = (function () {
     // TRANSITION, for the centroid and the width its interpolation travels through. goTo()
     // animates — a filter fitting, a reset — so while this was guarded by a lens branch, a fit
     // taken after a resize under the magnifier tweened along a path computed for a box that was
-    // gone. Measured rather than reasoned: `zoom.transform` itself does NOT constrain (a transform
-    // applied against an extent ten times too small survives intact), so the frame it LANDS on was
-    // right either way, which is why fourteen resize-and-filter pairs were probed for a wrong
-    // frame and none of them found one. What was wrong was the journey.
+    // gone. What is wrong there is the JOURNEY and not the destination: `zoom.transform` itself
+    // does not constrain, so the frame a fit LANDS on was right either way — probed across fourteen
+    // resize-and-filter pairs, which is why looking for a wrong frame finds nothing.
     zoom.extent([[0, 0], [w, h]]).translateExtent([[0, 0], [w, h]]);
     svg.call(zoom);
     // The node's own __zoom is synced to ours, because goTo() tweens FROM it and the two part

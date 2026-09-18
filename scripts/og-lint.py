@@ -5,32 +5,24 @@
 # ///
 """Catch an OG share card too big for link scrapers to render.
 
-The og:image is the difference between a rich link preview and a grey box. When someone pastes the
-URL, iMessage/WhatsApp/Slack fetch that image — and quietly SKIP one over ~300 KB. So a card that
-rasterized fine but never got compressed previews as *nothing*, and you only find out when a friend
-texts back a blank box. `make-og.sh` compresses + gates at generation time; this guards the commit,
-catching a hand-exported or externally-produced PNG that never went through the script.
+The og:image is the difference between a rich link preview and a grey box: iMessage, WhatsApp and
+Slack fetch it when the URL is pasted, and quietly SKIP one over ~300 KB. A card that rasterized
+fine but never got compressed previews as *nothing*, and you find out when a friend texts back a
+blank box. `make-og.sh` gates at generation time; this guards the commit, catching a PNG that never
+went through the script. MAX_BYTES keeps a margin under that cutoff — keep it in sync with
+make-og.sh.
 
-So: if this commit stages an oversized OG image, warn.
-
-MAX_BYTES keeps a margin under WhatsApp's ~300 KB scrape cutoff (keep in sync with make-og.sh).
-
-It also checks the TEXT of the preview, because the same failure mode applies: a description that
-is too long is silently truncated mid-sentence by the scraper, and a title that is too short
-wastes the search result. These bands came from opengraph.xyz's report on the deployed page, and
-they live here rather than in a browser tab so they are checked offline, on every commit, before
-the thing ships — an external validator can only tell you after you have already deployed it.
-
-The two descriptions are deliberately DIFFERENT lengths and must not be re-unified: a SERP snippet
-has 120-160 characters to fill, and a link preview truncates near 125 on a phone. One string
-cannot do both jobs.
+It checks the preview's TEXT for the same failure mode: too long is truncated mid-sentence by the
+scraper, too short wastes the search result. The bands came from opengraph.xyz's report on the
+deployed page and live here so they are checked BEFORE the thing ships — an external validator can
+only tell you after. THE TWO DESCRIPTIONS ARE DELIBERATELY DIFFERENT LENGTHS and must not be
+re-unified: a SERP snippet has 120-160 characters to fill, a link preview truncates near 125.
 
 Last: any "NNN composers" the page or the manifest states is checked against composers.json — both
-of the counts that are live there, the roster and the smaller set the chart can plot. Either
-changes when the pipeline runs, and a hardcoded count in a share preview is exactly the kind of
-number nobody thinks to re-read.
+counts that are live there, the roster and the smaller set the chart can plot. Either moves when
+the pipeline runs, and a hardcoded count in a share preview is one nobody thinks to re-read.
 
-The pre-commit hook runs it warn-only; run it in CI with a real exit code. By hand:
+The pre-commit hook runs it warn-only; run it in CI with a real exit code:
     python3 scripts/og-lint.py
 """
 import importlib.util, json, os, pathlib, re, subprocess, sys

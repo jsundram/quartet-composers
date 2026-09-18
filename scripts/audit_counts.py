@@ -10,18 +10,20 @@
     python3 scripts/audit_counts.py --rule "dated works"   # only entries a given rule produced
     python3 scripts/audit_counts.py --null        # only entries with no count
 
-WHY THIS EXISTS. The tempting way to grade scrape_list.py is "how often does it agree with the 2014
-scrape", and that number is worse than useless: the page has been rewritten over twelve years, so
-disagreement is usually the parser being RIGHT about a sentence that changed. Optimising toward the
-old numbers optimises toward being out of date.
+WHY THIS EXISTS. Grading scrape_list.py by how often it agrees with the 2014 scrape is worse than
+useless: the page has been rewritten over twelve years, so disagreement is usually the parser being
+RIGHT about a sentence that changed, and optimising toward the old numbers optimises toward being
+out of date.
 
 The only honest measure is accuracy against the page as it is now, which needs eyes. Thirty entries
-takes a couple of minutes to grade and gives a real error rate per rule. The last audit scored 25
-exactly right, 4 correctly null, 1 arguable — and it is what surfaced the two rules ("dated works",
-the works-for-string-quartet pattern) that lifted coverage from 709 entries to 791.
+grade in a couple of minutes and give a real error rate per rule; the last audit scored 25 exactly
+right, 4 correctly null, 1 arguable, and is what surfaced the two rules that lifted coverage from
+709 entries to 791.
 
 Grade an entry as: right / wrong number / should have a number but got null / correctly null.
-The middle category is the one that matters — a wrong number ships as a confident dot.
+The middle one is what matters — a wrong number ships as a confident dot.
+
+
 """
 import argparse
 import os

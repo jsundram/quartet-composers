@@ -28,11 +28,9 @@
 <!-- Link previews. og:image is an ABSOLUTE https URL to a compressed 1200x630 PNG:
      iMessage/WhatsApp/Slack reject relative paths and won't render SVG.
 
-     og:description is SHORTER than the meta description on purpose, and they must not be
-     re-unified: a search snippet has 120-160 characters to fill and a link preview truncates
-     near 125 on a phone, so one string doing both jobs is too long for one and too short for
-     the other. Likewise og:title stays the short brand while <title> fills the SERP line.
-     scripts/og-lint.py holds the numbers and fails when a string drifts out of its band. -->
+     og:description is SHORTER than the meta description on purpose and the two must not be
+     re-unified; og:title likewise stays the short brand while <title> fills the SERP line.
+     scripts/og-lint.py holds the bands and fails when a string drifts out of one. -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="String Quartet Composers">
 <meta property="og:title" content="String Quartet Composers">
@@ -104,22 +102,16 @@
 
   <div class="grid">
     <section id="viz" class="card" aria-label="Chart">
-      <!-- ABOVE the plot, because a control must not be placed by the thing it changes. Every view
-           sizes its own plot (measure() in chart.js picks the aspect ratio per mode: a square-ish
-           Fame cloud, a naturally wide timeline, a swarm only as tall as its collisions), so with
-           this row underneath, pressing Timeline on a 390px phone shortened the plot 52px and this
-           row rose 52px into the finger that had just pressed it — 150px at 1280 for the swarm.
-           That is the same double-tap trap the full-screen strip's fixed height and .compact's
-           reserved box answer elsewhere, arriving through the layout instead of through a panel.
-           It used to sit below the plot, and the reason was real: the pills and the buttons are
-           82px on a phone, which is 82px of the first screen spent before a single dot. The fix
-           costs exactly that (294 of the plot's 321px above the fold instead of all 321) and it is
-           the cheaper half of the trade — the picture is honestly a different shape per view, so
-           the alternative is a blank band under the short ones. See issue 29.
-           In FULL SCREEN it goes back below the plot (styles.css orders #viz's children there):
-           the plot is flex:1 in that layout, sized by the viewport rather than by the view, so
-           nothing here moves when the view changes and every pixel above the chart is a pixel of
-           chart. -->
+      <!-- ABOVE the plot, because a control must not be placed by the thing it changes: every view
+           sizes its own plot (measure() in chart.js), so with this row underneath, pressing
+           Timeline rose the row into the finger that had just pressed it. Same double-tap trap the
+           full-screen strip's fixed height answers elsewhere, arriving through the layout rather
+           than through a panel. What it costs is the row's own height off a phone's first screen,
+           which is the cheaper half of the trade — the picture is honestly a different shape per
+           view, so the alternative is a blank band under the short ones (#29).
+           In FULL SCREEN it goes back below the plot (styles.css orders #viz's children there),
+           where the plot is flex:1 and sized by the viewport rather than by the view, so nothing
+           here moves when the view changes. -->
       <div class="controls">
         <div class="seg" role="group" aria-label="Chart view">
           <button type="button" id="m-fame" data-mode="fame" aria-pressed="true"
@@ -127,41 +119,31 @@
           <button type="button" id="m-scatter" data-mode="scatter" aria-pressed="false">Timeline</button>
           <button type="button" id="m-swarm"   data-mode="swarm"   aria-pressed="false">Swarm</button>
         </div>
-        <!-- The magnifier, and the one control here that is not a view. It was a fourth pill, and
-             as a view it differed from Timeline in exactly two things: the fisheye, and having no
-             zoom — so a reader who wanted the magnifier over the Fame cloud, which is the most
-             crowded of the three, could not have it, and the switcher claimed four pictures where
-             there are three. A CHECKBOX rather than a fourth pill or a `.btn` with aria-pressed:
-             it is an overlay you leave on, not a picture you switch to, and the box is the one
-             control shape that says so without a word of copy. It carries the accessible state
-             itself, so nothing here has to be kept in sync by hand.
-             Switching it moves no box — the plot's height is a function of the VIEW (chart.js's
-             measure()), and the lens is not one — so it is safe in this row under the rule the
-             comment above states: nothing a finger rests on may be placed by a box the same press
-             resizes. -->
+        <!-- The magnifier, and the one control here that is not a view — chart.js's header says why it
+             stopped being a fourth pill. A CHECKBOX rather than a pill or a `.btn` with
+             aria-pressed: it is an overlay you leave on, not a picture you switch to, and the box
+             is the one control shape that says so without a word of copy, carrying its own
+             accessible state. Switching it moves no box, so it is safe in this row under the rule
+             the comment above states. -->
         <label id="lens-t" class="btn"><input type="checkbox" id="lens"><span>Lens</span></label>
         <button type="button" id="reset" class="btn" disabled><span>Reset zoom</span></button>
         <!-- All THREE filters, search included, because the name is plural and a typed query is a
              filter: a button sitting lit while a search is active and then not clearing it would be
-             worse than the inconsistency it replaces. Always present and never hidden — that is the
-             point of it, not an accident. A control that cannot appear cannot resize the row it is
-             in, which is the entire class of defect issue 31 was about (see app.js's resetFilters).
-             It is `disabled` at rest and accent-filled when it will do something, so the row also
-             answers "is anything filtered?" without the reader checking three separate controls. -->
+             worse than the inconsistency it replaces. Always present and never hidden — a control
+             that cannot appear cannot resize the row it is in, which is the whole class of defect
+             #31 was about. `disabled` at rest and accent-filled when it will do something, so the
+             row also answers "is anything filtered?" without checking three separate controls. -->
         <button type="button" id="reset-filters" class="btn" disabled><span>Reset filters</span></button>
         <!-- A GROUP, because app.js reparents these two onto the plot wherever the row will not
-             hold them (placeChartTools) — they are the only controls here that name a mechanism
-             rather than a fact about the data, both have a standard glyph, and both are what a
-             video player puts in the corner of its own canvas. Moving them is what PAYS for Reset
-             filters: the row is already two lines at 390, a word button takes it to three (+48px of
-             the first screen), and shrinking these two in place still wraps at 360. See issue 35.
-             The words stay wherever the row holds them on one line, which is TWO bands and not a
-             threshold — see `iconsOnPlot` in app.js, which is the only copy of that rule.
-             The label lives in its own span: share() and setFull() used to write textContent
-             straight onto the button, which would now delete the icon beside it. The `title` is
-             the same string and app.js's label() rewrites both together, because wherever the
-             group is on the plot the span is clipped and the tooltip is the only name a pointer
-             can reach. -->
+             hold them (placeChartTools) — they are the only controls here that name a MECHANISM
+             rather than a fact about the data, and both are what a video player puts in the corner
+             of its own canvas. Moving them is what PAYS for Reset filters, which would otherwise
+             take the row to three lines on a phone (#35). The words stay wherever the row holds
+             them on one line, which is TWO bands and not a threshold — `iconsOnPlot` in app.js is
+             the only copy of that rule.
+             The label lives in its own span, and app.js's label() rewrites it and the `title`
+             together: writing textContent onto the button would delete the icon beside it, and on
+             the plot the span is clipped, so the tooltip is the only name a pointer can reach. -->
         <div id="chart-tools" class="spacer">
           <button type="button" id="share" class="btn" title="Share">
             <svg class="ico ico-share" viewBox="0 0 24 24" width="18" height="18" fill="none"

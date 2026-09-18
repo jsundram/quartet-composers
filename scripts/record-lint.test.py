@@ -10,16 +10,15 @@ NO NETWORK, NO REPO: every case is a pair of strings through check(), so this ru
 
 WHY THIS FILE EXISTS. The lint is one regex away from being prose-lint.py again, and prose-lint was
 deleted for a failure a reader cannot see by eye: it could not tell a REFLOWED paragraph from a
-stale fact, so wrapping a line at 100 columns demanded an edit to a claim nobody had touched. The
-property that makes this one different is not in its output — a quiet run looks the same either
-way — it is that the comparison is a multiset over the whole file. reflow_is_silent is therefore
-the case this suite exists for; the rest keep the noise floor honest enough that the nag gets read.
+stale fact, so wrapping a line at 100 columns demanded an edit to a claim nobody had touched. What
+makes this one different is not in its output — a quiet run looks the same either way — but that
+the comparison is a multiset over the whole file. `reflow_is_silent` is the case this suite exists
+for; the rest keep the noise floor honest enough that the nag gets read.
 
-The other half is the one every check here owes: a lint that flags nothing is not a lint. Each
-`flags` case names a number the repo recomputes and would have shipped wrong, and four of them are
-real lines this pass found — Beethoven's 23 pages, the 406 derived categories, "37 requests" (38),
-and a docstring, which is where 44% of this repo's Python prose lives and where a `#`-only reader
-would have seen none of it.
+The other half is what every check here owes: a lint that flags nothing is not a lint. Each `flags`
+case names a number the repo recomputes and would have shipped wrong, and four of them are real
+lines this pass found.
+
 """
 import importlib.util
 import os
@@ -27,6 +26,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 spec = importlib.util.spec_from_file_location("record_lint", os.path.join(HERE, "record-lint.py"))
+LINT = os.path.join(HERE, "record-lint.py")
 rl = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(rl)
 
@@ -277,6 +277,51 @@ def code_spelling_is_not_prose(_):
     # landed on `CEILING = 0.20` — a line of code — while the comment went unreported.
     found, _ = rl.check("a.py", "", "# Set to 0.2 because of the cap\nCEILING = 0.20\n")
     assert [(l, n) for _p, l, n, _t in found] == [(1, "0.2")], found
+
+
+@case("--base asks the question of a BRANCH, which is the only mode CI can use")
+def base_asks_the_branch(_):
+    # The default mode reads the INDEX, and a CI checkout stages nothing, so there it examines no
+    # files and reports nothing — indistinguishable from a clean run. The merge base and not the
+    # ref's tip, or a number somebody else landed on main is charged to this branch.
+    import subprocess, tempfile
+    d = tempfile.mkdtemp()
+    git = lambda *a: subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t", *a],
+                                    cwd=d, capture_output=True, text=True)
+    git("init", "-q")
+    open(os.path.join(d, "a.js"), "w").write("// nothing yet\nconst x = 1;\n")
+    git("add", "-A"); git("commit", "-qm", "base"); git("branch", "-M", "main")
+    git("checkout", "-q", "-b", "work")
+    open(os.path.join(d, "a.js"), "w").write("// it holds for 406 of them\nconst x = 1;\n")
+    git("add", "-A"); git("commit", "-qm", "a number")
+    # --root, or the real entry point reads THIS repo whatever cwd says: ROOT comes from the
+    # script's own path. Written without it first, this case passed on a number in its own source.
+    run = lambda *a: subprocess.run([sys.executable, LINT, "--root", d, *a],
+                                    capture_output=True, text=True)
+    assert run().returncode == 0, "the premise: nothing staged, so the default mode is silent"
+    r = run("--base", "main")
+    assert r.returncode == 1, "the branch added 406 to a comment and it passed: " + r.stdout
+    assert "406" in r.stdout, r.stdout
+    # A number that arrived on main afterwards belongs to main, not to this branch.
+    git("checkout", "-q", "main")
+    open(os.path.join(d, "b.js"), "w").write("// theirs: 462 of them\nconst y = 1;\n")
+    git("add", "-A"); git("commit", "-qm", "theirs")
+    git("checkout", "-q", "work")
+    assert "462" not in run("--base", "main").stdout, "it charged this branch with main's number"
+    # A base it cannot resolve is REPORTED, never a clean run: every git read in this mode returns
+    # an empty list on failure, and an empty list is exactly what "nothing to report" looks like.
+    bad = run("--base", "no-such-ref")
+    assert bad.returncode == 2, bad.stdout + bad.stderr
+    assert "no merge base" in bad.stdout, bad.stdout
+    # AND A CLEAN RUN SAYS SO. CI fences this output, and printing nothing leaves an empty block
+    # that reads as a step which produced nothing — the same shape as a crash, or as selects()
+    # matching none of the branch's files. The hook stays silent; only --base reports.
+    git("checkout", "-q", "-b", "quiet", "main")
+    open(os.path.join(d, "c.js"), "w").write("// no numbers here\nconst z = 1;\n")
+    git("add", "-A"); git("commit", "-qm", "clean")
+    clean = run("--base", "main")
+    assert clean.returncode == 0, clean.stdout
+    assert "nothing reached prose" in clean.stdout, repr(clean.stdout)
 
 
 @case("a file whose code cannot be told from its prose is REPORTED, not passed")

@@ -1,23 +1,21 @@
 // The data table. The chart answers "what does the field look like"; this answers "what exactly
 // am I looking at" — and it is the accessible, printable, Ctrl-F-able copy of the same rows.
 //
-// It is not a second view bolted on: selection is shared both ways (click a row, the dot rings;
-// click a dot, the row highlights and scrolls into view) and the search box filters BOTH — matches
-// stay opaque in the chart, everything else drops to 12%.
+// Not a second view bolted on: selection is shared both ways and the search box filters BOTH.
 //
 // No virtualization on purpose: the whole roster builds in a few milliseconds, and — the part that
 // matters — a windowed list silently breaks the browser's own find-in-page.
 
 window.Table = (function () {
-  // `phone: false` marks a column that is HIDDEN on a narrow screen (styles.css does the hiding
-  // via the class). Six columns do not fit 390px: the composer name wraps to three lines and
-  // Quartets — the one the chart is about — scrolls off the right edge. Died and Lived are the
-  // two to lose, because both are one tap away in the detail panel and neither is why you came.
+  // `phone: false` marks a column HIDDEN on a narrow screen (styles.css does the hiding via the
+  // class). Six do not fit a phone: the name wraps to three lines and Quartets — the one the chart
+  // is about — scrolls off the right edge. Died and Lived are the two to lose, both being one tap
+  // away in the detail panel and neither being why you came.
   //
   // `short` is the phone HEADER, asked for by the column's WIDTH and not its meaning: a header word
   // sets the column when it is wider than any value under it, and "Quartets" over three digits was
-  // buying ~30px it never used. In no measured face did the phone columns fit 360px before that went.
-  // styles.css swaps which span is drawn; the accessible name keeps both, for the reason below.
+  // buying width it never used. styles.css swaps which span is drawn; the accessible name keeps
+  // both, for the reason below.
   const COLS = [
     { key: "name",     label: "Composer",  num: false, phone: true },
     { key: "birth",    label: "Born",      num: true,  phone: true },
