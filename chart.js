@@ -49,6 +49,15 @@ window.Chart = (function () {
   // does" problem the diverging ramp had, surviving the switch to a sequential one.
   const LIFE_DOMAIN = [20, 62, 104];
 
+  // The SWARM's hue is the quartet count rather than lifespan, because its y is a packing and
+  // carries nothing: the count the timeline puts UP and the Fame view puts ACROSS would otherwise
+  // be absent from that view entirely, with only the hint saying so (#94). LOG, and evenly spaced
+  // in log for the reason Y_DOMAIN is: the counts span two orders of magnitude and pile up at the
+  // bottom, so a linear ramp spends seven eighths of itself on a handful of composers. Stops
+  // FIXED, on the lesson above -- and the top one CLAMPS, which is why the key reads "25+" rather
+  // than naming a step nobody but the largest catalogue reaches.
+  const QUARTET_DOMAIN = [1, 5, 25];
+
   // ---- the Fame view -------------------------------------------------------
   // Output ACROSS, attention UP, so readers-per-quartet is a diagonal and the distance a composer
   // sits above one is the argument: Mozart near 10,000 readers a quartet, Cambini on 1. The other
@@ -141,7 +150,7 @@ window.Chart = (function () {
   // kept reserving space for a control that had moved away. That paid off the day the breakpoint
   // moved from 640 to 1100: nothing in here changed.
   let topReserve = 0;
-  let x0, y0, qx, vy, rScale, colorScale, C = {};
+  let x0, y0, qx, vy, rScale, colorScale, quartetScale, C = {};
   let transform = d3.zoomIdentity, zoom;
   let swarmY = null, swarmKey = "";      // memo: the sim is expensive, size/radius are its inputs
   let lens = null;                       // {x,y} focus in plot coords, or null
@@ -243,12 +252,21 @@ window.Chart = (function () {
     const g = Theme.getCssColor;
     C = {
       short: g("--c-short"), mid: g("--c-mid"), long: g("--c-long"), living: g("--c-living"),
+      few: g("--c-few"), some: g("--c-some"), many: g("--c-many"),
       plot: g("--plot"), grid: g("--grid"), axis: g("--axis"), line: g("--dot-line"),
       ink: g("--ink"), muted: g("--muted"), sel: g("--sel"), accent: g("--accent"),
     };
     colorScale = d3.scaleLinear()
       .domain(LIFE_DOMAIN)
       .range([C.short, C.mid, C.long])
+      .interpolate(d3.interpolateLab)
+      .clamp(true);
+    // LOG, which is also what makes the legend's gradient honest: three CSS stops sit at 0%, 50%
+    // and 100%, so they line up with a domain evenly spaced in log and would misreport a linear
+    // one -- the middle colour would be printed at the middle of a ramp it does not sit at.
+    quartetScale = d3.scaleLog()
+      .domain(QUARTET_DOMAIN)
+      .range([C.few, C.some, C.many])
       .interpolate(d3.interpolateLab)
       .clamp(true);
   }
@@ -260,12 +278,21 @@ window.Chart = (function () {
   // The Fame view spends colour on the ARGUMENT rather than on lifespan: the repertoire filled
   // in the selection orange, the outliers ringed in the accent, and the rest in one recessive
   // grey. Emphasis, not eight hues — the point of the view is a handful of names against a field.
+  // The two non-Fame views ramp DIFFERENT variables: lifespan in the timeline, where the quartet
+  // count is already the y axis and a hue repeating it would spend the last free channel saying
+  // something the reader can already read off the scale; the count in the swarm, where nothing
+  // else says it at all.
+  const hueOf = d => (mode === "swarm" ? quartetScale(d.quartets) : colorScale(d.lifespan));
   function fillOf(d) {
-    if (mode !== "fame") return d.living ? C.plot : colorScale(d.lifespan);
+    if (mode !== "fame") return d.living ? C.plot : hueOf(d);
     return isCanon(d.i) ? C.sel : named(d.i) ? "none" : C.muted;
   }
+  // The open circle goes on meaning LIVING in both, so the swarm rings a living composer in their
+  // own count's colour rather than in the flat grey the timeline uses: there the ring stands in
+  // for a lifespan that does not exist yet, and here the count does exist and is the whole point
+  // of the ramp -- leaving them grey would drop it from a quarter of the dots.
   function strokeOf(d) {
-    if (mode !== "fame") return d.living ? C.living : C.line;
+    if (mode !== "fame") return d.living ? (mode === "swarm" ? hueOf(d) : C.living) : C.line;
     return isCanon(d.i) ? C.plot : named(d.i) ? C.accent : "none";
   }
   function widthOf(d) {
@@ -297,6 +324,10 @@ window.Chart = (function () {
   // colour, and everyone else is the same recessive grey they are on the chart.
   function colorOf(d) {
     if (mode === "fame") return isCanon(d.i) ? C.sel : named(d.i) ? C.accent : C.muted;
+    // Called for EVERY row, including the ones with no stated count, which the chart cannot place
+    // (invariant 10) -- so there is no dot for the chip to be recognisably the same thing as, and
+    // inventing a step on the ramp for them would file them under a number nothing states.
+    if (mode === "swarm") return d.quartets == null ? C.muted : quartetScale(d.quartets);
     return d.living ? C.living : colorScale(d.lifespan);
   }
 
@@ -1084,7 +1115,8 @@ window.Chart = (function () {
     const n = (visible ? visible.size : rows.length);
     const axes = mode === "fame"
       ? "by number of quartets written and monthly English Wikipedia readers"
-      : mode === "swarm" ? "by birth year, spread apart so none overlap"
+      : mode === "swarm" ? "by birth year, spread apart so none overlap, "
+                         + "coloured by number of quartets written"
       : "by birth year and number of quartets written";
     return `Scatter plot of ${n} string quartet composers ${axes}. `
          + `The table below the chart carries the same data in a readable form.`;
@@ -1324,6 +1356,9 @@ window.Chart = (function () {
            // is invisible in the frame and therefore worth asserting at the cause.
            zoomBox: () => (svg ? zoom.extent().apply(svg.node()) : null),
            lifeDomain: () => LIFE_DOMAIN.slice(),
+           // The swarm's ramp, for the legend that names it -- the two views ramp different
+           // variables and the key has to come from the same place the dots do (invariant 8).
+           quartetDomain: () => QUARTET_DOMAIN.slice(),
            // How many of the rings the current filter derived. Nothing on the page reads it now
            // that the legend has stopped captioning the ring; the suite asks it to tell a derived
            // set from the curated one.

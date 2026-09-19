@@ -26,6 +26,13 @@
      ramp readable. Re-run the dataviz palette validator against --plot, not --card, if you
      change them. */
   --c-short:#b8860b; --c-mid:#1b8574; --c-long:#243a8f;   /* sequential: hot / mid / cold */
+  /* The SWARM ramps the QUARTET COUNT instead, its y being a packing that carries nothing
+     (chart.js). SINGLE hue, deliberately not a second three-hue ramp: one hue reads as "more"
+     where YlGnBu reads as "different", and two keys that looked alike across a view switch would
+     be exactly the wrong-channel trap the per-view legend exists to prevent. Same discipline as
+     above -- fed to the dataviz validator against --plot, not --card: one hue, monotone in
+     lightness, visible gaps between steps, pale end clearing 3:1. */
+  --c-few:#9288c6; --c-some:#6e58ae; --c-many:#432878;     /* sequential: few / some / many */
   --c-living:#8b9188;                                      /* open circles; stroke only */
   --radius:12px; --maxw:1180px;
 }
@@ -35,6 +42,10 @@
     --sel:#fb923c;
     --plot:#191c21; --grid:#2b313a; --axis:#98a1a8; --dot-line:#14161a;
     --c-short:#dcec8a; --c-mid:#4fbfa8; --c-long:#3b93da;
+    /* Reversed against the light ramp, not brightened in place: "more" has to mean more ink
+       against the surface it is drawn on, and the dark end of a purple ramp is the invisible one
+       on a dark plot. Revalidated against the dark --plot. */
+    --c-few:#7159a3; --c-some:#a58ed6; --c-many:#d5c6f2;
     --c-living:#8e979c;
   }
 }
@@ -43,6 +54,7 @@
   --sel:#fb923c;
   --plot:#191c21; --grid:#2b313a; --axis:#98a1a8; --dot-line:#14161a;
   --c-short:#dcec8a; --c-mid:#4fbfa8; --c-long:#3b93da;
+  --c-few:#7159a3; --c-some:#a58ed6; --c-many:#d5c6f2;
   --c-living:#8e979c;
 }
 

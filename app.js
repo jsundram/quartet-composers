@@ -502,8 +502,8 @@ function renderLegend() {
   el.innerHTML = "";
 
   // The views do not encode the same things, so they cannot share a key. In the Fame view
-  // size means nothing (readership is the y axis) and hue is emphasis, not lifespan — showing
-  // the lifespan ramp and a size key there would label channels that are not carrying anything.
+  // size means nothing (readership is the y axis) and hue is emphasis, not a ramp — showing
+  // a ramp and a size key there would label channels that are not carrying anything.
   if (Chart.getMode() === "fame") {
     const who = document.createElement("div");
     who.innerHTML =
@@ -523,13 +523,26 @@ function renderLegend() {
     return;
   }
 
-  const life = document.createElement("div");
-  life.innerHTML =
-    `<span class="lab">Lifespan</span>` +
-    `<div class="ramp" style="background:linear-gradient(90deg,${g("--c-short")},${g("--c-mid")},${g("--c-long")})"></div>` +
-    `<div class="ticks"><span>${Chart.lifeDomain()[0]} yrs</span>` +
-    `<span>${Chart.lifeDomain()[2]} yrs</span></div>`;
-  el.appendChild(life);
+  // The other two views both draw a ramp, and it is not the same ramp: lifespan in the timeline,
+  // where the quartet count is already the y axis, and the count itself in the swarm, where the y
+  // is a packing and nothing else says it (#94). So the label, the stops and the ticks all come
+  // from whichever view is drawn. A key naming the wrong one is invariant 8's wrong-channel
+  // failure with the words still on screen to make it convincing — which is why this reads the
+  // domain off Chart rather than printing numbers of its own.
+  const swarm = Chart.getMode() === "swarm";
+  const dom = swarm ? Chart.quartetDomain() : Chart.lifeDomain();
+  const stops = swarm ? ["--c-few", "--c-some", "--c-many"] : ["--c-short", "--c-mid", "--c-long"];
+  // Three ticks for the swarm and two for the timeline: the quartet ramp is LOG, so its middle
+  // stop lands at the middle of the gradient, and printing it is what stops two end numbers
+  // reading as a linear span. The top one carries a "+" because the scale clamps there.
+  const ticks = swarm ? [dom[0], dom[1], dom[2] + "+"]
+                      : [dom[0] + " yrs", dom[2] + " yrs"];
+  const ramp = document.createElement("div");
+  ramp.innerHTML =
+    `<span class="lab">${swarm ? "Quartets written" : "Lifespan"}</span>` +
+    `<div class="ramp" style="background:linear-gradient(90deg,${stops.map(g).join(",")})"></div>` +
+    `<div class="ticks">${ticks.map(t => `<span>${t}</span>`).join("")}</div>`;
+  el.appendChild(ramp);
 
   // Size key. Circle AND label are laid out together in one SVG, each pair centred in a cell as
   // wide as the WIDER of the two. The old version stepped from circle to circle and then spread

@@ -117,9 +117,27 @@ plain static assets. Read README.md first for what the app is.
    suite asserts empty.
 
 8. **Each view encodes different things, so each needs its own key.** In Fame, size is the y
-   AXIS and hue is emphasis; the lifespan ramp and the size key would be labelling channels that
+   AXIS and hue is emphasis; a ramp and the size key would be labelling channels that
    carry nothing, so `renderLegend()` branches on the mode and `setMode()` re-renders both the
    legend and the table (the row chips are painted from `Chart.colorOf`, which follows the view).
+   **The two remaining views ramp DIFFERENT variables, and that is the point rather than an
+   oversight.** The timeline keeps LIFESPAN, because the quartet count is already its y axis and a
+   hue repeating it would spend the last free channel restating a fact the scale carries — the
+   same refusal `layout()` makes when it declines to put readership into the Fame radius. The
+   SWARM ramps the COUNT (`QUARTET_DOMAIN` in `chart.js`, log, clamped at the top), because its x
+   is birth year, its radius is readership and its y is a beeswarm packing that carries nothing:
+   the count was in no channel of that view at all, and only the hint said so (#94). Two
+   consequences. The open circle goes on meaning LIVING in both, so the swarm rings a living
+   composer in their own count's colour rather than the timeline's flat grey — there the ring
+   stands in for a lifespan that does not exist yet, here the count does exist and is the ramp's
+   whole point. And the KEY has to name whichever variable is drawn: `renderLegend()` reads the
+   label, the stops and the ticks off the mode and the domain off `Chart`, because a key printing
+   numbers of its own could caption the right ramp with the wrong span and look entirely correct.
+   The `--c-few/--c-some/--c-many` steps are a SINGLE hue where the lifespan ramp is three — one
+   hue reads as "more" where YlGnBu reads as "different" — and the dark steps run dim-to-bright
+   rather than being the light ones flipped, because "more" has to mean more ink against the
+   surface under it. `ui.test.mjs` asserts the rise in both themes, and that the timeline did not
+   quietly follow.
    The RING also changes meaning under a filter (see below). It is no longer CAPTIONED — the key
    named the crowd it was talking about ("the outliers at either end" against "the ones that stand
    out in this group") and that sentence is gone, so the wrong-channel failure is now prevented by

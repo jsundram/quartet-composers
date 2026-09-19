@@ -1112,6 +1112,122 @@ check("size-legend labels sit under their circles",
           e.getBoundingClientRect().x+e.getBoundingClientRect().width/2 -
           (t[i].getBoundingClientRect().x+t[i].getBoundingClientRect().width/2)) < 1.5)})()`));
 
+// --- 4d2. the swarm colours by quartet count, which is otherwise absent from it ----------------
+// Its x is birth year and its radius is readership, and its y is a beeswarm packing that carries
+// nothing — so the number of quartets, which is the timeline's y and the Fame view's x, was in no
+// channel of this view at all and only the hint said so (#94). The timeline KEEPS the lifespan
+// ramp, because there the count already is the y and a hue repeating it would spend the last free
+// channel on a fact the scale states. Two views, two ramps: what has to hold is that the same dot
+// is painted differently in each, and that the key names whichever variable is actually drawn.
+//
+// Read off the FILL attribute rather than off Chart.colorOf, because the attribute is what a
+// reader sees; colorOf only reaches the table chip, which is checked through the legend's
+// agreement with the scale below. Fills arrive from a d3 scale as "rgb(...)" and tokens read back
+// from CSS as hex, so the parser takes both — a comparison that assumed one silently compared
+// strings that could never be equal.
+const INK = `(()=>{
+  const rgb = s => s.startsWith('#') ? [1,3,5].map(i => parseInt(s.slice(i,i+2),16))
+                                     : s.match(/[0-9]+/g).map(Number);
+  const lum = s => { const [r,g,b] = rgb(s); return 0.2126*r + 0.7152*g + 0.0722*b };
+  const by = new Map();
+  for (const c of document.querySelectorAll('#plot svg circle.dot')) {
+    const d = c.__data__;
+    // A living composer is an OPEN circle, so whatever the view is ramping is in its stroke.
+    const ink = d.living ? c.getAttribute('stroke') : c.getAttribute('fill');
+    const k = d.quartets;
+    if (!by.has(k)) by.set(k, new Set());
+    by.get(k).add(ink);
+  }
+  const counts = [...by.keys()].sort((a,b) => a-b);
+  const grey = Theme.getCssColor('--c-living');
+  const plot = lum(Theme.getCssColor('--plot'));
+  return { counts,
+           shades: counts.map(q => by.get(q).size),
+           lums: counts.map(q => +lum([...by.get(q)][0]).toFixed(1)),
+           // Distance from the PLOT, not darkness: the dark ramp runs the other way round (more
+           // ink means brighter there, a dark purple on a dark plot being the invisible end), so
+           // a check written as "darker" pins one theme and goes red on the other.
+           ink: counts.map(q => +Math.abs(lum([...by.get(q)][0]) - plot).toFixed(1)),
+           greyRings: [...document.querySelectorAll('#plot svg circle.dot')]
+             .filter(c => c.getAttribute('stroke') === grey).length };
+})()`;
+
+await rest();
+await view("swarm");
+const swarmInk = await ev(INK);
+// One ink per count is the whole claim: before this the fill came from the lifespan ramp, so a
+// count was spread across as many colours as its composers had lifespans.
+check("the swarm paints one colour per quartet count",
+      swarmInk.shades.every(n => n === 1),
+      swarmInk.counts.length + " counts, worst " + Math.max(...swarmInk.shades) + " shades");
+// And it reads as a RAMP, not merely as different colours: more quartets is more ink against the
+// plot, all the way up. That is the property the palette was validated for and the one the
+// legend's gradient claims on the reader's behalf.
+const rising = a => a.every((v, i) => i === 0 || v >= a[i - 1] - 0.05) && a[a.length - 1] > a[0];
+check("more quartets is consistently more ink",
+      rising(swarmInk.ink),
+      `${swarmInk.ink[0]} at ${swarmInk.counts[0]} -> `
+      + `${swarmInk.ink[swarmInk.ink.length - 1]} at ${swarmInk.counts[swarmInk.counts.length - 1]}`);
+// The dark ramp is a SELECTED set of steps and not the light one flipped — it runs dim-to-bright,
+// because "more" has to mean more ink against whatever surface is under it and the dark end of a
+// purple ramp is the invisible one on a dark plot. So it is checked for the same rising ink AND
+// for having genuinely turned round: an auto-darkened copy of the light steps would still read as
+// a ramp here while disappearing into the plot at the end that matters most.
+await ev(`Theme.set('dark')`);
+await settle(`document.documentElement.getAttribute('data-theme') === 'dark'`);
+const darkInk = await ev(INK);
+check("the dark ramp rises too, and rises the other way round",
+      rising(darkInk.ink) && darkInk.lums[darkInk.lums.length - 1] > darkInk.lums[0],
+      `ink ${darkInk.ink[0]} -> ${darkInk.ink[darkInk.ink.length - 1]}, `
+      + `lightness ${darkInk.lums[0]} -> ${darkInk.lums[darkInk.lums.length - 1]}`);
+await ev(`Theme.set('auto')`);
+await settle(`Theme.get() === 'auto'`);
+// The open circle goes on meaning "living" here, so the count has to reach those dots too — a
+// living composer ringed in the timeline's flat grey would be a dot with no count on it, which is
+// a quarter of this view.
+check("a living composer's ring carries the count, not the lifespan grey",
+      swarmInk.greyRings === 0, swarmInk.greyRings + " dots still ringed in --c-living");
+
+// The key, which is the other half: a ramp nobody can read is the same as no ramp. It has to name
+// THIS view's variable and print THIS scale's domain, so both come off Chart rather than being
+// typed here — a legend that printed its own numbers could caption the right ramp with the wrong
+// span and look entirely correct.
+const keyOf = `(()=>{const l=document.getElementById('legend');
+  return { lab: l.querySelector('.lab').textContent,
+           ticks: [...l.querySelectorAll('.ticks span')].map(s => s.textContent),
+           ramp: l.querySelector('.ramp').style.background,
+           sizeKey: !!l.querySelector('svg circle') }})()`;
+const swarmKey = await ev(keyOf);
+const qDom = await ev(`Chart.quartetDomain()`);
+check("the swarm's key names the quartet count", swarmKey.lab === "Quartets written", swarmKey.lab);
+check("and prints the domain the dots are actually painted from",
+      JSON.stringify(swarmKey.ticks) === JSON.stringify([String(qDom[0]), String(qDom[1]), qDom[2] + "+"]),
+      JSON.stringify(swarmKey.ticks) + " vs domain " + JSON.stringify(qDom));
+// The gradient too: the label and the swatch are one claim, and a key wearing the lifespan ramp
+// over the word "Quartets" is the wrong-channel failure with words on screen to make it credible.
+check("the swarm's gradient is the quartet ramp, not the lifespan one",
+      await ev(`(()=>{const b=document.querySelector('#legend .ramp').style.background;
+        const hex = t => { const v=Theme.getCssColor(t);
+          return 'rgb(' + [1,3,5].map(i=>parseInt(v.slice(i,i+2),16)).join(', ') + ')' };
+        return b.includes(hex('--c-few')) && b.includes(hex('--c-many'))
+            && !b.includes(hex('--c-short'))})()`),
+      swarmKey.ramp);
+// The size key is drawn in BOTH non-Fame views; splitting the legend three ways is exactly how a
+// view quietly loses the half of it that did not change.
+check("the swarm still gets the readership size key", swarmKey.sizeKey);
+
+// The timeline is the control: nothing above may leak into it, because its y already says the
+// count and its hue is the only place lifespan is drawn in the whole app.
+await view("scatter");
+const lifeInk = await ev(INK);
+check("the timeline still ramps lifespan, not the count",
+      lifeInk.shades.some(n => n > 1),
+      "worst " + Math.max(...lifeInk.shades) + " shades for one count");
+check("and its living composers are still ringed in grey", lifeInk.greyRings > 0,
+      lifeInk.greyRings + " open rings");
+const lifeKey = await ev(keyOf);
+check("the timeline's key still names lifespan", lifeKey.lab === "Lifespan", lifeKey.lab);
+
 // --- 4e. the Fame view: the one that makes the page's argument ------------------------------
 await goto(BASE);
 check("the Fame view is what a bare URL opens on",

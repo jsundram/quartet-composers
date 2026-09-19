@@ -777,13 +777,6 @@ desktop. Options if it starts to matter: a larger `base` on narrow screens, drop
 a dot the placer could not name, or letting a phone label overhang into the left margin. Not done
 because every one of them trades against something the resting view is currently getting right.
 
-### The swarm hides the quartet count entirely
-Documented in the hint text, but a reader who lands on the swarm from a shared `#v=swarm` link has
-to read the hint to know the vertical axis means nothing. Consider dimming or removing the y-axis
-label there — currently it is just absent, which is quieter than it should be.
-
----
-
 ### Surname extraction is a heuristic on 884 human names
 `SURNAME` in `names.js` overrides the eight the "last word" rule gets wrong today (compound
 surnames, capitalised particles, one name in Chinese order). There will be more it gets wrong that
