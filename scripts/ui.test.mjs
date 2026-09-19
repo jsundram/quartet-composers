@@ -1198,11 +1198,16 @@ const keyOf = `(()=>{const l=document.getElementById('legend');
            ramp: l.querySelector('.ramp').style.background,
            sizeKey: !!l.querySelector('svg circle') }})()`;
 const swarmKey = await ev(keyOf);
-const qDom = await ev(`Chart.quartetDomain()`);
+// Optional-called for the reason pin() looks the row up before clicking it: a chart that stopped
+// exposing this would throw inside ev() and end the whole run, so the one thing it breaks is
+// reported as one red check that names it.
+const qDom = await ev(`Chart.quartetDomain?.() ?? null`);
 check("the swarm's key names the quartet count", swarmKey.lab === "Quartets written", swarmKey.lab);
 check("and prints the domain the dots are actually painted from",
-      JSON.stringify(swarmKey.ticks) === JSON.stringify([String(qDom[0]), String(qDom[1]), qDom[2] + "+"]),
-      JSON.stringify(swarmKey.ticks) + " vs domain " + JSON.stringify(qDom));
+      !!qDom && JSON.stringify(swarmKey.ticks)
+        === JSON.stringify([String(qDom[0]), String(qDom[1]), qDom[2] + "+"]),
+      JSON.stringify(swarmKey.ticks) + " vs domain " + JSON.stringify(qDom),
+      qDom ? "" : "Chart exposes no quartetDomain() — the key can only be printing numbers of its own");
 // The gradient too: the label and the swatch are one claim, and a key wearing the lifespan ramp
 // over the word "Quartets" is the wrong-channel failure with words on screen to make it credible.
 check("the swarm's gradient is the quartet ramp, not the lifespan one",
