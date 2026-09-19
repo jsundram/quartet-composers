@@ -525,23 +525,30 @@ function renderLegend() {
 
   // The other two views both draw a ramp, and it is not the same ramp: lifespan in the timeline,
   // where the quartet count is already the y axis, and the count itself in the swarm, where the y
-  // is a packing and nothing else says it (#94). So the label, the stops and the ticks all come
-  // from whichever view is drawn. A key naming the wrong one is invariant 8's wrong-channel
-  // failure with the words still on screen to make it convincing — which is why this reads the
-  // domain off Chart rather than printing numbers of its own.
-  const swarm = Chart.getMode() === "swarm";
-  const dom = swarm ? Chart.quartetDomain() : Chart.lifeDomain();
-  const stops = swarm ? ["--c-few", "--c-some", "--c-many"] : ["--c-short", "--c-mid", "--c-long"];
-  // Three ticks for the swarm and two for the timeline: the quartet ramp is LOG, so its middle
-  // stop lands at the middle of the gradient, and printing it is what stops two end numbers
-  // reading as a linear span. The top one carries a "+" because the scale clamps there.
-  const ticks = swarm ? [dom[0], dom[1], dom[2] + "+"]
-                      : [dom[0] + " yrs", dom[2] + " yrs"];
+  // is a packing and nothing else says it (#94). They are not the same SHAPE either — the swarm's
+  // is classed and the timeline's continuous — so this branches rather than parameterising. A key
+  // naming the wrong one is invariant 8's wrong-channel failure with the words still on screen to
+  // make it convincing, which is why both read their numbers off Chart and print none of their own.
   const ramp = document.createElement("div");
-  ramp.innerHTML =
-    `<span class="lab">${swarm ? "Quartets written" : "Lifespan"}</span>` +
-    `<div class="ramp" style="background:linear-gradient(90deg,${stops.map(g).join(",")})"></div>` +
-    `<div class="ticks">${ticks.map(t => `<span>${t}</span>`).join("")}</div>`;
+  if (Chart.getMode() === "swarm") {
+    // Segments and bounds out of ONE array, so a class cannot be painted at one edge and labelled
+    // at another. Each segment is captioned by where it STARTS — the classes are too narrow on
+    // screen for "15–29", and a bound under its own segment reads as the axis it is.
+    const cls = Chart.quartetClasses();
+    ramp.innerHTML =
+      `<span class="lab">Quartets written</span>` +
+      `<div class="ramp steps" style="--n:${cls.length}">`
+        + cls.map(c => `<i style="background:${c.color}"></i>`).join("") + `</div>` +
+      `<div class="ticks steps" style="--n:${cls.length}">`
+        + cls.map((c, i) => `<span>${c.lo}${i === cls.length - 1 ? "+" : ""}</span>`).join("")
+        + `</div>`;
+  } else {
+    const dom = Chart.lifeDomain();
+    ramp.innerHTML =
+      `<span class="lab">Lifespan</span>` +
+      `<div class="ramp" style="background:linear-gradient(90deg,${g("--c-short")},${g("--c-mid")},${g("--c-long")})"></div>` +
+      `<div class="ticks"><span>${dom[0]} yrs</span><span>${dom[2]} yrs</span></div>`;
+  }
   el.appendChild(ramp);
 
   // Size key. Circle AND label are laid out together in one SVG, each pair centred in a cell as

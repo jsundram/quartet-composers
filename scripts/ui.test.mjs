@@ -1201,22 +1201,46 @@ const swarmKey = await ev(keyOf);
 // Optional-called for the reason pin() looks the row up before clicking it: a chart that stopped
 // exposing this would throw inside ev() and end the whole run, so the one thing it breaks is
 // reported as one red check that names it.
-const qDom = await ev(`Chart.quartetDomain?.() ?? null`);
+const qCls = await ev(`Chart.quartetClasses?.() ?? null`);
 check("the swarm's key names the quartet count", swarmKey.lab === "Quartets written", swarmKey.lab);
-check("and prints the domain the dots are actually painted from",
-      !!qDom && JSON.stringify(swarmKey.ticks)
-        === JSON.stringify([String(qDom[0]), String(qDom[1]), qDom[2] + "+"]),
-      JSON.stringify(swarmKey.ticks) + " vs domain " + JSON.stringify(qDom),
-      qDom ? "" : "Chart exposes no quartetDomain() — the key can only be printing numbers of its own");
-// The gradient too: the label and the swatch are one claim, and a key wearing the lifespan ramp
-// over the word "Quartets" is the wrong-channel failure with words on screen to make it credible.
-check("the swarm's gradient is the quartet ramp, not the lifespan one",
-      await ev(`(()=>{const b=document.querySelector('#legend .ramp').style.background;
-        const hex = t => { const v=Theme.getCssColor(t);
-          return 'rgb(' + [1,3,5].map(i=>parseInt(v.slice(i,i+2),16)).join(', ') + ')' };
-        return b.includes(hex('--c-few')) && b.includes(hex('--c-many'))
-            && !b.includes(hex('--c-short'))})()`),
-      swarmKey.ramp);
+check("and prints the bounds the dots are actually sorted into",
+      !!qCls && JSON.stringify(swarmKey.ticks)
+        === JSON.stringify(qCls.map((c, i) => String(c.lo) + (i === qCls.length - 1 ? "+" : ""))),
+      JSON.stringify(swarmKey.ticks),
+      qCls ? "" : "Chart exposes no quartetClasses() — the key can only be printing bounds of its own");
+// The segments too: the bounds and the swatches are ONE claim, and a key printing the right
+// numbers over the wrong colours is the wrong-channel failure with words on screen to make it
+// credible. Read as the browser resolved them, since a token is hex and a style property is rgb.
+check("and paints one segment per class, in the classes' own colours",
+      await ev(`(()=>{const seg=[...document.querySelectorAll('#legend .ramp.steps i')]
+          .map(e => getComputedStyle(e).backgroundColor);
+        const want = (Chart.quartetClasses?.() ?? []).map(c => { const p=document.createElement('i');
+          p.style.backgroundColor = c.color; document.body.appendChild(p);
+          const v = getComputedStyle(p).backgroundColor; p.remove(); return v });
+        return want.length > 0 && JSON.stringify(seg) === JSON.stringify(want)})()`),
+      (await ev(`document.querySelectorAll('#legend .ramp.steps i').length`)) + " segments");
+// THE POINT OF CLASSING IT. A continuous ramp over this range emitted colours no reader could
+// tell apart — adjacent counts came out under a just-noticeable difference for most of the
+// roster — so what has to hold is not that the colours DIFFER but that they differ VISIBLY. d3
+// is already on the page, so this is measured in CIE Lab rather than asserted about hexes.
+const classGaps = await ev(`(()=>{const c=(Chart.quartetClasses?.() ?? []).map(x => d3.lab(x.color));
+  return c.slice(1).map((q, i) => +Math.hypot(q.l-c[i].l, q.a-c[i].a, q.b-c[i].b).toFixed(1))})()`);
+check("every class is visibly apart from the next, not merely a different number",
+      classGaps.length > 0 && classGaps.every(e => e >= 2.3),
+      "Lab dE " + classGaps.join(", ") + " (1 JND is ~2.3)");
+// And the end the whole reclassing was for: the most prolific composers used to sit in one bucket
+// with everyone from Schubert upward, which is a tenfold range of output in a single colour.
+check("the most prolific are resolved, not flattened into one class",
+      await ev(`(()=>{const cls=Chart.quartetClasses?.() ?? []; if (cls.length < 3) return false;
+        const from=cls[cls.length-3].lo;
+        return new Set([...document.querySelectorAll('#plot svg circle.dot')]
+          .filter(c => c.__data__.quartets >= from)
+          .map(c => c.__data__.living ? c.getAttribute('stroke') : c.getAttribute('fill'))).size === 3})()`),
+      await ev(`(()=>{const cls=Chart.quartetClasses?.() ?? []; const from=cls[cls.length-3]?.lo;
+        return from + '+ quartets: ' + new Set([...document.querySelectorAll('#plot svg circle.dot')]
+          .filter(c => c.__data__.quartets >= from)
+          .map(c => c.__data__.living ? c.getAttribute('stroke') : c.getAttribute('fill'))).size
+          + ' of the top 3 classes drawn'})()`));
 // The size key is drawn in BOTH non-Fame views; splitting the legend three ways is exactly how a
 // view quietly loses the half of it that did not change.
 check("the swarm still gets the readership size key", swarmKey.sizeKey);

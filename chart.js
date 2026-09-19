@@ -49,14 +49,13 @@ window.Chart = (function () {
   // does" problem the diverging ramp had, surviving the switch to a sequential one.
   const LIFE_DOMAIN = [20, 62, 104];
 
-  // The SWARM's hue is the quartet count rather than lifespan, because its y is a packing and
-  // carries nothing: the count the timeline puts UP and the Fame view puts ACROSS would otherwise
-  // be absent from that view entirely, with only the hint saying so (#94). LOG, and evenly spaced
-  // in log for the reason Y_DOMAIN is: the counts span two orders of magnitude and pile up at the
-  // bottom, so a linear ramp spends seven eighths of itself on a handful of composers. Stops
-  // FIXED, on the lesson above -- and the top one CLAMPS, which is why the key reads "25+" rather
-  // than naming a step nobody but the largest catalogue reaches.
-  const QUARTET_DOMAIN = [1, 5, 25];
+  // The SWARM's hue is the quartet count rather than lifespan: its y is a packing and carries
+  // nothing, so the count would otherwise be in no channel of that view at all (#94). CLASSED and
+  // not a gradient, because one hue carries only a handful of decodable levels however many stops
+  // anchor it -- a continuous ramp here drew distinctions no reader could collect. Bounds FIXED
+  // and each about twice the last, for the reason LIFE_DOMAIN's are; breaks computed FROM the data
+  // (Jenks) would also spend the palette on the long tail, where almost nobody is.
+  const QUARTET_CLASSES = [1, 2, 4, 7, 15, 30, 60];   // lower bounds; the last one is open
 
   // ---- the Fame view -------------------------------------------------------
   // Output ACROSS, attention UP, so readers-per-quartet is a diagonal and the distance a composer
@@ -252,7 +251,7 @@ window.Chart = (function () {
     const g = Theme.getCssColor;
     C = {
       short: g("--c-short"), mid: g("--c-mid"), long: g("--c-long"), living: g("--c-living"),
-      few: g("--c-few"), some: g("--c-some"), many: g("--c-many"),
+      q: QUARTET_CLASSES.map((_, i) => g("--c-q" + (i + 1))),
       plot: g("--plot"), grid: g("--grid"), axis: g("--axis"), line: g("--dot-line"),
       ink: g("--ink"), muted: g("--muted"), sel: g("--sel"), accent: g("--accent"),
     };
@@ -261,14 +260,9 @@ window.Chart = (function () {
       .range([C.short, C.mid, C.long])
       .interpolate(d3.interpolateLab)
       .clamp(true);
-    // LOG, which is also what makes the legend's gradient honest: three CSS stops sit at 0%, 50%
-    // and 100%, so they line up with a domain evenly spaced in log and would misreport a linear
-    // one -- the middle colour would be printed at the middle of a ramp it does not sit at.
-    quartetScale = d3.scaleLog()
-      .domain(QUARTET_DOMAIN)
-      .range([C.few, C.some, C.many])
-      .interpolate(d3.interpolateLab)
-      .clamp(true);
+    // THRESHOLD, so a class is one colour and the legend paints the same seven out of the same
+    // array: an interpolation would put dots between two swatches the key never names.
+    quartetScale = d3.scaleThreshold().domain(QUARTET_CLASSES.slice(1)).range(C.q);
   }
 
   // Living composers are NOT on the ramp, because their final lifespan does not exist yet —
@@ -1356,9 +1350,10 @@ window.Chart = (function () {
            // is invisible in the frame and therefore worth asserting at the cause.
            zoomBox: () => (svg ? zoom.extent().apply(svg.node()) : null),
            lifeDomain: () => LIFE_DOMAIN.slice(),
-           // The swarm's ramp, for the legend that names it -- the two views ramp different
-           // variables and the key has to come from the same place the dots do (invariant 8).
-           quartetDomain: () => QUARTET_DOMAIN.slice(),
+           // The swarm's classes with their colours, for the key that names them: the legend
+           // paints its segments and prints its bounds from THIS, so an edge cannot be drawn in
+           // one place and stated in another (invariant 8).
+           quartetClasses: () => QUARTET_CLASSES.map((lo, i) => ({ lo, color: (C.q || [])[i] })),
            // How many of the rings the current filter derived. Nothing on the page reads it now
            // that the legend has stopped captioning the ring; the suite asks it to tell a derived
            // set from the curated one.

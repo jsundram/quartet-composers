@@ -124,20 +124,38 @@ plain static assets. Read README.md first for what the app is.
    oversight.** The timeline keeps LIFESPAN, because the quartet count is already its y axis and a
    hue repeating it would spend the last free channel restating a fact the scale carries — the
    same refusal `layout()` makes when it declines to put readership into the Fame radius. The
-   SWARM ramps the COUNT (`QUARTET_DOMAIN` in `chart.js`, log, clamped at the top), because its x
-   is birth year, its radius is readership and its y is a beeswarm packing that carries nothing:
-   the count was in no channel of that view at all, and only the hint said so (#94). Two
-   consequences. The open circle goes on meaning LIVING in both, so the swarm rings a living
-   composer in their own count's colour rather than the timeline's flat grey — there the ring
-   stands in for a lifespan that does not exist yet, here the count does exist and is the ramp's
-   whole point. And the KEY has to name whichever variable is drawn: `renderLegend()` reads the
-   label, the stops and the ticks off the mode and the domain off `Chart`, because a key printing
-   numbers of its own could caption the right ramp with the wrong span and look entirely correct.
-   The `--c-few/--c-some/--c-many` steps are a SINGLE hue where the lifespan ramp is three — one
-   hue reads as "more" where YlGnBu reads as "different" — and the dark steps run dim-to-bright
-   rather than being the light ones flipped, because "more" has to mean more ink against the
-   surface under it. `ui.test.mjs` asserts the rise in both themes, and that the timeline did not
-   quietly follow.
+   SWARM ramps the COUNT (`QUARTET_CLASSES` in `chart.js`), because its x is birth year, its
+   radius is readership and its y is a beeswarm packing that carries nothing: the count was in no
+   channel of that view at all, and only the hint said so (#94). The open circle goes on meaning
+   LIVING in both, so the swarm rings a living composer in their own count's colour rather than
+   the timeline's flat grey — there the ring stands in for a lifespan that does not exist yet,
+   here the count does exist and is the ramp's whole point.
+   **The swarm's is CLASSED and the timeline's continuous, and that is measured rather than
+   taste.** It shipped as a continuous log ramp first, and the ramp was emitting distinctions
+   nobody could collect: most adjacent counts came out under a just-noticeable difference, so the
+   scale was precise and unreadable at the same time. One hue carries about seven decodable levels
+   HOWEVER many stops anchor it — which is why ColorBrewer's sequential schemes are classed and
+   stop at nine — so the palette is spent on seven classes that are each visibly apart. More
+   anchor stops would have bought nothing: the three-stop ramp was already even to within a
+   lightness step end to end.
+   **The bounds are FIXED and each is about twice the last, and they are not computed from the
+   data.** Jenks and its relatives were measured and rejected twice over. Once on the lesson
+   `LIFE_DOMAIN` records — a break derived from the roster moves when `refresh.py` tops it up, and
+   a composer changing colour because somebody ELSE joined the list is the bug that ramp already
+   had. And once on this distribution in particular: all the variance lives in the dozen composers
+   above forty, so minimising within-class variance spends its classes separating the two largest
+   catalogues and hands the overwhelming majority one colour — the exact end of the scale the view
+   is read at. The top class is OPEN and has to stay clear of the mid-range: a five-class version
+   put Schubert and Cambini in one bucket, a tenfold range of output in a single colour, in the
+   view whose whole point is who wrote a lot.
+   The KEY is classed too, and comes out of one array: `renderLegend()` paints a segment per class
+   and prints each class's lower bound under it from `Chart.quartetClasses()`, so an edge cannot be
+   drawn in one place and stated in another. The `--c-q1`…`--c-q7` steps are a SINGLE hue where the
+   lifespan ramp is three — one hue reads as "more" where YlGnBu reads as "different" — and the
+   dark steps run dim-to-bright rather than being the light ones flipped, because "more" has to
+   mean more ink against the surface under it. `ui.test.mjs` asserts the rise in both themes, that
+   every adjacent class clears a JND (in Lab, off the page's own d3), that the top classes stay
+   resolved, and that the timeline did not quietly follow.
    The RING also changes meaning under a filter (see below). It is no longer CAPTIONED — the key
    named the crowd it was talking about ("the outliers at either end" against "the ones that stand
    out in this group") and that sentence is gone, so the wrong-channel failure is now prevented by
