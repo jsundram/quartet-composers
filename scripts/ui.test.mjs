@@ -1077,6 +1077,48 @@ check("size-legend labels sit under their circles",
           e.getBoundingClientRect().x+e.getBoundingClientRect().width/2 -
           (t[i].getBoundingClientRect().x+t[i].getBoundingClientRect().width/2)) < 1.5)})()`));
 
+// --- 4d2. the swarm spends the height it is given ----------------------------------------------
+// The pile is as thick as the collisions demanded at k=1 and no thicker, so a box the zoom or full
+// screen had just made taller was a box it left empty — dots in a line, the hardest thing there is
+// to tap. Read off the cy's the reader gets rather than the simulation, as a FRACTION of the plot
+// because the stretch is bounded by the box, and over every circle.dot including the ones a zoom
+// pushed out of frame: which are in frame is the pan's business, not the stretch's.
+const pile = () => ev(`(()=>{const s=document.querySelector('#plot svg');
+  const h=+s.querySelector('rect.bg').getAttribute('height');
+  const ys=[...s.querySelectorAll('circle.dot')].map(c=>+c.getAttribute('cy'));
+  return {lo:Math.min(...ys)/h, hi:Math.max(...ys)/h}})()`);
+await rest(); await view("swarm");
+const swarmRest = await pile();
+// A pinch spreads the birth axis and the pile answers with a stretch of its own. Asserted as a SHARE
+// OF THE BOX rather than as a growth factor, and zoomed PAST THE POINT THE CAP BINDS: how much room
+// a viewport leaves to grow into is its aspect ratio's business, while "zoomed in, the pile fills
+// the plot" is the promise in every box. The growth is printed beside it either way.
+const swarmBox = await ev(`(()=>{const b=document.querySelector('#plot svg rect.bg').getBoundingClientRect();
+  return {x:b.x,y:b.y,w:b.width,h:b.height}})()`);
+await wheel(swarmBox.x + swarmBox.w / 2, swarmBox.y + swarmBox.h / 2, -2160);
+await settle(`Chart.zoomK() >= 2.5`);
+const swarmZoom = await pile();
+const grew = (swarmZoom.hi - swarmZoom.lo) / (swarmRest.hi - swarmRest.lo);
+check("zooming the swarm spreads the pile vertically too", swarmZoom.hi - swarmZoom.lo >= 0.9,
+      `${((swarmRest.hi - swarmRest.lo) * 100).toFixed(0)}% of the plot at rest -> `
+      + `${((swarmZoom.hi - swarmZoom.lo) * 100).toFixed(0)}% at k=${(await ev(`Chart.zoomK()`)).toFixed(1)} `
+      + `(${grew.toFixed(2)}x), against a 90% floor`);
+// ...and no further, which is the whole reason it is capped: nothing pans the swarm vertically, so a
+// dot stretched over the edge is one no gesture gets back.
+check("and no further than the box", swarmZoom.lo >= 0 && swarmZoom.hi <= 1,
+      `pile spans ${(swarmZoom.lo * 100).toFixed(0)}%-${(swarmZoom.hi * 100).toFixed(0)}% of the plot`);
+// FULL SCREEN is the same failure with no gesture in it: twice the height, the same thick pile.
+await rest(); await view("swarm");
+await ev(`document.getElementById('fs').click()`);
+await relaid();
+const swarmFull = await pile();
+check("the full-screen swarm fills the taller panel, and stays inside it",
+      swarmFull.hi - swarmFull.lo >= 0.55 && swarmFull.lo >= 0 && swarmFull.hi <= 1,
+      `pile spans ${(swarmFull.lo * 100).toFixed(0)}%-${(swarmFull.hi * 100).toFixed(0)}% of the plot, `
+      + `${((swarmFull.hi - swarmFull.lo) * 100).toFixed(0)}% of it against a 55% floor`);
+await shot("swarm-full");
+await rest();
+
 // --- 4e. the Fame view: the one that makes the page's argument ------------------------------
 await goto(BASE);
 check("the Fame view is what a bare URL opens on",
