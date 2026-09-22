@@ -87,6 +87,7 @@ window.Chart = (function () {
   let x0, y0, qx, vy, rScale, colorScale, C = {};
   let transform = d3.zoomIdentity, zoom;
   let swarmY = null, swarmKey = "";      // memo: the sim is expensive, size/radius are its inputs
+  let swarmMid = 0, swarmSpan = 0;       // the solved pile's band, which stretchSwarm() scales to
   let lens = null;                       // {x,y} focus in plot coords, or null
   let lensOn = false;                    // the magnifier toggle; orthogonal to `mode`
   let pos = [], idx = [], delaunay = null;
@@ -328,9 +329,9 @@ window.Chart = (function () {
     const box = el.getBoundingClientRect();
     const full = document.body.classList.contains("fs");
     const cw = Math.max(240, Math.round(box.width));
-    // The swarm needs only the height its collisions demand, so the scatter's ratio leaves a third of the
-    // panel empty around the blob; a portrait phone gets a TALLER scatter, because the laptop ratio
-    // squeezes the cloud into ~200px and the log bands merge into stripes.
+    // The swarm is naturally wide and the scatter's ratio spends height it has no axis for — what it
+    // is given, stretchSwarm() fills. A portrait phone gets a TALLER scatter, because the laptop
+    // ratio squeezes the cloud into ~200px and the log bands merge into stripes.
     const narrow = cw < 560;
     // Fame is a square-ish cloud over five decades of y and two of x, so it wants a taller box than
     // the timeline, which is naturally wide.
@@ -382,8 +383,30 @@ window.Chart = (function () {
       .tick(220);
     swarmY = new Float64Array(rows.length);
     const pad = 4;
-    nodes.forEach(n => { swarmY[n.d.i] = Math.max(pad, Math.min(h - pad, n.y)); });
+    let lo = Infinity, hi = -Infinity;
+    nodes.forEach(n => {
+      const y = Math.max(pad, Math.min(h - pad, n.y));
+      swarmY[n.d.i] = y; lo = Math.min(lo, y); hi = Math.max(hi, y);
+    });
+    // The pile's own band, not the box's: the y force settles it near the middle, not exactly on it.
+    swarmMid = (lo + hi) / 2; swarmSpan = hi - lo;
     swarmKey = key;
+  }
+
+  // THE PILE IS PACKING AND NOTHING ELSE, which is what makes its y free to stretch: the collisions
+  // are solved once at k=1 and it stays that thick in whatever box it is handed. Scaling about its
+  // own midpoint leaves x alone, so it can only ADD distance — it cannot undo that pass.
+  //
+  // BOUNDED BY THE BOX and not by k, because nothing pans the swarm vertically (computeResting holds
+  // its y translate at 0): a dot stretched past the edge is one no gesture gets back. That ceiling is
+  // what filling the FRAME instead would cost — what is in frame changes as you pan, and dots that
+  // swim under a drag are worse than flat ones. Resting short of it leaves the zoom somewhere to go,
+  // and √k spends that room over several doublings rather than on the first one.
+  const REST_FILL = 0.75, MAX_FILL = 0.94;
+  function stretchSwarm() {
+    if (!(swarmSpan > 0)) return 1;
+    const fill = f => Math.max(1, f * h / swarmSpan);   // never below 1: a squeeze is an overlap
+    return Math.min(fill(REST_FILL) * Math.sqrt(transform.k), fill(MAX_FILL));
   }
 
   // Circular fisheye — Mike Bostock's d3-plugins/fisheye, inlined (the plugin is d3 v3-only).
@@ -440,7 +463,9 @@ window.Chart = (function () {
       }
     } else if (mode === "swarm") {
       ensureSwarm();
-      for (const d of rows) out[d.i] = { x: tx(d.birth + d.jx), y: swarmY[d.i], r: rScale(d.views) };
+      const s = stretchSwarm();
+      for (const d of rows)
+        out[d.i] = { x: tx(d.birth + d.jx), y: h / 2 + (swarmY[d.i] - swarmMid) * s, r: rScale(d.views) };
     } else {
       const ty = transform.rescaleY(y0);
       for (const d of rows) out[d.i] = { x: tx(d.birth + d.jx), y: ty((d.quartets || 1) * d.jy), r: rScale(d.views) };
@@ -630,8 +655,9 @@ window.Chart = (function () {
     // Pad by the largest dot so the discs at the edge are whole, plus a little air for a label.
     const pad = rMaxSeen + 10;
     const fit = (span, px) => (span > 0 ? (px - pad * 2) / span : Infinity);
-    // The swarm's y is NOT under the zoom — its collisions are solved once at k=1 and only x is
-    // rescaled (see ensureSwarm), so fitting it vertically computes a scale the dots then ignore.
+    // The swarm's y is NOT under the transform — only x is rescaled, and the pile answers the zoom
+    // with a stretch of its own — so a y fit computes a scale the dots ignore, and a y translate
+    // would slide a picture that already fits the box off it.
     const k = Math.max(1, Math.min(24, mode === "swarm" ? fit(x2 - x1, w)
                                      : Math.min(fit(x2 - x1, w), fit(y2 - y1, h))));
     // Centre the box, then hold the frame inside the data the way translateExtent does for a drag:
@@ -761,7 +787,7 @@ window.Chart = (function () {
     // axes ---------------------------------------------------------------
     const fame = mode === "fame";
     const tx = fame ? transform.rescaleX(qx) : transform.rescaleX(x0);
-    // The swarm's y is not under the zoom and draws no ticks at all (see below), so it does not
+    // The swarm's y is not under the transform and draws no ticks at all (see below), so it does not
     // need a case here — the one that used to sit here was the lens, whose base picture was
     // unzoomable by construction and is now the timeline's, transform and all.
     const ty = fame ? transform.rescaleY(vy) : transform.rescaleY(y0);
