@@ -474,13 +474,33 @@ function renderLegend() {
     return;
   }
 
-  const life = document.createElement("div");
-  life.innerHTML =
-    `<span class="lab">Lifespan</span>` +
-    `<div class="ramp" style="background:linear-gradient(90deg,${g("--c-short")},${g("--c-mid")},${g("--c-long")})"></div>` +
-    `<div class="ticks"><span>${Chart.lifeDomain()[0]} yrs</span>` +
-    `<span>${Chart.lifeDomain()[2]} yrs</span></div>`;
-  el.appendChild(life);
+  // The other two views both draw a ramp, and it is not the same ramp: lifespan in the timeline,
+  // where the quartet count is already the y axis, and the count itself in the swarm, where the y
+  // is a packing and nothing else says it (#94). They are not the same SHAPE either — the swarm's
+  // is classed and the timeline's continuous — so this branches rather than parameterising. A key
+  // naming the wrong one is invariant 8's wrong-channel failure with the words still on screen to
+  // make it convincing, which is why both read their numbers off Chart and print none of their own.
+  const ramp = document.createElement("div");
+  if (Chart.getMode() === "swarm") {
+    // Segments and bounds out of ONE array, so a class cannot be painted at one edge and labelled
+    // at another. Each segment is captioned by where it STARTS — the classes are too narrow on
+    // screen for "15–29", and a bound under its own segment reads as the axis it is.
+    const cls = Chart.quartetClasses();
+    ramp.innerHTML =
+      `<span class="lab">Quartets written</span>` +
+      `<div class="ramp steps" style="--n:${cls.length}">`
+        + cls.map(c => `<i style="background:${c.color}"></i>`).join("") + `</div>` +
+      `<div class="ticks steps" style="--n:${cls.length}">`
+        + cls.map((c, i) => `<span>${c.lo}${i === cls.length - 1 ? "+" : ""}</span>`).join("")
+        + `</div>`;
+  } else {
+    const dom = Chart.lifeDomain();
+    ramp.innerHTML =
+      `<span class="lab">Lifespan</span>` +
+      `<div class="ramp" style="background:linear-gradient(90deg,${g("--c-short")},${g("--c-mid")},${g("--c-long")})"></div>` +
+      `<div class="ticks"><span>${dom[0]} yrs</span><span>${dom[2]} yrs</span></div>`;
+  }
+  el.appendChild(ramp);
 
   // Size key. Circle AND label are laid out together in one SVG, each pair centred in a cell as
   // wide as the WIDER of the two. The old version stepped from circle to circle and then spread

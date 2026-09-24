@@ -29,6 +29,14 @@ window.Chart = (function () {
   // changed colour when somebody else joined the list.
   const LIFE_DOMAIN = [20, 62, 104];
 
+  // The SWARM's hue is the quartet count rather than lifespan: its y is a packing and carries
+  // nothing, so the count would otherwise be in no channel of that view at all (#94). CLASSED and
+  // not a gradient, because one hue carries only a handful of decodable levels however many stops
+  // anchor it -- a continuous ramp here drew distinctions no reader could collect. Bounds FIXED
+  // and each about twice the last, for the reason LIFE_DOMAIN's are; breaks computed FROM the data
+  // (Jenks) would also spend the palette on the long tail, where almost nobody is.
+  const QUARTET_CLASSES = [1, 2, 4, 7, 15, 30, 60];   // lower bounds; the last one is open
+
   // ---- the Fame view -------------------------------------------------------
   // Output ACROSS, attention UP, so readers-per-quartet is a diagonal and the distance above one is
   // the argument. The other views ask "when, and how much"; this one asks "and did it land".
@@ -84,7 +92,7 @@ window.Chart = (function () {
   // here: the breakpoint belongs to the code doing the drawing, and a second copy would leave this file
   // reserving space for a control that had moved away. It has survived one move of it with no edit.
   let topReserve = 0;
-  let x0, y0, qx, vy, rScale, colorScale, C = {};
+  let x0, y0, qx, vy, rScale, colorScale, quartetScale, C = {};
   let transform = d3.zoomIdentity, zoom;
   let swarmY = null, swarmKey = "";      // memo: the sim is expensive, size/radius are its inputs
   let swarmMid = 0, swarmSpan = 0;       // the solved pile's band, which stretchSwarm() scales to
@@ -176,6 +184,7 @@ window.Chart = (function () {
     const g = Theme.getCssColor;
     C = {
       short: g("--c-short"), mid: g("--c-mid"), long: g("--c-long"), living: g("--c-living"),
+      q: QUARTET_CLASSES.map((_, i) => g("--c-q" + (i + 1))),
       plot: g("--plot"), grid: g("--grid"), axis: g("--axis"), line: g("--dot-line"),
       ink: g("--ink"), muted: g("--muted"), sel: g("--sel"), accent: g("--accent"),
     };
@@ -184,6 +193,9 @@ window.Chart = (function () {
       .range([C.short, C.mid, C.long])
       .interpolate(d3.interpolateLab)
       .clamp(true);
+    // THRESHOLD, so a class is one colour and the legend paints the same seven out of the same
+    // array: an interpolation would put dots between two swatches the key never names.
+    quartetScale = d3.scaleThreshold().domain(QUARTET_CLASSES.slice(1)).range(C.q);
   }
 
   // Living composers are NOT on the ramp: their final lifespan does not exist yet, and colouring a
@@ -192,12 +204,18 @@ window.Chart = (function () {
   // The Fame view spends colour on the ARGUMENT instead of on lifespan: the repertoire filled in the
   // selection orange, the outliers ringed in the accent, the rest one recessive grey. Emphasis, not
   // hues — the point of the view is a handful of names against a field.
+  // The other two ramp DIFFERENT variables: lifespan in the timeline, where the count is already the
+  // y axis; the count in the swarm, where nothing else carries it at all (invariant 8).
+  const hueOf = d => (mode === "swarm" ? quartetScale(d.quartets) : colorScale(d.lifespan));
   function fillOf(d) {
-    if (mode !== "fame") return d.living ? C.plot : colorScale(d.lifespan);
+    if (mode !== "fame") return d.living ? C.plot : hueOf(d);
     return isCanon(d.i) ? C.sel : named(d.i) ? "none" : C.muted;
   }
+  // The open circle goes on meaning LIVING in both, so the swarm rings a living composer in their
+  // own count's colour rather than the timeline's flat grey: there the ring stands in for a
+  // lifespan that does not exist yet, here the count exists and is the ramp's whole point.
   function strokeOf(d) {
-    if (mode !== "fame") return d.living ? C.living : C.line;
+    if (mode !== "fame") return d.living ? (mode === "swarm" ? hueOf(d) : C.living) : C.line;
     return isCanon(d.i) ? C.plot : named(d.i) ? C.accent : "none";
   }
   function widthOf(d) {
@@ -229,6 +247,10 @@ window.Chart = (function () {
   // recessive grey they are on the chart.
   function colorOf(d) {
     if (mode === "fame") return isCanon(d.i) ? C.sel : named(d.i) ? C.accent : C.muted;
+    // Called for EVERY row, including the ones with no stated count, which the chart cannot place
+    // (invariant 10) -- so there is no dot for the chip to be recognisably the same thing as, and
+    // inventing a step on the ramp for them would file them under a number nothing states.
+    if (mode === "swarm") return d.quartets == null ? C.muted : quartetScale(d.quartets);
     return d.living ? C.living : colorScale(d.lifespan);
   }
 
@@ -925,7 +947,8 @@ window.Chart = (function () {
     const n = (visible ? visible.size : rows.length);
     const axes = mode === "fame"
       ? "by number of quartets written and monthly English Wikipedia readers"
-      : mode === "swarm" ? "by birth year, spread apart so none overlap"
+      : mode === "swarm" ? "by birth year, spread apart so none overlap, "
+                         + "coloured by number of quartets written"
       : "by birth year and number of quartets written";
     return `Scatter plot of ${n} string quartet composers ${axes}. `
          + `The table below the chart carries the same data in a readable form.`;
@@ -1157,6 +1180,9 @@ window.Chart = (function () {
            // is invisible in the frame and therefore worth asserting at the cause.
            zoomBox: () => (svg ? zoom.extent().apply(svg.node()) : null),
            lifeDomain: () => LIFE_DOMAIN.slice(),
+           // The swarm's classes with their colours: the legend paints its segments and prints its
+           // bounds from THIS, so an edge cannot be drawn in one place and stated in another.
+           quartetClasses: () => QUARTET_CLASSES.map((lo, i) => ({ lo, color: (C.q || [])[i] })),
            // How many rings the current filter derived — for the suite, to tell a derived set from the
            // curated one.
            derivedRings: () => ringIdx.length,

@@ -94,6 +94,31 @@ repo. The prose inside the code answers to a ratio instead — `scripts/volume.p
    changes and the key stops captioning it — the wrong-channel failure prevented by having no words
    to get wrong rather than by keeping two of them correct.
 
+   **The two non-Fame views ramp DIFFERENT variables, and that is the point.** The timeline keeps
+   LIFESPAN, because the count is already its y axis and a hue repeating it would spend the last
+   free channel restating what the scale says — the same refusal `layout()` makes when it declines
+   to put readership into the Fame radius. The SWARM ramps the COUNT (`QUARTET_CLASSES` in
+   `chart.js`): its x is birth year, its radius is readership and its y is a packing that carries
+   nothing, so the count was in no channel of that view at all and only the hint said so (#94). The
+   open circle goes on meaning LIVING in both, so the swarm rings a living composer in their own
+   count's colour rather than the timeline's flat grey.
+
+   **The swarm's ramp is CLASSED and the timeline's continuous, which is measured rather than
+   taste.** It shipped continuous and was precise and unreadable at once: most adjacent counts came
+   out under a just-noticeable difference. One hue carries about seven decodable levels however many
+   stops anchor it, which is why ColorBrewer's sequential schemes are classed and stop at nine. The
+   bounds are FIXED and not computed from the data — Jenks was rejected twice, once on `LIFE_DOMAIN`'s
+   own lesson that a break derived from the roster repaints a composer when somebody ELSE joins the
+   list, and once on this distribution, where all the variance sits in the dozen composers above
+   forty, so minimising within-class variance spends its classes on the tail and hands the majority
+   one colour. The top class is OPEN and has to stay clear of the mid-range: a five-class version put
+   Schubert and Cambini in one bucket, a tenfold range of output in one colour, in the view whose
+   point is who wrote a lot. The KEY is painted and captioned out of one array
+   (`Chart.quartetClasses()`), so an edge cannot be drawn in one place and stated in another, and the
+   `--c-q*` steps are a SINGLE hue running dim-to-bright in dark mode — "more" has to mean more ink.
+   `ui.test.mjs` asserts the rise in both themes, that adjacent classes clear a JND in Lab, that the
+   top classes stay resolved, and that the timeline did not quietly follow.
+
 9. **Readership is a measure, not a tally — round it everywhere except the table.** It is the median
    of `STAT_MONTHS` monthly page-view counts, and at most that: nulls are dropped. Not however many
    months `data/pageviews.json` happens to cache. Widening that window would resize every dot and
