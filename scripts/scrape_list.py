@@ -19,39 +19,36 @@ THE PAGE IS PROSE, NOT A TABLE. Each entry looks like:
 
     *[[Joseph Haydn]] (1732-1809): Wrote [[...|sixty-eight string quartets]] (some of which ...
 
-so the count has to be read out of a sentence, and the sentence is written by whoever last edited
-it. Seven rules cover 791 of 885 entries; the rest return null rather than a guess, because a wrong
-count is worse than a missing one — it lands on the chart as a confident dot, while a null lands in
-the table and is honest.
+so the count has to be read out of a sentence written by whoever last edited it. A handful of rules
+cover most entries; the rest return null rather than a guess, because a wrong count is worse than a
+missing one — it lands on the chart as a confident dot, while a null lands in the table and is
+honest.
 
 VALIDATION, measured two ways, because the obvious one is misleading:
 
   1. AGAINST A HAND-AUDIT OF 30 RANDOM ENTRIES (the real measure — accuracy against the page):
-     25 exactly right, 4 correctly null (the entry never states or implies a number), 1 arguable
-     (Czerny's "at least 20 and as many as 40" is read as 40). Rerun it any time:
+     25 exactly right, 4 correctly null (the entry never states or implies a number), 1 arguable.
+     Rerun it any time:
          python3 scripts/audit_counts.py
 
   2. AGAINST THE 2014 SCRAPE — useful for row matching, MISLEADING for counts. Birth year agrees
-     98.2% on the 448 composers in both, which is the check worth having: it proves rows are being
-     matched to the same human independent of anything the count parser does. Quartet counts agree
-     only ~74%, but that is mostly twelve years of editing rather than parser error — Wanhal went
-     from 53 to "Over seventy string quartets", Ellerton from 20 to "Some 100". Reproducing 2014
-     is NOT the goal; the page today is the source of truth. See scripts/compare_2014.py.
+     98.2% on the composers in both, which proves rows are matched to the same human independent of
+     anything the count parser does. Counts agree far less often, but that is mostly twelve years of
+     editing rather than parser error. Reproducing 2014 is NOT the goal; the page today is the
+     source of truth. See scripts/compare_2014.py.
 
 KNOWN LIMITATIONS, in the order they cost accuracy:
-  - The parser reads quantities, not meaning. Paganini's entry says "Fifteen string quartets for
-    violin, viola, guitar and cello, as well as three traditional string quartets" — the fifteen
-    are guitar quartets and the honest count is three. Those need a human: see OVERRIDE.
-  - A range ("at least 20 and as many as 40") yields the number the regex reaches first, not a
-    considered choice between the bounds.
-  - An entry that enumerates works without ever using the word "quartet" ("VSTO (1993).") returns
-    null. Counting its dated titles would usually be right, but the same rule would also count
-    "(1907-1949)" as a work, so it stays off.
+  - The parser reads quantities, not meaning: an entry naming quartets for another scoring and then
+    "three traditional string quartets" gives the wrong number honestly. Those need a human: see
+    OVERRIDE.
+  - A range yields the number the regex reaches first, not a considered choice between the bounds.
+  - An entry that enumerates works without ever using the word "quartet" returns null. Counting its
+    dated titles would usually be right, but the same rule would count a lifespan as a work.
 
 NOT WORTH TRYING: Wikidata as a structured replacement. Beethoven's quartets are modelled as plain
 "musical work/composition" with no genre linking them to the string quartet, so they are findable
-only by their English label — as heuristic as this, with far worse coverage for obscure composers.
-A SPARQL count of P31/P136 = string quartet returns four composers for the entire corpus.
+only by their English label — as heuristic as this, with far worse coverage. A SPARQL count of
+P31/P136 = string quartet returns four composers for the entire corpus.
 """
 import argparse
 import json

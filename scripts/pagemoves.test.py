@@ -8,15 +8,15 @@
     python3 scripts/pagemoves.test.py
 
 NO NETWORK: `step`, `tenures`, `confirm` and `stitch` are pure, and `find_moves`'s walk is tested
-with its two requests stubbed. So the whole file runs in CI beside the other three suites.
+with its two requests stubbed.
 
 WHY IT EXISTS SEPARATELY from fetch_views.test.py, which covers the same feature end to end: every
 defect this module has had is one the pipeline CANNOT show you. A dropped middle hop double-counts
 one month; a mis-ordered guard throws away a complete chain; a reverted move looks exactly like a
-permanent one in the log. None of them crashes, none of them changes a number by an order of
-magnitude, and the shipped data happens to miss all three — which is why they survived review-by-
-reading and needed a case each. Every case below is a fact about the rule, stated in ten lines,
-that goes red if the rule is undone.
+permanent one in the log. None of them crashes, none moves a number by an order of magnitude, and
+the shipped data happens to miss all three — which is why they survived review-by-reading and
+needed a case each.
+
 """
 import os
 import sys

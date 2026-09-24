@@ -7,15 +7,16 @@
     python3 scripts/compare_2014.py            # summary
     python3 scripts/compare_2014.py --full     # every changed row
 
-This is a review tool, not part of the build. It exists because the 2014 snapshot is the only
-independent check on a pipeline that now reads prose off a wiki page: a big move is either a
-genuine twelve-year change or a parser mistake, and the two look identical in the output.
+A review tool, not part of the build. The 2014 snapshot is the only independent check on a pipeline
+that reads prose off a wiki page: a big move is either a genuine twelve-year change or a parser
+mistake, and the two look identical in the output.
 
-READ THE VIEW COLUMN WITH CARE — IT IS NOT A TREND. The pageviews API has no per-article data
-before 2015-07, so the 2014 numbers came from a different measurement system entirely (the
-pre-2015 dumps). They are archived for provenance and for exactly this kind of spot-check; they
-are not plotted, and "down 30% since 2014" is not a claim this data can support. Quartet counts
-and dates ARE comparable, because both are read from the same wiki page twelve years apart.
+READ THE VIEW COLUMN WITH CARE — IT IS NOT A TREND. The API has no per-article data before 2015-07,
+so the 2014 numbers came from a different measurement system entirely. Archived for provenance and
+for this kind of spot-check; never plotted, and "down 30% since 2014" is not a claim this data can
+support. Quartet counts and dates ARE comparable, being read from the same page twelve years apart.
+
+
 """
 import argparse
 import json

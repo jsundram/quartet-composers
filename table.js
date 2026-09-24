@@ -1,26 +1,21 @@
 // The data table. The chart answers "what does the field look like"; this answers "what exactly
 // am I looking at" — and it is the accessible, printable, Ctrl-F-able copy of the same rows.
 //
-// It is not a second view bolted on: selection is shared both ways (click a row, the dot rings;
-// click a dot, the row highlights and scrolls into view) and the search box filters BOTH — matches
-// stay opaque in the chart, everything else drops to 12%.
+// Not a second view bolted on: selection is shared both ways and the search box filters BOTH.
 //
-// No virtualization on purpose. ~880 rows is ~5,000 DOM nodes, which builds in a few milliseconds
-// and — the part that matters — keeps the browser's own find-in-page working, which a windowed
-// list silently breaks.
+// No virtualization on purpose: the whole roster builds in a few milliseconds, and — the part that
+// matters — a windowed list silently breaks the browser's own find-in-page.
 
 window.Table = (function () {
-  // `phone: false` marks a column that is HIDDEN on a narrow screen (styles.css does the hiding
-  // via the class). Six columns do not fit 390px: the composer name wraps to three lines and
-  // Quartets — the one the chart is about — scrolls off the right edge. Died and Lived are the
-  // two to lose, because both are one tap away in the detail panel and neither is why you came.
+  // `phone: false` marks a column HIDDEN on a narrow screen (styles.css does the hiding via the
+  // class). Six do not fit a phone: the name wraps to three lines and Quartets — the one the chart
+  // is about — scrolls off the right edge. Died and Lived are the two to lose, both being one tap
+  // away in the detail panel and neither being why you came.
   //
-  // `short` is the phone HEADER, and it is the column's width that asks for it, not its meaning:
-  // a header word sets the column when it is wider than any value under it, and "Quartets" over
-  // three digits was buying ~30px it never used. That is most of the phone table's overflow —
-  // in a wide UI face (DejaVu, which is what system-ui resolves to on Linux) the four columns
-  // did not fit 390px at all, and in no measured face did they fit 360. styles.css swaps which
-  // span is drawn; the accessible name keeps both, for the reason below.
+  // `short` is the phone HEADER, asked for by the column's WIDTH and not its meaning: a header word
+  // sets the column when it is wider than any value under it, and "Quartets" over three digits was
+  // buying width it never used. styles.css swaps which span is drawn; the accessible name keeps
+  // both, for the reason below.
   const COLS = [
     { key: "name",     label: "Composer",  num: false, phone: true },
     { key: "birth",    label: "Born",      num: true,  phone: true },
@@ -29,8 +24,8 @@ window.Table = (function () {
     { key: "quartets", label: "Quartets",  num: true,  phone: true, short: "Qts" },
     { key: "views",    label: "Views",     num: true,  phone: true },
     // What IMSLP HOLDS, beside what the composer WROTE — two different questions, and the reader
-    // is expected to go and look when they disagree (Haydn: 76 here against 68 written). `phone`
-    // is false because the four columns that are already there did not fit 360px in every face
+    // is expected to go and look when they disagree, which for the big catalogues they routinely
+    // do. `phone` is false because the four columns already there did not fit 360px in every face
     // until #53 bought the width back, and a fifth would spend it again.
     { key: "imslp",    label: "On IMSLP",  num: true,  phone: false },
   ];
@@ -47,21 +42,17 @@ window.Table = (function () {
 
   // NFD-strip so a search for "Dvořák" finds the ASCII-scraped "Antonin Dvorak" (and vice versa).
   //
-  // NFD alone is not enough. It splits a letter into base + combining accent, which handles á é ö
-  // — but ł, ø, đ, ß, æ and œ are single codepoints with NO decomposition, so they survive the
-  // strip untouched and "lutoslawski" fails to find "Lutosławski". That is not hypothetical here:
-  // names are canonical Wikipedia titles, so 58 of them carry exactly those characters. Map them
-  // by hand first, then NFD the rest.
+  // NFD alone is not enough: it splits a letter into base + combining accent, which handles á é ö, but
+  // ł, ø and the rest below are single codepoints with NO decomposition, so they survive the strip and
+  // "lutoslawski" fails to find "Lutosławski". Hand map FIRST, then NFD the rest. Not every entry has
+  // a name in today's roster — the map is the rule for the scrape, not a census of it (invariant 13).
   const FOLD = { "ł": "l", "ø": "o", "đ": "d", "ð": "d", "þ": "th", "ß": "ss", "æ": "ae", "œ": "oe", "ı": "i" };
   const norm = s => s.toLowerCase().replace(/[łøđðþßæœı]/g, c => FOLD[c])
                      .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
   // ---- display names --------------------------------------------------------
-  // The table shows the SURNAME, and "Surname, Forename" only where a surname is shared, so that
-  // sorting by name sorts the way a reader expects and the composer column stops being the widest
-  // thing on a phone. names.js owns the rule -- the chart labels shorten the same 884 names by the
-  // same judgment, and the two must not drift apart about who needs a forename. The detail panel
-  // keeps the full title, where recognising the person is the whole job.
+  // names.js owns the rule, and serves the chart from the same map, so the two cannot drift apart
+  // about who needs a forename.
 
   function setData(r) {
     rows = r;
@@ -89,13 +80,9 @@ window.Table = (function () {
       const b = document.createElement("button");
       b.type = "button";
       if (c.short) {
-        // Two spans rather than one swapped string, and the DRAWN one comes first and stays in the
-        // accessibility tree: WCAG 2.5.3 asks the accessible name to contain the visible label, and
-        // "Qts" is not inside "Quartets". Hiding the abbreviation from the tree — the first thing
-        // tried here — reads fine to a screen reader and breaks SPEECH INPUT, where a reader who
-        // can see "Qts" says "click Qts" and voice control matches against a name that does not
-        // contain it. So the name is the visible label plus the word it stands for, in that order,
-        // and on a wide screen the abbreviation is display:none and drops out of the name entirely.
+        // Two spans rather than one swapped string, and the DRAWN one FIRST so it leads the accessible
+        // name (WCAG 2.5.3, which CLAUDE.md argues). On a wide screen the abbreviation is display:none
+        // and drops out of the name entirely, which is why neither span may become an aria-label.
         const abbr = document.createElement("span");
         abbr.className = "th-short";
         abbr.textContent = c.short;
@@ -178,8 +165,7 @@ window.Table = (function () {
       chip.style.boxShadow = d.living ? "inset 0 0 0 1.4px " + Chart.colorOf(d) : "none";
       c0.appendChild(chip);
       c0.appendChild(document.createTextNode(d.display));
-      // The full canonical title stays reachable: a tooltip on the cell, and the detail panel and
-      // the chart label both still print it in full.
+      // The canonical title stays reachable as the cell's tooltip.
       c0.title = d.name;
       tr.appendChild(c0);
 
@@ -213,10 +199,9 @@ window.Table = (function () {
   // them at all — and the two are deliberately not distinguished in the DIGIT (see the detail
   // panel, which does distinguish them in words).
   //
-  // A link whose text is "18" has the accessible name "18", which tells a screen-reader user
-  // nothing about where it goes; there are 884 of them on this page. The label restates the
-  // visible digit FIRST, because WCAG 2.5.3 asks the name to contain the drawn label — a voice
-  // user says "click 18".
+  // A link whose text is a bare number has that number as its accessible name, which tells a
+  // screen-reader user nothing about where it goes. The label restates the visible digit FIRST,
+  // because WCAG 2.5.3 asks the name to contain the drawn label: a voice user says "click 18".
   function imslpCell(d) {
     const td = document.createElement("td");
     td.className = "num c-imslp wide-only";
@@ -253,10 +238,9 @@ window.Table = (function () {
     // Only when the selection came from the CHART. Scrolling the table under a user who just
     // clicked a row in it yanks the thing they are reading out from under their finger.
     if (!scroll) return;
-    // Deliberately NOT scrollIntoView: even with block:"nearest" it walks up and scrolls every
-    // ancestor, so picking a dot yanked the whole DOCUMENT down and pushed the chart you just
-    // clicked off the screen. Scroll only the table's own overflow box. (.scroll is
-    // position:relative in styles.css so offsetTop is measured against it.)
+    // Deliberately NOT scrollIntoView: even with block:"nearest" it walks up and scrolls every ancestor,
+    // so picking a dot pushed the chart you just clicked off the screen. Only the table's own overflow
+    // box. (.scroll is position:relative in styles.css, so offsetTop is measured against it.)
     const box = tbodyEl.closest(".scroll");
     if (!box) return;
     const want = tr.offsetTop - (box.clientHeight - tr.offsetHeight) / 2;

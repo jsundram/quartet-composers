@@ -10,27 +10,19 @@
     python3 scripts/validate.py --root DIR --baseline FILE    # validate a copy (used by the tests)
 
 WHY THIS EXISTS, SPECIFICALLY. Every serious bug this dataset has had was a DATA bug, and not one
-was caught by a test — they were caught by a human noticing a number looked wrong, twice only after
-it was already live:
+was caught by a test — a human noticed a number looked wrong, twice only after it was already live.
+A redirect answering the pageviews API with its own tiny count (invariant 5); a bare "John Adams"
+resolving to the second President of the United States and outranking Beethoven on a chart about
+string quartets; a deprecated Wikidata claim reporting a living composer as dead (invariant 6); a
+"living" flag derived from the page-view month, which a refresh into a new year would have turned
+into a mass reclassification; an article that had MOVED, so a decade of history was counted under a
+title that was by then a redirect (invariant 15).
 
-  - "Bela Bartok" is a redirect, and the pageviews API answers per title, so it returned 41 views
-    instead of Béla Bartók's 14,330. Status 200, no error, and the chart drew a famous composer as
-    a dot nobody reads.
-  - A bare "John Adams" resolves correctly and unambiguously to the second President of the United
-    States. His 144,948 monthly views put him above Beethoven on a chart about string quartets.
-  - Wikidata marks known-wrong values `deprecated` rather than deleting them; reading claims
-    without checking rank reported Tania León — alive, Pulitzer 2021 — as dead since 1996.
-  - The "living" flag was derived from the page-view month, so refreshing views to a new year would
-    have silently reclassified every living composer as dead.
-  - Fanny Hensel's article was at "Fanny Mendelssohn" until March 2026, so ten years of her history
-    was counted under a title that was, at the time, a redirect. Her shipped median of 500 was not
-    a readership at all — it was the midpoint of a series half of which measured the wrong string —
-    and the app then captioned the rename as an obituary spike, because that is what it looks like.
-
-Every one produced PLAUSIBLE-LOOKING output. That is the whole problem: unit tests do not help,
+Every one produced PLAUSIBLE-LOOKING output. That is the whole problem: unit tests do not help and
 code review does not help, and the only thing that reliably catches them is comparing the numbers
 against something. So this compares them against three things — the schema, the other cached files,
 and the previous commit — and fails the build rather than waiting for someone to notice.
+validate.test.py holds one case per incident above and goes red if a check here is weakened.
 
 Wired into .githooks/pre-commit (warn-only, so it nags) and CI (real exit code).
 """
@@ -57,14 +49,26 @@ ERRORS, WARNINGS = [], []
 # actual failure — an unlabelled value reaching the app — trips the gate.
 GENDER_QID = re.compile(r"^Q\d+$")
 
-# The values the UI can actually FILTER — the pills in index.html and the whitelist app.js accepts
-# from the URL. fetch_wikidata.py's GENDERS map is deliberately larger than this (it labels eight
-# P21 items), so the two vocabularies can drift apart, and a label that no pill can reach is a
-# person the app cannot show and the footnote miscounts: they are in neither filter, while the
+# The values the UI can actually FILTER — the pills in index.html, which is also where app.js
+# reads the whitelist it accepts from the URL. fetch_wikidata.py's GENDERS map is deliberately
+# larger than this, so the two vocabularies can drift apart, and a label that no pill can reach is
+# a person the app cannot show and the footnote miscounts: they are in neither filter, while the
 # provenance line only ever counts the composers with NO claim. Nothing else fails when that
 # happens, which is why it fails here — the same job Chart.missingNames() does for the canon.
-# Widening this means adding a pill in index.html AND the value to app.js's readHash whitelist.
+# Widening this means adding a pill in index.html and the value here.
 FILTERABLE = ("female", "male")
+
+# THE STATISTIC WINDOW. Readership is the median of the last TWELVE monthly counts, and nothing else
+# here can see that change: `STAT_MONTHS = 12` -> `18` in build_data.py rebuilds cleanly, both
+# shipped files stay internally consistent, check_history still agrees with itself, check_drift's
+# threshold is for wrong-article joins — and every dot on the chart moves, because a wider window
+# averages a 2016 readership into a 2026 picture. Three artifacts state the window and all three
+# have to agree with this number: composers.json's `views_months` axis, readership.json's
+# `stat_months`, and the `views_stat` PROSE the provenance line prints to a reader.
+#
+# Typed here rather than imported from build_data.py on purpose: a check that reads its expectation
+# out of the code under test can only ever agree with itself.
+STAT_WINDOW = 12
 
 
 def err(msg):
@@ -161,7 +165,7 @@ def check_structure(cur):
                     % (name, gender))
             elif gender not in FILTERABLE:
                 err("%s: gender %r is a value the UI cannot filter — add a pill for it in "
-                    "index.html and the value to app.js's readHash whitelist, or the row is in "
+                    "index.html, which app.js reads its URL whitelist off, or the row is in "
                     "NEITHER filter while the footnote still counts only the composers with no "
                     "claim at all" % (name, gender))
         # THREE STATES IN TWO FIELDS, and the pair has to stay legible: `imslp_cat` null means we
@@ -235,10 +239,11 @@ def check_sources(rows, meta, people, pv, listing):
                 len(ragged), len(months), ", ".join(ragged[:3])))
         return
     # Completeness is measured over the STATISTIC's window, not the whole cache. The cache reaches
-    # back to 2015-07 now and an article created in 2019 legitimately has nothing before it, so
-    # judging that as a gap would fire this on a third of the roster forever. What has to be
-    # complete is the twelve months every dot's size is computed from — and "complete" means a
-    # value, not a slot: a null is a recorded absence, which is exactly what it must not be here.
+    # back to the start of the API's per-article data, and an article created years after that
+    # legitimately has nothing before it, so judging that as a gap would fire on every young
+    # article forever. What has to be complete is the window every dot's size is computed from —
+    # and "complete" means a value, not a slot: a null is a recorded absence, which is exactly what
+    # it must not be here.
     complete = sum(1 for t in canon
                    if all(v is not None for v in (cache.get(t) or [])[-len(stat):])
                    and len(cache.get(t) or []) >= len(stat))
@@ -305,8 +310,8 @@ def check_history(rows, meta, hist, pv):
     These are two files describing one measurement, which is exactly the arrangement that drifts:
     rebuild one and not the other and every panel draws a decade of history that belongs to a
     different fetch than the number printed above it. Nothing in the app can notice, because both
-    files are internally consistent. So the median, min and max of the LAST TWELVE points of each
-    sparkline are recomputed here and must equal the views/views_lo/views_hi the row ships.
+    files are internally consistent. So the median, min and max of each sparkline's statistic
+    window are recomputed here and must equal the views/views_lo/views_hi the row ships.
     """
     if hist is None:
         err("missing readership.json — scripts/build_data.py writes it alongside composers.json")
@@ -322,6 +327,15 @@ def check_history(rows, meta, hist, pv):
     if stat and months[-len(stat):] != stat:
         err("readership.json ends %s but composers.json's statistic window ends %s — the two were "
             "built from different fetches" % (months[-1], stat[-1]))
+    if stat and len(stat) != STAT_WINDOW:
+        err("composers.json's statistic window is %d months, not %d — widening it resizes every dot "
+            "on the chart and nothing else here would notice" % (len(stat), STAT_WINDOW))
+    said = (hist.get("meta") or {}).get("stat_months")
+    if said is not None and said != STAT_WINDOW:
+        err("readership.json states a %s-month statistic window, not %d" % (said, STAT_WINDOW))
+    if str(STAT_WINDOW) not in (meta.get("views_stat") or ""):
+        err("composers.json's views_stat reads %r, which does not state the %d-month window the "
+            "provenance line prints it as" % (meta.get("views_stat"), STAT_WINDOW))
     if pv and pv.get("months") and pv["months"] != months:
         err("readership.json covers %d months, data/pageviews.json caches %d — rebuild"
             % (len(months), len(pv["months"])))
@@ -383,33 +397,33 @@ def check_moves(pv):
     rebuild, or abandoned this run because a source title did not answer.
 
     THE MONTHS ARE DERIVED FROM pagemoves.holes() — the same call stitch() makes — AND NOT FROM
-    THE CHAIN. Reading them straight off the record asserts a null at every month the record
-    NAMES, which is a different set: a chain
-    whose surviving hops leave two adjacent tenures under one title crosses no boundary there, so
-    stitch() writes a real count and the gate would fail a correctly stitched series — with a
-    message saying it was written as fetched, and advice to rerun a deterministic script that
-    reproduces it exactly. Sharing the function — the whole predicate, not just tenures() under a
-    second copy of the test — is what makes the gate and the stitch unable to disagree about which
-    months are holes.
+    THE CHAIN. Reading them straight off the record asserts a null at every month the record NAMES,
+    which is a different set: a chain whose surviving hops leave two adjacent tenures under one
+    title crosses no boundary there, so stitch() writes a real count and the gate would fail a
+    correctly stitched series — with a message saying it was written as fetched, and advice to
+    rerun a deterministic script that reproduces it exactly. Sharing the function — the whole
+    predicate, not just tenures() under a second copy of the test — is what makes the gate and the
+    stitch unable to disagree about which months are holes.
 
     That last case is why this exists. fetch_views.py's recovery from a missing source is to leave
     the series and the record alone and let the gate say so, and the shape-based check below cannot
-    always say so: it has a floor of 100 readers a month, and Lois V. Vierk's post-move median is
-    44, so a lost stitch on her — or on most of this roster's tail — reads as (0.0, None) and
-    passes. The null check catches her, and catches a rebuild that skipped the repair entirely.
+    always say so: it ignores anything under pagemoves.GATE_FLOOR readers a month, and much of
+    this roster reads below that, so a lost stitch there reads as (0.0, None) and passes. The null
+    check catches those, and catches a rebuild that skipped the repair entirely.
 
     Then the shape, for the case no record can cover — a rename NOBODY has looked for:
 
       - a series that steps and has no `moves` entry at all. An empty list is a real answer and
         passes: fetch_views.py writes one when the log says the article has not moved, which is how
-        genuine growth (a film about the Chevalier de Saint-Georges, 8x) is told apart from a
-        rename nobody checked.
+        genuine growth (a film about the Chevalier de Saint-Georges) is told apart from a rename
+        nobody checked.
       - a series that steps and has a non-empty one — belt to the null check's braces, for a
         rebuild that dropped the whole `moves` block along with the stitch.
 
     Those thresholds are pagemoves.GATE_*, well above what it takes to make fetch_views.py LOOK. A
-    gate that fails a build has to clear every real reading, and the largest genuine step in this
-    roster is 8x against a smallest confirmed move of 9x.
+    gate that fails a build has to clear every real reading, so the step it fails on sits well
+    above the largest genuine growth this roster has shown — which is why a small rename is caught
+    by the recorded-move checks above rather than by this one.
     """
     if not pv:
         return
@@ -437,8 +451,8 @@ def check_moves(pv):
                     "unsorted chain hands the article's history to the wrong title" % (title, month))
             last = month
             # The article's own title is a legitimate source: an article that was moved away and
-            # came back (Takemitsu, three times) left and re-entered its own name. Anyone ELSE's
-            # canonical title is not — that would be two composers sharing one history.
+            # came back (Takemitsu) left and re-entered its own name. Anyone ELSE's canonical title
+            # is not — that would be two composers sharing one history.
             if src in series and src != title:
                 err("%s: says it moved from %r, which is another composer's canonical title"
                     % (title, src))
@@ -506,9 +520,9 @@ def check_resolved(people):
     (invariant 5; TITLE_FIXES in fetch_wikidata.py).
 
     WARN, not err, for invariant 4's reason one stage over: the row now degrades cleanly — no
-    canonical means nothing is fetched and nothing is invented, so it ships table-only like the 94
-    with no quartet count. Failing would stop refresh.py bumping V, and one redlinked name added
-    upstream would hold the whole roster's monthly top-up hostage. --strict still fails on it.
+    canonical means nothing is fetched and nothing is invented, so it ships table-only like the
+    rows with no quartet count. Failing would stop refresh.py bumping V, and one redlinked name
+    added upstream would hold the whole roster's monthly top-up hostage. --strict still fails.
     """
     if not people:
         return
@@ -526,8 +540,8 @@ def derive_cat(name):
     A SECOND statement of build_data.imslp_cat()'s one line, on purpose and not by oversight — the
     same reason make-og-svg.py restates chart.js's scales. Imported, this check could only ever
     confirm that build_data agreed with itself; written out, it is an independent reading of the
-    rule, checked against the category the scrape actually found. table.js states it a third time,
-    in JS, and ui.test.mjs pins two of the hrefs that come out.
+    rule, checked against the category the scrape actually found. app.js states it a third time,
+    in JS, and ui.test.mjs pins hrefs that come out of it.
     """
     toks = name.split()
     return toks[-1] + ", " + " ".join(toks[:-1]) if len(toks) > 1 else name
@@ -579,10 +593,10 @@ def check_imslp(rows, meta, join, scrape, works):
         if not e:
             err("%s: ships an IMSLP category (%r) the join does not have" % (name, cat))
             continue
-        # The whole point of the empty string: 406 of the 462 categories are NOT shipped, because
-        # one line reproduces them. That is safe only while something checks the line, and this is
-        # it — the derivation is re-read here (see derive_cat) against the category the crawl
-        # found, for every row, not for a sample.
+        # The whole point of the empty string: most categories are NOT shipped, because one line
+        # reproduces them. That is safe only while something checks the line, and this is it — the
+        # derivation is re-read here (see derive_cat) against the category the crawl found, for
+        # every row, not for a sample.
         want = e["cats"][0]
         got = cat or derive_cat(name)
         if got != want:
@@ -616,8 +630,7 @@ def check_imslp(rows, meta, join, scrape, works):
                 % name)
         counts = [p[1] for p in pages]
         # NOT equality, and that is the point of the de-duplication: pages overlap, so a composer's
-        # total is at least the biggest single page and at most the sum. Beethoven's 18 sit between
-        # a 6-work opus page and a sum of 44.
+        # total is at least the biggest single page and at most the sum.
         if not counts or not (max(counts) <= r[8] <= sum(counts)):
             err("%s: %d works against pages holding %s — the total must be at least the largest "
                 "page and at most their sum"

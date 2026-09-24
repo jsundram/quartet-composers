@@ -7,31 +7,27 @@
 
     python3 scripts/audit_redirects.py               # all 884; ~2,900 requests, about ten minutes
     python3 scripts/audit_redirects.py --limit 50    # the 50 most-read, a couple of minutes
-    python3 scripts/audit_redirects.py --months 12   # the window to price over (default: the
-                                                     # twelve the shipped median uses)
+    python3 scripts/audit_redirects.py --months 12   # the window to price over
 
-NOT AUTOMATED, and not a gate. Like scripts/audit_counts.py, this prints a measurement for a human
-to read: the question it answers is a POLICY question, and the answer is currently no.
+NOT AUTOMATED, and not a gate: like audit_counts.py it prints a measurement for a human, because
+the question is a POLICY question.
 
-THE QUESTION. Page views are counted per title, so a reader who typed "Toru Takemitsu" is counted
-under that string and not under "Tōru Takemitsu", where the article lives. Every alias an article
-has accumulated therefore holds a slice of its readership, and summing them is defensible.
+THE QUESTION. Views are counted per title, so a reader who typed "Toru Takemitsu" is counted under
+that string and not under "Tōru Takemitsu", where the article lives. Every alias holds a slice of
+the readership, and summing them is defensible.
 
-THE ANSWER, measured: don't. 436 of 884 composers read higher with their redirects added in, and
-the median correction is 1.024x — invisible on an axis spanning five orders of magnitude. Only 49
-exceed 10%, and nothing in the curated sets moves at all: Mozart goes 186,772 -> 191,780, Beethoven
-122,811 -> 123,318, and every one of the ten in CANON rounds to 1.0x. What the sum would buy is
-noise, and what it would cost is a stated measure — "monthly English Wikipedia page views for this
-article" — traded for one that depends on how many aliases the article happened to accumulate,
-which is an artefact of Wikipedia's edit history rather than of readership. That is the same trade
-TODO.md refuses under "Deliberately not doing" for per-language views, for the same reason.
+THE ANSWER, measured: don't (#107). 436 of 884 composers read higher with redirects added in and
+the median correction is 1.024x — invisible on an axis spanning four orders of magnitude; only 49
+exceed 10% and every one of CANON rounds to 1.0x. What the sum buys is noise; what it costs is a
+stated measure traded for one that depends on how many aliases an article happened to accumulate,
+which is an artefact of edit history rather than of readership.
 
-WHAT THIS AUDIT DID TURN UP is the defect that is now fixed elsewhere: one composer corrected by
-more than 2x, and she was not a split at all. Fanny Hensel's article was MOVED — it sat at "Fanny
-Mendelssohn" until March 2026 — so her old title was not an alias holding a slice, it was where the
-whole article used to be. Redirect traffic is a rounding error; a page move is an order of
-magnitude. scripts/pagemoves.py handles that case, and this script's `moved` column names the ones
-it has already repaired, so a large correction here can be read as "explained" or "new".
+WHAT IT DID TURN UP is the defect now fixed elsewhere: the one composer corrected by more than 2x
+was not a split at all. Fanny Hensel's article was MOVED, so her old title was where the whole
+article used to be rather than an alias holding a slice. scripts/pagemoves.py handles that, and the
+`moved` column names the ones already repaired, so a large correction reads as explained or new.
+
+
 """
 import argparse
 import json

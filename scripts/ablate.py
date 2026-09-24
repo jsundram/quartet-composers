@@ -4,42 +4,36 @@
 # ///
 """Prove that a branch's TESTS actually catch what its SOURCE changed.
 
-A green suite is not evidence that a fix is right; it is only evidence that nothing already
-covered went red. Every long review on this repo has been the same shape — a fix shipped on a
-green suite, review found it wrong, the NEXT commit added the test that would have caught it.
-PR #23 ran six rounds that way, and four of them fixed a defect in the previous round's fix:
-"the fourth mutation-green fix on this PR", in that branch's own words. The test that proves a
-fix always arrived one round late.
+A green suite is not evidence that a fix is right; it is only evidence that nothing already covered
+went red. Every long review on this repo has been the same shape — a fix shipped on a green suite,
+review found it wrong, the NEXT commit added the test that would have caught it (PR #23, six rounds,
+four of them fixing the previous round's fix). So this asks the question the reviewer asks by hand
+(#42): revert the branch's SOURCE hunks to the base, keep its TEST hunks, and run the suite. If the
+branch's tests still pass without the branch's code, they do not prove it.
 
-So this asks the question the reviewer asks by hand — most recently by deleting
-`pointer-events="none"` from histogram.js's grips group and watching the grip-drag check go red
-(#42). Revert the branch's SOURCE hunks to the base, keep its TEST hunks, and run the suite. If
-the branch's tests still pass without the branch's code, they do not prove it.
-
-Three things about the shape, each of which is the difference between a gate and a nuisance:
+Three things about the shape, each the difference between a gate and a nuisance:
 
   A NEW NAMED `FAIL`, not a nonzero exit. An ablated tree is a chimera — this branch's tests over
-  the base's code — and it can fail to run at ALL: a test that calls a function the branch
-  introduced dies on import, exits nonzero, and proves nothing whatsoever about the fix. Every
-  suite here prints `ok  ` / `FAIL <name>` lines, so requiring a failure that NAMES a check the
-  clean run passed separates "the test proves the fix" from "the ablated tree exploded". The
-  explosion is reported as INCONCLUSIVE and fails too, because a gate that cannot tell those
-  apart is worse than none: it would go green on a suite that never ran.
+  the base's code — and it can fail to run at ALL: a test calling a function the branch introduced
+  dies on import, exits nonzero, and proves nothing. Every suite here prints `ok  ` / `FAIL <name>`
+  lines, so requiring a failure that NAMES a check the clean run passed separates "the test proves
+  the fix" from "the ablated tree exploded". The explosion is INCONCLUSIVE and fails too, because a
+  gate that cannot tell those apart would go green on a suite that never ran.
 
   ONLY THE SUITES THAT COVER WHAT CHANGED. A branch touching chart.js will never redden
   validate.test.py, and demanding it would train everyone to reach for the escape hatch. COVERS
-  below maps source to suite; a source file no suite covers is reported and does not fail, which
-  is honest rather than silent — see the note there.
+  below maps source to suite; a source file no suite covers is reported and does not fail, which is
+  honest rather than silent — see the note there.
 
-  ONE ESCAPE HATCH, SHARED WITH fix-lint.py. A `No-test:` trailer on any commit in the range
-  skips both gates and prints the stated reason. A pure refactor and a comment fix are real, and
-  the point is not to forbid them — it is to make an untested source change a sentence somebody
-  wrote on purpose and a reviewer can read, rather than a silence.
+  ONE ESCAPE HATCH, SHARED WITH fix-lint.py. A `No-test:` trailer skips both gates and prints the
+  stated reason, for the FILES its own commit touched. A pure refactor and a comment fix are real;
+  the point is to make an untested source change a sentence a reviewer can read rather than a
+  silence. It excuses nothing on a commit that changed no source, and nothing beside the files it
+  names: see excused().
 
-The working tree is rewritten in place and restored in a `finally`, so it REFUSES to run on a
-dirty tree: restoring means `git checkout HEAD -- <file>`, which would take uncommitted work with
-it. A file the branch ADDED is not ablated at all — see plan(), where the reason is that the
-question is empty rather than unanswered.
+The working tree is rewritten in place and restored in a `finally`, so it REFUSES a dirty tree:
+restoring means `git checkout HEAD -- <file>`, which would take uncommitted work with it. A file the
+branch ADDED is not ablated at all — see plan(), where the question is empty rather than unanswered.
 
     python3 scripts/ablate.py --base origin/main
     python3 scripts/ablate.py --base origin/main --list      # what it would run, tree untouched
@@ -47,6 +41,17 @@ question is empty rather than unanswered.
     python3 scripts/ablate.py --base origin/main --cmd "python3 scripts/validate.test.py"
 """
 import os, re, subprocess, sys
+
+# codehash.py isolates the CODE in a file so a comments-only change can be recognised instead of
+# asserted. Named without a hyphen so it can be imported, like this file.
+#
+# NO BYTECODE. This gate's whole contract is that it leaves the tree as it found it, and an import
+# writes scripts/__pycache__/ — which is ignored in this repo and so invisible here, and is NOT
+# ignored in the throwaway repos its own suite builds, where it turned "the working tree is clean
+# afterwards" red. A gate that litters is a gate that cannot be trusted to restore.
+sys.dont_write_bytecode = True
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import codehash
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -65,14 +70,33 @@ COVERS = [
     (("scripts/pagemoves.py",),       ["python3 scripts/pagemoves.test.py"]),
     (("scripts/fetch_views.py",),     ["python3 scripts/fetch_views.test.py"]),
     (("scripts/sw-lint.py",),         ["python3 scripts/sw-lint.test.py"]),
+    (("scripts/record-lint.py",),     ["python3 scripts/record-lint.test.py"]),
+    (("scripts/volume.py",),          ["python3 scripts/volume.test.py"]),
+    # codehash is what BOTH gates import to decide whether a hunk is comments-only, so a change
+    # to it moves what they ask for — and it was in neither table, so plan() never saw it and a
+    # change to it was ablated by nothing. Same shape as ui-test.sh filed under TESTS: the file
+    # the gate leans on hardest was the one it could not see.
+    (("scripts/codehash.py",),        ["python3 scripts/codehash.test.py"]),
     (("sw.js",),                      ["node scripts/sw.test.mjs"]),
-    (("app.js", "chart.js", "table.js", "histogram.js", "names.js", "theme.js",
+    # names.js is the one app module with an OFFLINE suite, because it is pure: a roster in, two
+    # display strings out. It is listed ahead of the browser tuple (first match wins) and keeps the
+    # browser suite beside it, since one red suite is proof and a naming change can show up in
+    # either.
+    (("names.js",),                   ["node scripts/names.test.mjs", "BROWSER:scripts/ui-test.sh"]),
+    (("app.js", "chart.js", "table.js", "histogram.js", "theme.js",
       "styles.css", "index.html"),    ["BROWSER:scripts/ui-test.sh"]),
     # The gates cover themselves. Without this the next change to this very file would never be
     # ablated against the suite written for it, which is the failure the whole PR is about.
     (("scripts/ablate.py", "scripts/fix-lint.py"),
                                       ["python3 scripts/fix-lint.test.py"]),
-    (("scripts/prose-lint.py",),      ["python3 scripts/prose-lint.test.py"]),
+    # setup.sh is the one setup step this repo has, and what it prevents is a SILENCE — a clone
+    # whose pre-commit lints never run. CI cannot testify to it either way, because CI never runs
+    # the hook, so the suite is the only thing that can.
+    # ...and the file that INVOKES it every session. Two lines of logic, and the failure is total:
+    # a typo in the path leaves every later session starting with the hook disabled, which is the
+    # silence setup.sh exists to prevent. setup.test.py's wired_up is what reads it.
+    (("scripts/setup.sh", ".claude/hooks/session-start.sh"),
+                                      ["python3 scripts/setup.test.py"]),
     # The IMSLP join's PURE half: the wikitext readers, the catalogue parse, the work counting.
     (("scripts/build_imslp.py",),     ["python3 scripts/imslp.test.py"]),
     # The crawl, and ONLY its own suite. imslp.test.py used to be listed here as well, on the
@@ -91,8 +115,8 @@ COVERS = [
 ]
 
 # Load-bearing source that genuinely has no suite. plan() no longer READS this — anything unmapped
-# defaults to reported — so it would be pure decoration, and decoration is what let prose-lint.py
-# sit here through the very commit that gave it a suite. It is an ASSERTION now, checked by
+# defaults to reported — so it would be pure decoration, and a decorative list once kept a name in
+# it through the very commit that gave that file a suite. It is an ASSERTION now, checked by
 # unsuited() below: a name here that has a test file beside it, or that COVERS already maps, is a
 # stale claim that this file has nothing to prove, which is exactly the silence the gate is for.
 UNCOVERED = ("scripts/build_data.py", "scripts/scrape_list.py", "scripts/fetch_wikidata.py",
@@ -106,13 +130,14 @@ UNCOVERED = ("scripts/build_data.py", "scripts/scrape_list.py", "scripts/fetch_w
 #
 # Data files (composers.json, readership.json, data/) are generated by the pipeline and gated by
 # validate.py instead: a top-up changes them by design and has no test to write. Docs, mocks/,
-# .github/ and .githooks/ are not source. The audits are human-graded by construction
+# .github/ and .githooks/ are not source — nor is most of .claude/, but its session hook IS, being
+# the one file there that runs something. The audits are human-graded by construction
 # (invariant 11), so a test for one would be a test of the thing a human is there to judge.
 SOURCE = re.compile(
     r"^(app|chart|table|histogram|names|theme|sw|ping)\.js$"
     r"|^(styles\.css|index\.html|manifest\.json)$"
     r"|^scripts/(validate|pagemoves|fetch_views|fetch_wikidata|build_data|scrape_list"
-    r"|make-og-svg|og-lint|sw-lint|refresh|ablate|fix-lint|prose-lint"
+    r"|make-og-svg|og-lint|sw-lint|record-lint|volume|codehash|refresh|ablate|fix-lint"
     # The IMSLP join. A name added to COVERS is INERT until it is also matched here — plan()
     # builds its file list from SOURCE — so the entry added for these two sat as a comment
     # asserting a gate that could never fire, which is the exact failure this file exists to stop.
@@ -120,9 +145,10 @@ SOURCE = re.compile(
     # ui-test.sh IS SOURCE, and used to be filed under TESTS with the suite it launches. That was
     # true when it only started a server and a browser; it now derives a port pair per checkout
     # and refuses to run against a port it did not take (#49), which is logic, and logic filed as
-    # a test is logic nothing ablates — the branch that wrote it was ablated only on prose-lint.py.
+    # a test is logic nothing ablates — the branch that wrote it was ablated on one unrelated file.
     # scripts/ui-test.test.py is what covers it, and COVERS maps the two.
-    r"|^scripts/ui-test\.sh$")
+    r"|^scripts/(ui-test|setup)\.sh$"
+    r"|^\.claude/hooks/session-start\.sh$")
 TESTS = re.compile(r"^scripts/.*\.test\.(py|mjs)$")
 # Both halves of the line matter: `FAIL` at the head, and the name with any trailing detail cut.
 # The detail carries measured numbers that differ between two runs of the same suite, so a set
@@ -188,13 +214,52 @@ def changed(base):
 
 
 def excused(base_mb):
-    """A `No-test:` trailer anywhere in the range, and the reason it gives."""
-    log = sh("git", "log", "--format=%B", f"{base_mb}..HEAD")
-    for line in log.stdout.splitlines():
-        m = re.match(r"^\s*No-test:\s*(.+?)\s*$", line, re.I)
-        if m:
-            return m.group(1)
-    return None
+    """{source file: reason} for files whose every change in this range says there is nothing to assert.
+
+    PER FILE, and only where EVERY commit that touched it carries the trailer. Two coarser rules
+    came before it and each was a hole. Honoured anywhere in the range, a docs-only commit's
+    trailer disarmed both gates for all of a branch's source — this repo did that to itself twice
+    in one sitting with commits reading "No-test: TODO.md only". Scoped to commits that change
+    source, one legitimately excused file still excused every other file beside it, which on a
+    branch that deletes some prose and rewrites a gate is most of the diff.
+
+    So a trailer speaks for the files its own commit touched, and a file edited again without one
+    is back in the gate: the second edit is the unexplained one. The reason is carried through so
+    the gate can print which file it let past and why, rather than a single branch-wide sentence.
+    """
+    out = {}
+    for sha in sh("git", "log", "--format=%H", f"{base_mb}..HEAD").stdout.split():
+        why = None
+        for line in sh("git", "log", "-1", "--format=%B", sha).stdout.splitlines():
+            m = re.match(r"^\s*No-test:\s*(.+?)\s*$", line, re.I)
+            if m:
+                why = m.group(1)
+                break
+        touched = [f.strip() for f in sh("git", "show", "--name-only", "--format=", sha)
+                   .stdout.split("\n") if f.strip() and SOURCE.match(f.strip())]
+        for f in touched:
+            if why is None:
+                out[f] = None          # an edit nobody excused; it outranks any trailer beside it
+            else:
+                out.setdefault(f, why)
+    return {f: why for f, why in out.items() if why}
+
+
+def only_comments(base_mb, f):
+    """True when f differs from base in COMMENTS ONLY, proved rather than promised.
+
+    Same shape as the V exemption below and the same argument: ablation asks whether a test catches a
+    change, and a comment carries no behaviour for a test to catch — so reverting a comment hunk and
+    demanding a red check asks for something impossible, which is how a gate teaches people to write
+    `No-test:` out of habit. codehash.py isolates the code (AST for Python, a verified strip for JS
+    and CSS) and answers no whenever it cannot TELL, so the exemption is granted only on a positive
+    proof. It is also the check that would have caught this repo's own comment-compression pass
+    deleting `function hash()` from chart.js.
+    """
+    head, base = sh("git", "show", f"HEAD:{f}"), sh("git", "show", f"{base_mb}:{f}")
+    if head.returncode != 0 or base.returncode != 0:
+        return False
+    return codehash.unchanged(f, base.stdout, head.stdout)
 
 
 def only_a_version_bump(base_mb):
@@ -213,8 +278,24 @@ def only_a_version_bump(base_mb):
     return norm(head.stdout) == norm(base.stdout)
 
 
+def note_added(added_src):
+    """Name the files this run did not ablate, because they are new at their path.
+
+    ON EVERY RUN THAT ABLATES, not only on a failing one. A file new at its path has no base
+    version to revert to, so nothing looked at it — and on a GREEN run there is no other line
+    saying so, which is how a branch whose whole point was a new module read back as proven. The
+    sharp case is a rename git scored at 0%: it arrives as D + A at any -M threshold, so the old
+    path is ablated while the new one keeps the fix.
+    """
+    if not added_src:
+        return
+    print("   NOTE: not ablated, being new at this path — %s.\n   Nothing this run proves is "
+          "about %s." % (", ".join(f for _st, f in added_src),
+                         "it" if len(added_src) == 1 else "them"))
+
+
 def plan(files, base_mb=None):
-    """Which suites this branch's source changes are answerable by, and what nothing covers."""
+    """Which suites this branch's source changes are answerable by, what nothing covers, what is excused."""
     # A file the branch ADDED has no version at base, so there is nothing to revert it TO — the
     # ablated tree simply lacks the module, every suite that imports it dies on import, and the
     # verdict is INCONCLUSIVE forever. That would fire on every genuinely new module, which is
@@ -232,6 +313,15 @@ def plan(files, base_mb=None):
     added = [(st, f) for st, f, _o in files if SOURCE.match(f) and st == "A"]
     if "sw.js" in src and base_mb and only_a_version_bump(base_mb):
         src = [f for f in src if f != "sw.js"]
+    # A file whose CODE is unchanged has nothing a test could catch. Proved per file rather than
+    # claimed for the branch, so a commit that rewrites comments in one file and edits another is
+    # still ablated on the second.
+    if base_mb:
+        src = [f for f in src if not only_comments(base_mb, f)]
+    # The third exemption, and the only one that is a SENTENCE rather than a proof — so it is per
+    # file, like the other two, rather than per branch (see excused()).
+    ex = excused(base_mb) if base_mb else {}
+    src = [f for f in src if f not in ex]
     suites, uncovered = [], []
     for f in src:
         hit = next((cmds for pats, cmds in COVERS if f in pats), None)
@@ -244,7 +334,7 @@ def plan(files, base_mb=None):
             # neither table and so passed in total silence, which is the opposite of what the
             # docstring promises. UNCOVERED is documentation now; this branch is the guarantee.
             uncovered.append(f)
-    return src, suites, uncovered, added, renamed_from
+    return src, suites, uncovered, added, renamed_from, ex
 
 
 def at(ref, path):
@@ -338,9 +428,15 @@ def main():
         print(f"  ablate:\n   - {err}")
         return 2
     base_mb, files = got
-    src, suites, uncovered, added_src, renamed = plan(files, base_mb)
+    src, suites, uncovered, added_src, renamed, ex = plan(files, base_mb)
+    for f, why in ex.items():
+        print(f"   - excused by a No-test: trailer — {f}: {why}")
 
     if not src:
+        if ex:
+            print("  ablate: every source change on this branch is excused by a No-test: trailer")
+            note_added(added_src)
+            return 0
         if added_src:
             print("  ablate: every source file this branch changed is NEW, so there is no "
                   "before-state to ablate against:")
@@ -348,11 +444,6 @@ def main():
                 print(f"     {f}  (added)")
             return 0
         print("  ablate: no source changes on this branch — nothing to prove")
-        return 0
-
-    why = excused(base_mb)
-    if why:
-        print(f"  ablate: skipped by a No-test: trailer — {why}")
         return 0
 
     browser = [s.split(":", 1)[1] for s in suites if s.startswith("BROWSER:")]
@@ -373,6 +464,7 @@ def main():
             print(f"   - owed locally (needs a browser): --with-ui runs {s}")
         for f in uncovered:
             print(f"   - no suite covers {f}")
+        note_added(added_src)
         return 0
 
     if not runnable:
@@ -382,6 +474,7 @@ def main():
             print(f"   - run locally with a browser: python3 scripts/ablate.py --base {base} --with-ui")
         for f in uncovered:
             print(f"   - no suite covers {f}")
+        note_added(added_src)
         return 0
 
     # TRACKED changes only. `git checkout <ref> -- <path>` can never touch an untracked file, so
@@ -392,6 +485,8 @@ def main():
         print("  ablate: the working tree is dirty, and this rewrites source files in place.")
         print("   - commit or stash first; restoring would otherwise take your changes with it")
         return 2
+
+    note_added(added_src)
 
     # A suite that produced no ok/FAIL lines at all did not RUN — `ui-test.sh` prints
     # "no Chromium found — skipping (this is not a failure)" and exits 0, so on a machine with no
@@ -462,17 +557,6 @@ def main():
         return 0
 
     print("\n  ablate:")
-    if added_src:
-        # A file ADDED cannot be ablated, so a verdict of "your tests prove nothing" may be about
-        # a change this script never reverted. The sharp case is a rename git scored at 0%: it
-        # arrives as D + A at ANY -M threshold, indistinguishable from an unrelated delete plus
-        # add, so the old path is ablated while the new one keeps the fix and the suite passes.
-        # Naming the un-ablatable files turns a confidently wrong verdict into an accurate one.
-        print("   NOTE: these files are new at their path and were NOT ablated, so the verdict "
-              "below\n   may be about a change that was never reverted "
-              "(a wholly-rewritten rename arrives this way):")
-        for _st, f in added_src:
-            print(f"     {f}")
     for cmd, msg, out in problems:
         print(f"   - {cmd}: {msg}")
         if out:

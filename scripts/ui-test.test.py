@@ -8,19 +8,21 @@
     python3 scripts/ui-test.test.py
 
 NO BROWSER AND NO SERVER: every case runs `scripts/ui-test.sh --ports`, which answers out of the
-checkout's own path and exits before anything is started. So it runs anywhere in about a second.
+checkout's own path and exits before anything starts, so this runs anywhere in about a second.
 
 WHY IT EXISTS. The runner clears its two ports with a `pkill -f` that matches every process on the
 machine, and the ports were FIXED, so a second checkout starting up killed the first one's browser
 and server mid-run. The fix is a default derived from the checkout's path, and its failure mode is
 the shape this repo keeps meeting: fixing the ports again — or writing the port into the kill
-pattern as a literal — would be invisible in a single run and in CI, where nothing runs twice at
-once. It only shows up on the machine with two worktrees open, as a suite that dies in the one
-that did nothing wrong.
+pattern as a literal — is invisible in a single run and in CI, where nothing runs twice at once. It
+shows up only on the machine with two worktrees open, as a suite that dies in the one that did
+nothing wrong.
 
-A hash into 200 slots HAS collisions by construction, so the distinctness case below asserts what
-is true rather than what would read better: many checkouts land on many pairs, not on one. The
-residual is why both variables stay overridable and why the runner prints the pair it derived.
+A hash into 200 slots HAS collisions by construction, so the distinctness case asserts what is true
+rather than what reads better: many checkouts land on many pairs, not on one. That residual is why
+both variables stay overridable and why the runner prints the pair it derived.
+
+
 """
 import os
 import re

@@ -15,45 +15,41 @@
     python3 scripts/build_data.py
 
 WHERE THE ROSTER IS DECIDED, AND WHY IT IS DECIDED HERE. build_rows() below is the one place that
-turns the caches into rows — which entries are dropped, which two collapse into one, what order
-they ship in. build_imslp.py calls it as well rather than reading composers.json, because it now
-runs BEFORE this file and reading its output would be a cycle. That is not merely how the cycle is
-broken: a second reduction of the same caches would be a second opinion about who is on this list,
-and the join would be matching composers that the roster does not contain.
+turns the caches into rows — which entries are dropped, which two collapse into one, what order they
+ship in. build_imslp.py calls it rather than reading composers.json, which would be a cycle now that
+it runs first. That is not merely how the cycle is broken: a second reduction of the same caches
+would be a second opinion about who is on this list, and the join would be matching composers the
+roster does not contain.
 
 NOTHING HERE TOUCHES THE NETWORK. Every input is a committed cache, so the statistic below can be
 changed and the dataset rebuilt offline, and the exact bytes that produced a deploy stay in git.
 
 THE VIEW NUMBER IS A MEDIAN, NOT A MONTH. Dot size is the loudest channel on the chart and page
-views are its noisiest input: a single month sits 12% off the 12-month median typically and 29% at
-worst, August is a seasonal trough, and one composer has a month at 2.13x his own median. The
-median ignores an anniversary or obituary spike rather than baking it in. min and max ship too, so
-the detail panel can show the spread instead of implying a precision that isn't there.
+views are its noisiest input: a typical month sits a tenth off the year's median, August is a
+seasonal trough, and a spiky article can run several times its own median. The median ignores an
+anniversary or obituary spike rather than baking it in. min and max ship too, so the detail panel
+can show the spread instead of implying a precision that isn't there.
 
-AND IT IS TWELVE MONTHS, NOT THE WHOLE CACHE. fetch_views.py now caches everything back to
-2015-07, but the chart's question is "how much read is this composer NOW", so the statistic is
-still the median of the LAST TWELVE cached months (STAT_MONTHS). Widening it would quietly change
-every dot on the chart and bake a 2016 readership into a 2026 picture — Kaija Saariaho's
-all-history median is 2,340 against 2,840 for the last year, and her obituary month is 42,195.
+AND IT IS STAT_MONTHS, NOT THE WHOLE CACHE. fetch_views.py caches everything the API has, but the
+chart's question is "how much read is this composer NOW". Widening the window would quietly change
+every dot and bake a 2016 readership into a 2026 picture — an all-history median is not the
+readership a composer has now, and one obituary month dwarfs both.
 
 WHY THE HISTORY IS A SECOND FILE. composers.json is a BOOT dependency: sw.js serves it before the
-page can paint anything at all, and 884 monthly series is more than ten times the size of the
-roster itself. The sparkline is the one thing in this app that nothing else needs, so it is the
-one thing that loads on its own — precached like everything else, fetched after the first paint,
-and simply absent if it never arrives. Keyed by DISPLAY name (what composers.json rows carry),
-because that is what the app has in hand when it draws the panel.
+page can paint anything, and a decade of monthly counts per composer is many times the size of the
+roster. The sparkline is the one thing in this app nothing else needs, so it is the one thing that
+loads on its own — precached, fetched after the first paint, and simply absent if it never arrives.
+Keyed by DISPLAY name, because that is what the app has in hand when it draws the panel.
 
-WHAT "LIVING" MEANS NOW. It is `death is None` as of the last fetch_wikidata.py run — a fact about
-today, from a structured claim. The old dataset inferred it by testing `birth + lifespan == 2014`
-against a field that stored age-in-2014 for the living, which meant refreshing anything risked
-silently reclassifying 139 people. That whole mechanism is gone.
+WHAT "LIVING" MEANS. `death is None` as of the last fetch_wikidata.py run — a fact about today, from
+a structured claim. The old dataset inferred it from a field storing age-in-2014, so refreshing
+anything risked silently reclassifying everyone it recorded as alive.
 
-UNKNOWNS STAY NULL. A composer whose count the page's prose doesn't state gets quartets: null and
-is listed in the table but not plotted; an article with no page-view data gets views: null; a
-composer with no P21 claim gets gender: null. The alternative — carrying a 2014 number forward —
-silently mixes a pre-2015 measurement system into a 2026 dataset, and renders as a confident dot
-either way. For gender the alternative would be worse still: the only way to fill that null is to
-guess from a name, which is a guess about a person and is what invariant 10 exists to forbid.
+UNKNOWNS STAY NULL. No stated count is quartets: null (in the table, not plotted); no page-view data
+is views: null; no P21 claim is gender: null. Carrying a 2014 number forward instead would mix a
+pre-2015 measurement system into a 2026 dataset and render as a confident dot either way. For gender
+the alternative is worse: the only way to fill that null is to guess from a name, which is a guess
+about a person and is what invariant 10 forbids.
 """
 import collections
 import datetime as dt
@@ -94,11 +90,12 @@ def imslp_cat(name):
     """The IMSLP category a display name reduces to — "Beethoven, Ludwig van".
 
     IMSLP files people Surname, Forename, and the particle falls out for free because IMSLP writes
-    "Beethoven, Ludwig van" too. It holds for 406 of the 462 composers IMSLP has; the other 56 are
+    "Beethoven, Ludwig van" too. It holds for most of the composers IMSLP has; the rest are
     transliterations and fuller forenames nothing can derive, and they ship their category verbatim
     (see main()). NOTHING TRUSTS THIS RULE: a row gets the derived form only where the reduction
-    reproduces the category the scrape actually found, validate.py re-derives it against the scrape
-    cache for all 462, and table.js restates the one line in JS with ui.test.mjs pinning two hrefs.
+    reproduces the category the scrape actually found, validate.py re-derives every one of them
+    against the scrape cache, and app.js restates the one line in JS with ui.test.mjs pinning the
+    hrefs that come out of it.
     """
     toks = name.split()
     return toks[-1] + ", " + " ".join(toks[:-1]) if len(toks) > 1 else name
@@ -238,7 +235,7 @@ def main():
     for r in rows:
         e = join.get(r[0])
         if e is None:
-            # NOT PLACED, which is not the same as having nothing (invariant 10 / TODO's three
+            # NOT PLACED, which is not the same as having nothing (invariants 10 and 16's three
             # answers). `0` is what the table prints either way, by decision — but a null category
             # is what says there is nowhere to link, and the count cannot carry that.
             r.extend([0, None])

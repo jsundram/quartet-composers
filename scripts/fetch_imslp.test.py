@@ -6,28 +6,26 @@
 
     python3 scripts/fetch_imslp.test.py
 
-NO NETWORK: `get` is stubbed against a dict-shaped wiki and the cache is a temp file, so this runs
-anywhere and in CI.
+NO NETWORK: `get` is stubbed against a dict-shaped wiki and the cache is a temp file.
 
 WHY THIS FILE EXISTS. Every pass in fetch_imslp.py is a cache keyed by page title, and all but one
-of them top up correctly — markers, work info, composer pages, Wikipedia resolution. The one that
-does not top up is the one that DISCOVERS: the category crawl is the only place a work page or a
-composer can enter this pipeline at all, and it used to return early on a warm cache. So a second
-run printed `cached: orig (4215)`, asked the site nothing, and exited 0. A monthly run would have
-found nothing new forever while reporting success (#62) — the same shape as a null no request
-justified in data/pageviews.json, a "nothing to do" indistinguishable from "nothing exists".
+top up correctly. The one that does not is the one that DISCOVERS: the category crawl is the only
+place a work page or a composer can enter this pipeline at all, and it used to return early on a
+warm cache. So a second run printed `cached: orig (4215)`, asked the site nothing, and exited 0 — a
+monthly run finding nothing new forever while reporting success (#62), the same shape as a null no
+request justified in data/pageviews.json.
 
-That failure is invisible from inside a run. There is no baseline saying how many quartet pages
+That failure is invisible from inside a run: there is no baseline saying how many quartet pages
 IMSLP should hold, every number in the cache stays plausible, and the only symptom is a file that
-stops growing. So the property has to be asserted about the REQUESTS a run makes, which is what
-these cases do: what a warm run asks for, what it declines to ask for, and that a page which
-appeared between two runs reaches the passes downstream of the crawl.
+stops growing. So the property is asserted about the REQUESTS a run makes — what a warm run asks
+for, what it declines to ask for, and that a page which appeared between two runs reaches the
+passes downstream of the crawl.
 
 The budget is the other half and is not decoration. This is a volunteer-funded server, the cold
-crawl is ~238 requests, and the reason the fix is "always re-crawl" rather than "--refresh
-monthly" is that re-asking everything would re-download megabytes of wikitext that has not
-changed. A
-case that only proved re-asking would be satisfied by --refresh.
+crawl is ~238 requests, and the reason the fix is "always re-crawl" rather than "--refresh monthly"
+is that re-asking everything re-downloads megabytes of unchanged wikitext. A case that only proved
+re-asking would be satisfied by --refresh.
+
 """
 import gzip
 import importlib.util
@@ -457,9 +455,9 @@ def warm_run_is_cheap(fi, w):
 @case("a P839 claim Wikidata did not state is asked again")
 def p839_absence_is_reasked(fi, w):
     # This pass answers PRESENCE — it is the only thing that can tell a composer IMSLP holds with
-    # no quartets from one IMSLP has never heard of. 485 of the 884 roster QIDs are stored as
-    # None, and a None nobody re-asks is #62 one pass over: the editor who adds the claim is never
-    # noticed and the composer reads as absent forever.
+    # no quartets from one IMSLP has never heard of. A large share of the roster's QIDs are stored
+    # as None, and a None nobody re-asks is #62 one pass over: the editor who adds the claim is
+    # never noticed and the composer reads as absent forever.
     cache, _log = run(fi)
     assert cache["p839"]["Q235066"] is None, (
         "the fixture already had a claim for her: %r" % (cache["p839"]["Q235066"],))
@@ -479,7 +477,7 @@ def p839_absence_is_reasked(fi, w):
 @case("a candidate guess that found no page is asked again")
 def candidate_absence_is_reasked(fi, w):
     # The composer with no quartets is invisible to the works crawl BY CONSTRUCTION, so this is
-    # the only pass that can ever place them — and its answer for 470 of 528 guesses is "IMSLP has
+    # the only pass that can ever place them — and its answer for nearly every guess is "IMSLP has
     # no page by this name", which is exactly the answer a volunteer changes.
     roster(fi, **{"Samuel Barber": {"canonical": "Samuel Barber", "qid": "Q234151"}})
     cache, _log = run(fi)
@@ -543,7 +541,7 @@ def candidate_without_key_is_reasked(fi, w):
 def gzip_round_trip(fi, w):
     # urllib does not ask for it, and one pass here is enormous without it: wbgetentities has no
     # per-property filter, so asking 50 items for their P839 returns their complete claim sets —
-    # 24.6 MB for the 485 the monthly run re-asks, against 4.0 MB compressed. Both halves are
+    # 24.6 MB over one monthly run's re-asks, against 4.0 MB compressed. Both halves are
     # asserted, because asking without decoding is a crash and decoding without asking is a
     # header nobody sends.
     fi.TRIES = 1

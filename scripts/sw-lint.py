@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# pwa-starter: sw-lint.py @ d2fad01  (+ the --base branch check)
+# pwa-starter: sw-lint.py @ d2fad01  (+ the --base branch check, + --fix/--bump)
 # /// script
 # requires-python = ">=3.9"
 # ///
@@ -10,36 +10,42 @@ sw.js precaches the app SHELL. Five mistakes are cheap to catch here and expensi
 1. A staged SHELL file with an unchanged V. An edit to a precached file only reaches installed
    clients when V changes — forget the bump and the fix ships to the repo but never to anyone's
    home-screen copy. The single most common PWA deploy bug.
-2. A SHELL entry that doesn't exist on disk. It can never be fetched, so it permanently wedges
-   the old-generation collect: both cache generations pile up on every device, with the stale one
-   still answering via the whole-store fallback. (#7)
+2. A SHELL entry that doesn't exist on disk. It can never be fetched, so it permanently wedges the
+   old-generation collect: both generations pile up on every device, the stale one still answering
+   via the whole-store fallback. (#7)
 3. A cross-origin SHELL entry. The fetch handler passes other origins straight through, so the
    entry would be cached but never served — vendor the file locally instead.
 4. A V without a numeric tail. The tail orders generations for sw.js's collect and app.js's
-   checkVer() ranking; a non-numeric V makes collection silently stop, no error, no symptom,
+   checkVer() ranking; a non-numeric V makes collection silently stop, no error and no symptom,
    until caches pile up. Rename the stem freely — keep the digits.
-5. app.js's VER_PREFIX not matching V's stem. checkVer() ranks installed caches by that prefix,
-   so a renamed stem on one side only makes the version tag go blank (no cache matches) or read
-   a sibling app's caches — silently, since nothing throws. The stems must agree. (#7)
+5. app.js's VER_PREFIX not matching V's stem. checkVer() ranks installed caches by that prefix, so
+   a renamed stem on one side only makes the version tag go blank or read a sibling app's caches —
+   silently, since nothing throws. (#7)
 
-Check 1 reads the INDEX, so it only ever bites in the pre-commit hook, and it is blind to what a
-branch does as a whole. Two PRs off one base can each bump v32 -> v33 byte-identically; a
-three-way merge resolves that silently, and the second one lands its shell changes with a net V
-delta of zero (#32). Hence the sixth check, which needs a second commit to compare against and so
-takes it as an argument:
+Check 1 reads the INDEX, so it is blind to what a BRANCH does: two PRs off one base can each bump
+v32 -> v33 byte-identically and the second lands its shell changes at a net V delta of zero (#32).
+Hence a sixth, which needs a second commit and so takes one as an argument:
 
-6. `--base REF`: a branch that changes shell files without carrying V past the one REF is
-   already on. What the branch CHANGED is read from the merge base (the diff a rebase, a squash
-   and a stacked branch all leave alone); which V it must CLEAR is read from REF's tip, which is
-   what it is about to merge into — against the merge base instead, the motivating case passes,
-   since both PRs did differ from their own v32 base. It replaces the other five rather than
-   joining them, being a different question asked with different information, and it is where CI
-   earns its keep: CI has both sides of the merge and the hook has neither.
+6. `--base REF`: a branch that changes shell files without carrying V past the one REF is already
+   on. What the branch CHANGED is read from the merge base — the diff a rebase, a squash and a
+   stacked branch all leave alone — and which V it must CLEAR from REF's tip, which is what it is
+   about to merge into; against the merge base instead, the motivating case passes, since both PRs
+   did differ from their own v32 base. It replaces the other five rather than joining them, and it
+   is where CI earns its keep: CI has both sides of the merge and the hook has neither.
 
-The pre-commit hook runs the first five warn-only; run them in CI with a real exit code, and the
-sixth on pull requests with the base sha. By hand:
+CHECK 1 IS DERIVABLE, SO --fix DERIVES IT: everything it needs is already here, so making a human
+read the nag and type a number is asking them to do a computer's job. It bumps the tail, re-stages
+sw.js, and lands the bump in the commit that earned it. It declines, falling back to the nag, where
+writing would be wrong — a merge in progress (the resolution is the human's; check 6 covers #32 in
+CI), an sw.js with unstaged edits (re-staging sweeps unstaged work into the commit), and a V with
+no numeric tail (check 4 owns that). `--bump` is the same increment with no git in it, which is
+what refresh.py calls so only one piece of code knows how to move V.
+
+The pre-commit hook runs the first five warn-only with `--fix`; CI runs them with a real exit code,
+and the sixth on pull requests with the base sha. By hand:
     python3 scripts/sw-lint.py
     python3 scripts/sw-lint.py --base origin/main
+    python3 scripts/sw-lint.py --bump          # increment the tail, print the new V
 """
 import os, re, subprocess, sys
 
@@ -70,6 +76,38 @@ def shell_entries(src):
 def tail_of(v):
     m = re.search(r"(\d+)$", v or "")
     return int(m.group(1)) if m else None
+
+
+# THE ONLY PLACE THAT KNOWS HOW TO MOVE V. refresh.py used to carry a second copy of this regex;
+# two pieces of code that rewrite the same declaration are two that can come to disagree about what
+# a declaration looks like. Only the TAIL moves: check 5 pins app.js's VER_PREFIX to the stem, so
+# renaming that half here would blank the version tag in the header silently.
+def bump(path):
+    """Increment the numeric tail of sw.js's V in place. Returns the new V, or None if it has none."""
+    with open(path, encoding="utf-8") as f:
+        src = f.read()
+    # Anchored to the DECLARATION, like ver(): sw.js's comments cite version names as examples, so
+    # a first-match-anywhere scan would rewrite a comment.
+    m = re.search(r'(const V\s*=\s*")([^"]*?)(\d+)(";)', src)
+    if not m:
+        return None
+    v = m.group(2) + str(int(m.group(3)) + 1)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(src[:m.start()] + m.group(1) + v + m.group(4) + src[m.end():])
+    return v
+
+
+def autobump(top, touched):
+    """Bump V and re-stage sw.js. Returns what it did, or None if it declined — see the header."""
+    if os.path.exists(os.path.join(top, ".git", "MERGE_HEAD")):
+        return None
+    if sh("git", "diff", "--name-only", "--", "sw.js").stdout.strip():
+        return None
+    v = bump(os.path.join(top, "sw.js"))
+    if v is None or sh("git", "add", "--", "sw.js").returncode != 0:
+        return None
+    return (f'V bumped to "{v}" and sw.js re-staged — this commit changes precached shell files '
+            f'({", ".join(touched)}), which only reach installed clients on a new generation.')
 
 
 # Check 6. The hook cannot ask this: it sees one commit against its parent, so a branch that bumps
@@ -131,6 +169,14 @@ def base_check(ref):
 
 
 def main():
+    top = sh("git", "rev-parse", "--show-toplevel").stdout.strip()
+    if "--bump" in sys.argv:
+        v = bump(os.path.join(top or ".", "sw.js"))
+        if v is None:
+            print("  sw.js:\n   - no V declaration with a numeric tail to bump")
+            return 1
+        print(v)
+        return 0
     if "--base" in sys.argv:
         i = sys.argv.index("--base")
         if i + 1 >= len(sys.argv):
@@ -168,7 +214,6 @@ def main():
                             f'"{stem}" — checkVer() ranks caches by that prefix, so the version '
                             "tag silently stops tracking this app. Keep the two in agreement.")
 
-    top = sh("git", "rev-parse", "--show-toplevel").stdout.strip()
     for entry in entries:
         if "://" in entry:
             problems.append(f'SHELL entry "{entry}" is cross-origin — the fetch handler passes '
@@ -188,20 +233,26 @@ def main():
     shell = {e.lstrip("./") for e in entries if "://" not in e and e.strip("./")}
     staged = set(sh("git", "diff", "--cached", "--name-only").stdout.split())
     touched = sorted((staged & shell) - {"sw.js"})
+    notes = []
     if touched:
         head = sh("git", "show", "HEAD:sw.js")
         old = ver(head.stdout) if head.returncode == 0 else None
         if old is not None and v == old:          # not the first commit, and V unchanged
-            problems.append(f'V is still "{v}" but this commit changes precached shell files '
-                            f'({", ".join(touched)}) — bump V in sw.js or installed clients '
-                            "keep the cached version.")
+            done = autobump(top, touched) if "--fix" in sys.argv else None
+            if done:
+                notes.append(done)
+            else:
+                problems.append(f'V is still "{v}" but this commit changes precached shell files '
+                                f'({", ".join(touched)}) — bump V in sw.js or installed clients '
+                                "keep the cached version.")
 
-    if not problems:
-        return 0
-    print("  sw.js:")
+    if notes or problems:
+        print("  sw.js:")
+    for n in notes:
+        print(f"   * {n}")
     for p in problems:
         print(f"   - {p}")
-    return 1
+    return 1 if problems else 0
 
 
 if __name__ == "__main__":

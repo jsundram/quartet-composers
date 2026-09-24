@@ -11,9 +11,9 @@
 
 WHY THIS EXISTS. The readership numbers go stale silently: nothing on the page looks wrong when
 the medians are eight months old, it just quietly stops being a chart about now. Running the
-pipeline by hand is four commands and a version bump, which is exactly the sort of chore that does
-not happen. .github/workflows/refresh.yml runs this on the 3rd of each month and opens a PR when
-it changes something.
+pipeline by hand is every stage below plus a version bump, which is exactly the sort of chore that
+does not happen. .github/workflows/refresh.yml runs this monthly and opens a PR when it changes
+something.
 
 WHAT MAKES IT A NO-OP. Not a timestamp, and not "have I run this month" — the question that
 actually matters is whether composers.json already covers the last COMPLETE month, which is the
@@ -34,7 +34,6 @@ import argparse
 import datetime as dt
 import json
 import os
-import re
 import subprocess
 import sys
 
@@ -61,22 +60,14 @@ def current_window_end():
 
 
 def bump_version():
-    """Increment the numeric tail of sw.js's V. Returns the new value, or None if it didn't move.
+    """sw.js's new V, or None if it didn't move. The bump itself lives in sw-lint.py.
 
-    Only the tail: sw-lint.py checks that app.js's VER_PREFIX still matches the STEM, so renaming
-    that half here would break the version tag in the header silently."""
-    path = os.path.join(ROOT, "sw.js")
-    with open(path, encoding="utf-8") as f:
-        src = f.read()
-    # Anchored to the declaration, like sw-lint.py's own reader: sw.js's comments cite version
-    # names as examples, so a first-match-anywhere scan would rewrite a comment.
-    m = re.search(r'(const V\s*=\s*")([^"]*?)(\d+)(";)', src)
-    if not m:
-        return None
-    new = "%s%s%d%s" % (m.group(1), m.group(2), int(m.group(3)) + 1, m.group(4))
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(src[:m.start()] + new + src[m.end():])
-    return m.group(2) + str(int(m.group(3)) + 1)
+    Shelled out rather than reimplemented: that file already owns the V declaration — it reads it
+    for its checks and rewrites it for the hook — and two pieces of code that rewrite the same line
+    are two that can come to disagree about what the line looks like."""
+    out = subprocess.run([sys.executable, os.path.join(HERE, "sw-lint.py"), "--bump"],
+                         cwd=ROOT, capture_output=True, text=True)
+    return out.stdout.strip() or None if out.returncode == 0 else None
 
 
 def run(*cmd):
@@ -104,29 +95,27 @@ def main():
         return 0
 
     # fetch_views.py and fetch_imslp.py are the stages that touch the network, and both only ask
-    # for what they do not already hold. build_data.py then rebuilds all three shipped files from
-    # the caches.
+    # for what they do not already hold. build_data.py then rebuilds the shipped files from the
+    # caches.
     #
     # THE IMSLP STAGES RIDE ALONG RATHER THAN HAVING A SCHEDULE OF THEIR OWN. New scores appear
     # continuously and nothing says when, so there is no equivalent of "composers.json already
     # covers the last complete month" to ask — and a second cadence would mean a second PR a human
     # has to read. The month rollover is as good a trigger as any, and it is the one that already
-    # exists. build_imslp.py runs BEFORE build_data.py: composers.json carries the IMSLP columns
-    # now, so the join has to exist before the file that ships it.
+    # exists. build_imslp.py runs BEFORE build_data.py: composers.json carries the IMSLP columns,
+    # so the join has to exist before the file that ships it.
     #
-    # make-og-svg.py joined the list when the Fame jitter stopped being a name hash (#45). It is
-    # ranked by readership now, so a top-up that changes who out-reads whom inside one quartet
-    # count MOVES dots — and the card duplicates that placement offline (invariant 14). While the
-    # offset was a hash of the name, new view counts could not touch the card's x at all and
-    # leaving it alone was safe; now a refresh that skips it ships a share card whose dots no
-    # longer sit where the app draws them, which is precisely the drift invariant 14 exists to
-    # stop. It reads composers.json and writes assets/og.svg, so it must run AFTER build_data.py.
+    # make-og-svg.py is on the list because the Fame jitter is ranked by readership (#45): a top-up
+    # that changes who out-reads whom inside one quartet count MOVES dots, and the card duplicates
+    # that placement offline (invariant 14), so a refresh that skipped it would ship a share card
+    # whose dots no longer sit where the app draws them. It reads composers.json and writes
+    # assets/og.svg, so it must run AFTER build_data.py.
     # A FAILED IMSLP CRAWL IS NOT A FAILED REFRESH. It is a second network dependency on a job
     # whose point is the readership top-up, and IMSLP is one volunteer-funded server: a bad
     # afternoon there would otherwise cost the month's page views too, for a month. The cache is
-    # committed and build_imslp.py is offline, so carrying on ships last month's IMSLP numbers
-    # beside this month's readership — and the line below says so in the run log and therefore in
-    # the PR. Every other stage is fatal, the gate included.
+    # committed and build_imslp.py is offline, so carrying on ships the last successful crawl's
+    # IMSLP numbers beside this month's readership — and the line below says so in the run log and
+    # therefore in the PR. Every other stage is fatal, the gate included.
     for stage in (("fetch_views.py",), ("fetch_imslp.py",), ("build_imslp.py",),
                   ("build_data.py",), ("make-og-svg.py",), ("validate.py",)):
         rc = run(*stage)

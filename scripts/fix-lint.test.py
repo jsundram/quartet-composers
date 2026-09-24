@@ -4,20 +4,20 @@
 # ///
 """Proves the two branch gates — fix-lint.py and ablate.py — do what they claim.
 
-Both read TWO commits, so neither can be judged from a single staged diff, and both are the kind
-of check whose failure is a SILENCE: a branch that should have been stopped merges green. That is
-the same shape sw-lint.test.py exists for, so this borrows its harness — every case builds a real
-throwaway repo with real branches and runs the real script over it.
+Both read TWO commits, so neither can be judged from a single staged diff, and both are the kind of
+check whose failure is a SILENCE: a branch that should have been stopped merges green. Same shape
+sw-lint.test.py exists for, so this borrows its harness — every case builds a real throwaway repo
+with real branches and runs the real script over it.
 
 The ablation cases matter most, because the interesting half of that script is what it does NOT
-count as proof. A suite that goes red because the ablated tree could not run at all exits nonzero
-while proving nothing, and a gate that accepted it would go green on a suite that never executed.
-So there is a case for each of the three verdicts — reddens, still passes, could not run — and
-one for a suite that was already red before ablating, which would otherwise let a pre-existing
-failure masquerade as proof.
+count as proof: a suite that goes red because the ablated tree could not run at all exits nonzero
+while proving nothing. So there is a case for each of the three verdicts — reddens, still passes,
+could not run — and one for a suite that was already red before ablating, which would otherwise let
+a pre-existing failure masquerade as proof.
 
 Offline, no browser, ~3s:
     python3 scripts/fix-lint.test.py
+
 """
 import os, re, subprocess, sys, tempfile
 
@@ -52,6 +52,11 @@ def git(repo, *a):
     return r.stdout
 
 
+# EVERY SOURCE FIXTURE CARRIES CODE, not just a comment. They used to be `// FIXED`, which was
+# enough while "changed source" meant "the bytes differ" — and stopped being enough the moment
+# ablate.py learned to exempt a change whose CODE is identical (only_comments, via codehash.py).
+# A fixture that is all comment now means "nothing to prove", which is the opposite of what these
+# cases are about. The FIXED marker stays because three cases grep the tree for it.
 def write(repo, name, text):
     p = os.path.join(repo, name)
     os.makedirs(os.path.dirname(p), exist_ok=True)
@@ -69,10 +74,12 @@ def new_repo(tmp):
     git(repo, "init", "-q", "-b", "main")
     git(repo, "config", "user.email", "t@t"); git(repo, "config", "user.name", "t")
     # The gates resolve their own directory, so the scripts under test must live in the throwaway
-    # repo too — they are read as scripts/, exactly where they sit in the real one.
-    for f in ("fix-lint.py", "ablate.py"):
+    # repo too — they are read as scripts/, exactly where they sit in the real one. codehash.py
+    # comes along because ablate.py imports it; leaving it out made every case here die on that
+    # import, which reads as twenty-eight unrelated failures.
+    for f in ("fix-lint.py", "ablate.py", "codehash.py"):
         write(repo, f"scripts/{f}", open(os.path.join(HERE, f)).read())
-    write(repo, "app.js", "// nothing yet\n")
+    write(repo, "app.js", "const n = 0;  // nothing yet\n")
     write(repo, "README.md", "hi\n")
     commit(repo, "base")
     return repo
@@ -99,7 +106,7 @@ with tempfile.TemporaryDirectory() as tmp:
     # --- fix-lint: SOURCE WITHOUT A TEST ---------------------------------------------------------
     repo = new_repo(tmp)
     git(repo, "checkout", "-q", "-b", "b1")
-    write(repo, "app.js", "// FIXED\n")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
     commit(repo, "fix it")
     code, out = run(repo, os.path.join(repo, "scripts/fix-lint.py"))
     case("a branch that changes source and no test fails", code, 1, out.splitlines()[-1][:60])
@@ -111,10 +118,40 @@ with tempfile.TemporaryDirectory() as tmp:
     case("a No-test: trailer excuses it", (code, "excused" in out), (0, True))
     case("...and the stated reason is printed", "nothing to assert" in out, True)
 
+    # --- fix-lint: THE TRAILER HAS TO RIDE WITH THE CHANGE ---------------------------------------
+    # A trailer was honoured ANYWHERE in the range, so a docs-only commit carrying one disarmed both
+    # gates for every source change on the branch — which this repo did to itself twice in one
+    # sitting, with commits reading "No-test: TODO.md only". The trailer is a sentence about an
+    # untested source change, so it only excuses a commit that made one.
+    git(repo, "commit", "-q", "--amend", "-m", "fix it")
+    write(repo, "TODO.md", "a note, and nothing a test could catch\n")
+    commit(repo, "write it down\n\nNo-test: TODO.md only")
+    code, out = run(repo, os.path.join(repo, "scripts/fix-lint.py"))
+    case("a trailer on a docs-only commit does not excuse the branch's source",
+         (code, "excused" in out), (1, False), out.splitlines()[-1][:60] if out else "")
+    git(repo, "reset", "-q", "--hard", "HEAD~1")
+    git(repo, "commit", "-q", "--amend", "-m", "fix it\n\nNo-test: TODO.md only")
+    code, out = run(repo, os.path.join(repo, "scripts/fix-lint.py"))
+    case("...and moving that same trailer onto the source commit does", (code, "excused" in out),
+         (0, True))
+
+    # --- fix-lint: AND IT SPEAKS FOR ITS OWN FILES ONLY -------------------------------------------
+    # One excused file used to excuse every other source file on the branch, which on a branch that
+    # deletes some prose and rewrites a module is most of the diff. A second file, edited without a
+    # trailer, is the unexplained change and the gate says so — naming that file and not the one it
+    # let past.
+    write(repo, "chart.js", "const m = 2;  // a second, unexplained change\n")
+    commit(repo, "and this")
+    code, out = run(repo, os.path.join(repo, "scripts/fix-lint.py"))
+    case("a trailer on one file does not excuse a second file beside it",
+         (code, "chart.js" in out), (1, True))
+    case("...and the excused file is named as excused, not as owing a test",
+         out.count("app.js"), 1, out.replace("\n", " ")[:70])
+
     # --- fix-lint: A TEST WAS TOUCHED ------------------------------------------------------------
     repo = new_repo(tmp)
     git(repo, "checkout", "-q", "-b", "b2")
-    write(repo, "app.js", "// FIXED\n")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
     write(repo, "scripts/thing.test.py", SUITE)
     commit(repo, "fix it, with a test")
     code, _ = run(repo, os.path.join(repo, "scripts/fix-lint.py"))
@@ -133,7 +170,7 @@ with tempfile.TemporaryDirectory() as tmp:
     write(repo, "suite.py", SUITE)
     commit(repo, "add a suite runner")
     git(repo, "checkout", "-q", "-b", "b4")
-    write(repo, "app.js", "// FIXED\n")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
     write(repo, "scripts/thing.test.py", "x\n")   # so fix-lint is satisfied; ablate uses the cmd
     commit(repo, "fix it, with a test")
     ab = os.path.join(repo, "scripts/ablate.py")
@@ -146,7 +183,7 @@ with tempfile.TemporaryDirectory() as tmp:
     write(repo, "suite.py", '''print("  ok   - something unrelated")''')
     commit(repo, "add a suite runner")
     git(repo, "checkout", "-q", "-b", "b5")
-    write(repo, "app.js", "// FIXED\n")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
     write(repo, "scripts/thing.test.py", "x\n")
     commit(repo, "fix it, with a test that proves nothing")
     code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
@@ -159,7 +196,7 @@ with tempfile.TemporaryDirectory() as tmp:
     write(repo, "suite.py", EXPLODES)
     commit(repo, "add a suite runner")
     git(repo, "checkout", "-q", "-b", "b6")
-    write(repo, "app.js", "// FIXED\n")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
     write(repo, "scripts/thing.test.py", "x\n")
     commit(repo, "fix it")
     code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
@@ -174,7 +211,7 @@ with tempfile.TemporaryDirectory() as tmp:
     write(repo, "suite.py", '''print("  FAIL - something already broken")\nimport sys; sys.exit(1)''')
     commit(repo, "add a broken suite")
     git(repo, "checkout", "-q", "-b", "b7")
-    write(repo, "app.js", "// FIXED\n")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
     write(repo, "scripts/thing.test.py", "x\n")
     commit(repo, "fix it")
     code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
@@ -191,7 +228,7 @@ with tempfile.TemporaryDirectory() as tmp:
          "FIXED" in open(os.path.join(repo, "app.js")).read(), True)
 
     # --- ablate: A DIRTY TREE IS REFUSED ----------------------------------------------------------
-    write(repo, "app.js", "// FIXED, plus uncommitted work\n")
+    write(repo, "app.js", "const n = 2;  // FIXED, plus uncommitted work\n")
     code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
                     "--cmd", f"{sys.executable} suite.py")
     case("a dirty tree is refused before anything is touched", code, 2)
@@ -214,7 +251,7 @@ with tempfile.TemporaryDirectory() as tmp:
     write(repo, "unrelated.py", 'print("  ok   - something unrelated")')
     commit(repo, "two suites")
     git(repo, "checkout", "-q", "-b", "b8")
-    write(repo, "app.js", "// FIXED\n")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
     write(repo, "scripts/thing.test.py", "x\n")
     commit(repo, "fix it")
     ab = os.path.join(repo, "scripts/ablate.py")
@@ -254,7 +291,7 @@ with tempfile.TemporaryDirectory() as tmp:
     write(repo, "suite.py", 'print("  ok   - fine")')
     commit(repo, "a suite")
     git(repo, "checkout", "-q", "-b", "b10")
-    write(repo, "chart.js", "// brand new module\n")
+    write(repo, "chart.js", "const c = 1;  // brand new module\n")
     write(repo, "scripts/thing.test.py", "x\n")
     commit(repo, "add a new module, with a test")
     code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
@@ -263,6 +300,43 @@ with tempfile.TemporaryDirectory() as tmp:
     case("...and says the file is new rather than claiming it was proven",
          "is NEW" in out and "(added)" in out, True)
 
+    # --- ablate: A NEW FILE ALONGSIDE AN EDITED ONE ----------------------------------------------
+    # The MIXED branch, and the one the message above does not cover: a new module plus a one-line
+    # edit somewhere covered. The edit is ablated, a suite reddens, the verdict is "proven" — and
+    # the new module, which is usually the whole point of the branch, was never looked at. This is
+    # the shape of the branch that added volume.py: `src` was the ablate.py line registering it.
+    repo = new_repo(tmp)
+    write(repo, "suite.py", SUITE)
+    commit(repo, "a suite")
+    git(repo, "checkout", "-q", "-b", "b10b")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
+    write(repo, "chart.js", "const c = 1;  // brand new module\n")
+    write(repo, "scripts/thing.test.py", "x\n")
+    commit(repo, "a new module, and a fix to an old one")
+    code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
+                    "--cmd", f"{sys.executable} suite.py")
+    case("a mixed branch is still proven by the file it CAN ablate", code, 0)
+    case("...and a GREEN verdict still names the file it could not", "chart.js" in out, True,
+         out.strip().splitlines()[0][:70] if out else "")
+    # Every exit that reports a verdict says it, including the one where no CI-runnable suite
+    # covers the branch at all — a UI branch that also adds a module took that path silently.
+    code, out = run(repo, os.path.join(repo, "scripts/ablate.py"))
+    case("...and so does the exit where no runnable suite covers the branch",
+         "not ablated" in out.lower() and "chart.js" in out, True, out.strip()[:70])
+    # ...and the exit where a trailer excused every file that COULD be ablated. That one reads
+    # "every source change on this branch is excused", which is true and was the whole message.
+    repo = new_repo(tmp)
+    write(repo, "suite.py", SUITE)
+    commit(repo, "a suite")
+    git(repo, "checkout", "-q", "-b", "b10c")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
+    write(repo, "chart.js", "const c = 1;  // brand new module\n")
+    commit(repo, "a new module\n\nNo-test: app.js is a one-line rename")
+    code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
+                    "--cmd", f"{sys.executable} suite.py")
+    case("...and so does the exit where a trailer excused everything ablatable",
+         "not ablated" in out.lower() and "chart.js" in out, True, out.strip()[:70])
+
     # --- ablate: A BRANCH THAT DELETES A SOURCE FILE (the High finding on #43) --------------------
     # Restoring was one `git checkout HEAD -- <every file>`, and git validates the whole pathspec
     # list before touching anything: the deleted file is absent at HEAD, so the command aborted and
@@ -270,12 +344,12 @@ with tempfile.TemporaryDirectory() as tmp:
     # silently shipped the un-fixed file. This is the case the old "tree is clean afterwards" check
     # could not see, because it only ever built a modify-only branch.
     repo = new_repo(tmp)
-    write(repo, "histogram.js", "// doomed\n")
+    write(repo, "histogram.js", "const h = 1;  // doomed\n")
     write(repo, "suite.py", SUITE)
     commit(repo, "a suite and a file to delete")
     git(repo, "checkout", "-q", "-b", "b11")
     git(repo, "rm", "-q", "histogram.js")
-    write(repo, "app.js", "// FIXED\n")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
     write(repo, "scripts/thing.test.py", "x\n")
     commit(repo, "delete one source file and fix another")
     code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
@@ -297,7 +371,7 @@ with tempfile.TemporaryDirectory() as tmp:
     write(repo, "suite.py", 'print("suite: skipping, nothing to run here")')
     commit(repo, "a suite that skips")
     git(repo, "checkout", "-q", "-b", "b13")
-    write(repo, "app.js", "// FIXED\n")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
     write(repo, "scripts/thing.test.py", "x\n")
     commit(repo, "fix it")
     code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
@@ -340,7 +414,7 @@ with tempfile.TemporaryDirectory() as tmp:
     write(repo, "suite.py", 'import sys\nsys.stderr.write("Traceback: boom\\n")\nsys.exit(1)')
     commit(repo, "a suite that crashes")
     git(repo, "checkout", "-q", "-b", "b16")
-    write(repo, "app.js", "// FIXED\n")
+    write(repo, "app.js", "const n = 1;  // FIXED\n")
     write(repo, "scripts/thing.test.py", "x\n")
     commit(repo, "fix it")
     code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
@@ -353,7 +427,7 @@ with tempfile.TemporaryDirectory() as tmp:
     # rather than waved through. This is the case that used to report a passing suite as proof of
     # nothing; now it has to actually prove the fix.
     repo = new_repo(tmp)
-    body = "".join(f"// line {i}\n" for i in range(40))
+    body = "".join(f"const v{i} = {i};  // line {i}\n" for i in range(40))
     write(repo, "table.js", body)
     write(repo, "suite.py", 'import sys\nsrc=open("chart.js").read() if __import__("os").path.exists("chart.js") else ""\n'
                             'ok="FIXED" in src\nprint(("  ok   - " if ok else "  FAIL - ")+"chart.js carries the fix")\n'
@@ -361,7 +435,7 @@ with tempfile.TemporaryDirectory() as tmp:
     commit(repo, "a suite and a file to rename")
     git(repo, "checkout", "-q", "-b", "b17")
     git(repo, "mv", "table.js", "chart.js")
-    write(repo, "chart.js", body.replace("// line 7\n", "// line 7 FIXED\n"))
+    write(repo, "chart.js", body.replace("const v7 = 7;", "const v7 = 77;  // FIXED"))
     write(repo, "scripts/thing.test.py", "x\n")
     commit(repo, "rename and fix")
     code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
@@ -375,14 +449,14 @@ with tempfile.TemporaryDirectory() as tmp:
     # A rename git scores BELOW the default 50% used to arrive as D+A, which ablated the old path
     # while the new one kept the fix -- a suite that then passed, reported as proving nothing.
     repo = new_repo(tmp)
-    write(repo, "table.js", "// almost nothing in common\n")
+    write(repo, "table.js", "const t = 1;  // almost nothing in common\n")
     write(repo, "suite.py", 'import sys,os\nsrc=open("chart.js").read() if os.path.exists("chart.js") else ""\n'
                             'ok="FIXED" in src\nprint(("  ok   - " if ok else "  FAIL - ")+"chart.js carries the fix")\n'
                             'sys.exit(0 if ok else 1)')
     commit(repo, "a suite and a small file")
     git(repo, "checkout", "-q", "-b", "b18")
     git(repo, "mv", "table.js", "chart.js")
-    write(repo, "chart.js", "// FIXED, and wholly rewritten\n")
+    write(repo, "chart.js", "const c = 9;  // FIXED, and wholly rewritten\n")
     write(repo, "scripts/thing.test.py", "x\n")
     commit(repo, "rename with a rewrite")
     code, out = run(repo, os.path.join(repo, "scripts/ablate.py"),
@@ -391,12 +465,12 @@ with tempfile.TemporaryDirectory() as tmp:
     # rename from an unrelated delete plus add. So the branch is NOT waved through; what it must
     # not do is claim the tests prove nothing without saying the new file was never ablated.
     case("a wholly-rewritten rename does not get a confidently wrong verdict",
-         "NOT ablated" in out, True, out.splitlines()[-1][:58] if out else "")
+         "not ablated" in out.lower(), True, out.splitlines()[-1][:58] if out else "")
     case("...and it names the file it could not ablate", "chart.js" in out, True)
 
     # --- ablate: UNCOVERED IS AN ASSERTION, NOT DECORATION ----------------------------------------
     # plan() defaults anything unmapped to reported, so UNCOVERED is read by nothing -- which is
-    # how prose-lint.py sat in it through the very commit that gave it a suite.
+    # how a name sat in it through the very commit that gave that file a suite.
     import importlib.util as _il
     _spec = _il.spec_from_file_location("abl", os.path.join(HERE, "ablate.py"))
     _abl = _il.module_from_spec(_spec); _spec.loader.exec_module(_abl)
@@ -406,7 +480,7 @@ with tempfile.TemporaryDirectory() as tmp:
     # ui-test.sh sat in TESTS beside the suite it launches, which was true while it only started a
     # server and a browser. It derives a port pair per checkout now and refuses a port it did not
     # take (#49) -- logic, and logic filed as a test is logic nothing ablates: the branch that
-    # wrote that was ablated on prose-lint.py alone. A classification is exactly the kind of claim
+    # wrote that was ablated on one unrelated file alone. A classification is exactly the kind of claim
     # that reads fine and proves nothing, so it is asserted rather than commented.
     case("the runner counts as source, and its own suite still counts as a test",
          (bool(_abl.SOURCE.match("scripts/ui-test.sh")), bool(_abl.TESTS.match("scripts/ui-test.sh")),
@@ -414,6 +488,23 @@ with tempfile.TemporaryDirectory() as tmp:
     case("...and COVERS points it at both halves: the offline suite and the browser one",
          [c for pats, c in _abl.COVERS if "scripts/ui-test.sh" in pats],
          [["python3 scripts/ui-test.test.py", "BROWSER:scripts/ui-test.sh"]])
+    # The other .sh that is logic. setup.sh decides three ways on an existing core.hooksPath, and
+    # what it prevents is a clone whose pre-commit lints never run -- which CI cannot testify to
+    # either way, since CI never runs the hook. Left out of SOURCE it would be a setup step no gate
+    # can see, in a repo whose gates are the reason the step exists.
+    case("the setup step counts as source too, with its own suite",
+         (bool(_abl.SOURCE.match("scripts/setup.sh")), bool(_abl.TESTS.match("scripts/setup.sh")),
+          bool(_abl.TESTS.match("scripts/setup.test.py"))), (True, False, True))
+    case("...and COVERS maps it to that suite",
+         [c for pats, c in _abl.COVERS if "scripts/setup.sh" in pats],
+         [["python3 scripts/setup.test.py"]])
+    # The file that INVOKES it. Left out, a PR that mistypes the path passes fix-lint with no test,
+    # is mapped to no suite, and every later session starts with the hook disabled — the silence
+    # setup.sh exists to prevent, arriving through the file that was supposed to prevent it.
+    case("the session hook counts as source too, and maps to the same suite",
+         (bool(_abl.SOURCE.match(".claude/hooks/session-start.sh")),
+          [c for pats, c in _abl.COVERS if ".claude/hooks/session-start.sh" in pats]),
+         (True, [["python3 scripts/setup.test.py"]]))
 
     # --- ablate: a COVERS entry is INERT unless SOURCE matches the same file ---------------
     # plan() builds its file list with SOURCE.match, so a name in COVERS that SOURCE does not
@@ -434,30 +525,39 @@ with tempfile.TemporaryDirectory() as tmp:
           for f in ("scripts/build_imslp.py", "scripts/fetch_imslp.py")], [True, True],
          "SOURCE must match a file for plan() to route it to its COVERS suite")
 
+    # record-lint.py, for the same reason and with the hyphen as the extra hazard: the SOURCE
+    # alternation lists bare stems, so a name that does not match reads as an ordinary script
+    # nothing gates. Its own branch is what this case is for — the property above holds on a tree
+    # where the file was never registered at all.
+    case("the record rule is reachable by the gate that claims to cover it",
+         bool(_ab.SOURCE.match("scripts/record-lint.py"))
+         and any("scripts/record-lint.py" in files for files, _c in _ab.COVERS), True,
+         "SOURCE must match a file for plan() to route it to its COVERS suite")
+
+    # codehash.py, which is the sharpest of the three: both gates IMPORT it to decide whether a
+    # hunk is comments-only, so a change to it moves what they ask for — and it was in NEITHER
+    # table, so plan() never saw it and nothing ablated a change to it.
+    case("codehash is reachable by the gate that claims to cover it",
+         bool(_ab.SOURCE.match("scripts/codehash.py"))
+         and any("scripts/codehash.py" in files for files, _c in _ab.COVERS), True,
+         "SOURCE must match a file for plan() to route it to its COVERS suite")
+
+    case("the volume budget is reachable by the gate that claims to cover it",
+         bool(_ab.SOURCE.match("scripts/volume.py"))
+         and any("scripts/volume.py" in files for files, _c in _ab.COVERS), True,
+         "SOURCE must match a file for plan() to route it to its COVERS suite")
+
     case("every file COVERS maps is one plan() can actually see", _inert, [],
          "plan() reads SOURCE, so an unmatched COVERS name is coverage that cannot fire"
          + (f" — {_inert}" if _inert else ""))
 
-    # --- THIS SUITE'S OWN STATED SIZE -------------------------------------------------------------
-    # Counted at RUNTIME, not by grepping for `case(`: these cases are inline rather than
-    # registered, so a static count reads 23 against a real 25 — which is the very defect
-    # prose-lint.py exists to catch, so it declines to count this file and this does it instead.
-    total = len(printed) + 1   # +1: this case is about to be printed
-    stated = []
-    for f in ("README.md", "CLAUDE.md"):
-        src = open(os.path.join(os.path.dirname(HERE), f), encoding="utf-8").read()
-        for m in re.finditer(r"fix-lint\.test\.py.*?\((\d+) cases\)|covers both in\s+([\w-]+)\s+cases",
-                             src, re.S):
-            stated.append((f, m.group(1) or m.group(2)))
-    # Spelled out, because CLAUDE.md writes numbers as words. Built rather than listed, so the
-    # next case added cannot land on a word this map happens not to carry and report -1.
-    ones = ["", "-one", "-two", "-three", "-four", "-five", "-six", "-seven", "-eight", "-nine"]
-    words = {f"{t}{o}": b + i
-             for t, b in (("twenty", 20), ("thirty", 30), ("forty", 40), ("fifty", 50))
-             for i, o in enumerate(ones)}
-    nums = [(f, int(v) if v.isdigit() else words.get(v, -1)) for f, v in stated]
-    case("both docs state this suite's real size", len(nums) >= 2 and all(n == total for _f, n in nums),
-         True, ", ".join(f"{f} says {n}" for f, n in nums) + f" — it is {total}")
+    # --- THIS SUITE'S OWN SIZE, PRINTED ----------------------------------------------------------
+    # It used to be asserted against a count typed into the docs, which made every added case a
+    # three-file edit — and a count only this run can produce is exactly the kind nobody should be
+    # re-typing. So the number is REPORTED here and stated nowhere: a reader who wants it runs the
+    # suite. (Counted at runtime rather than by grepping for `case(`, because these cases are inline
+    # and a static count reads low.)
+    print(f"\n{len(printed) + 1} cases")
 
 print(("\nFAIL: " + ", ".join(fails)) if fails else "\nall ok")
 sys.exit(1 if fails else 0)
