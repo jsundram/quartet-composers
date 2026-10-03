@@ -1,25 +1,25 @@
 {
- "generated": "2026-09-15",
- "imslp_pages": 4215,
- "imslp_composers": 1771,
+ "generated": "2026-10-03",
+ "imslp_pages": 4245,
+ "imslp_composers": 1776,
  "imslp_arr_pages": 722,
  "roster": 884,
- "attributable_pages": 1673,
- "attributable_works": 2076,
+ "attributable_pages": 1682,
+ "attributable_works": 2078,
  "attributable_arr": 189,
  "placed": 462,
- "placed_with_pages": 307,
- "placed_without_pages": 155,
+ "placed_with_pages": 308,
+ "placed_without_pages": 154,
  "unplaced": 422,
- "offroster_composers": 1464,
- "offroster_pages": 2554,
+ "offroster_composers": 1468,
+ "offroster_pages": 2575,
  "no_score_file": 0,
  "sources": {
   "imslp-qid": 34,
-  "wp-qid": 273,
-  "p839": 101,
-  "cand-qid": 51,
-  "name+dates": 2,
+  "wp-qid": 274,
+  "p839": 103,
+  "cand-qid": 49,
+  "name+dates": 1,
   "name+stale-death": 1
  },
  "date_conflicts": [
@@ -109,6 +109,10 @@
    "pages": 30
   },
   {
+   "cat": "Zitterbart Jr., Fidelis",
+   "pages": 29
+  },
+  {
    "cat": "Omid, Aryan",
    "pages": 19
   },
@@ -150,10 +154,6 @@
   },
   {
    "cat": "Harrington, Jeffrey Michael",
-   "pages": 12
-  },
-  {
-   "cat": "Plante, Cyril",
    "pages": 12
   }
  ]
