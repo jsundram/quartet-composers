@@ -332,6 +332,20 @@ def unknown_argument(t):
     assert "unknown argument" in r.stdout, r.stdout
 
 
+@case("a temp dir the runner cannot make stops the run, and says so")
+def no_tmpdir(t):
+    # Without the stop, an empty $OUT runs on and dies blaming a port nobody held. Ephemeral pins
+    # for unknown_argument's reason: the failure path of this case is a full run.
+    e = {k: v for k, v in os.environ.items() if k not in ("OUT", "REQUIRE_BROWSER", "KEEP")}
+    e.update({"TMPDIR": os.path.join(t, "missing"), "CHROME": "/bin/echo",
+              "PORT": str(free_port()), "CDP": str(free_port())})
+    d = checkout(t, "w")
+    r = subprocess.run([os.path.join(d, "scripts", "ui-test.sh")],
+                       capture_output=True, text=True, env=e, timeout=120)
+    assert r.returncode == 1, "exited %d, not 1:\n%s%s" % (r.returncode, r.stdout, r.stderr)
+    assert "could not make a temp dir" in r.stdout, r.stdout
+
+
 @case("the clear still matches BY the derived ports, not by a literal")
 def kill_patterns(_):
     # The half of the fix the cases above cannot see. Distinct defaults protect nothing if the

@@ -67,8 +67,12 @@ sys.exit(0 if s.connect_ex(("127.0.0.1", int(sys.argv[1]))) == 0 else 1)' "$1" 2
 # A DIRECTORY THIS SCRIPT DID NOT CREATE IS NEVER DELETED: cleanup below does `rm -rf "$OUT"`, and
 # `OUT=$HOME scripts/ui-test.sh` must not be a way to lose a home directory. So an inherited one is
 # only ever written into, and the caller who named it owns clearing it.
+# macOS's bare `mktemp -d` ignores $TMPDIR, the one place a sandbox may let it write. A failed one
+# stops here, since an empty $OUT runs on and dies blaming a port. (An echo: there is no $OUT.)
 if [ -n "${OUT:-}" ]; then OWN=""; mkdir -p "$OUT"
-else                       OUT=$(mktemp -d); OWN=1; fi
+else                       OUT=$(mktemp -d "${TMPDIR:-/tmp}/ui-test.XXXXXX") ||
+                             { echo "ui-test: could not make a temp dir under ${TMPDIR:-/tmp}"; exit 1; }
+                           OWN=1; fi
 
 # THE TRAP IS INSTALLED HERE, NOT BESIDE THE BROWSER, because the exits in between are the ones with
 # something to say: a mktemp'd $OUT was leaked by every one of them and its path printed by none, so
@@ -229,6 +233,9 @@ case "$CHROME" in
 esac
 if [ "$(uname)" = "Darwin" ]; then
   : # macOS reports (hover:hover) and (pointer:fine) unconditionally; there is nothing to arrange.
+  # Claude Code's sandbox (SANDBOX_RUNTIME) forbids the Mach service Chrome registers for its
+  # helpers, so it aborts at startup; one process registers none. Elsewhere, the real browser.
+  if [ "${SANDBOX_RUNTIME:-}" = 1 ]; then LAUNCH+=(--single-process); fi
 elif [ -z "$HEADFUL" ]; then
   echo "ui-test: ${CHROME##*/} is the old headless binary and reports no pointer even under a"
   echo "         display, so the hover checks will fail. Point find_chrome at a full Chrome or"
