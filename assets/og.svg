@@ -758,6 +758,7 @@
   <circle cx="731.7" cy="489.6" r="3.6" fill="#9aa3a8" opacity=".22"/>
   <circle cx="549.2" cy="489.6" r="3.6" fill="#9aa3a8" opacity=".22"/>
   <circle cx="531.5" cy="489.6" r="3.6" fill="#9aa3a8" opacity=".22"/>
+  <circle cx="1075.7" cy="491.0" r="3.6" fill="#9aa3a8" opacity=".22"/>
   <circle cx="543.7" cy="491.0" r="3.6" fill="#9aa3a8" opacity=".22"/>
   <circle cx="611.4" cy="491.0" r="3.6" fill="#9aa3a8" opacity=".22"/>
   <circle cx="771.7" cy="492.4" r="3.6" fill="#9aa3a8" opacity=".22"/>
@@ -823,7 +824,7 @@
   <text x="1078.7" y="413.2" fill="#eceef0" font-family="system-ui,sans-serif" font-size="18" font-weight="600" text-anchor="end" stroke="#14161a" stroke-width="4" paint-order="stroke" stroke-linejoin="round">Cambini</text>
   <text x="72" y="192" fill="#eceef0" font-family="Georgia,serif" font-size="54" font-weight="700">String Quartet</text>
   <text x="72" y="254" fill="#eceef0" font-family="Georgia,serif" font-size="54" font-weight="700">Composers</text>
-  <text x="72" y="316" fill="#9aa3a8" font-family="system-ui,sans-serif" font-size="24">790 composers, 1709–1989.</text>
+  <text x="72" y="316" fill="#9aa3a8" font-family="system-ui,sans-serif" font-size="24">791 composers, 1709–1989.</text>
   <text x="72" y="350" fill="#9aa3a8" font-family="system-ui,sans-serif" font-size="24">Quartets written × readers.</text>
   <text x="72" y="384" fill="#9aa3a8" font-family="system-ui,sans-serif" font-size="24">Diagonals = readers per quartet.</text>
   <circle cx="80" cy="424" r="7.5" fill="#fb923c"/>

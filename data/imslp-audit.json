@@ -3,20 +3,20 @@
  "imslp_pages": 4267,
  "imslp_composers": 1780,
  "imslp_arr_pages": 723,
- "roster": 884,
- "attributable_pages": 1688,
- "attributable_works": 2083,
+ "roster": 885,
+ "attributable_pages": 1728,
+ "attributable_works": 2123,
  "attributable_arr": 189,
- "placed": 462,
- "placed_with_pages": 308,
+ "placed": 463,
+ "placed_with_pages": 309,
  "placed_without_pages": 154,
  "unplaced": 422,
- "offroster_composers": 1472,
- "offroster_pages": 2591,
+ "offroster_composers": 1471,
+ "offroster_pages": 2551,
  "no_score_file": 0,
  "sources": {
   "imslp-qid": 34,
-  "wp-qid": 274,
+  "wp-qid": 275,
   "p839": 103,
   "cand-qid": 49,
   "name+dates": 1,
@@ -101,10 +101,6 @@
    "pages": 43
   },
   {
-   "cat": "Zitterbart Jr., Fidelis",
-   "pages": 40
-  },
-  {
    "cat": "Turchetto, Andrea",
    "pages": 33
   },
@@ -154,6 +150,10 @@
   },
   {
    "cat": "Harrington, Jeffrey Michael",
+   "pages": 12
+  },
+  {
+   "cat": "Plante, Cyril",
    "pages": 12
   }
  ]
