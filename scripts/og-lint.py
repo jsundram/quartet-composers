@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# pwa-starter: og-lint.py @ d2fad01  (+ the meta-length and stated-count checks below)
+# pwa-starter: og-lint.py @ d2fad01  (+ the meta-length and stated-count checks below, and --fix)
 # /// script
 # requires-python = ">=3.9"
 # ///
@@ -24,6 +24,11 @@ the pipeline runs, and a hardcoded count in a share preview is one nobody thinks
 
 The pre-commit hook runs it warn-only; run it in CI with a real exit code:
     python3 scripts/og-lint.py
+    python3 scripts/og-lint.py --fix   # move a count that was true at HEAD to what it measures now
+
+`--fix` is for the robots: a roster that grows without a human at the keyboard (scripts/roster.py)
+must carry its stated counts along, and a count is only rewritten when the commit before said the
+same measure, so a number that was already wrong is left for this lint to report.
 """
 import importlib.util, json, os, pathlib, re, subprocess, sys
 
@@ -77,6 +82,42 @@ def check_meta():
     return 1 if bad else 0
 
 
+COUNT = r"\b(\d{3,5})(?:\s+\w+){0,2}\s+composers\b"
+MEASURES = (len, lambda rows: sum(1 for r in rows if r[3] is not None))
+
+
+def moves(old_rows, rows):
+    """{stated before: stated now} for each measure that moved — none where two measures that
+    agreed before have since parted, since a sentence stating that number could mean either."""
+    pairs = [(m(old_rows), m(rows)) for m in MEASURES]
+    out = {}
+    for before, now in pairs:
+        if before == now:
+            continue
+        if any(b == before and n != now for b, n in pairs):
+            return {}
+        out[before] = now
+    return out
+
+
+def rewrite(text, moved):
+    return re.sub(COUNT, lambda m: m.group(0).replace(m.group(1), str(moved[int(m.group(1))]), 1)
+                  if int(m.group(1)) in moved else m.group(0), text)
+
+
+def fix_counts():
+    prev = sh("git", "-C", str(ROOT), "show", "HEAD:composers.json")
+    if prev.returncode != 0:
+        return
+    moved = moves(json.loads(prev.stdout)["rows"],
+                  json.loads((ROOT / "composers.json").read_text())["rows"])
+    for f in ("index.html", "manifest.json"):
+        text = (ROOT / f).read_text()
+        if rewrite(text, moved) != text:
+            (ROOT / f).write_text(rewrite(text, moved))
+            print(f"  {f}: stated count moved with the data")
+
+
 def check_counts():
     """A stated composer count must match the data, or the preview ships a number that went stale.
 
@@ -110,7 +151,7 @@ def check_counts():
             sum(1 for r in rows if r[3] is not None): "the composers the chart can plot"}
     # "884 composers", "790 quartet composers", "790 string quartet composers" — a qualifier or
     # two, because that is how these sentences actually read.
-    pat = r"\b(\d{3,5})(?:\s+\w+){0,2}\s+composers\b"
+    pat = COUNT
     bad = []
     plotted = sum(1 for r in rows if r[3] is not None)
     for f, allowed in (("index.html", live),
@@ -154,6 +195,8 @@ def check_card_axis():
 
 
 def main():
+    if "--fix" in sys.argv[1:]:
+        fix_counts()
     rc = check_meta() | check_counts() | check_card_axis()
     staged = sh("git", "diff", "--cached", "--name-only").stdout.split()
     over = []

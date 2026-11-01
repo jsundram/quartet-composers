@@ -106,6 +106,18 @@ def raw_names(d):
     d["composers"]["rows"][0][0] = "Lutosawski"
 
 
+@case("a list entry ships with nobody having decided on it", "have no decision")
+def undecided(d):
+    d["inclusion"].pop(next(iter(d["inclusion"])))
+
+
+@case("a composer decided against is on the chart anyway", "says no")
+def decided_against(d):
+    name = d["composers"]["rows"][0][0]
+    t = next(t for t, p in d["people"].items() if (p.get("canonical") or "").startswith(name))
+    d["inclusion"][t] = False
+
+
 # ---------------------------------------------------------------- the schema traps
 @case("fields reordered under positional readers", "index these POSITIONALLY")
 def reorder(d):
@@ -347,6 +359,7 @@ MUTABLE = {
     "pageviews": "data/pageviews.json",
     "join": "data/imslp-join.json",
     "works": "imslp-works.json",
+    "inclusion": "data/inclusion.json",
 }
 READONLY = ["data/list.json", "data/imslp-scrape.json"]
 

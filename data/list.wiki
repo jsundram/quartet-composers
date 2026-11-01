@@ -138,7 +138,7 @@ This is a '''list of string quartet composers''', chronologically sorted by date
 *[[Jan Ladislav Dussek]] (1760–1812): Published three string quartets, Op. 60.
 *[[Antonín Vranický]] / Anton Wranitzky (1761–1820): Thirty quartets. A founder of the Vienna "violin school" and major virtuoso, he was the teacher of [[Ignaz Schuppanzigh]] and leader of the [[Joseph Franz von Lobkowitz#Patron of music|Lobkowitz orchestra]].
 *[[Adalbert Gyrowetz]] / Vojtěch Matyáš Jírovec (1763–1850): Friend of Mozart, wrote at least forty-two string quartets (Grove), possibly more than fifty (Hyperion CD notes).
-*[[Paul Alday]] (c. 1763 – 1835): Three string quartets (B-flat major, A major, C minor) (London & Oxford, c.1795)
+*[[Paul Alday]] (c. 1763 – 1835): Three string quartets (B{{music|flat}} major, A major, C minor) (London & Oxford, c.1795)
 *[[Joseph Leopold Eybler]] (1765–1846): Friend of Mozart, a pupil of Albrechtsberger (who declared him to be the greatest musical genius in Vienna apart from Mozart) and a protégé of Joseph Haydn. Three string quartets, Op. 1, available on CD, written at the age of 22 in 1787 (published in 1794).
 *[[Rodolphe Kreutzer]] (1766–1831): Fifteen string quartets.
 *[[Samuel Wesley (composer, born 1766)|Samuel Wesley]] (1766–1837): At least one quartet (in E{{music|flat}} major, written around 1810).<ref>{{Cite web |url=http://www.musicweb-international.com/Redcliffe/wesley.htm |title=Works by Samuel Wesley (1766–1837) |access-date=29 September 2006 |archive-date=6 September 2006 |archive-url=https://web.archive.org/web/20060906155026/http://musicweb-international.com/Redcliffe/wesley.htm |url-status=live }}</ref>
@@ -210,7 +210,7 @@ This is a '''list of string quartet composers''', chronologically sorted by date
 *[[Ferdinand David (musician)|Ferdinand David]] (1810–1863): One string quartet in A major, Op. 32.
 *[[Robert Schumann]] (1810–1856): Wrote [[String Quartets (Schumann)|three string quartets (Op. 41)]], not among his better-known works.
 *[[Wilhelm Taubert]] (1811–1891): At least four string quartets (1848? to 1872?).
-*[[Emilie Mayer]] (1812–1883): Seven string quartets (G minor Op. 14, F major, D minor, E minor, G major, B-flat major, A major), of which only the G minor one was published in her lifetime.
+*[[Emilie Mayer]] (1812–1883): Seven string quartets (G minor Op. 14, F major, D minor, E minor, G major, B{{music|flat}} major, A major), of which only the G minor one was published in her lifetime.
 *[[George Alexander Macfarren]] (1813–1887): Six string quartets.
 *[[Jakob Rosenhain]] (1813–1894): Three string quartets (Op. 55 in G, Op. 57 in C, Op. 65 in D minor, published by Richault of Paris in 1864; his ''Am Abend'' variations for strings Op. 99 has been called in at least one source his 4th string quartet).
 *[[Giuseppe Verdi]] (1813–1901): One string quartet, in E minor (1873).
@@ -228,7 +228,7 @@ This is a '''list of string quartet composers''', chronologically sorted by date
 *[[Friedrich Kiel]] (1821–1885): Two string quartets (Op. 53, in A minor and E{{music|flat}}) and waltzes Op.73 and Op. 78.
 *[[Joachim Raff]] (1822–1882): Nine string quartets, the first (1850) lost/destroyed (the other eight between 1855 and 1874); the last three (all from 1874) share an opus number and were also called suites by the composer.
 *[[César Franck]] (1822–1890): One string quartet (1889).
-* [[Édouard Lalo]] (1823–1892): One string quartet, in E-flat major (originally composed in 1855 as Op. 19 but revised in 1884 as Op. 45).
+* [[Édouard Lalo]] (1823–1892): One string quartet, in E{{music|flat}} major (originally composed in 1855 as Op. 19 but revised in 1884 as Op. 45).
 *[[Bedřich Smetana]] (1824–1884): Two string quartets, No. 1 in E minor ''From my Life''; and No. 2 in D minor, with the first being the better known.
 *[[Anton Bruckner]] (1824–1896): One string quartet (1862).
 *[[Carl Reinecke]] (1824–1910): Five string quartets (Op. 16 in E{{music|flat}} in 1842, Op. 30 in F around 1851, Op. 132 in C around 1874, Op. 211 in D, Op. 287 in G minor).
@@ -239,7 +239,7 @@ This is a '''list of string quartet composers''', chronologically sorted by date
 
 ===Born in the 1830s===
 *[[Karl Goldmark]] (1830–1915): Goldmark's only string quartet (String Quartet in B{{music|flat}} major, Op.8, 1860) was his breakthrough work, his first composition to receive very positive reviews in contemporary Viennese musical journals. Long neglected, it was recorded several times in the 1990s as part of a general revival of interest in Goldmark's chamber music.
-*[[Peter Arnold Heise]] (1830–1879): Ca. 6 string quartets: No. 1 in B minor (1852?), No. 2 in G major (1852), No. 3 in B-flat major, No. 4 in C minor (1857?), A major (1857?), g minor (1857?).
+*[[Peter Arnold Heise]] (1830–1879): Ca. 6 string quartets: No. 1 in B minor (1852?), No. 2 in G major (1852), No. 3 in B{{music|flat}} major, No. 4 in C minor (1857?), A major (1857?), g minor (1857?).
 *[[Salomon Jadassohn]] (1831–1902): One string quartet, in [[String Quartet (Jadassohn)|C minor, Op. 10]] (1858).
 *[[Ludvig Norman|Ludwig Norman]] (1831–1885): At least five string quartets.
 *[[Johann Joseph Abert]] (1832–1915): String Quartet in A, dedicated to Karl Eckert (1862).
@@ -273,6 +273,7 @@ This is a '''list of string quartet composers''', chronologically sorted by date
 *[[Clara Kathleen Rogers]] (1844–1931): Two string quartets, among them String quartet in D minor, Op. 5.
 *[[Gabriel Fauré]] (1845–1924): One string quartet, in E minor, Op. 121 (1924).
 *[[Ika Peyron]] (1845–1922): ''Humoresk'' in g minor for string quartet and a string quartet in three movements (1897).
+*[[Fidelis Zitterbart]] (1845–1915): 125 string quartets.
 *[[Marie Jaëll]] (1846–1925): One string quartet (1875).
 *[[Agnes Tyrrell]] (1846–1883): String Quartet in G major.
 *[[Augusta Holmès]] (1847–1903): Minuetto for String Quartet (1867).
@@ -299,7 +300,7 @@ This is a '''list of string quartet composers''', chronologically sorted by date
 *[[Christian Sinding]] (1856–1941): String quartet, his Op. 70.
 *[[Sergei Taneyev|Sergei Ivanovich Taneyev]] (1856–1915): Nine complete string quartets, two partial. (source: ''Grove Music Online'')
 *[[Edward Elgar]] (1857–1934): One [[String Quartet (Elgar)|string quartet in E minor]], Op. 83 (1918).
-*[[Rosalind Ellicott]] (1857–1924): At least one string quartet in B flat major.<ref>{{Cite web | url=https://mugi.hfmt-hamburg.de/receive/mugi_person_00000223#Werkverzeichnis | title=Object Metadata }}</ref>
+*[[Rosalind Ellicott]] (1857–1924): At least one string quartet in B{{music|flat}} major.<ref>{{Cite web | url=https://mugi.hfmt-hamburg.de/receive/mugi_person_00000223#Werkverzeichnis | title=Object Metadata }}</ref>
 *[[Sylvio Lazzari]] (1857–1944): String quartet in A minor, Op. 17.
 *[[Giacomo Puccini]] (1858–1924): An elegy for string quartet, [[Crisantemi]] ("Chrysanthemums"), that he wrote in 1890.
 *[[Hilda Sehested]] (1858–1936): String Quartet in G-major (1911).
@@ -391,10 +392,10 @@ This is a '''list of string quartet composers''', chronologically sorted by date
 *[[Gustave Samazeuilh]]: One string quartet (1900).
 *[[Ernst von Dohnányi]] (1877–1960): Three string quartets (1899, 1906, 1926).
 *[[Jeanne Beijerman-Walraven]] (1878–1969): One string quartet (1912).
-*[[Fritz Brun]] (1878–1959): Four string quartets: No. 1 in E-flat major (1898); No. 2 in G major (1921); No. 3 in F major (1943); No. 4 in D major (1949).
+*[[Fritz Brun]] (1878–1959): Four string quartets: No. 1 in E{{music|flat}} major (1898); No. 2 in G major (1921); No. 3 in F major (1943); No. 4 in D major (1949).
 *[[Lucien Durosoir]] (1878–1955): Three string quartets (1920, 1922, 1933–34).
 *[[Joseph Holbrooke]] (1878–1958): Six string quartets (No. 1 Op. 17b Fantasie-Quartet (1904, pub.1922), No. 2 ''War Impressions'' Op. 58a pub. 1915, No. 3 ''Pickwick Club'' Op. 68 pub. 1916, No. 4 ''Folksong Suite'' Op. 71 c. 1916, No. 5 ''Folksong Suite No. 2'' Op. 72 c. 1917, No. 6 ''Folksong Suite No. 3'' Op.73 c. 1918) and a further Suite No. 1 ''Cambria'' Op. 101.
-*[[Johanna Müller-Hermann]] (1878–1941): String Quartet in E-flat major, Op. 6.
+*[[Johanna Müller-Hermann]] (1878–1941): String Quartet in E{{music|flat}} major, Op. 6.
 *[[Frank Bridge]] (1879–1941): Five string quartets: B{{music|flat}} major (1901); No. 1 in E minor ('Bologna') (1906); No. 2 in G minor (1915); No. 3 (1926); No. 4 (1937), plus a host of other, shorter pieces.
 *[[Jean Cras]] (1879–1932): One string quartet (1909).<ref>{{Cite web |url=http://www.cello.org/Newsletter/Articles/cras/crasv2.htm |title=Cello.org |access-date=29 September 2006 |archive-date=9 March 2006 |archive-url=https://web.archive.org/web/20060309193016/http://www.cello.org/Newsletter/Articles/cras/crasv2.htm |url-status=live }}</ref>
 *[[John Ireland (composer)|John Ireland]] (1879–1962): Two string quartets: D minor (1895–1897?, scholarship work, [[Royal College of Music|RCM]]) and C minor (1897?, composed as a student work at the R.C.M.), both published only c. 1973.<ref>See {{OCLC|1033272}}, {{OCLC|1033273}} and notes to Naxos recording of the quartets.</ref>
@@ -403,7 +404,7 @@ This is a '''list of string quartet composers''', chronologically sorted by date
 *[[Jacob Weinberg]] (1879–1956): String Quartet, Opus 55 (recording available on Naxos Label, recorded by Milken Archive. See Wikipedia, "Jacob Weinberg").
 
 ===Born in the 1880s===
-*[[Susan Spain-Dunk]] (1880–1962): String Quartet in B flat major (1914) and Phantasy for String Quartet (1915).
+*[[Susan Spain-Dunk]] (1880–1962): String Quartet in B{{music|flat}} major (1914) and Phantasy for String Quartet (1915).
 *[[Ernest Bloch]] (1880–1959): Six string quartets (in G (1896) and five numbered quartets – 1916, 1945, 1952, 1953, 1956; individual shorter works e.g. In the Mountains (1924), Prelude (1925), Night (1923), 2 Pieces (1938, 1950), Paysages (1923)).
 *[[Joseph-Ermend Bonnal]] (1880–1944): Two string quartets (1927? and 1934)<ref>{{cite web |url=http://www.bonnal.org/html/musique_chambre.html |title=Ermend Bonnal: Partitions musique de chambre |access-date=29 September 2006 |url-status=dead |archive-url=https://web.archive.org/web/20070216070923/http://www.bonnal.org/html/musique_chambre.html |archive-date=16 February 2007 }}</ref><!-- 1919 for first quartet from [http://www.musicweb-international.com/ classrev/2002/Jan02/recommendations2001.htm] but bonnal.org probably more reliable source! -->
 *[[Ildebrando Pizzetti]] (1880–1968): Two string quartets in A major (1906) and D major (1932–33).
@@ -430,7 +431,7 @@ This is a '''list of string quartet composers''', chronologically sorted by date
 *[[Fran Lhotka]] (1883–1962): String quartet in G minor.
 *[[Eva Ruth Spalding]] (1883–1969) Five string quartets
 *[[Anton Webern]] (1883–1945): His ''[[String Quartet (Webern)|String Quartet]]'' is composed using the [[twelve-tone technique]]. His Five Movements, Op. 5 (1909) and Six Bagatelles, Op. 9 (1911–13) are also significant in SQ literature. Plus, a string quartet, a slow movement and a rondo from 1905.
-*[[Dina Appeldoorn]] (1884–1938): String Quartet in B-flat major (1932).
+*[[Dina Appeldoorn]] (1884–1938): String Quartet in B{{music|flat}} major (1932).
 *[[Marguerite Béclard d'Harcourt]] (1884–1964): At least two string quartets, no. 1 in 1920, no. 2 in 1923.
 *[[Louis Gruenberg]] (1884–1964): String Quartet No. 1 Op. 6, Four Indiscretions for String Quartet Op. 20, Four Diversions for String Quartet Op. 32, String Quartet No. 2 Op. 40, String Quartet No. 3 Op. 52, Five Variations on a Popular Tune for String Quartet.
 *[[Giulia Recli]] (1884–1970): Quartetto per archi (1913).
@@ -467,7 +468,7 @@ This is a '''list of string quartet composers''', chronologically sorted by date
 *[[Germaine Tailleferre]] (1892–1983): One quartet (1917–19).
 *[[Arthur Lourié]] (1892–1966): Three quartets: No. 1 (1915), No. 2 (1923) and No. 3 Suite (1924).
 *[[Alois Hába]] (1893–1973): Sixteen quartets, employing various [[microtonal music|microtonal]] systems (e.g. No. 11 uses a sixth-tone system; No. 12, quarter-tone; No. 16, fifth-tone).
-*[[Rued Langgaard]] (1893–1952): Six numbered quartets, as well as a set of variations (BVN 71, 1914, r. 1931), the ''Italian Scherzo'' (BVN 408, 1950), the (unnumbered) String Quartet in A-flat major (BVN 155, 1918), and ''Rosengaardsspil'' (''Rose Garden Play''; BVN 153, 1918).
+*[[Rued Langgaard]] (1893–1952): Six numbered quartets, as well as a set of variations (BVN 71, 1914, r. 1931), the ''Italian Scherzo'' (BVN 408, 1950), the (unnumbered) String Quartet in A{{music|flat}} major (BVN 155, 1918), and ''Rosengaardsspil'' (''Rose Garden Play''; BVN 153, 1918).
 *[[Paul Dessau]] (1894–1979): Seven string quartets (No. 1 before 1943 and published 1969?, No. 2 in 1942/43, No. 3 in 1943–1946, No. 4 ''Barbaraquartett'' (or 99 Bars for Barbara),<ref>{{Cite web |url=http://www.schott-music.com/shop/products/show,137823.html |title=99 Bars for Barbara |access-date=29 September 2006 |archive-date=5 November 2005 |archive-url=https://web.archive.org/web/20051105011314/http://www.schott-music.com/shop/products/show,137823.html |url-status=live }}</ref> No. 5 ''Quartettino (Felsenstein-Quartett)'' in 1955, No. 6 ''Sieben Sätze für Streichquartett'' in 1974, No. 7 in 1975. Also a string quartet movement in 1957.
 *[[Kalitha Dorothy Fox]] (1894–1934): Phantasy Quartet (posthumous performance 1935).
 *[[Ernest John Moeran]] (1894–1950): Two string quartets (in A minor and in E{{music|flat}} major).
@@ -583,7 +584,7 @@ This is a '''list of string quartet composers''', chronologically sorted by date
 *[[Vadim Salmanov]] (1912–1978): Six string quartets.
 *[[Violet Archer]] (1913–2000): Three string quartets between 1940 and 1981.
 *[[Benjamin Britten]] (1913–1976): Three numbered string quartets (1941, 1945 and 1975) plus two early unnumbered ones (1928 and 1931) and a number of other works for string quartet (such as the three ''Divertimenti'', 1933).
-*[[Matilde Capuis]] (1913–2017): String quartet in c sharp minor.
+*[[Matilde Capuis]] (1913–2017): String quartet in C{{music|sharp}} minor.
 *[[Vivian Fine]] (1913–2000): Prelude for String Quartet (1937), String Quartet (1957).
 *[[Dulcie Holland]] (1913–2000): Six string quartets between 1981 and 1997.
 *[[Tikhon Khrennikov]] (1913–2007): Three quartets, the third his Op. 33 (1988).
@@ -986,7 +987,7 @@ This is a '''list of string quartet composers''', chronologically sorted by date
 *[[Kati Agócs]] (born 1975): String Quartet No. 1, ''Tantric Variations'' (2016), String Quartet No. 2, ''Imprimatur'' (2018).   
 *[[R. Luke DuBois]] (born 1975): ''Hard Data'' (2009).
 *[[Vivian Fung]] (born 1975): String Quartet No. 1 (the third movement, Pizzicato, may be performed as a separate work for string quartet; 2004), No. 2 (2009), No. 3 (2013), No. 4 (2019). 
-*[[David Philip Hefti]] (born 1975): ''Ph(r)asen – String Quartet No. 1'' (2007); ''Guggisberg-Variationen – String Quartet No. 2'' (2008); ''Mobile – String Quartet No. 3'' (2011); ''con fuoco – String Quartet No. 4'' (2011); ''Concubia nocte – Music for the Second Nocturnal Vigil – String Quartet No. 5'' (2018); ''Five Scenes for Gustav - String Quartet No. 6'' (2020); ''To the End of Time - String Quartet No. 7'' (2023); ''Songs of Yearning - String Quartet No. 8'' (2024).
+*[[David Philip Hefti]] (born 1975): ''Ph(r)asen – String Quartet No. 1'' (2007); ''[[Guggisberglied|Guggisberg-Variationen – String Quartet No. 2]]'' (2008); ''Mobile – String Quartet No. 3'' (2011); ''con fuoco – String Quartet No. 4'' (2011); ''Concubia nocte – Music for the Second Nocturnal Vigil – String Quartet No. 5'' (2018); ''Five Scenes for Gustav - String Quartet No. 6'' (2020); ''To the End of Time - String Quartet No. 7'' (2023); ''Songs of Yearning - String Quartet No. 8'' (2024).
 *[[Gilda Lyons]] (born 1975): ''Bone Needles II'' (2006).
 *[[Svitlana Azarova]] (born 1976): ''Hotel Charlotte'' (2005), for string quartet.
 *[[Kasia Glowicka]] (born 1976): "Springs and Summers" (1999), for string quartet and [[countertenor]], music set to [[Shakespeare's sonnets]].

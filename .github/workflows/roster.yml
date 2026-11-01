@@ -1,0 +1,69 @@
+# A tick in a PR's dossier is a yes. scripts/roster.py --apply reads the boxes into
+# data/inclusion.json, and the data is rebuilt and validated on the same branch.
+#
+# The body reaches the script through env, never through `${{ }}` inside `run:`, because it is text
+# anybody who can edit the PR wrote. roster.py lets it decide only the newcomers since the base, so
+# no edit to a body can take an existing composer off the chart.
+#
+# NB a push made with the built-in GITHUB_TOKEN does not trigger checks.yml, which is why the gate
+# runs here and the job fails if it does.
+name: roster decision
+
+on:
+  pull_request:
+    types: [edited]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: roster-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  decide:
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(github.event.pull_request.body, '<!-- roster:')
+    runs-on: ubuntu-latest
+    env:
+      BODY: ${{ github.event.pull_request.body }}
+      BASE: origin/${{ github.event.pull_request.base.ref }}
+      HEAD_REF: ${{ github.event.pull_request.head.ref }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: record the ticked boxes
+        id: apply
+        run: |
+          printf '%s\n' "$BODY" > "$RUNNER_TEMP/body.md"
+          python3 scripts/roster.py --apply "$RUNNER_TEMP/body.md" --base "$BASE"
+          if git diff --quiet -- data/inclusion.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: rebuild and validate
+        if: steps.apply.outputs.changed == 'true'
+        run: |
+          set -e
+          for stage in build_imslp.py build_data.py make-og-svg.py; do
+            python3 "scripts/$stage"
+          done
+          python3 scripts/og-lint.py --fix
+          python3 scripts/validate.py
+
+      - name: push the decision
+        if: steps.apply.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Record the roster decisions ticked in the PR" \
+            -m "scripts/roster.py --apply, then build_imslp.py -> build_data.py -> make-og-svg.py -> og-lint.py --fix -> validate.py. Pushed by .github/workflows/roster.yml."
+          git push origin "HEAD:$HEAD_REF"

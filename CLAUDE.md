@@ -51,15 +51,19 @@ repo. The prose inside the code answers to a ratio instead — `scripts/volume.p
    directly. A fourth component that bakes a colour needs a fourth `rerender()` wired in there.
 
 4. **`composers.json`, `readership.json` and `imslp-works.json` are generated; never hand-edit
-   them.** `scrape_list.py` -> `fetch_wikidata.py` -> `fetch_views.py` -> `fetch_imslp.py` ->
-   `build_imslp.py` -> `build_data.py`, each caching into `data/`. Only the fetches touch the
-   network, so a rebuild is offline and reproducible. The last stage writes ALL THREE from one set
-   of caches and they must stay in lockstep — files each internally consistent but built from
-   different fetches are a drift nothing in the app can see, and `validate.py` is what holds them
-   together, recomputing every shipped statistic from the cache it came from.
+   them.** `scrape_list.py` -> `fetch_wikidata.py` -> `roster.py` -> `fetch_views.py` ->
+   `fetch_imslp.py` -> `build_imslp.py` -> `build_data.py`, each caching into `data/`. Only the
+   fetches touch the network, so a rebuild is offline and reproducible. The last stage writes ALL
+   THREE from one set of caches and they must stay in lockstep — files each internally consistent
+   but built from different fetches are a drift nothing in the app can see, and `validate.py` is
+   what holds them together, recomputing every shipped statistic from the cache it came from.
    **`build_rows()` in `build_data.py` is the one place the roster is decided**, and
    `build_imslp.py` CALLS it rather than reading `composers.json`: a second reduction of the same
    caches would be a second opinion about who is on this list.
+   **It admits only the entries `data/inclusion.json` says yes to, and refuses one it says nothing
+   about.** That file is the one in `data/` that is a DECISION rather than a cache: a newcomer on
+   the list enters it as no (`roster.py`), the monthly PR carries a dossier with a box, and
+   `roster.yml` turns a tick into a yes. Edit it by hand or by the box, never by regenerating it.
    `data/pageviews.json` stores each series as a FLAT ARRAY aligned to its `months` axis, and the
    alignment is load-bearing — one element short shifts every month by one and the numbers stay
    plausible, so `build_data.py` and `validate.py` both refuse a ragged one. It carries three
@@ -233,11 +237,14 @@ No test framework, and nothing to install. Each of these states its own rules in
 | `node scripts/names.test.mjs` | the display-name rules, against the shipped roster. |
 | `node scripts/sw.test.mjs` | the SW fetch handler under mocked globals. |
 | `python3 scripts/sw-lint.py` | the precache contract (invariant 1); `--base REF` is the branch half. |
-| `python3 scripts/og-lint.py` | the link preview: card size, meta length, and the counts that SHIP. |
+| `python3 scripts/og-lint.py` | the link preview: card size, meta length, and the counts that SHIP; `--fix` carries a count that moved. |
+| `python3 scripts/og-lint.test.py` | `--fix` moves a count only with its own measure, and never guesses. |
 | `python3 scripts/pagemoves.test.py` | invariant 15's pure parts, against a stubbed move log. |
 | `python3 scripts/fetch_views.test.py` | the page-view cache, `fetch` stubbed and the clock frozen. |
 | `python3 scripts/imslp.test.py` | the IMSLP join's parses and judgements, all offline. |
 | `python3 scripts/fetch_imslp.test.py` | what a warm crawl ASKS FOR, and what it declines to (#62). |
+| `python3 scripts/roster.test.py` | who ships: a newcomer is a no until ticked, and a box can only decide a newcomer. |
+| `python3 scripts/fetch_wikidata.test.py` | a dropped Wikidata response costs a retry, not the month. |
 | `python3 scripts/codehash.py` | is a change comments-only, or did code go with them? |
 | `python3 scripts/fix-lint.py --base REF` | a branch changed source and touched no test. |
 | `python3 scripts/ablate.py --base REF` | the branch's tests over the base's code — do they still pass? |
@@ -266,8 +273,9 @@ section 2 asserts which one it got; no check reads a PIXEL, so the DOM is the or
 are evidence for whoever reads a failure; and a boot is a CLAIM, not a reset (#48).
 
 `scripts/refresh.py` is not a test but the same discipline, and `refresh.yml` runs it monthly with
-the built-in `GITHUB_TOKEN` — which does not trigger `checks.yml`, which is why refresh.py runs the
-data gate itself. The gate must not be skippable because a robot opened the PR.
+the built-in `GITHUB_TOKEN` — which does not trigger `checks.yml`, which is why refresh.py, and
+`roster.yml` after a tick, run the data gate themselves. The gate must not be skippable because a
+robot opened the PR.
 
 ## Conventions
 
