@@ -119,6 +119,8 @@ def main():
     # that placement offline (invariant 14), so a refresh that skipped it would ship a share card
     # whose dots no longer sit where the app draws them. It reads composers.json and writes
     # assets/og.svg, so it must run AFTER build_data.py.
+    # og-lint.py --fix carries the composer counts the preview and the manifest state, which move
+    # once the list re-read adds somebody.
     # A FAILED IMSLP CRAWL IS NOT A FAILED REFRESH. It is a second network dependency on a job
     # whose point is the readership top-up, and IMSLP is one volunteer-funded server: a bad
     # afternoon there would otherwise cost the month's page views too, for a month. The cache is
@@ -126,7 +128,8 @@ def main():
     # IMSLP numbers beside this month's readership — and the line below says so in the run log and
     # therefore in the PR. Every other stage is fatal, the gate included.
     for stage in (("fetch_views.py",), ("fetch_imslp.py",), ("build_imslp.py",),
-                  ("build_data.py",), ("make-og-svg.py",), ("validate.py",)):
+                  ("build_data.py",), ("make-og-svg.py",), ("og-lint.py", "--fix"),
+                  ("validate.py",)):
         rc = run(*stage)
         if rc != 0:
             if stage[0] == "fetch_imslp.py":
@@ -149,7 +152,7 @@ def main():
     # cannot see without a new generation.
     git = subprocess.run(["git", "-C", ROOT, "status", "--porcelain",
                           "composers.json", "readership.json", "imslp-works.json",
-                          "data/pageviews.json"],
+                          "data/pageviews.json", "index.html", "manifest.json"],
                          capture_output=True, text=True)
     if git.returncode == 0 and not git.stdout.strip():
         print("\nthe data did not actually change — no version bump")

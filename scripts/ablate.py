@@ -109,6 +109,7 @@ COVERS = [
     (("scripts/roster.py", "scripts/build_data.py"),
                                       ["python3 scripts/roster.test.py"]),
     (("scripts/fetch_wikidata.py",),  ["python3 scripts/fetch_wikidata.test.py"]),
+    (("scripts/og-lint.py",),         ["python3 scripts/og-lint.test.py"]),
     # The RUNNER, which is source now that it has logic of its own to get wrong (#49) — see the
     # note under SOURCE. BOTH suites, because it has two halves and only one of them is about
     # ports: the offline one answers for the derivation and the guards, and the browser one for
@@ -123,8 +124,7 @@ COVERS = [
 # it through the very commit that gave that file a suite. It is an ASSERTION now, checked by
 # unsuited() below: a name here that has a test file beside it, or that COVERS already maps, is a
 # stale claim that this file has nothing to prove, which is exactly the silence the gate is for.
-UNCOVERED = ("scripts/scrape_list.py", "scripts/make-og-svg.py", "scripts/og-lint.py",
-             "scripts/refresh.py",
+UNCOVERED = ("scripts/scrape_list.py", "scripts/make-og-svg.py", "scripts/refresh.py",
              "manifest.json", "ping.js")
 
 # WHAT COUNTS AS SOURCE lives here and nowhere else, because fix-lint.py asks the same question

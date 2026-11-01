@@ -140,6 +140,8 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
       - name: share-card + link-preview lint (scripts/og-lint.py)
         run: python3 scripts/og-lint.py
+      - name: the stated counts' fix (scripts/og-lint.test.py)
+        run: python3 scripts/og-lint.test.py
       # The IMSLP join's judgements. No network; one case reads data/people.json for a QID.
       - name: the IMSLP catalogue parse (scripts/imslp.test.py)
         run: python3 scripts/imslp.test.py

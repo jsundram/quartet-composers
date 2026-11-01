@@ -237,7 +237,8 @@ No test framework, and nothing to install. Each of these states its own rules in
 | `node scripts/names.test.mjs` | the display-name rules, against the shipped roster. |
 | `node scripts/sw.test.mjs` | the SW fetch handler under mocked globals. |
 | `python3 scripts/sw-lint.py` | the precache contract (invariant 1); `--base REF` is the branch half. |
-| `python3 scripts/og-lint.py` | the link preview: card size, meta length, and the counts that SHIP. |
+| `python3 scripts/og-lint.py` | the link preview: card size, meta length, and the counts that SHIP; `--fix` carries a count that moved. |
+| `python3 scripts/og-lint.test.py` | `--fix` moves a count only with its own measure, and never guesses. |
 | `python3 scripts/pagemoves.test.py` | invariant 15's pure parts, against a stubbed move log. |
 | `python3 scripts/fetch_views.test.py` | the page-view cache, `fetch` stubbed and the clock frozen. |
 | `python3 scripts/imslp.test.py` | the IMSLP join's parses and judgements, all offline. |

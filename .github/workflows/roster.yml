@@ -51,9 +51,11 @@ jobs:
         if: steps.apply.outputs.changed == 'true'
         run: |
           set -e
-          for stage in build_imslp.py build_data.py make-og-svg.py validate.py; do
+          for stage in build_imslp.py build_data.py make-og-svg.py; do
             python3 "scripts/$stage"
           done
+          python3 scripts/og-lint.py --fix
+          python3 scripts/validate.py
 
       - name: push the decision
         if: steps.apply.outputs.changed == 'true'
@@ -63,5 +65,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "Record the roster decisions ticked in the PR" \
-            -m "scripts/roster.py --apply, then build_imslp.py -> build_data.py -> make-og-svg.py -> validate.py. Pushed by .github/workflows/roster.yml."
+            -m "scripts/roster.py --apply, then build_imslp.py -> build_data.py -> make-og-svg.py -> og-lint.py --fix -> validate.py. Pushed by .github/workflows/roster.yml."
           git push origin "HEAD:$HEAD_REF"
