@@ -63,7 +63,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # here, on the same machinery, wherever there is a browser. CI is now one of those places — the
 # gates job passes `--with-ui`, so the mark is about a machine without a browser rather than about
 # CI, which is what it used to say and what kept UI branches unproven by anything automatic. The
-# entries with no suite at all (build_data.py, scrape_list.py, make-og-svg.py) are named too, for
+# entries with no suite at all (scrape_list.py, make-og-svg.py) are named too, for
 # the same reason — an uncovered file should read as a known gap, not as a clean run.
 COVERS = [
     (("scripts/validate.py",),        ["python3 scripts/validate.test.py"]),
@@ -105,6 +105,10 @@ COVERS = [
     # redden it, and it arrived on every crawl branch as a guaranteed also-ran. A suite that
     # cannot go red does not testify; that is the whole premise of this gate.
     (("scripts/fetch_imslp.py",),     ["python3 scripts/fetch_imslp.test.py"]),
+    # build_rows() is where the roster decisions take effect, so the roster suite is build_data's.
+    (("scripts/roster.py", "scripts/build_data.py"),
+                                      ["python3 scripts/roster.test.py"]),
+    (("scripts/fetch_wikidata.py",),  ["python3 scripts/fetch_wikidata.test.py"]),
     # The RUNNER, which is source now that it has logic of its own to get wrong (#49) — see the
     # note under SOURCE. BOTH suites, because it has two halves and only one of them is about
     # ports: the offline one answers for the derivation and the guards, and the browser one for
@@ -119,8 +123,8 @@ COVERS = [
 # it through the very commit that gave that file a suite. It is an ASSERTION now, checked by
 # unsuited() below: a name here that has a test file beside it, or that COVERS already maps, is a
 # stale claim that this file has nothing to prove, which is exactly the silence the gate is for.
-UNCOVERED = ("scripts/build_data.py", "scripts/scrape_list.py", "scripts/fetch_wikidata.py",
-             "scripts/make-og-svg.py", "scripts/og-lint.py", "scripts/refresh.py",
+UNCOVERED = ("scripts/scrape_list.py", "scripts/make-og-svg.py", "scripts/og-lint.py",
+             "scripts/refresh.py",
              "manifest.json", "ping.js")
 
 # WHAT COUNTS AS SOURCE lives here and nowhere else, because fix-lint.py asks the same question
@@ -141,7 +145,7 @@ SOURCE = re.compile(
     # The IMSLP join. A name added to COVERS is INERT until it is also matched here — plan()
     # builds its file list from SOURCE — so the entry added for these two sat as a comment
     # asserting a gate that could never fire, which is the exact failure this file exists to stop.
-    r"|build_imslp|fetch_imslp)\.py$"
+    r"|build_imslp|fetch_imslp|roster)\.py$"
     # ui-test.sh IS SOURCE, and used to be filed under TESTS with the suite it launches. That was
     # true when it only started a server and a browser; it now derives a port pair per checkout
     # and refuses to run against a port it did not take (#49), which is logic, and logic filed as
