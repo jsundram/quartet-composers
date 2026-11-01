@@ -1790,6 +1790,18 @@ check("a search from a pinched view returns to the full field, not to the pinch"
       pinched > 2 && await ev(`Chart.zoomK()`) === 1,
       `pinched to k=${pinched}, then k=${await ev(`Chart.zoomK()`)}`);
 await searchFor("");
+// A frame inside the chart's tolerance of rest is drawn the same and reads as not zoomed, but it
+// is still not AT rest, and "close enough" must not mean "stay": a fit that lands that near
+// would never come back. Nudged in-page, because a delta this small is below what a real wheel
+// sends.
+await ev(`(()=>{const b=document.querySelector('#plot svg rect.bg').getBoundingClientRect();
+  Chart.wheelInto({deltaY:-0.4, clientX:b.x+b.width/2, clientY:b.y+b.height/2,
+    bubbles:true, cancelable:true})})()`);
+const nudged = await ev(`Chart.zoomK()`);
+await ev(`Chart.resetZoom()`); await idle();
+check("a frame a hair off rest still returns to it exactly",
+      nudged > 1 && nudged < 1.001 && await ev(`Chart.zoomK()`) === 1,
+      `nudged to k=${nudged}, then k=${await ev(`Chart.zoomK()`)}`);
 // Each view fits its own filter: the same composers occupy a different box in a timeline than in
 // a log-log readership cloud, so a view switch recomputes the frame instead of carrying it over.
 // Driven as a SWITCH, which is the claim: filter first, then change the view under the filter.
