@@ -1,6 +1,6 @@
 {
 "source": "https://en.wikipedia.org/wiki/List_of_string_quartet_composers",
-"revid": 1364438330,
+"revid": 1382735022,
 "entries": [
 {
 "title": "Gregorio Allegri",
@@ -1176,6 +1176,13 @@
 "birth": 1845,
 "death": 1922,
 "quartets": 1,
+"how": "N string quartets"
+},
+{
+"title": "Fidelis Zitterbart",
+"birth": 1845,
+"death": 1915,
+"quartets": 125,
 "how": "N string quartets"
 },
 {

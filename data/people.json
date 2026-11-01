@@ -1746,12 +1746,12 @@
 "wd_death": null
 },
 "Dora Bright": {
-"birth": 1863,
+"birth": 1862,
 "canonical": "Dora Bright",
 "death": 1951,
 "gender": "female",
 "qid": "Q5297388",
-"wd_birth": 1863,
+"wd_birth": 1862,
 "wd_death": 1951
 },
 "Doreen Carwithen": {
@@ -2599,6 +2599,15 @@
 "qid": "Q219551",
 "wd_birth": 1866,
 "wd_death": 1924
+},
+"Fidelis Zitterbart": {
+"birth": 1845,
+"canonical": "Fidelis Zitterbart",
+"death": 1915,
+"gender": "male",
+"qid": "Q91947993",
+"wd_birth": 1845,
+"wd_death": 1915
 },
 "Fini Henriques": {
 "birth": 1867,
