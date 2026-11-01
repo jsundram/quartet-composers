@@ -295,3 +295,7 @@ jobs:
       # away, a reverted move read as a permanent one. None of them crashes.
       - name: page-move rule (scripts/pagemoves.test.py)
         run: python3 scripts/pagemoves.test.py
+      - name: who is on the chart (scripts/roster.test.py)
+        run: python3 scripts/roster.test.py
+      - name: the Wikidata fetch's retries (scripts/fetch_wikidata.test.py)
+        run: python3 scripts/fetch_wikidata.test.py

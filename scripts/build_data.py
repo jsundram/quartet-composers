@@ -64,6 +64,7 @@ ROOT = os.path.dirname(HERE)
 LIST = os.path.join(ROOT, "data", "list.json")
 PEOPLE = os.path.join(ROOT, "data", "people.json")
 VIEWS = os.path.join(ROOT, "data", "pageviews.json")
+ROSTER = os.path.join(ROOT, "data", "inclusion.json")
 JOIN = os.path.join(ROOT, "data", "imslp-join.json")
 OUT = os.path.join(ROOT, "composers.json")
 HIST_OUT = os.path.join(ROOT, "readership.json")
@@ -115,6 +116,19 @@ def build_rows():
     with open(VIEWS, encoding="utf-8") as f:
         pv = json.load(f)
     history, series = pv["months"], pv["series"]
+    # An entry nobody has decided on stops the build rather than shipping: that is the whole of
+    # how a newcomer is kept off the chart until somebody has read the dossier (scripts/roster.py).
+    try:
+        with open(ROSTER, encoding="utf-8") as f:
+            roster = json.load(f)
+    except OSError:
+        roster = {}
+    undecided = [e["title"] for e in listing["entries"] if e["title"] not in roster]
+    if undecided:
+        raise BuildError(
+            "%d list entries have no decision in data/inclusion.json (%s). Run scripts/roster.py, "
+            "which records them as no until somebody ticks them in." % (len(undecided),
+                                                                         ", ".join(undecided[:3])))
     # The statistic's window: the last twelve cached months. Not the whole cache — see the header.
     months = history[-STAT_MONTHS:]
     # Every series is a flat array aligned to `history` (fetch_views.py). Checked rather than
@@ -137,6 +151,8 @@ def build_rows():
     rows, seen, dropped, canons = [], {}, [], []
     for e in listing["entries"]:
         title = e["title"]
+        if roster[title] is not True:
+            continue
         p = people.get(title, {})
         # `canon` may be None (unresolved), so `key` identifies the row instead — two unresolved
         # entries must not collapse into one `seen` slot — and the series lookup finds nothing

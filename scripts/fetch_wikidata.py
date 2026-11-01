@@ -31,6 +31,7 @@ rounded and the row falls back to the prose date.
 
 
 """
+import http.client
 import json
 import os
 import sys
@@ -70,7 +71,9 @@ def api(url, params):
         try:
             with urllib.request.urlopen(req, timeout=45) as r:
                 return json.load(r)
-        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as e:
+        # A connection dropped mid-body arrives as a short read, or as JSON cut off part-way.
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError,
+                http.client.IncompleteRead, json.JSONDecodeError) as e:
             if attempt == TRIES - 1:
                 raise
             wait = BACKOFF[min(attempt, len(BACKOFF) - 1)]

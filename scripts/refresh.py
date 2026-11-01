@@ -3,10 +3,10 @@
 # /// script
 # requires-python = ">=3.9"
 # ///
-"""Bring the page-view data up to the last complete month, or do nothing.
+"""Bring the page-view data up to the last complete month and the roster up to the list page.
 
     python3 scripts/refresh.py            # top up if a month has completed since the last build
-    python3 scripts/refresh.py --check    # say whether one is due; exit 1 if it is, touch nothing
+    python3 scripts/refresh.py --check    # say whether a readership month is due; exit 1 if it is, touch nothing
     python3 scripts/refresh.py --force    # run the stages even if the data is already current
 
 WHY THIS EXISTS. The readership numbers go stale silently: nothing on the page looks wrong when
@@ -15,16 +15,15 @@ pipeline by hand is every stage below plus a version bump, which is exactly the 
 does not happen. .github/workflows/refresh.yml runs this monthly and opens a PR when it changes
 something.
 
-WHAT MAKES IT A NO-OP. Not a timestamp, and not "have I run this month" — the question that
-actually matters is whether composers.json already covers the last COMPLETE month, which is the
-newest month the pageviews API can answer for. If it does, there is nothing to fetch and this
-exits 0 having touched nothing, so running it daily costs one file read. If it does not, the
-window has moved and every stage below is needed.
+WHAT MAKES IT A NO-OP. Not a timestamp, and not "have I run this month". Readership is due when
+composers.json does not yet cover the last COMPLETE month, the newest one the pageviews API can
+answer for. The list page is re-read every run, and a run where neither the month nor the list
+moved writes nothing.
 
-WHAT IT DOES NOT DECIDE. It does not re-scrape the composer list or re-read Wikidata: those change
-for editorial reasons, not on a schedule, and a roster that grows by three composers overnight
-with nobody looking is how a bad parse ships. Readership is the one input that is stale purely
-because time passed.
+THE ROSTER IS RE-READ, BUT NOT DECIDED HERE. The list and Wikidata are fetched every run, so a
+composer the page gained shows up the month it happened. A newcomer is recorded as NOT on the
+chart (scripts/roster.py) and the PR carries a dossier and a box to tick; a roster that grew by
+three composers overnight with nobody looking is how a bad parse ships.
 
 THE VERSION BUMP IS PART OF THE JOB. composers.json and readership.json are precached, so new
 numbers that ship without a new V in sw.js reach the repo and nobody's installed copy. That is
@@ -90,8 +89,18 @@ def main():
     if args.check:
         print("refresh %s" % ("DUE" if due else "not needed"))
         return 1 if due else 0
-    if not due and not args.force:
-        print("up to date — nothing fetched, nothing written")
+    # The list first, because whether there is anything to do depends on it as much as on the month.
+    for stage in ("scrape_list.py", "fetch_wikidata.py", "roster.py"):
+        rc = run(stage)
+        if rc != 0:
+            print("\n%s failed (exit %d) — nothing was version-bumped" % (stage, rc), file=sys.stderr)
+            return rc
+    listed = subprocess.run(["git", "-C", ROOT, "status", "--porcelain", "data/list.json",
+                             "data/people.json", "data/inclusion.json"],
+                            capture_output=True, text=True)
+    moved = listed.returncode != 0 or bool(listed.stdout.strip())
+    if not due and not moved and not args.force:
+        print("up to date — the month is covered and the list did not change")
         return 0
 
     # fetch_views.py and fetch_imslp.py are the stages that touch the network, and both only ask

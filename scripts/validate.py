@@ -511,6 +511,27 @@ def check_names(rows, people):
             "not from raw page text: %s" % (len(orphans), ", ".join(orphans[:6])))
 
 
+def check_inclusion(rows, people, listing, inclusion):
+    """Nobody joins the chart undecided, and nobody decided against is on it (scripts/roster.py)."""
+    if not (people and listing):
+        return
+    if inclusion is None:
+        err("missing data/inclusion.json — every list entry needs a yes or no before it can ship")
+        return
+    undecided = sorted({e["title"] for e in listing["entries"]} - set(inclusion))
+    if undecided:
+        err("%d list entries have no decision in data/inclusion.json: %s"
+            % (len(undecided), ", ".join(undecided[:6])))
+    name = lambda t: QUALIFIER.sub("", (people.get(t) or {}).get("canonical") or t)
+    yes = {name(t) for t, v in inclusion.items() if v is True}
+    shipped = {r[0] for r in rows}
+    against = sorted(name(t) for t, v in inclusion.items()
+                     if v is not True and name(t) in shipped and name(t) not in yes)
+    if against:
+        err("%d composers ship although data/inclusion.json says no: %s"
+            % (len(against), ", ".join(against[:6])))
+
+
 def check_resolved(people):
     """A list title that resolves to nothing must not ship a readership.
 
@@ -736,6 +757,8 @@ def main():
         check_history(rows, meta, load("readership.json", required=False), pv)
         check_moves(pv)
         check_names(rows, people)
+        check_inclusion(rows, people, load("data/list.json", required=False),
+                        load("data/inclusion.json", required=False))
         check_resolved(people)
         check_imslp(rows, meta, load("data/imslp-join.json", required=False),
                     load("data/imslp-scrape.json", required=False),
