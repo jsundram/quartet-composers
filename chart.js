@@ -695,7 +695,10 @@ window.Chart = (function () {
                                && Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5;
 
   function goTo(t, animate) {
-    if (sameTransform(t, transform)) return;              // already there; don't restart a tween
+    if (t.k === transform.k && t.x === transform.x && t.y === transform.y) return;
+    // Near enough is a reason not to restart a tween, not a reason to stay put: a fit landing
+    // inside the tolerance of rest would otherwise never come back, and read as not zoomed.
+    if (sameTransform(t, transform)) animate = false;
     if (animate) svg.transition().duration(420).call(zoom.transform, t);
     else svg.call(zoom.transform, t);
   }
