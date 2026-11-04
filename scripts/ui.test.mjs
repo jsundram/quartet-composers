@@ -1691,7 +1691,7 @@ check("the footnote says whose statement the gender is",
 
 // --- 4i-b. the IMSLP filter --------------------------------------------------------------------
 await goto(BASE);
-await ev(`document.getElementById('imslp-only').click()`);
+await ev(`document.getElementById('imslp-only')?.click()`);
 await settle(`${rowCount} !== ${allRows}`);
 const onImslp = await ev(`[...document.querySelectorAll('tbody td.c-imslp')].map(td => +td.textContent)`);
 check("the IMSLP filter keeps exactly the composers with a work there",
@@ -1701,14 +1701,14 @@ check("the IMSLP filter keeps exactly the composers with a work there",
 await goto(BASE + "#i=1&g=female");
 check("a shared IMSLP link arrives filtered and pressed, and composes with gender",
       await ev(`${rowCount} === ROWS.filter(d => d.imslp > 0 && d.gender === 'female').length`)
-      && await ev(`document.getElementById('imslp-only').getAttribute('aria-pressed') === 'true'`));
+      && await ev(`document.getElementById('imslp-only')?.getAttribute('aria-pressed') === 'true'`));
 await viewport(360, 780, true);
 await goto(BASE);
 check("the IMSLP pill shares the gender pills' line on a phone, inside the row",
       await ev(`(()=>{const g=document.getElementById('gender').getBoundingClientRect();
-        const i=document.getElementById('imslp-filter').getBoundingClientRect();
+        const i=document.getElementById('imslp-filter')?.getBoundingClientRect();
         const row=document.querySelector('.filterbar').getBoundingClientRect();
-        return i.top === g.top && i.left >= g.right && i.right <= row.right + 0.5})()`));
+        return i?.top === g.top && i?.left >= g.right && i?.right <= row.right + 0.5})()`));
 await viewport(1280, 900, false);
 await goto(BASE);
 
@@ -2171,7 +2171,7 @@ check("a grip pushed to the end of the axis stays inside the card (390px, in the
 // brush range and lifted the whole page (issue 36). That sentence is gone, so the page genuinely
 // does not move and the check can say so directly.
 await ev(`document.querySelector('#gender button[data-g="female"]').click()`);
-await ev(`document.getElementById('imslp-only').click()`);
+await ev(`document.getElementById('imslp-only')?.click()`);
 await searchFor("a");
 await sleep(TWEEN);
 const all3 = await rowTops();
@@ -2186,7 +2186,7 @@ check("Reset filters clears the search, the brush and the pills together",
       await ev(`(()=>{const q=document.getElementById('q').value;
         const g=document.querySelector('#gender button[data-g=""]').getAttribute('aria-pressed');
         return q === '' && g === 'true' && !location.hash.includes('r=')
-               && document.getElementById('imslp-only').getAttribute('aria-pressed') === 'false'
+               && document.getElementById('imslp-only')?.getAttribute('aria-pressed') === 'false'
                && !location.hash.includes('i=')
                && !location.hash.includes('g=') && !location.hash.includes('q=')})()`),
       await ev(`'q='+JSON.stringify(document.getElementById('q').value)
