@@ -373,8 +373,9 @@ function renderDetail(i, preview) {
 // THIS IS WHERE INVARIANT 16'S THREE ANSWERS ARE PUT IN WORDS, because the table's digit can only
 // carry two of them. Every string below is load-bearing there: "no quartets FOUND" and "no IMSLP
 // page found" rather than "not on IMSLP", because both are statements about what a search turned
-// up; and the noun stays the loose "quartets" IMSLP files them under, which is never the `Quartets`
-// row three lines above it and must never be subtracted from it.
+// up; a count says "works" because IMSLP's instrumentation category holds fugues, fragments and
+// single movements as well, which is never the `Quartets` row above it and must never be subtracted
+// from it; and the empty state keeps "quartets", because the site may hold their other music.
 function elsewhereRow(d) {
   const p = document.createElement("p");
   p.className = "links";
@@ -392,7 +393,7 @@ function elsewhereRow(d) {
   // label (WCAG 2.5.3, the lesson #53 left on the abbreviated header): the visible string is a
   // prefix of the spoken one rather than a different sentence.
   const label = d.imslp
-    ? `IMSLP · ${d.imslp} quartet${d.imslp === 1 ? "" : "s"}`
+    ? `IMSLP · ${d.imslp} work${d.imslp === 1 ? "" : "s"}`
     : "IMSLP · no quartets found";
   p.appendChild(destination(d.imslpUrl, label, `${label} by ${d.name}`, "imslp"));
   return p;

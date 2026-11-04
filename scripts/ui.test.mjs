@@ -3018,6 +3018,13 @@ check("Wikipedia and IMSLP share one row, at one height in all three states",
       && imslpLines.works?.pills === 2 && imslpLines.absent?.pills === 1,
       Object.entries(imslpLines)
         .map(([k, v]) => `${k}: ${v ? `${v.h}px ${JSON.stringify(v.t)}` : "absent"}`).join(" | "));
+// The count is of WORKS, since IMSLP's category holds fugues and single movements too. The empty
+// state keeps the narrower noun: "no works found" would be false of a composer whose other music
+// IMSLP holds.
+check("the IMSLP pill counts works, and an empty one says no quartets were found",
+      /IMSLP · \d+ works\b/.test(imslpLines.works?.t ?? "")
+      && /IMSLP · no quartets found/.test(imslpLines.none?.t ?? ""),
+      `${imslpLines.works?.t} | ${imslpLines.none?.t}`);
 
 // --- 7f. landscape full screen: the strip must not eat the chart ------------------------------
 // A phone on its side is 390px TALL. The strip takes its height out of #plot rather than floating
