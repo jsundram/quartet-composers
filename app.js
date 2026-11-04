@@ -373,9 +373,8 @@ function renderDetail(i, preview) {
 // THIS IS WHERE INVARIANT 16'S THREE ANSWERS ARE PUT IN WORDS, because the table's digit can only
 // carry two of them. Every string below is load-bearing there: "no quartets FOUND" and "no IMSLP
 // page found" rather than "not on IMSLP", because both are statements about what a search turned
-// up; a count says "works" because IMSLP's instrumentation category holds fugues, fragments and
-// single movements as well, which is never the `Quartets` row above it and must never be subtracted
-// from it; and the empty state keeps "quartets", because the site may hold their other music.
+// up; and the count is never the `Quartets` row three lines above it and must never be subtracted
+// from it.
 function elsewhereRow(d) {
   const p = document.createElement("p");
   p.className = "links";
