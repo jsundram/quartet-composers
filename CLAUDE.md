@@ -311,9 +311,9 @@ one function it stays in the comment at the site, and this names the site rather
   (which composer is selected, which filters are active). `chart.js`, `table.js` and `histogram.js`
   never talk to each other — they share `names.js` and `Chart.colorOf`, which are read-only lookups,
   not state. The filters compose in `applyFilters()`, where each source returns "a Set of indices,
-  or null for everything" and they are intersected. The gender filter is the one with no module of
-  its own (`genderMatches()` in `app.js`): nothing to render and no data to hold. A fourth filter
-  that DOES draw something belongs in its own file, on the same contract.
+  or null for everything" and they are intersected. The gender and IMSLP filters have no module of
+  their own (`genderMatches()` and `imslpMatches()` in `app.js`): nothing to render and no data to
+  hold. A filter that DOES draw something belongs in its own file, on the same contract.
 - **`names.js` loads before `chart.js` and `table.js`, and `Names.setData()` runs before either gets
   data**, because the short form of a name is a function of the WHOLE roster. It is a SHELL and a
   BOOT dep like every other load-bearing script.
@@ -346,7 +346,7 @@ one function it stays in the comment at the site, and this names the site rather
   lens to `#plot-clip`; a new zoom-transformed group needs the same `clip-path`, or a pinch lays it
   out over the axes and past the card edge.
 - **One filter row, above everything it scopes.** `#filters` is a sibling of `.grid`, not a child of
-  either card — all three filters scope both views, and a filter drawn inside one card says
+  either card — every filter scopes both views, and a filter drawn inside one card says
   otherwise. `placeFilters()` moves it into `#viz` in full screen.
 - **The chart's controls sit ABOVE the plot, because the plot's height is a function of the VIEW.**
   `measure()` gives each mode its own aspect ratio, so a row underneath moves when you press it,
@@ -354,7 +354,7 @@ one function it stays in the comment at the site, and this names the site rather
   placed by a box the same press resizes.** Full screen is the exception and stays underneath, where
   `#plot` is sized by the viewport rather than by the view. It costs a phone's first screen (#29).
 - **No filter control appears or disappears at all**, which is the rule above satisfied by
-  construction (#31, #35). One permanent `Reset filters` clears all three and is `disabled` at rest
+  construction (#31, #35). One permanent `Reset filters` clears them all and is `disabled` at rest
   and accent-filled when live — a state change that moves no box, which is why `applyFilters()` may
   light it on the drag's first frame, above the `settled` guard. Being the page's one answer to "is
   anything filtered?" is why `anyFilter()` reads the query TRIMMED, like `Table.matches()`.
