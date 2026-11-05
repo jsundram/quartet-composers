@@ -12,6 +12,14 @@ used a *cartesian* fisheye: both axes warped continuously under
 the cursor. It magnified beautifully and read terribly — with the axes always moving there was no
 stable picture, hovering was the only way to learn anything, and a screenshot of it was nonsense.
 
+## Help check the list
+
+Wikipedia's list and the composers' own articles drift apart. Each month an agent looks into
+composers whose quartet count disagrees between sources, and drafts edits using sources outside
+Wikipedia. **[The open review issues](https://github.com/jsundram/quartet-composers/issues?q=is%3Aopen+label%3Alist-review)**
+hold those drafts, and nothing is posted automatically. Anyone can pick one up: comment with the
+composer's name, check the sources, and if you agree, post the edit from your own Wikipedia account.
+
 ## Working on it
 
 There is nothing to install — no build step, no package manager, no test framework. One command,
