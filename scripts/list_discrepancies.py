@@ -3,10 +3,14 @@
 # /// script
 # requires-python = ">=3.9"
 # ///
-"""Pick the next composers whose list entry disagrees with their article or with IMSLP.
+"""Find the composers whose list entry disagrees with their article or with IMSLP, and pick the next.
 
-    gh issue list --label list-review --state all --limit 500 --json body > issues.json
-    python3 scripts/list_discrepancies.py --issues issues.json --limit 20 --out queue.json
+    python3 scripts/list_discrepancies.py --scan      # fetch every article -> data/list-flags.json
+    gh api 'repos/jsundram/quartet-composers/issues?labels=list-review&state=all&per_page=100' > i.json
+    python3 scripts/list_discrepancies.py --issues i.json --limit 20 --out queue.json
+
+--scan is a stage of scripts/refresh.py, because a cloud run gets rate-limited on the article fetch
+and the runner does not. Picking the next batch reads that file and touches no network.
 
 The output is evidence for a monthly agent to research, never a correction: a flag is often noise,
 so nothing here changes a count, and a person posts any edit that comes of it.
@@ -33,6 +37,7 @@ sys.dont_write_bytecode = True
 import scrape_list as sl                                # noqa: E402
 
 ROOT = os.path.dirname(HERE)
+FLAGS = os.path.join(ROOT, "data", "list-flags.json")
 WP = "https://en.wikipedia.org/wiki/"
 LIST_TITLE = "List_of_string_quartet_composers"
 EDIT = "https://en.wikipedia.org/w/index.php?title=%s&action=edit"
@@ -185,8 +190,8 @@ def fetch_articles(titles):
     return out
 
 
-def build(articles, seen, limit):
-    """-> (the next `limit` flagged composers, how many more are waiting), article flags first."""
+def scan(articles):
+    """Every flagged composer on the shipped roster, whoever has already looked at them."""
     def load(*path):
         with open(os.path.join(ROOT, *path), encoding="utf-8") as f:
             return json.load(f)
@@ -204,9 +209,6 @@ def build(articles, seen, limit):
         if row is None or e["title"] not in wiki:
             continue
         line, label, section = wiki[e["title"]]
-        h = entry_hash(sl.clean(line))
-        if seen.get(name) == h:
-            continue
         stated, numbered = evidence(name, articles.get(canonical, ""))
         imslp = row["imslp"] or 0
         flags = flags_for(row["quartets"], imslp, stated, numbered)
@@ -215,40 +217,56 @@ def build(articles, seen, limit):
         cat = row["imslp_cat"]
         flagged.append({
             "composer": name, "birth": row["birth"], "list_count": row["quartets"],
-            "flags": flags, "entry_hash": h, "list_wikitext": line,
+            "flags": flags, "entry_hash": entry_hash(sl.clean(line)), "list_wikitext": line,
             "list_url": WP + LIST_TITLE + fragment(label),
             "list_edit_url": EDIT % LIST_TITLE + "&section=%d" % section,
             "article_url": page_url(canonical),
             "article_edit_url": EDIT % urllib.parse.quote(canonical.replace(" ", "_"), safe="(),'"),
             "article_says": [{"value": v, "quote": q, "url": page_url(canonical) + fragment(p)}
-                             for v, q, p in stated + numbered],
+                             for v, q, p in {t[0]: t for t in reversed(stated + numbered)}.values()],
             "imslp": imslp,
             "imslp_url": None if cat is None else "https://imslp.org/wiki/" + urllib.parse.quote(
                 ("Category:" + (cat or name.split()[-1] + ", " + " ".join(name.split()[:-1])))
                 .replace(" ", "_"), safe=",_:()'"),
         })
-    flagged.sort(key=lambda b: (not set(b["flags"]) & set(ARTICLE_FLAGS), b["birth"]))
-    return flagged[:limit], len(flagged[limit:])
+    return flagged
+
+
+def next_batch(flagged, seen, limit):
+    """-> (the next `limit` composers nobody has researched, how many more), article flags first."""
+    todo = [b for b in flagged if seen.get(b["composer"]) != b["entry_hash"]]
+    todo.sort(key=lambda b: (not set(b["flags"]) & set(ARTICLE_FLAGS), b["birth"]))
+    return todo[:limit], len(todo[limit:])
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--issues", help="`gh issue list --json body` output; omit to treat all as new")
+    ap.add_argument("--scan", action="store_true", help="fetch the articles and rewrite the flags")
+    ap.add_argument("--articles", help="with --scan, a {title: wikitext} file to read instead")
+    ap.add_argument("--issues", help="the REST issue list; omit to treat everybody as new")
     ap.add_argument("--limit", type=int, default=20)
-    ap.add_argument("--articles", help="a {title: wikitext} file to read instead of fetching")
-    ap.add_argument("--out", required=True)
+    ap.add_argument("--out", help="where the next batch goes")
     args = ap.parse_args()
+    if args.scan:
+        if args.articles:
+            with open(args.articles, encoding="utf-8") as f:
+                articles = json.load(f)
+        else:
+            with open(os.path.join(ROOT, "data", "people.json"), encoding="utf-8") as f:
+                articles = fetch_articles(sorted({p["canonical"] for p in json.load(f).values()}))
+        flagged = scan(articles)
+        with open(FLAGS, "w", encoding="utf-8") as f:
+            json.dump(flagged, f, ensure_ascii=False, indent=1)
+        print("%d composers flagged -> data/list-flags.json" % len(flagged))
+        return 0
+    if not args.out:
+        ap.error("--out is required unless --scan")
     seen = {}
     if args.issues:
         with open(args.issues, encoding="utf-8") as f:
             seen = seen_in(json.load(f))
-    if args.articles:
-        with open(args.articles, encoding="utf-8") as f:
-            articles = json.load(f)
-    else:
-        with open(os.path.join(ROOT, "data", "people.json"), encoding="utf-8") as f:
-            articles = fetch_articles(sorted({p["canonical"] for p in json.load(f).values()}))
-    batch, waiting = build(articles, seen, args.limit)
+    with open(FLAGS, encoding="utf-8") as f:
+        batch, waiting = next_batch(json.load(f), seen, args.limit)
     with open(args.out, "w", encoding="utf-8") as f:
         json.dump({"marker": marker(batch), "waiting_after_this": waiting, "composers": batch},
                   f, ensure_ascii=False, indent=1)
