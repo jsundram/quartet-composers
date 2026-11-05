@@ -301,3 +301,5 @@ jobs:
         run: python3 scripts/roster.test.py
       - name: the Wikidata fetch's retries (scripts/fetch_wikidata.test.py)
         run: python3 scripts/fetch_wikidata.test.py
+      - name: the list page's counts (scripts/scrape_list.test.py)
+        run: python3 scripts/scrape_list.test.py

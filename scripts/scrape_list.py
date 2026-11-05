@@ -42,8 +42,8 @@ KNOWN LIMITATIONS, in the order they cost accuracy:
     "three traditional string quartets" gives the wrong number honestly. Those need a human: see
     OVERRIDE.
   - A range yields the number the regex reaches first, not a considered choice between the bounds.
-  - An entry that enumerates works without ever using the word "quartet" returns null. Counting its
-    dated titles would usually be right, but the same rule would count a lifespan as a work.
+  - A title list counts its DATED titles, so one that dates only some of them comes up short, and
+    one that dates none returns null. Those need a human too.
 
 NOT WORTH TRYING: Wikidata as a structured replacement. Beethoven's quartets are modelled as plain
 "musical work/composition" with no genre linking them to the string quartet, so they are findable
@@ -112,7 +112,7 @@ PATTERNS = [
 # The section heading already says "string quartet composers", so many entries drop the noun:
 # "Thirteen (1907-1949)." or "Two, both in 1957." Anchored to the start of the description so it
 # cannot pick up a stray year or opus number from mid-sentence.
-LEADING = re.compile(r"^\s*%s\s*(%s|\d{1,3})\s*(?:[,.;:(]|\s+(?:in|both|of|for|from|covering|written)\b)"
+LEADING = re.compile(r"^\s*%s\s*(%s|\d{1,3})\s*(?:[,.;:(]|\s+(?:in|both|of|for|from|covering|written|as|up)\b)"
                      % (HEDGE, NUMWORD), re.I)
 # "No 1 (1912), No 2 (1917), ... No 6 (1927)" - the highest number reached is the count. Max rather
 # than a tally, because these lists are sometimes out of order or skip an unpublished number.
@@ -128,6 +128,40 @@ OVERRIDE = {
     # "Fifteen string quartets for violin, viola, guitar and cello, as well as three traditional
     # string quartets" - the fifteen are guitar quartets.
     "Niccolò Paganini": 3,
+    # Parts with no stated total, where the first number would win. Each is the sum of the parts.
+    "Emanuel Aloys Förster": 15,
+    "Milton Babbitt": 6,
+    # The page's main count, leaving out the early or student works it mentions separately: the
+    # rule "Six numbered" already gets from the patterns, which here find the student works first.
+    "Philip Glass": 8,
+    # Three titles; the "one quartet" the sentence mentions is how the second may be performed.
+    "Steve Reich": 3,
+    # A later date is the same work revised.
+    "John Corigliano": 1,
+    # The entry states its own number, hedged, before listing what it can.
+    "Tera de Marez Oyens": 3,
+    # "published in groups of six", then one date per opus: each date is a set, not a work.
+    "Carl Friedrich Abel": 18,
+    "Franz Asplmayr": 12,
+    # More titles than dates: two share a date, or some carry none.
+    "Chen Yi (composer)": 5,
+    "Roger Reynolds": 6,
+    "Diana Burrell": 3,
+    "Caroline Shaw": 9,
+    "Terry Riley": 10,
+    "György Kurtág": 8,
+    "John Adams (composer)": 5,
+    "Graham Waterhouse": 5,
+    # Numbered ranges inside the titles: "String Quartets 1–5", "Nos. 2–6".
+    "Jörg Widmann": 10,
+    "Brian Ferneyhough": 10,
+    # Titles with no dates at all.
+    "Julia Klumpke": 4,
+    "Josephine Lang": 2,
+    # A dated "set" of unstated size. Null: its one date is not one work.
+    "Alessandro Scarlatti": None,
+    # Likewise an album "mostly of string quartets".
+    "Edgar Meyer": None,
 }
 
 
@@ -164,17 +198,17 @@ def count_of(desc, title):
 
     # Enumerations: "Comodo et amabile for String Quartet (1924), Poem for String Quartet (1926),
     # Combined Carols for String Quartet (1941)." No number is stated anywhere, but three works
-    # are. Counting the dated titles recovers a fifth of the entries this parser otherwise gives
-    # up on, and it is the LAST rule so it can never override an explicitly stated count.
+    # are. It is the LAST rule so it can never override an explicitly stated count, and it does not
+    # ask for the word "quartet": the section heading has already said it, so "Arcadiana (1994),
+    # The Four Quarters (2010)." is a complete entry.
     #
     # A parenthetical CONTAINING a year, not one that starts with a digit: Isidora Zebeljan's
     # reads "(in Memory of Gustav Mahler, 2005)" and "(2009-2011)", and only the looser test sees
     # both. It undercounts an entry that dates only some of its works — better than null, and
     # never a confident overcount.
-    if SINGULAR.search(desc) or PLURAL.search(desc):
-        works = len(DATED_WORK.findall(desc))
-        if 0 < works <= 200:
-            return works, "dated works"
+    works = len(DATED_WORK.findall(desc))
+    if 0 < works <= 200:
+        return works, "dated works"
     return None, None
 
 
@@ -215,6 +249,14 @@ def dates_in(rest):
     return None, None
 
 
+def without_dates(rest):
+    """`rest` minus its dates, or the dated-works rule would count a lifespan as a work."""
+    for m in PAREN.finditer(rest):
+        if DEAD.match(m.group(1)) or ALIVE.match(m.group(1)):
+            return rest[:m.start()] + rest[m.end():]
+    return rest
+
+
 def parse(wikitext):
     body = re.sub(r"<ref[^>]*>.*?</ref>", "", wikitext, flags=re.S)
     body = re.sub(r"<ref[^>]*/>", "", body)
@@ -233,7 +275,7 @@ def parse(wikitext):
             # Not fatal: scripts/fetch_wikidata.py fills birth/death from P569/P570, which is a
             # better source anyway. Only a row still lacking a birth year after that is unusable.
             no_dates.append(title)
-        desc = c.split("):", 1)[1] if "):" in c else clean(rest).lstrip(" :")
+        desc = c.split("):", 1)[1] if "):" in c else without_dates(clean(rest)).lstrip(" :.")
         n, how = count_of(desc, title)
         if n is None:
             no_count.append((title, desc.strip()[:110]))
@@ -280,6 +322,9 @@ def main():
             print("no cached wikitext at data/list.wiki - run without --offline once", file=sys.stderr)
             return 1
         wikitext = open(CACHE, encoding="utf-8").read()
+        # The cache is the last fetch's revision, and a re-parse must not lose track of which.
+        if os.path.exists(OUT):
+            revid = json.load(open(OUT, encoding="utf-8")).get("revid")
     else:
         wikitext, revid = fetch_wikitext()
         with open(CACHE, "w", encoding="utf-8") as f:
