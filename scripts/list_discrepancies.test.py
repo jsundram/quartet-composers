@@ -10,8 +10,10 @@
 The silent failure is a monthly agent spending quota on the same composers, so the record gets the
 most checks. The article sentences are real ones that produced false alarms.
 """
+import json
 import os
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -94,7 +96,7 @@ def newest_wins():
 
 def real_flagged(seen):
     from_page = "Eva Ruth Spalding composed six string quartets, the first in the early 1920s."
-    batch, waiting = ld.build({"Eva Ruth Spalding": from_page}, seen, 500)
+    batch, _ = ld.next_batch(ld.scan({"Eva Ruth Spalding": from_page}), seen, 500)
     return [b for b in batch if b["composer"] == "Eva Ruth Spalding"]
 
 
@@ -127,8 +129,38 @@ def keeps_citations():
 @case("the limit caps a batch, article flags first")
 def limit():
     articles = {"Eva Ruth Spalding": "She composed six string quartets."}
-    batch, waiting = ld.build(articles, {}, 1)
+    batch, waiting = ld.next_batch(ld.scan(articles), {}, 1)
     assert [b["composer"] for b in batch] == ["Eva Ruth Spalding"] and waiting > 0
+
+
+@case("the same number stated twice is quoted once")
+def dedupes():
+    b = ld.scan({"Eva Ruth Spalding": "She wrote six string quartets. In all, six string quartets."})
+    b = [x for x in b if x["composer"] == "Eva Ruth Spalding"][0]
+    assert [a["value"] for a in b["article_says"]] == [6]
+
+
+@case("picking a batch reads the flags and touches no network")
+def no_network():
+    def refuse(titles):
+        raise AssertionError("fetched the network")
+    fetch, flags, argv = ld.fetch_articles, ld.FLAGS, sys.argv
+    stdout, ld.fetch_articles = sys.stdout, refuse
+    with tempfile.TemporaryDirectory() as d:
+        ld.FLAGS = os.path.join(d, "flags.json")
+        out = os.path.join(d, "queue.json")
+        with open(ld.FLAGS, "w", encoding="utf-8") as f:
+            json.dump([{"composer": "A", "entry_hash": "x", "flags": ["article states more"],
+                        "birth": 1900}], f)
+        sys.argv = ["list_discrepancies.py", "--limit", "5", "--out", out]
+        sys.stdout = open(os.devnull, "w")
+        try:
+            assert ld.main() == 0
+        finally:
+            sys.stdout.close()
+            sys.stdout, ld.fetch_articles, ld.FLAGS, sys.argv = stdout, fetch, flags, argv
+        with open(out, encoding="utf-8") as f:
+            assert [c["composer"] for c in json.load(f)["composers"]] == ["A"]
 
 
 def main():
@@ -137,7 +169,7 @@ def main():
         try:
             fn()
             print("  ok   %s" % name)
-        except AssertionError as e:
+        except Exception as e:     # over older code a missing name must fail, not crash
             failed += 1
             print("  FAIL %s: %s" % (name, e))
     print("%d of %d passed" % (len(CASES) - failed, len(CASES)))

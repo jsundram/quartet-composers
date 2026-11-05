@@ -128,13 +128,19 @@ def main():
     # IMSLP numbers beside this month's readership — and the line below says so in the run log and
     # therefore in the PR. Every other stage is fatal, the gate included.
     for stage in (("fetch_views.py",), ("fetch_imslp.py",), ("build_imslp.py",),
-                  ("build_data.py",), ("make-og-svg.py",), ("og-lint.py", "--fix"),
+                  ("build_data.py",), ("list_discrepancies.py", "--scan"), ("make-og-svg.py",),
+                  ("og-lint.py", "--fix"),
                   ("validate.py",)):
         rc = run(*stage)
         if rc != 0:
             if stage[0] == "fetch_imslp.py":
                 print("\n%s failed (exit %d) — continuing on the committed cache, so the IMSLP "
                       "columns are as of the last successful crawl" % (stage[0], rc),
+                      file=sys.stderr)
+                continue
+            # The flags are research for a person and nothing ships from them, so they wait a month.
+            if stage[0] == "list_discrepancies.py":
+                print("\n%s failed (exit %d) — continuing on the committed flags" % (stage[0], rc),
                       file=sys.stderr)
                 continue
             print("\n%s failed (exit %d) — nothing was version-bumped" % (stage[0], rc),
