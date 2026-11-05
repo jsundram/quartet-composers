@@ -63,11 +63,12 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # here, on the same machinery, wherever there is a browser. CI is now one of those places — the
 # gates job passes `--with-ui`, so the mark is about a machine without a browser rather than about
 # CI, which is what it used to say and what kept UI branches unproven by anything automatic. The
-# entries with no suite at all (scrape_list.py, make-og-svg.py) are named too, for
+# entry with no suite at all (make-og-svg.py) is named too, for
 # the same reason — an uncovered file should read as a known gap, not as a clean run.
 COVERS = [
     (("scripts/validate.py",),        ["python3 scripts/validate.test.py"]),
     (("scripts/pagemoves.py",),       ["python3 scripts/pagemoves.test.py"]),
+    (("scripts/scrape_list.py",),     ["python3 scripts/scrape_list.test.py"]),
     (("scripts/fetch_views.py",),     ["python3 scripts/fetch_views.test.py"]),
     (("scripts/sw-lint.py",),         ["python3 scripts/sw-lint.test.py"]),
     (("scripts/record-lint.py",),     ["python3 scripts/record-lint.test.py"]),
@@ -124,7 +125,7 @@ COVERS = [
 # it through the very commit that gave that file a suite. It is an ASSERTION now, checked by
 # unsuited() below: a name here that has a test file beside it, or that COVERS already maps, is a
 # stale claim that this file has nothing to prove, which is exactly the silence the gate is for.
-UNCOVERED = ("scripts/scrape_list.py", "scripts/make-og-svg.py", "scripts/refresh.py",
+UNCOVERED = ("scripts/make-og-svg.py", "scripts/refresh.py",
              "manifest.json", "ping.js")
 
 # WHAT COUNTS AS SOURCE lives here and nowhere else, because fix-lint.py asks the same question

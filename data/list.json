@@ -14,7 +14,7 @@
 "birth": 1660,
 "death": 1725,
 "quartets": null,
-"how": null
+"how": "hand-checked"
 },
 {
 "title": "Georg Philipp Telemann",
@@ -48,8 +48,8 @@
 "title": "Carl Friedrich Abel",
 "birth": 1723,
 "death": 1787,
-"quartets": null,
-"how": null
+"quartets": 18,
+"how": "hand-checked"
 },
 {
 "title": "Giovanni Battista Cirri",
@@ -62,8 +62,8 @@
 "title": "Franz Asplmayr",
 "birth": 1728,
 "death": 1786,
-"quartets": null,
-"how": null
+"quartets": 12,
+"how": "hand-checked"
 },
 {
 "title": "Florian Leopold Gassmann",
@@ -258,8 +258,8 @@
 "title": "Emanuel Aloys Förster",
 "birth": 1748,
 "death": 1823,
-"quartets": 6,
-"how": "N string quartets"
+"quartets": 15,
+"how": "hand-checked"
 },
 {
 "title": "Antonio Rosetti",
@@ -818,8 +818,8 @@
 "title": "Josephine Lang",
 "birth": 1815,
 "death": 1880,
-"quartets": null,
-"how": null
+"quartets": 2,
+"how": "hand-checked"
 },
 {
 "title": "Robert Volkmann",
@@ -1728,8 +1728,8 @@
 "title": "Julia Klumpke",
 "birth": 1870,
 "death": 1961,
-"quartets": null,
-"how": null
+"quartets": 4,
+"how": "hand-checked"
 },
 {
 "title": "Vítězslav Novák",
@@ -1938,8 +1938,8 @@
 "title": "Mabel Wheeler Daniels",
 "birth": 1877,
 "death": 1971,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Gustave Samazeuilh",
@@ -2526,8 +2526,8 @@
 "title": "Vally Weigl",
 "birth": 1894,
 "death": 1982,
-"quartets": null,
-"how": null
+"quartets": 3,
+"how": "dated works"
 },
 {
 "title": "Jeanne Barbillion",
@@ -2568,8 +2568,8 @@
 "title": "Dane Rudhyar",
 "birth": 1895,
 "death": 1985,
-"quartets": null,
-"how": null
+"quartets": 2,
+"how": "dated works"
 },
 {
 "title": "William Grant Still",
@@ -3324,8 +3324,8 @@
 "title": "Milton Babbitt",
 "birth": 1916,
 "death": 2011,
-"quartets": null,
-"how": null
+"quartets": 6,
+"how": "hand-checked"
 },
 {
 "title": "Henri Dutilleux",
@@ -3709,8 +3709,8 @@
 "title": "György Kurtág",
 "birth": 1926,
 "death": null,
-"quartets": 5,
-"how": "dated works"
+"quartets": 8,
+"how": "hand-checked"
 },
 {
 "title": "Maria de Lourdes Martins",
@@ -3730,8 +3730,8 @@
 "title": "Esther Scliar",
 "birth": 1926,
 "death": 1978,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Carlos Veerhoff",
@@ -3940,8 +3940,8 @@
 "title": "Marta Jirácková",
 "birth": 1932,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 2,
+"how": "dated works"
 },
 {
 "title": "John Kinsella (composer)",
@@ -3954,8 +3954,8 @@
 "title": "Tera de Marez Oyens",
 "birth": 1932,
 "death": 1996,
-"quartets": 2,
-"how": "dated works"
+"quartets": 3,
+"how": "hand-checked"
 },
 {
 "title": "Per Nørgård",
@@ -3968,15 +3968,15 @@
 "title": "Pauline Oliveros",
 "birth": 1932,
 "death": 2016,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Rodion Shchedrin",
 "birth": 1932,
 "death": 2025,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Gitta Steiner",
@@ -4052,8 +4052,8 @@
 "title": "Roger Reynolds",
 "birth": 1934,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 6,
+"how": "hand-checked"
 },
 {
 "title": "Alfred Schnittke",
@@ -4101,8 +4101,8 @@
 "title": "Terry Riley",
 "birth": 1935,
 "death": null,
-"quartets": 1,
-"how": "dated works"
+"quartets": 10,
+"how": "hand-checked"
 },
 {
 "title": "Aulis Sallinen",
@@ -4136,8 +4136,8 @@
 "title": "Steve Reich",
 "birth": 1936,
 "death": null,
-"quartets": 1,
-"how": "N quartets"
+"quartets": 3,
+"how": "hand-checked"
 },
 {
 "title": "Herbert Blendinger",
@@ -4171,8 +4171,8 @@
 "title": "Philip Glass",
 "birth": 1937,
 "death": null,
-"quartets": 3,
-"how": "N string quartets"
+"quartets": 8,
+"how": "hand-checked"
 },
 {
 "title": "Katherine Hoover",
@@ -4234,15 +4234,15 @@
 "title": "John Corigliano",
 "birth": 1938,
 "death": null,
-"quartets": 2,
-"how": "dated works"
+"quartets": 1,
+"how": "hand-checked"
 },
 {
 "title": "Alvin Curran",
 "birth": 1938,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "John Harbison",
@@ -4262,8 +4262,8 @@
 "title": "Joan Tower",
 "birth": 1938,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 5,
+"how": "dated works"
 },
 {
 "title": "Charles Wuorinen",
@@ -4402,8 +4402,8 @@
 "title": "Jenny McLeod",
 "birth": 1941,
 "death": 2022,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Gillian Whitehead",
@@ -4416,8 +4416,8 @@
 "title": "Richard Edward Wilson",
 "birth": 1941,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 5,
+"how": "leading number"
 },
 {
 "title": "Ingram Marshall",
@@ -4472,15 +4472,15 @@
 "title": "Julio Estrada (musicologist)",
 "birth": 1943,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 3,
+"how": "dated works"
 },
 {
 "title": "Brian Ferneyhough",
 "birth": 1943,
 "death": null,
-"quartets": 5,
-"how": "dated works"
+"quartets": 10,
+"how": "hand-checked"
 },
 {
 "title": "Anne Lauber",
@@ -4493,15 +4493,15 @@
 "title": "Tania Léon",
 "birth": 1943,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 2,
+"how": "dated works"
 },
 {
 "title": "David Matthews (composer)",
 "birth": 1943,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 14,
+"how": "leading number"
 },
 {
 "title": "Krzysztof Meyer",
@@ -4563,8 +4563,8 @@
 "title": "Victoria Bond",
 "birth": 1945,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Graciane Finzi",
@@ -4605,8 +4605,8 @@
 "title": "Jane O'Leary",
 "birth": 1946,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 7,
+"how": "dated works"
 },
 {
 "title": "Sheila Silver",
@@ -4640,8 +4640,8 @@
 "title": "John Adams (composer)",
 "birth": 1947,
 "death": null,
-"quartets": 4,
-"how": "dated works"
+"quartets": 5,
+"how": "hand-checked"
 },
 {
 "title": "Frangiz Ali-Zadeh",
@@ -4682,8 +4682,8 @@
 "title": "Hilary Tann",
 "birth": 1947,
 "death": 2023,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Gwyneth Van Anden Walker",
@@ -4703,15 +4703,15 @@
 "title": "Stephen Brown (composer)",
 "birth": 1948,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 2,
+"how": "dated works"
 },
 {
 "title": "Diana Burrell",
 "birth": 1948,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 3,
+"how": "hand-checked"
 },
 {
 "title": "Peter Ruzicka",
@@ -4864,8 +4864,8 @@
 "title": "Cecilia McDowall",
 "birth": 1951,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 2,
+"how": "dated works"
 },
 {
 "title": "George Tsontakis",
@@ -4878,8 +4878,8 @@
 "title": "Lois V. Vierk",
 "birth": 1951,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 2,
+"how": "dated works"
 },
 {
 "title": "Hans Abrahamsen",
@@ -4906,8 +4906,8 @@
 "title": "Bunita Marcus",
 "birth": 1952,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Wolfgang Rihm",
@@ -4934,15 +4934,15 @@
 "title": "John Luther Adams",
 "birth": 1953,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 7,
+"how": "dated works"
 },
 {
 "title": "Chen Yi (composer)",
 "birth": 1953,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 5,
+"how": "hand-checked"
 },
 {
 "title": "Violeta Dinescu",
@@ -5004,8 +5004,8 @@
 "title": "Elisabetta Brusa",
 "birth": 1954,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Joël-François Durand",
@@ -5039,8 +5039,8 @@
 "title": "Arturo Rodas",
 "birth": 1954,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 2,
+"how": "dated works"
 },
 {
 "title": "Sinan Savaskan",
@@ -5116,8 +5116,8 @@
 "title": "Eve de Castro-Robinson",
 "birth": 1956,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Laura Kaminsky",
@@ -5130,8 +5130,8 @@
 "title": "Iris Szeghy",
 "birth": 1956,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 3,
+"how": "dated works"
 },
 {
 "title": "Miguel del Águila",
@@ -5158,15 +5158,15 @@
 "title": "Bob Ostertag",
 "birth": 1957,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Hilda Paredes",
 "birth": 1957,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 4,
+"how": "dated works"
 },
 {
 "title": "Gerhard Präsent",
@@ -5200,8 +5200,8 @@
 "title": "Bent Sørensen (composer)",
 "birth": 1958,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 5,
+"how": "dated works"
 },
 {
 "title": "Errollyn Wallen",
@@ -5235,8 +5235,8 @@
 "title": "Marti Epstein",
 "birth": 1959,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 4,
+"how": "dated works"
 },
 {
 "title": "James MacMillan",
@@ -5340,8 +5340,8 @@
 "title": "Cindy Cox",
 "birth": 1961,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Jorge Grundman",
@@ -5375,8 +5375,8 @@
 "title": "Edgar Meyer",
 "birth": 1961,
 "death": null,
-"quartets": 1,
-"how": "dated works"
+"quartets": null,
+"how": "hand-checked"
 },
 {
 "title": "Jesús Rueda (composer)",
@@ -5389,15 +5389,15 @@
 "title": "Karen Tanaka",
 "birth": 1961,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 2,
+"how": "dated works"
 },
 {
 "title": "Michael Torke",
 "birth": 1961,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 3,
+"how": "dated works"
 },
 {
 "title": "Roland Dahinden",
@@ -5417,8 +5417,8 @@
 "title": "Galina Grigorjeva",
 "birth": 1962,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 2,
+"how": "dated works"
 },
 {
 "title": "Jennifer Higdon",
@@ -5438,8 +5438,8 @@
 "title": "Victoria Poleva",
 "birth": 1962,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Eric W. Sawyer",
@@ -5473,8 +5473,8 @@
 "title": "Graham Waterhouse",
 "birth": 1962,
 "death": null,
-"quartets": 4,
-"how": "dated works"
+"quartets": 5,
+"how": "hand-checked"
 },
 {
 "title": "Ludmila Yurina",
@@ -5487,8 +5487,8 @@
 "title": "Osvaldo Coluccino",
 "birth": 1963,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 2,
+"how": "dated works"
 },
 {
 "title": "Graham Fitkin",
@@ -5501,15 +5501,15 @@
 "title": "Sophie Lacaze",
 "birth": 1963,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Isabel Mundry",
 "birth": 1963,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 3,
+"how": "dated works"
 },
 {
 "title": "Elena Ruehr",
@@ -5529,15 +5529,15 @@
 "title": "Annette Schlünz",
 "birth": 1964,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Augusta Read Thomas",
 "birth": 1964,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 6,
+"how": "dated works"
 },
 {
 "title": "Ian Wilson (composer)",
@@ -5564,22 +5564,22 @@
 "title": "Charlotte Seither",
 "birth": 1965,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Dorothy Hindman",
 "birth": 1966,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Liza Lim",
 "birth": 1966,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 3,
+"how": "dated works"
 },
 {
 "title": "Alla Zahaikevych",
@@ -5599,15 +5599,15 @@
 "title": "Rebecca Saunders",
 "birth": 1967,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 2,
+"how": "dated works"
 },
 {
 "title": "Katia Tiutiunnik",
 "birth": 1967,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Isidora Žebeljan",
@@ -5627,22 +5627,22 @@
 "title": "Vanessa Lann",
 "birth": 1968,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 2,
+"how": "dated works"
 },
 {
 "title": "Olga Neuwirth",
 "birth": 1968,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 3,
+"how": "dated works"
 },
 {
 "title": "Ananda Sukarlan",
 "birth": 1968,
 "death": null,
-"quartets": 1,
-"how": "dated works"
+"quartets": null,
+"how": null
 },
 {
 "title": "James Francis Brown",
@@ -5655,8 +5655,8 @@
 "title": "Nimrod Borenstein",
 "birth": 1969,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 3,
+"how": "dated works"
 },
 {
 "title": "Victoria Borisova-Ollas",
@@ -5704,15 +5704,15 @@
 "title": "Donnacha Dennehy",
 "birth": 1970,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 7,
+"how": "dated works"
 },
 {
 "title": "Ralph Farris",
 "birth": 1970,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 3,
+"how": "dated works"
 },
 {
 "title": "David Horne (composer)",
@@ -5739,8 +5739,8 @@
 "title": "Arlene Sierra",
 "birth": 1970,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Aleksandra Vrebalov",
@@ -5760,15 +5760,15 @@
 "title": "Thomas Adès",
 "birth": 1971,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 2,
+"how": "dated works"
 },
 {
 "title": "Richard Carrick",
 "birth": 1971,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Lior Navok",
@@ -5788,8 +5788,8 @@
 "title": "Yitzhak Yedid",
 "birth": 1971,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Craig Walsh",
@@ -5816,8 +5816,8 @@
 "title": "Helena Tulve",
 "birth": 1972,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Lera Auerbach",
@@ -5837,8 +5837,8 @@
 "title": "Tansy Davies",
 "birth": 1973,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Yalil Guerra",
@@ -5865,15 +5865,15 @@
 "title": "Maja Ratkje",
 "birth": 1973,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Sarah Kirkland Snider",
 "birth": 1973,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Henry Vega",
@@ -5886,8 +5886,8 @@
 "title": "Jörg Widmann",
 "birth": 1973,
 "death": null,
-"quartets": 2,
-"how": "dated works"
+"quartets": 10,
+"how": "hand-checked"
 },
 {
 "title": "Jefferson Friedman",
@@ -5900,8 +5900,8 @@
 "title": "Claudia Molitor",
 "birth": 1974,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Joseph Phibbs",
@@ -5921,8 +5921,8 @@
 "title": "Helena Winkelman",
 "birth": 1974,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 3,
+"how": "dated works"
 },
 {
 "title": "Kati Agócs",
@@ -5935,8 +5935,8 @@
 "title": "R. Luke DuBois",
 "birth": 1975,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Vivian Fung",
@@ -5956,8 +5956,8 @@
 "title": "Gilda Lyons",
 "birth": 1975,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Svitlana Azarova",
@@ -5977,8 +5977,8 @@
 "title": "Yotam Haber",
 "birth": 1976,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 2,
+"how": "dated works"
 },
 {
 "title": "David Flynn (composer)",
@@ -5991,8 +5991,8 @@
 "title": "Santa Ratniece",
 "birth": 1977,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 3,
+"how": "dated works"
 },
 {
 "title": "Kerry Andrew",
@@ -6005,8 +6005,8 @@
 "title": "Emily Hall",
 "birth": 1978,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 3,
+"how": "dated works"
 },
 {
 "title": "Jimmy López",
@@ -6026,8 +6026,8 @@
 "title": "Annesley Black",
 "birth": 1979,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Linda Buckley",
@@ -6061,8 +6061,8 @@
 "title": "Dinesh Subasinghe",
 "birth": 1979,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Anna Clyne",
@@ -6075,8 +6075,8 @@
 "title": "Cheryl Frances-Hoad",
 "birth": 1980,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 2,
+"how": "dated works"
 },
 {
 "title": "Missy Mazzoli",
@@ -6096,8 +6096,8 @@
 "title": "Dobrinka Tabakova",
 "birth": 1980,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 3,
+"how": "dated works"
 },
 {
 "title": "Alexandra Fol",
@@ -6117,8 +6117,8 @@
 "title": "Jessie Montgomery",
 "birth": 1981,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 4,
+"how": "dated works"
 },
 {
 "title": "Richard Zarou",
@@ -6131,8 +6131,8 @@
 "title": "Charlotte Bray",
 "birth": 1982,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Joey Roukens",
@@ -6145,8 +6145,8 @@
 "title": "Caroline Shaw",
 "birth": 1982,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 9,
+"how": "hand-checked"
 },
 {
 "title": "Ann Cleare",
@@ -6159,29 +6159,29 @@
 "title": "Hannah Kendall",
 "birth": 1984,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Prach Boondiskulchok",
 "birth": 1985,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 1,
+"how": "dated works"
 },
 {
 "title": "Mohammed Fairouz",
 "birth": 1985,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 3,
+"how": "dated works"
 },
 {
 "title": "Julia Adolphe",
 "birth": 1988,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 3,
+"how": "dated works"
 },
 {
 "title": "Cecilia Damström",
@@ -6194,8 +6194,8 @@
 "title": "Sky Macklay",
 "birth": 1988,
 "death": null,
-"quartets": null,
-"how": null
+"quartets": 2,
+"how": "dated works"
 },
 {
 "title": "Freya Waley-Cohen",
