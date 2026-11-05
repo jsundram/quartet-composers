@@ -303,3 +303,5 @@ jobs:
         run: python3 scripts/fetch_wikidata.test.py
       - name: the list page's counts (scripts/scrape_list.test.py)
         run: python3 scripts/scrape_list.test.py
+      - name: the list review's queue (scripts/list_discrepancies.test.py)
+        run: python3 scripts/list_discrepancies.test.py

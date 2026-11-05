@@ -246,6 +246,7 @@ No test framework, and nothing to install. Each of these states its own rules in
 | `python3 scripts/roster.test.py` | who ships: a newcomer is a no until ticked, and a box can only decide a newcomer. |
 | `python3 scripts/fetch_wikidata.test.py` | a dropped Wikidata response costs a retry, not the month. |
 | `python3 scripts/scrape_list.test.py` | the list page's sentence shapes, and every hand-read count still names an entry. |
+| `python3 scripts/list_discrepancies.test.py` | what the monthly list review flags, and that a researched composer does not come back. |
 | `python3 scripts/codehash.py` | is a change comments-only, or did code go with them? |
 | `python3 scripts/fix-lint.py --base REF` | a branch changed source and touched no test. |
 | `python3 scripts/ablate.py --base REF` | the branch's tests over the base's code — do they still pass? |
