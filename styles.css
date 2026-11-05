@@ -204,6 +204,7 @@ body.fs #filters .tablehead{ display:none }
    has to stay whole. margin-left:auto pins the group right, so the brush absorbs the change and
    the pills do not move at all. */
 #gender{ margin-left:auto; flex:0 0 auto }
+#imslp-filter{ flex:0 0 auto }
 /* A little more air than the row's own 12px gap. With the readout gone, the readership Clear
    button ends up directly beside the word "Gender", where it reads as if it clears that. */
 #gender-label{ margin-left:6px }
@@ -568,13 +569,14 @@ body.fs .grid{ display:block }
 @media (max-width:640px){
   .filterbar{ flex-wrap:wrap; gap:6px 10px }
   .filterbar #hist{ flex:1 0 100%; order:3 }
-  /* Three filters do not fit two lines here, and the brush is the one that needs the full width.
+  /* The filters do not fit two lines here, and the brush is the one that needs the full width.
      So the gender pills take a third line of their own, WITH their label — sharing line one with
      the readership readout put "Women | Men" next to a views range, where the two read as one
      control. margin-left is dropped with it: the row is theirs now, so there is no slack to push
      against and `auto` would have shoved the label away from its own buttons. */
   #gender-label{ order:4 }
   #gender{ order:5; margin-left:0 }
+  #imslp-filter{ order:6 }
   .wide-only{ display:none }
   /* Four columns still have to FIT, and what they fit in is whatever face the platform hands
      `system-ui` — DejaVu on Linux is wide enough that the table overflowed 390px outright. So the

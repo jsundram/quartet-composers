@@ -45,6 +45,7 @@ let HIST = null;                   // {months, series:{name:[views|null,…]}} o
 // "" = everyone. Otherwise a Wikidata P21 label, matched against the row verbatim — the control,
 // the data and the URL all carry the same word, so there is no third vocabulary to keep in step.
 let gender = "";
+let imslpOnly = false;
 let byName = new Map();
 
 const $ = id => document.getElementById(id);
@@ -373,9 +374,8 @@ function renderDetail(i, preview) {
 // THIS IS WHERE INVARIANT 16'S THREE ANSWERS ARE PUT IN WORDS, because the table's digit can only
 // carry two of them. Every string below is load-bearing there: "no quartets FOUND" and "no IMSLP
 // page found" rather than "not on IMSLP", because both are statements about what a search turned
-// up; a count says "works" because IMSLP's instrumentation category holds fugues, fragments and
-// single movements as well, which is never the `Quartets` row above it and must never be subtracted
-// from it; and the empty state keeps "quartets", because the site may hold their other music.
+// up; and the count is never the `Quartets` row three lines above it and must never be subtracted
+// from it.
 function elsewhereRow(d) {
   const p = document.createElement("p");
   p.className = "links";
@@ -635,6 +635,7 @@ function writeHash() {
   const r = Histogram.getRange();
   if (r) p.set("r", Math.round(r[0]) + "-" + Math.round(r[1]));
   if (gender) p.set("g", gender);
+  if (imslpOnly) p.set("i", "1");
   if (selected != null) p.set("c", ROWS[selected].name);
   const s = p.toString();
   history.replaceState(null, "", s ? "#" + s : location.pathname + location.search);
@@ -646,6 +647,7 @@ function readHash() {
   return { v: p.get("v"), q: p.get("q") || "", c: p.get("c"),
            r: r ? [+r[1], +r[2]] : null,
            l: p.get("l") === "1",
+           i: p.get("i") === "1",
            // Whitelisted, not trusted: a hand-edited #g=anything would otherwise leave three
            // unpressed pills over an empty table with no visible reason and no way back. The
            // whitelist is READ OFF THE PILLS rather than written out again — a second copy of the
@@ -740,14 +742,22 @@ function genderMatches() {
   return set;
 }
 
-// Read from the same places applyFilters() intersects, so a fourth filter that forgets to appear here
+// One way, because a 0 is never evidence of absence: its inverse would claim one (invariant 16).
+function imslpMatches() {
+  if (!imslpOnly) return null;
+  const set = new Set();
+  for (const d of ROWS) if (d.imslp > 0) set.add(d.i);
+  return set;
+}
+
+// Read from the same places applyFilters() intersects, so a new filter that forgets to appear here
 // leaves the button dark while it is active. TRIMMED, like Table.matches(): a lone space filters
 // nothing, and the button lit over an unchanged #count answers its own question wrong.
 function anyFilter() {
-  return !!$("q").value.trim() || !!Histogram.getRange() || !!gender;
+  return !!$("q").value.trim() || !!Histogram.getRange() || !!gender || imslpOnly;
 }
 
-// All three, search included: the name is plural and a typed query is a filter.
+// All of them, search included: the name is plural and a typed query is a filter.
 //
 // Exactly ONE applyFilters() runs, which is what the branch is for: d3-brush emits "end" for a
 // programmatic move, so Histogram.clear() comes back through onChange on its own, and calling it here
@@ -759,8 +769,15 @@ function anyFilter() {
 function resetFilters() {
   $("q").value = "";
   setGender("", false);
+  setImslpOnly(false, false);
   if (Histogram.getRange()) Histogram.clear();
   else applyFilters(true);
+}
+
+function setImslpOnly(on, apply = true) {
+  imslpOnly = on;
+  $("imslp-only").setAttribute("aria-pressed", String(on));
+  if (apply) applyFilters(true);
 }
 
 function setGender(g, apply = true) {
@@ -778,7 +795,8 @@ function setGender(g, apply = true) {
 // the point of the control; rebuilding every table row per frame is the one thing here that stutters.
 function applyFilters(settled) {
   const q = $("q").value;
-  visible = intersect(intersect(Table.matches(q), Histogram.matches()), genderMatches());
+  visible = [Table.matches(q), Histogram.matches(), genderMatches(), imslpMatches()]
+    .reduce((a, b) => intersect(a, b));
   $("clear").hidden = !q;
   $("hist-read").textContent = Histogram.label();
   // ABOVE the guard on purpose, unlike the button this replaced: `disabled` and a class change
@@ -958,7 +976,8 @@ async function start() {
   if (link.q) $("q").value = link.q;
   if (link.r) Histogram.setRange(link.r);
   if (link.g) setGender(link.g);
-  // AFTER the other three, because setLens() writes the hash and `link` has already been read into
+  if (link.i) setImslpOnly(true);
+  // AFTER the others, because setLens() writes the hash and `link` has already been read into
   // memory: called above them it replaceState'd a shared `#q=…&g=…` link down to a bare path for
   // the rest of the boot, and got it back only because applyFilters() writes again at the end. The
   // URL a reader copies in that window should not depend on a later call remembering to.
@@ -1022,6 +1041,7 @@ function wire() {
     b.onclick = () => setMode(b.dataset.mode);
   });
   $("lens").onchange = () => setLens($("lens").checked);
+  $("imslp-only").onclick = () => setImslpOnly(!imslpOnly);
   $("reset-filters").onclick = resetFilters;
   $("share").onclick = share;
   $("reset").onclick = () => { Chart.resetZoom(); setTimeout(() => { $("reset").disabled = !Chart.zoomed(); }, 450); };

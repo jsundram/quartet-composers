@@ -97,6 +97,10 @@
         <button type="button" data-g="female" aria-pressed="false">Women</button>
         <button type="button" data-g="male" aria-pressed="false">Men</button>
       </div>
+      <div class="seg sm" id="imslp-filter">
+        <button type="button" id="imslp-only" aria-pressed="false"
+                title="Only composers with a work for string quartet on IMSLP">IMSLP</button>
+      </div>
     </div>
   </section>
 
@@ -127,7 +131,7 @@
              the comment above states. -->
         <label id="lens-t" class="btn"><input type="checkbox" id="lens"><span>Lens</span></label>
         <button type="button" id="reset" class="btn" disabled><span>Reset zoom</span></button>
-        <!-- All THREE filters, search included, because the name is plural and a typed query is a
+        <!-- Every filter, search included, because the name is plural and a typed query is a
              filter: a button sitting lit while a search is active and then not clearing it would be
              worse than the inconsistency it replaces. Always present and never hidden — a control
              that cannot appear cannot resize the row it is in, which is the whole class of defect

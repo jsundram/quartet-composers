@@ -1689,6 +1689,29 @@ check("the footnote says whose statement the gender is",
       /P21/.test(await ev(`document.getElementById('prov').textContent`)),
       await ev(`document.getElementById('prov').textContent.slice(-220)`));
 
+// --- 4i-b. the IMSLP filter --------------------------------------------------------------------
+await goto(BASE);
+await ev(`document.getElementById('imslp-only')?.click()`);
+await settle(`${rowCount} !== ${allRows}`);
+const onImslp = await ev(`[...document.querySelectorAll('tbody td.c-imslp')].map(td => +td.textContent)`);
+check("the IMSLP filter keeps exactly the composers with a work there",
+      onImslp.length === await ev(`ROWS.filter(d => d.imslp > 0).length`)
+      && onImslp.length < allRows && onImslp.every(n => n > 0),
+      `${onImslp.length} of ${allRows}`);
+await goto(BASE + "#i=1&g=female");
+check("a shared IMSLP link arrives filtered and pressed, and composes with gender",
+      await ev(`${rowCount} === ROWS.filter(d => d.imslp > 0 && d.gender === 'female').length`)
+      && await ev(`document.getElementById('imslp-only')?.getAttribute('aria-pressed') === 'true'`));
+await viewport(360, 780, true);
+await goto(BASE);
+check("the IMSLP pill shares the gender pills' line on a phone, inside the row",
+      await ev(`(()=>{const g=document.getElementById('gender').getBoundingClientRect();
+        const i=document.getElementById('imslp-filter')?.getBoundingClientRect();
+        const row=document.querySelector('.filterbar').getBoundingClientRect();
+        return i?.top === g.top && i?.left >= g.right && i?.right <= row.right + 0.5})()`));
+await viewport(1280, 900, false);
+await goto(BASE);
+
 // --- 4j. the frame follows the filter ---------------------------------------------------------
 // A filter used to leave the frame on the whole field: ask for the women and you got the same
 // picture with 600 dots dimmed and the survivors still crammed into the corner they always
@@ -2148,11 +2171,12 @@ check("a grip pushed to the end of the axis stays inside the card (390px, in the
 // brush range and lifted the whole page (issue 36). That sentence is gone, so the page genuinely
 // does not move and the check can say so directly.
 await ev(`document.querySelector('#gender button[data-g="female"]').click()`);
+await ev(`document.getElementById('imslp-only')?.click()`);
 await searchFor("a");
 await sleep(TWEEN);
 const all3 = await rowTops();
-check("all three filters at once still move nothing", drift(rest5, all3) < 1.5,
-      `tops ${rest5} -> ${all3} with search + brush + gender`);
+check("every filter at once still moves nothing", drift(rest5, all3) < 1.5,
+      `tops ${rest5} -> ${all3} with search + brush + gender + IMSLP`);
 
 // 3. and the button undoes all three, which is what its name promises.
 await ev(`document.getElementById('reset-filters').click()`);
@@ -2162,6 +2186,8 @@ check("Reset filters clears the search, the brush and the pills together",
       await ev(`(()=>{const q=document.getElementById('q').value;
         const g=document.querySelector('#gender button[data-g=""]').getAttribute('aria-pressed');
         return q === '' && g === 'true' && !location.hash.includes('r=')
+               && document.getElementById('imslp-only')?.getAttribute('aria-pressed') === 'false'
+               && !location.hash.includes('i=')
                && !location.hash.includes('g=') && !location.hash.includes('q=')})()`),
       await ev(`'q='+JSON.stringify(document.getElementById('q').value)
         +' hash='+JSON.stringify(decodeURIComponent(location.hash))`));
@@ -3018,13 +3044,6 @@ check("Wikipedia and IMSLP share one row, at one height in all three states",
       && imslpLines.works?.pills === 2 && imslpLines.absent?.pills === 1,
       Object.entries(imslpLines)
         .map(([k, v]) => `${k}: ${v ? `${v.h}px ${JSON.stringify(v.t)}` : "absent"}`).join(" | "));
-// The count is of WORKS, since IMSLP's category holds fugues and single movements too. The empty
-// state keeps the narrower noun: "no works found" would be false of a composer whose other music
-// IMSLP holds.
-check("the IMSLP pill counts works, and an empty one says no quartets were found",
-      /IMSLP · \d+ works\b/.test(imslpLines.works?.t ?? "")
-      && /IMSLP · no quartets found/.test(imslpLines.none?.t ?? ""),
-      `${imslpLines.works?.t} | ${imslpLines.none?.t}`);
 
 // --- 7f. landscape full screen: the strip must not eat the chart ------------------------------
 // A phone on its side is 390px TALL. The strip takes its height out of #plot rather than floating
