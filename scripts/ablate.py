@@ -69,6 +69,7 @@ COVERS = [
     (("scripts/validate.py",),        ["python3 scripts/validate.test.py"]),
     (("scripts/pagemoves.py",),       ["python3 scripts/pagemoves.test.py"]),
     (("scripts/scrape_list.py",),     ["python3 scripts/scrape_list.test.py"]),
+    (("scripts/list_discrepancies.py",), ["python3 scripts/list_discrepancies.test.py"]),
     (("scripts/fetch_views.py",),     ["python3 scripts/fetch_views.test.py"]),
     (("scripts/sw-lint.py",),         ["python3 scripts/sw-lint.test.py"]),
     (("scripts/record-lint.py",),     ["python3 scripts/record-lint.test.py"]),
@@ -146,7 +147,7 @@ SOURCE = re.compile(
     # The IMSLP join. A name added to COVERS is INERT until it is also matched here — plan()
     # builds its file list from SOURCE — so the entry added for these two sat as a comment
     # asserting a gate that could never fire, which is the exact failure this file exists to stop.
-    r"|build_imslp|fetch_imslp|roster)\.py$"
+    r"|build_imslp|fetch_imslp|roster|list_discrepancies)\.py$"
     # ui-test.sh IS SOURCE, and used to be filed under TESTS with the suite it launches. That was
     # true when it only started a server and a browser; it now derives a port pair per checkout
     # and refuses to run against a port it did not take (#49), which is logic, and logic filed as
